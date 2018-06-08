@@ -1,0 +1,13 @@
+[package]
+name = "web-draw-2"
+version = "0.1.0"
+authors = ["Roland <roland0507@gmail.com>"]
+
+[dependencies]
+stdweb = "0.4.5"
+stdweb-derive = "0.4.0"
+serde = "1.0.0"
+serde_derive = "1.0.0"
+
+[build-dependencies]
+webgl_generator = "0.1.0"
