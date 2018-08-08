@@ -1,17 +1,18 @@
 use std::marker::PhantomData;
 
+pub trait GpuCommand<C> {
+    type Output;
+
+    type Error;
+
+    fn execute_static(self, context: &mut C) -> Result<Self::Output, Self::Error>;
+
+    fn execute_dynamic(self: Box<Self>, context: &mut C) -> Result<Self::Output, Self::Error>;
+}
+
 pub enum CommandObject<T, C> where T: GpuCommand<C> {
     Static(T, PhantomData<C>),
     Dynamic(Box<T>)
-}
-
-impl<T, C> CommandObject<T, C> where T: GpuCommand<C> {
-    pub fn execute(self, context: &mut C) -> Result<T::Output, T::Error> {
-        match self {
-            CommandObject::Static(executable, _) => executable.execute(context),
-            CommandObject::Dynamic(boxed_executable) => boxed_executable.execute_boxed(context)
-        }
-    }
 }
 
 impl<T, C> From<T> for CommandObject<T, C> where T: GpuCommand<C> {
@@ -26,14 +27,17 @@ impl<T, C> From<Box<T>> for CommandObject<T, C> where T: GpuCommand<C> {
     }
 }
 
-pub trait GpuCommand<C> {
-    type Output;
+pub trait Execute<A, C> where A: GpuCommand<C> {
+    fn execute(self, context: &mut C) -> Result<A::Output, A::Error>;
+}
 
-    type Error;
-
-    fn execute(self, context: &mut C) -> Result<Self::Output, Self::Error>;
-
-    fn execute_boxed(self: Box<Self>, context: &mut C) -> Result<Self::Output, Self::Error>;
+impl<T, A, C> Execute<A, C> for T where T: Into<CommandObject<A, C>>, A: GpuCommand<C> {
+    fn execute(self, context: &mut C) -> Result<A::Output, A::Error> {
+        match self.into() {
+            CommandObject::Static(executable, _) => executable.execute_static(context),
+            CommandObject::Dynamic(boxed_executable) => boxed_executable.execute_dynamic(context)
+        }
+    }
 }
 
 pub struct Empty;
@@ -43,11 +47,11 @@ impl<C> GpuCommand<C> for Empty {
 
     type Error = ();
 
-    fn execute(self, _context: &mut C) -> Result<Self::Output, Self::Error> {
+    fn execute_static(self, _context: &mut C) -> Result<Self::Output, Self::Error> {
         Ok(())
     }
 
-    fn execute_boxed(self: Box<Self>, _context: &mut C) -> Result<Self::Output, Self::Error> {
+    fn execute_dynamic(self: Box<Self>, _context: &mut C) -> Result<Self::Output, Self::Error> {
         Ok(())
     }
 }
@@ -83,11 +87,11 @@ impl <A, B, F, C> GpuCommand<C> for Map<A, F, C> where A: GpuCommand<C>, F: FnOn
 
     type Error = <A as GpuCommand<C>>::Error;
 
-    fn execute(mut self, context: &mut C) -> Result<Self::Output, Self::Error> {
+    fn execute_static(mut self, context: &mut C) -> Result<Self::Output, Self::Error> {
         self.execute_internal(context)
     }
 
-    fn execute_boxed(mut self: Box<Self>, context: &mut C) -> Result<Self::Output, Self::Error> {
+    fn execute_dynamic(mut self: Box<Self>, context: &mut C) -> Result<Self::Output, Self::Error> {
         self.execute_internal(context)
     }
 }
@@ -123,11 +127,11 @@ impl <A, B, F, C> GpuCommand<C> for MapErr<A, F, C> where A: GpuCommand<C>, F: F
 
     type Error = B;
 
-    fn execute(mut self, context: &mut C) -> Result<Self::Output, Self::Error> {
+    fn execute_static(mut self, context: &mut C) -> Result<Self::Output, Self::Error> {
         self.execute_internal(context)
     }
 
-    fn execute_boxed(mut self: Box<Self>, context: &mut C) -> Result<Self::Output, Self::Error> {
+    fn execute_dynamic(mut self: Box<Self>, context: &mut C) -> Result<Self::Output, Self::Error> {
         self.execute_internal(context)
     }
 }
@@ -248,11 +252,11 @@ mod tests {
 
         type Error = ();
 
-        fn execute(self, _context: &mut TestContext) -> Result<Self::Output, Self::Error> {
+        fn execute_static(self, _context: &mut TestContext) -> Result<Self::Output, Self::Error> {
             Ok(1)
         }
 
-        fn execute_boxed(self: Box<Self>, _context: &mut TestContext) -> Result<Self::Output, Self::Error> {
+        fn execute_dynamic(self: Box<Self>, _context: &mut TestContext) -> Result<Self::Output, Self::Error> {
             Ok(1)
         }
     }
@@ -271,7 +275,7 @@ mod tests {
         let map = Map::new(Return1, |v| v * 2);
         let boxed_map = Box::new(map);
 
-        assert_eq!(boxed_map.execute_boxed(&mut context), Ok(2));
+        assert_eq!(boxed_map.execute(&mut context), Ok(2));
     }
 
     #[test]
