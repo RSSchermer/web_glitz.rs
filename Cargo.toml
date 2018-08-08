@@ -4,6 +4,8 @@ version = "0.1.0"
 authors = ["Roland <roland0507@gmail.com>"]
 
 [dependencies]
+phf = "0.7.22"
+phf_macros = "0.7.22"
 stdweb = "0.4.5"
 stdweb-derive = "0.4.0"
 serde = "1.0.0"

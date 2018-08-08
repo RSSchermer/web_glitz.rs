@@ -1,3 +1,7 @@
+#![feature(plugin)]
+#![plugin(phf_macros)]
+
+extern crate phf;
 #[macro_use]
 extern crate stdweb;
 #[macro_use]
