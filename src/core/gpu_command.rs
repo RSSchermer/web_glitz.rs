@@ -1,111 +1,136 @@
-use core::rendering_context::RenderingContext;
+use std::marker::PhantomData;
 
-pub enum GpuCommand<T> where T: GpuExecutable {
-    Static(T),
+pub enum CommandObject<T, C> where T: GpuCommand<C> {
+    Static(T, PhantomData<C>),
     Dynamic(Box<T>)
 }
 
-impl<T> GpuCommand<T> where T: GpuExecutable {
-    pub fn execute(self, context: &mut RenderingContext) -> Result<T::Output, T::Error> {
+impl<T, C> CommandObject<T, C> where T: GpuCommand<C> {
+    pub fn execute(self, context: &mut C) -> Result<T::Output, T::Error> {
         match self {
-            GpuCommand::Static(executable) => executable.execute(context),
-            GpuCommand::Dynamic(boxed_executable) => boxed_executable.execute_boxed(context)
+            CommandObject::Static(executable, _) => executable.execute(context),
+            CommandObject::Dynamic(boxed_executable) => boxed_executable.execute_boxed(context)
         }
     }
 }
 
-impl<T> From<T> for GpuCommand<T> where T: GpuExecutable {
-    fn from(executable: T) -> GpuCommand<T> {
-        GpuCommand::Static(executable)
+impl<T, C> From<T> for CommandObject<T, C> where T: GpuCommand<C> {
+    fn from(executable: T) -> CommandObject<T, C> {
+        CommandObject::Static(executable, PhantomData)
     }
 }
 
-impl<T> From<Box<T>> for GpuCommand<T> where T: GpuExecutable {
-    fn from(boxed_executable: Box<T>) -> GpuCommand<T> {
-        GpuCommand::Dynamic(boxed_executable)
+impl<T, C> From<Box<T>> for CommandObject<T, C> where T: GpuCommand<C> {
+    fn from(boxed_executable: Box<T>) -> CommandObject<T, C> {
+        CommandObject::Dynamic(boxed_executable)
     }
 }
 
-pub trait GpuExecutable {
+pub trait GpuCommand<C> {
     type Output;
 
     type Error;
 
-    fn execute(self, context: &mut RenderingContext) -> Result<Self::Output, Self::Error>;
+    fn execute(self, context: &mut C) -> Result<Self::Output, Self::Error>;
 
-    fn execute_boxed(self: Box<Self>, context: &mut RenderingContext) -> Result<Self::Output, Self::Error>;
+    fn execute_boxed(self: Box<Self>, context: &mut C) -> Result<Self::Output, Self::Error>;
 }
 
 pub struct Empty;
 
-impl GpuExecutable for Empty {
+impl<C> GpuCommand<C> for Empty {
     type Output = ();
 
     type Error = ();
 
-    fn execute(self, _context: &mut RenderingContext) -> Result<Self::Output, Self::Error> {
+    fn execute(self, _context: &mut C) -> Result<Self::Output, Self::Error> {
         Ok(())
     }
 
-    fn execute_boxed(self: Box<Self>, _context: &mut RenderingContext) -> Result<Self::Output, Self::Error> {
+    fn execute_boxed(self: Box<Self>, _context: &mut C) -> Result<Self::Output, Self::Error> {
         Ok(())
     }
 }
 
-pub struct Map<A, F> where A: GpuExecutable {
-    data: Option<MapData<A, F>>
+pub struct Map<A, F, C> where A: GpuCommand<C> {
+    data: Option<MapData<A, F, C>>
 }
 
-struct MapData<A, F> where A: GpuExecutable {
-    executable: GpuCommand<A>,
+struct MapData<A, F, C> where A: GpuCommand<C> {
+    command: CommandObject<A, C>,
     f: F
 }
 
-impl <A, B, F> Map<A, F> where A: GpuExecutable, F: FnOnce(A::Output) -> B {
-    pub fn new<T>(executable: T, f: F) -> Self where T: Into<GpuCommand<A>> {
+impl <A, B, F, C> Map<A, F, C> where A: GpuCommand<C>, F: FnOnce(A::Output) -> B {
+    pub fn new<T>(command: T, f: F) -> Self where T: Into<CommandObject<A, C>> {
         Map {
             data: Some(MapData {
-                executable: executable.into(),
+                command: command.into(),
                 f
             })
         }
     }
 
-    fn execute_internal(&mut self, context: &mut RenderingContext) -> Result<B, A::Error> {
+    fn execute_internal(&mut self, context: &mut C) -> Result<B, A::Error> {
         let data = self.data.take().expect("Cannot execute Map twice");
 
-        data.executable.execute(context).map(data.f)
+        data.command.execute(context).map(data.f)
     }
 }
 
-impl <A, B, F> GpuExecutable for Map<A, F> where A: GpuExecutable, F: FnOnce(A::Output) -> B {
+impl <A, B, F, C> GpuCommand<C> for Map<A, F, C> where A: GpuCommand<C>, F: FnOnce(A::Output) -> B {
     type Output = B;
 
-    type Error = <A as GpuExecutable>::Error;
+    type Error = <A as GpuCommand<C>>::Error;
 
-    fn execute(mut self, context: &mut RenderingContext) -> Result<Self::Output, Self::Error> {
+    fn execute(mut self, context: &mut C) -> Result<Self::Output, Self::Error> {
         self.execute_internal(context)
     }
 
-    fn execute_boxed(mut self: Box<Self>, context: &mut RenderingContext) -> Result<Self::Output, Self::Error> {
+    fn execute_boxed(mut self: Box<Self>, context: &mut C) -> Result<Self::Output, Self::Error> {
         self.execute_internal(context)
     }
 }
 
-//struct MapErr<A, F> {
-//    future: A,
-//    f: Option<F>
-//}
-//
-//impl <A, B, F> UnsafeGpuExecutable for MapErr<A, F> where A: UnsafeGpuExecutable, F: FnOnce(A::Error) -> B {
-//    type Output = <A as UnsafeGpuExecutable>::Output;
-//
-//    type Error = B;
-//
-//    unsafe fn execute_unsafe(&mut self, context: &mut RenderingContext) -> Result<Self::Output, Self::Error> {
-//        self.future.execute(context).map_err(self.f.take().expect("Cannot execute Map twice"))
-//    }
-//}
+pub struct MapErr<A, F, C> where A: GpuCommand<C> {
+    data: Option<MapErrData<A, F, C>>
+}
+
+struct MapErrData<A, F, C> where A: GpuCommand<C> {
+    command: CommandObject<A, C>,
+    f: F
+}
+
+impl <A, B, F, C> MapErr<A, F, C> where A: GpuCommand<C>, F: FnOnce(A::Error) -> B {
+    pub fn new<T>(command: T, f: F) -> Self where T: Into<CommandObject<A, C>> {
+        MapErr {
+            data: Some(MapErrData {
+                command: command.into(),
+                f
+            })
+        }
+    }
+
+    fn execute_internal(&mut self, context: &mut C) -> Result<A::Output, B> {
+        let data = self.data.take().expect("Cannot execute MapErr twice");
+
+        data.command.execute(context).map_err(data.f)
+    }
+}
+
+impl <A, B, F, C> GpuCommand<C> for MapErr<A, F, C> where A: GpuCommand<C>, F: FnOnce(A::Error) -> B {
+    type Output = <A as GpuCommand<C>>::Output;
+
+    type Error = B;
+
+    fn execute(mut self, context: &mut C) -> Result<Self::Output, Self::Error> {
+        self.execute_internal(context)
+    }
+
+    fn execute_boxed(mut self: Box<Self>, context: &mut C) -> Result<Self::Output, Self::Error> {
+        self.execute_internal(context)
+    }
+}
 //
 //struct Then<A, F> {
 //    future: A,
@@ -214,25 +239,27 @@ impl <A, B, F> GpuExecutable for Map<A, F> where A: GpuExecutable, F: FnOnce(A::
 mod tests {
     use super::*;
 
+    struct TestContext;
+
     struct Return1;
 
-    impl GpuExecutable for Return1 {
+    impl GpuCommand<TestContext> for Return1 {
         type Output = i32;
 
         type Error = ();
 
-        fn execute(self, _context: &mut RenderingContext) -> Result<Self::Output, Self::Error> {
+        fn execute(self, _context: &mut TestContext) -> Result<Self::Output, Self::Error> {
             Ok(1)
         }
 
-        fn execute_boxed(self: Box<Self>, _context: &mut RenderingContext) -> Result<Self::Output, Self::Error> {
+        fn execute_boxed(self: Box<Self>, _context: &mut TestContext) -> Result<Self::Output, Self::Error> {
             Ok(1)
         }
     }
 
     #[test]
     fn test_map_execute() {
-        let mut context = RenderingContext {};
+        let mut context = TestContext;
         let map = Map::new(Return1, |v| v * 2);
 
         assert_eq!(map.execute(&mut context), Ok(2));
@@ -240,7 +267,7 @@ mod tests {
 
     #[test]
     fn test_map_execute_boxed() {
-        let mut context = RenderingContext {};
+        let mut context = TestContext;
         let map = Map::new(Return1, |v| v * 2);
         let boxed_map = Box::new(map);
 
@@ -249,7 +276,7 @@ mod tests {
 
     #[test]
     fn test_map_with_boxed_command() {
-        let mut context = RenderingContext {};
+        let mut context = TestContext;
         let map = Map::new(Box::new(Return1), |v| v * 2);
 
         assert_eq!(map.execute(&mut context), Ok(2));

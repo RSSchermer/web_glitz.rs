@@ -1,4 +1,4 @@
-use core::gpu_command::{GpuCommand, GpuExecutable};
+use core::gpu_command::{CommandObject, GpuCommand};
 
 pub struct RenderingContext {
 
