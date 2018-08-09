@@ -1,72 +1,72 @@
 use std::marker::PhantomData;
 
-pub trait GpuCommand<C> {
+pub trait GpuCommand<Ec> {
     type Output;
 
     type Error;
 
-    fn execute_static(self, context: &mut C) -> Result<Self::Output, Self::Error>;
+    fn execute_static(self, execution_context: &mut Ec) -> Result<Self::Output, Self::Error>;
 
-    fn execute_dynamic(self: Box<Self>, context: &mut C) -> Result<Self::Output, Self::Error>;
+    fn execute_dynamic(self: Box<Self>, execution_context: &mut Ec) -> Result<Self::Output, Self::Error>;
 }
 
-pub enum CommandObject<T, C> where T: GpuCommand<C> {
-    Static(T, PhantomData<C>),
+pub enum CommandObject<T, Ec> where T: GpuCommand<Ec> {
+    Static(T, PhantomData<Ec>),
     Dynamic(Box<T>)
 }
 
-impl<T, C> From<T> for CommandObject<T, C> where T: GpuCommand<C> {
-    fn from(executable: T) -> CommandObject<T, C> {
+impl<T, Ec> From<T> for CommandObject<T, Ec> where T: GpuCommand<Ec> {
+    fn from(executable: T) -> CommandObject<T, Ec> {
         CommandObject::Static(executable, PhantomData)
     }
 }
 
-impl<T, C> From<Box<T>> for CommandObject<T, C> where T: GpuCommand<C> {
-    fn from(boxed_executable: Box<T>) -> CommandObject<T, C> {
+impl<T, Ec> From<Box<T>> for CommandObject<T, Ec> where T: GpuCommand<Ec> {
+    fn from(boxed_executable: Box<T>) -> CommandObject<T, Ec> {
         CommandObject::Dynamic(boxed_executable)
     }
 }
 
-pub trait Execute<A, C> where A: GpuCommand<C> {
-    fn execute(self, context: &mut C) -> Result<A::Output, A::Error>;
+pub trait Execute<A, Ec> where A: GpuCommand<Ec> {
+    fn execute(self, execution_context: &mut Ec) -> Result<A::Output, A::Error>;
 }
 
-impl<T, A, C> Execute<A, C> for T where T: Into<CommandObject<A, C>>, A: GpuCommand<C> {
-    fn execute(self, context: &mut C) -> Result<A::Output, A::Error> {
+impl<T, A, Ec> Execute<A, Ec> for T where T: Into<CommandObject<A, Ec>>, A: GpuCommand<Ec> {
+    fn execute(self, execution_context: &mut Ec) -> Result<A::Output, A::Error> {
         match self.into() {
-            CommandObject::Static(executable, _) => executable.execute_static(context),
-            CommandObject::Dynamic(boxed_executable) => boxed_executable.execute_dynamic(context)
+            CommandObject::Static(executable, _) => executable.execute_static(execution_context),
+            CommandObject::Dynamic(boxed_executable) => boxed_executable.execute_dynamic(execution_context)
         }
     }
 }
 
 pub struct Empty;
 
-impl<C> GpuCommand<C> for Empty {
+impl<Ec> GpuCommand<Ec> for Empty {
     type Output = ();
 
     type Error = ();
 
-    fn execute_static(self, _context: &mut C) -> Result<Self::Output, Self::Error> {
+    fn execute_static(self, _execution_context: &mut Ec) -> Result<Self::Output, Self::Error> {
         Ok(())
     }
 
-    fn execute_dynamic(self: Box<Self>, _context: &mut C) -> Result<Self::Output, Self::Error> {
+    fn execute_dynamic(self: Box<Self>, _execution_context: &mut Ec) -> Result<Self::Output, Self::Error> {
         Ok(())
     }
 }
 
-pub struct Map<A, F, C> where A: GpuCommand<C> {
-    data: Option<MapData<A, F, C>>
+pub struct Map<A, F, Ec> where A: GpuCommand<Ec> {
+    data: Option<MapData<A, F, Ec>>
 }
 
-struct MapData<A, F, C> where A: GpuCommand<C> {
-    command: CommandObject<A, C>,
+struct MapData<A, F, Ec> where A: GpuCommand<Ec> {
+    command: CommandObject<A, Ec>,
     f: F
 }
 
-impl <A, B, F, C> Map<A, F, C> where A: GpuCommand<C>, F: FnOnce(A::Output) -> B {
-    pub fn new<T>(command: T, f: F) -> Self where T: Into<CommandObject<A, C>> {
+impl <A, B, F, Ec> Map<A, F, Ec> where A: GpuCommand<Ec>, F: FnOnce(A::Output) -> B {
+    pub fn new<T>(command: T, f: F) -> Self where T: Into<CommandObject<A, Ec>> {
         Map {
             data: Some(MapData {
                 command: command.into(),
@@ -75,38 +75,38 @@ impl <A, B, F, C> Map<A, F, C> where A: GpuCommand<C>, F: FnOnce(A::Output) -> B
         }
     }
 
-    fn execute_internal(&mut self, context: &mut C) -> Result<B, A::Error> {
+    fn execute_internal(&mut self, execution_context: &mut Ec) -> Result<B, A::Error> {
         let data = self.data.take().expect("Cannot execute Map twice");
 
-        data.command.execute(context).map(data.f)
+        data.command.execute(execution_context).map(data.f)
     }
 }
 
-impl <A, B, F, C> GpuCommand<C> for Map<A, F, C> where A: GpuCommand<C>, F: FnOnce(A::Output) -> B {
+impl <A, B, F, Ec> GpuCommand<Ec> for Map<A, F, Ec> where A: GpuCommand<Ec>, F: FnOnce(A::Output) -> B {
     type Output = B;
 
-    type Error = <A as GpuCommand<C>>::Error;
+    type Error = <A as GpuCommand<Ec>>::Error;
 
-    fn execute_static(mut self, context: &mut C) -> Result<Self::Output, Self::Error> {
-        self.execute_internal(context)
+    fn execute_static(mut self, execution_context: &mut Ec) -> Result<Self::Output, Self::Error> {
+        self.execute_internal(execution_context)
     }
 
-    fn execute_dynamic(mut self: Box<Self>, context: &mut C) -> Result<Self::Output, Self::Error> {
-        self.execute_internal(context)
+    fn execute_dynamic(mut self: Box<Self>, execution_context: &mut Ec) -> Result<Self::Output, Self::Error> {
+        self.execute_internal(execution_context)
     }
 }
 
-pub struct MapErr<A, F, C> where A: GpuCommand<C> {
-    data: Option<MapErrData<A, F, C>>
+pub struct MapErr<A, F, Ec> where A: GpuCommand<Ec> {
+    data: Option<MapErrData<A, F, Ec>>
 }
 
-struct MapErrData<A, F, C> where A: GpuCommand<C> {
-    command: CommandObject<A, C>,
+struct MapErrData<A, F, Ec> where A: GpuCommand<Ec> {
+    command: CommandObject<A, Ec>,
     f: F
 }
 
-impl <A, B, F, C> MapErr<A, F, C> where A: GpuCommand<C>, F: FnOnce(A::Error) -> B {
-    pub fn new<T>(command: T, f: F) -> Self where T: Into<CommandObject<A, C>> {
+impl <A, B, F, Ec> MapErr<A, F, Ec> where A: GpuCommand<Ec>, F: FnOnce(A::Error) -> B {
+    pub fn new<T>(command: T, f: F) -> Self where T: Into<CommandObject<A, Ec>> {
         MapErr {
             data: Some(MapErrData {
                 command: command.into(),
@@ -115,129 +115,146 @@ impl <A, B, F, C> MapErr<A, F, C> where A: GpuCommand<C>, F: FnOnce(A::Error) ->
         }
     }
 
-    fn execute_internal(&mut self, context: &mut C) -> Result<A::Output, B> {
+    fn execute_internal(&mut self, execution_context: &mut Ec) -> Result<A::Output, B> {
         let data = self.data.take().expect("Cannot execute MapErr twice");
 
-        data.command.execute(context).map_err(data.f)
+        data.command.execute(execution_context).map_err(data.f)
     }
 }
 
-impl <A, B, F, C> GpuCommand<C> for MapErr<A, F, C> where A: GpuCommand<C>, F: FnOnce(A::Error) -> B {
-    type Output = <A as GpuCommand<C>>::Output;
+impl <A, B, F, Ec> GpuCommand<Ec> for MapErr<A, F, Ec> where A: GpuCommand<Ec>, F: FnOnce(A::Error) -> B {
+    type Output = <A as GpuCommand<Ec>>::Output;
 
     type Error = B;
 
-    fn execute_static(mut self, context: &mut C) -> Result<Self::Output, Self::Error> {
-        self.execute_internal(context)
+    fn execute_static(mut self, execution_context: &mut Ec) -> Result<Self::Output, Self::Error> {
+        self.execute_internal(execution_context)
     }
 
-    fn execute_dynamic(mut self: Box<Self>, context: &mut C) -> Result<Self::Output, Self::Error> {
-        self.execute_internal(context)
+    fn execute_dynamic(mut self: Box<Self>, execution_context: &mut Ec) -> Result<Self::Output, Self::Error> {
+        self.execute_internal(execution_context)
     }
 }
-//
-//struct Then<A, F> {
-//    future: A,
-//    f: Option<F>
-//}
-//
-//impl <A, B, F> UnsafeGpuExecutable for Then<A, F> where A: UnsafeGpuExecutable, B: UnsafeGpuExecutable, F: FnOnce(Result<A::Item, A::Error>) -> B {
-//    type Output = <B as UnsafeGpuExecutable>::Output;
-//
-//    type Error = <B as UnsafeGpuExecutable>::Error;
-//
-//    unsafe fn execute_unsafe(&mut self, context: &mut RenderingContext) -> Result<Self::Output, Self::Error> {
-//        self.f.take().expect("Cannot execute Then twice")(self.future.execute_unsafe(context))
-//    }
-//}
-//
-//struct AndThen<A, F> {
-//    future: A,
-//    f: Option<F>
-//}
-//
-//impl <A, B, F> UnsafeGpuExecutable for AndThen<A, F> where A: UnsafeGpuExecutable, B: UnsafeGpuExecutable<Error=A::Error>, F: FnOnce(A::Item) -> B {
-//    type Output = <A as UnsafeGpuExecutable>::Output;
-//
-//    type Error = B;
-//
-//    unsafe fn execute_unsafe(&mut self, context: &mut RenderingContext) -> Result<Self::Output, Self::Error> {
-//        self.future.execute(context).and_then(self.f.take().expect("Cannot execute AndThen twice"))
-//    }
-//}
-//
-//trait UnsafeGpuExecutableExt {
-//
-//}
-//
-//struct CreateBuffer {
-//
-//}
-//
-//impl UnsafeGpuExecutable for CreateBuffer {
-//    type Output = Buffer;
-//
-//    type Error = CreateBufferError;
-//
-//    unsafe fn execute_unsafe(&mut self, context: &mut RenderingContext) -> Result<Self::Output, Self::Error> {
-//
-//    }
-//}
-//
-//struct BufferUpload {
-//
-//}
-//
-//impl UnsafeGpuExecutable for BufferUpload {
-//    type Output = ();
-//
-//    type Error = BufferUploadError;
-//
-//    unsafe fn execute_unsafe(&mut self, context: &mut RenderingContext) -> Result<Self::Output, Self::Error> {
-//
-//    }
-//}
-//
-//struct BufferDownload {
-//
-//}
-//
-//impl UnsafeGpuExecutable for BufferDownload {
-//    type Output = impl Future<Item=Box[u8], Error=()>;
-//
-//    type Error = BufferDownloadError;
-//
-//    unsafe fn execute_unsafe(&mut self, context: &mut RenderingContext) -> Result<Self::Output, Self::Error> {
-//
-//    }
-//}
-//
-//struct BufferDownloadSync {
-//
-//}
-//
-//impl UnsafeGpuExecutable for BufferDownloadSync {
-//    type Output = Box[u8];
-//
-//    type Error = BufferDownloadError;
-//
-//    unsafe fn execute_unsafe(&mut self, context: &mut RenderingContext) -> Result<Self::Output, Self::Error> {
-//
-//    }
-//}
-//
-//struct CompileShaderCommand<S> where S: Borrow<str> {
-//    source: S
-//}
-//
-//struct CreateGraphicsPipelineCommand {
-//    builder: GraphicsPipelineBuilder
-//}
-//
-//struct MappedCommand<A, B, F> where A: UnsafeGpuExecutable, F: FnOnce(A::Output) -> B {
-//    command: A,
-//    f: F
-//}
+
+pub struct Then<A, F, Ec> where A: GpuCommand<Ec> {
+    data: Option<ThenData<A, F, Ec>>
+}
+
+struct ThenData<A, F, Ec> where A: GpuCommand<Ec> {
+    command: CommandObject<A, Ec>,
+    f: F
+}
+
+impl <A, B, F, Ec> Then<A, F, Ec> where A: GpuCommand<Ec>, B: GpuCommand<Ec>, F: FnOnce(Result<A::Output, A::Error>) -> B {
+    pub fn new<T>(command: T, f: F) -> Self where T: Into<CommandObject<A, Ec>> {
+        Then {
+            data: Some(ThenData {
+                command: command.into(),
+                f
+            })
+        }
+    }
+
+    fn execute_internal(&mut self, execution_context: &mut Ec) -> Result<<B as GpuCommand<Ec>>::Output, <B as GpuCommand<Ec>>::Error> {
+        let data = self.data.take().expect("Cannot execute Then twice");
+
+        ((data.f)(data.command.execute(execution_context))).execute(execution_context)
+    }
+}
+
+impl <A, B, F, Ec> GpuCommand<Ec> for Then<A, F, Ec> where A: GpuCommand<Ec>, B: GpuCommand<Ec>, F: FnOnce(Result<A::Output, A::Error>) -> B {
+    type Output = <B as GpuCommand<Ec>>::Output;
+
+    type Error = <B as GpuCommand<Ec>>::Error;
+
+    fn execute_static(mut self, execution_context: &mut Ec) -> Result<Self::Output, Self::Error> {
+        self.execute_internal(execution_context)
+    }
+
+    fn execute_dynamic(mut self: Box<Self>, execution_context: &mut Ec) -> Result<Self::Output, Self::Error> {
+        self.execute_internal(execution_context)
+    }
+}
+
+pub struct AndThen<A, F, Ec> where A: GpuCommand<Ec> {
+    data: Option<AndThenData<A, F, Ec>>
+}
+
+struct AndThenData<A, F, Ec> where A: GpuCommand<Ec> {
+    command: CommandObject<A, Ec>,
+    f: F
+}
+
+impl <A, B, F, Ec> AndThen<A, F, Ec> where A: GpuCommand<Ec>, B: GpuCommand<Ec, Error=A::Error>, F: FnOnce(A::Output) -> B {
+    pub fn new<T>(command: T, f: F) -> Self where T: Into<CommandObject<A, Ec>> {
+        AndThen {
+            data: Some(AndThenData {
+                command: command.into(),
+                f
+            })
+        }
+    }
+
+    fn execute_internal(&mut self, execution_context: &mut Ec) -> Result<<B as GpuCommand<Ec>>::Output, <B as GpuCommand<Ec>>::Error> {
+        let AndThenData { command, f } = self.data.take().expect("Cannot execute Then twice");
+
+        command.execute(execution_context).and_then(|output| f(output).execute(execution_context))
+    }
+}
+
+impl <A, B, F, Ec> GpuCommand<Ec> for AndThen<A, F, Ec> where A: GpuCommand<Ec>, B: GpuCommand<Ec, Error=A::Error>, F: FnOnce(A::Output) -> B {
+    type Output = <B as GpuCommand<Ec>>::Output;
+
+    type Error = <B as GpuCommand<Ec>>::Error;
+
+    fn execute_static(mut self, execution_context: &mut Ec) -> Result<Self::Output, Self::Error> {
+        self.execute_internal(execution_context)
+    }
+
+    fn execute_dynamic(mut self: Box<Self>, execution_context: &mut Ec) -> Result<Self::Output, Self::Error> {
+        self.execute_internal(execution_context)
+    }
+}
+
+pub struct OrElse<A, F, Ec> where A: GpuCommand<Ec> {
+    data: Option<OrElseData<A, F, Ec>>
+}
+
+struct OrElseData<A, F, Ec> where A: GpuCommand<Ec> {
+    command: CommandObject<A, Ec>,
+    f: F
+}
+
+impl <A, B, F, Ec> OrElse<A, F, Ec> where A: GpuCommand<Ec>, B: GpuCommand<Ec, Output=A::Output>, F: FnOnce(A::Error) -> B {
+    pub fn new<T>(command: T, f: F) -> Self where T: Into<CommandObject<A, Ec>> {
+        OrElse {
+            data: Some(OrElseData {
+                command: command.into(),
+                f
+            })
+        }
+    }
+
+    fn execute_internal(&mut self, execution_context: &mut Ec) -> Result<<B as GpuCommand<Ec>>::Output, <B as GpuCommand<Ec>>::Error> {
+        let OrElseData { command, f } = self.data.take().expect("Cannot execute Then twice");
+
+        command.execute(execution_context).or_else(|error| f(error).execute(execution_context))
+    }
+}
+
+impl <A, B, F, Ec> GpuCommand<Ec> for OrElse<A, F, Ec> where A: GpuCommand<Ec>, B: GpuCommand<Ec, Output=A::Output>, F: FnOnce(A::Error) -> B {
+    type Output = <B as GpuCommand<Ec>>::Output;
+
+    type Error = <B as GpuCommand<Ec>>::Error;
+
+    fn execute_static(mut self, execution_context: &mut Ec) -> Result<Self::Output, Self::Error> {
+        self.execute_internal(execution_context)
+    }
+
+    fn execute_dynamic(mut self: Box<Self>, execution_context: &mut Ec) -> Result<Self::Output, Self::Error> {
+        self.execute_internal(execution_context)
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -252,11 +269,11 @@ mod tests {
 
         type Error = ();
 
-        fn execute_static(self, _context: &mut TestContext) -> Result<Self::Output, Self::Error> {
+        fn execute_static(self, _execution_context: &mut TestContext) -> Result<Self::Output, Self::Error> {
             Ok(1)
         }
 
-        fn execute_dynamic(self: Box<Self>, _context: &mut TestContext) -> Result<Self::Output, Self::Error> {
+        fn execute_dynamic(self: Box<Self>, _execution_context: &mut TestContext) -> Result<Self::Output, Self::Error> {
             Ok(1)
         }
     }
