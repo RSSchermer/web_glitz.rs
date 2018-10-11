@@ -1,5 +1,5 @@
 trait Uniforms {
-    fn get(&self, identifier: &UniformIdentifier) -> &AsUniformValue;
+    fn get(&self, identifier: &UniformIdentifier) -> Option<&AsUniformValue>;
 }
 
 #[derive(PartialEq, Hash)]

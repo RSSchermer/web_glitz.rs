@@ -296,8 +296,6 @@ enum ComplexArrayElement {
     Struct(StructUniformBinding),
 }
 
-
-
 struct StructUniformBinding {
     name: String,
     member_descriptions: Vec<StructMember>

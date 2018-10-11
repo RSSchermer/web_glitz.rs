@@ -1,13 +1,12 @@
 #![feature(plugin)]
-#![plugin(phf_macros)]
+#![feature(concat_idents)]
+//#![plugin(phf_macros)]
 
-extern crate phf;
-#[macro_use]
-extern crate stdweb;
-#[macro_use]
-extern crate serde_derive;
-#[macro_use]
-extern crate stdweb_derive;
+//extern crate phf;
+extern crate futures;
+extern crate wasm_bindgen;
+extern crate web_sys;
 
-pub mod core;
-mod webgl_rendering_context;
+//pub mod buffer;
+pub mod command;
+pub mod rendering_context;

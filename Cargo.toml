@@ -4,12 +4,20 @@ version = "0.1.0"
 authors = ["Roland <roland0507@gmail.com>"]
 
 [dependencies]
-phf = "0.7.22"
-phf_macros = "0.7.22"
-stdweb = "0.4.5"
-stdweb-derive = "0.4.0"
-serde = "1.0.0"
-serde_derive = "1.0.0"
+#phf = "0.7.22"
+#phf_macros = "0.7.22"
+futures = "0.1.25"
+wasm-bindgen = "0.2.23"
 
-[build-dependencies]
-webgl_generator = "0.1.0"
+[dependencies.web-sys]
+version = "0.3.0"
+features = [
+    "WebGl2RenderingContext",
+    "WebGlBuffer",
+    "WebGlFramebuffer",
+    "WebGlProgram",
+    "WebGlRenderbuffer",
+    "WebGlSampler",
+    "WebGlTexture",
+    "WebGlVertexArrayObject"
+]
