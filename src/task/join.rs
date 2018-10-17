@@ -1,9 +1,7 @@
 #![allow(non_snake_case)]
 
-use std::marker::PhantomData;
-use std::mem;
-
-use super::{GpuTask, Execution };
+use super::{GpuTask, Execution};
+use super::maybe_done::{MaybeDone, maybe_done};
 
 macro_rules! generate {
     ($(
@@ -20,8 +18,8 @@ macro_rules! generate {
         impl<A, $($B),*, Ec> $Join<A, $($B),*, Ec> where A: GpuTask<Ec>, $($B: GpuTask<Ec, Error=A::Error>),* {
             pub fn new(a: A, $($B: $B),*) -> Self {
                 $Join {
-                    a: MaybeDone::NotYet(a, PhantomData),
-                    $($B: MaybeDone::NotYet($B, PhantomData)),*
+                    a: maybe_done(a),
+                    $($B: maybe_done($B)),*
                 }
             }
         }
@@ -66,37 +64,4 @@ generate! {
 
     /// Task for the `join5` combinator, waiting for five tasks to complete in no particular order.
     (Join5, <A, B, C, D, E>),
-}
-
-enum MaybeDone<T, Ec> where T: GpuTask<Ec> {
-    NotYet(T, PhantomData<Ec>),
-    Done(T::Output),
-    Gone
-}
-
-impl<T, Ec> MaybeDone<T, Ec> where T: GpuTask<Ec> {
-    fn progress(&mut self, execution_context: &mut Ec) -> Result<bool, T::Error> {
-        let res = match self {
-            MaybeDone::Done(_) => return Ok(true),
-            MaybeDone::NotYet(ref mut task, _) => task.progress(execution_context),
-            MaybeDone::Gone => panic!("Cannot progress a Join twice.")
-        };
-
-        match res {
-            Execution::Finished(Ok(output)) => {
-                *self = MaybeDone::Done(output);
-
-                Ok(true)
-            },
-            Execution::Finished(Err(err)) => Err(err),
-            Execution::ContinueFenced => Ok(false)
-        }
-    }
-
-    fn take(&mut self) -> T::Output {
-        match mem::replace(self, MaybeDone::Gone) {
-            MaybeDone::Done(a) => a,
-            _ => panic!(),
-        }
-    }
 }

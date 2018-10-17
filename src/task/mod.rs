@@ -19,5 +19,10 @@ pub use self::map_err::MapErr;
 mod or_else;
 pub use self::or_else::OrElse;
 
+mod sequence;
+pub use self::sequence::{ Sequence, Sequence3, Sequence4, Sequence5 };
+
 mod then;
 pub use self::then::Then;
+
+mod maybe_done;

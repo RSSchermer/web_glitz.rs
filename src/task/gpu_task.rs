@@ -1,4 +1,4 @@
-use super::{ Map, MapErr, Then, AndThen, OrElse, Join, Join3, Join4, Join5 };
+use super::{ Map, MapErr, Then, AndThen, OrElse, Join, Join3, Join4, Join5, Sequence, Sequence3, Sequence4, Sequence5 };
 
 pub trait GpuTask<Ec> {
     type Output;
@@ -32,6 +32,14 @@ pub trait GpuTaskExt<T, Ec> where T: GpuTask<Ec> {
     fn join4<B, C, D>(self, b: B, c: C, d: D) -> Join4<T, B, C, D, Ec> where B: GpuTask<Ec, Error=T::Error>, C: GpuTask<Ec, Error=T::Error>, D: GpuTask<Ec, Error=T::Error>;
 
     fn join5<B, C, D, E>(self, b: B, c: C, d: D, e: E) -> Join5<T, B, C, D, E, Ec> where B: GpuTask<Ec, Error=T::Error>, C: GpuTask<Ec, Error=T::Error>, D: GpuTask<Ec, Error=T::Error>, E: GpuTask<Ec, Error=T::Error>;
+
+    fn sequence<B>(self, b: B) -> Sequence<T, B, Ec> where B: GpuTask<Ec, Error=T::Error>;
+
+    fn sequence3<B, C>(self, b: B, c: C) -> Sequence3<T, B, C, Ec> where B: GpuTask<Ec, Error=T::Error>, C: GpuTask<Ec, Error=T::Error>;
+
+    fn sequence4<B, C, D>(self, b: B, c: C, d: D) -> Sequence4<T, B, C, D, Ec> where B: GpuTask<Ec, Error=T::Error>, C: GpuTask<Ec, Error=T::Error>, D: GpuTask<Ec, Error=T::Error>;
+
+    fn sequence5<B, C, D, E>(self, b: B, c: C, d: D, e: E) -> Sequence5<T, B, C, D, E, Ec> where B: GpuTask<Ec, Error=T::Error>, C: GpuTask<Ec, Error=T::Error>, D: GpuTask<Ec, Error=T::Error>, E: GpuTask<Ec, Error=T::Error>;
 }
 
 impl<T, Ec> GpuTaskExt<T, Ec> for T where T: GpuTask<Ec> {
@@ -69,5 +77,21 @@ impl<T, Ec> GpuTaskExt<T, Ec> for T where T: GpuTask<Ec> {
 
     fn join5<B, C, D, E>(self, b: B, c: C, d: D, e: E) -> Join5<T, B, C, D, E, Ec> where B: GpuTask<Ec, Error=T::Error>, C: GpuTask<Ec, Error=T::Error>, D: GpuTask<Ec, Error=T::Error>, E: GpuTask<Ec, Error=T::Error> {
         Join5::new(self, b, c, d, e)
+    }
+
+    fn sequence<B>(self, b: B) -> Sequence<T, B, Ec> where B: GpuTask<Ec, Error=T::Error> {
+        Sequence::new(self, b)
+    }
+
+    fn sequence3<B, C>(self, b: B, c: C) -> Sequence3<T, B, C, Ec> where B: GpuTask<Ec, Error=T::Error>, C: GpuTask<Ec, Error=T::Error> {
+        Sequence3::new(self, b, c)
+    }
+
+    fn sequence4<B, C, D>(self, b: B, c: C, d: D) -> Sequence4<T, B, C, D, Ec> where B: GpuTask<Ec, Error=T::Error>, C: GpuTask<Ec, Error=T::Error>, D: GpuTask<Ec, Error=T::Error> {
+        Sequence4::new(self, b, c, d)
+    }
+
+    fn sequence5<B, C, D, E>(self, b: B, c: C, d: D, e: E) -> Sequence5<T, B, C, D, E, Ec> where B: GpuTask<Ec, Error=T::Error>, C: GpuTask<Ec, Error=T::Error>, D: GpuTask<Ec, Error=T::Error>, E: GpuTask<Ec, Error=T::Error> {
+        Sequence5::new(self, b, c, d, e)
     }
 }
