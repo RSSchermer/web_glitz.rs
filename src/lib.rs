@@ -9,5 +9,5 @@ extern crate wasm_bindgen;
 extern crate web_sys;
 
 //pub mod buffer;
-pub mod command;
+pub mod task;
 //pub mod rendering_context;

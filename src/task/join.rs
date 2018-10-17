@@ -3,7 +3,7 @@
 use std::marker::PhantomData;
 use std::mem;
 
-use super::{ GpuCommand, Execution };
+use super::{GpuTask, Execution };
 
 macro_rules! generate {
     ($(
@@ -11,13 +11,13 @@ macro_rules! generate {
         ($Join:ident, <A, $($B:ident),*>),
     )*) => ($(
         $(#[$doc])*
-        pub struct $Join<A, $($B),*, Ec> where A: GpuCommand<Ec>, $($B: GpuCommand<Ec, Error=A::Error>),*
+        pub struct $Join<A, $($B),*, Ec> where A: GpuTask<Ec>, $($B: GpuTask<Ec, Error=A::Error>),*
         {
             a: MaybeDone<A, Ec>,
             $($B: MaybeDone<$B, Ec>),*
         }
 
-        impl<A, $($B),*, Ec> $Join<A, $($B),*, Ec> where A: GpuCommand<Ec>, $($B: GpuCommand<Ec, Error=A::Error>),* {
+        impl<A, $($B),*, Ec> $Join<A, $($B),*, Ec> where A: GpuTask<Ec>, $($B: GpuTask<Ec, Error=A::Error>),* {
             pub fn new(a: A, $($B: $B),*) -> Self {
                 $Join {
                     a: MaybeDone::NotYet(a, PhantomData),
@@ -26,12 +26,12 @@ macro_rules! generate {
             }
         }
 
-        impl<A, $($B),*, Ec> GpuCommand<Ec> for $Join<A, $($B),*, Ec> where A: GpuCommand<Ec>, $($B: GpuCommand<Ec, Error=A::Error>),* {
+        impl<A, $($B),*, Ec> GpuTask<Ec> for $Join<A, $($B),*, Ec> where A: GpuTask<Ec>, $($B: GpuTask<Ec, Error=A::Error>),* {
             type Output = (A::Output, $($B::Output),*);
 
             type Error = A::Error;
 
-            fn execute(&mut self, execution_context: &mut Ec) -> Execution<(A::Output, $($B::Output),*), A::Error> {
+            fn progress(&mut self, execution_context: &mut Ec) -> Execution<(A::Output, $($B::Output),*), A::Error> {
                 let mut all_done = match self.a.progress(execution_context) {
                     Ok(done) => done,
                     Err(err) => return Execution::Finished(Err(err))
@@ -55,35 +55,31 @@ macro_rules! generate {
 }
 
 generate! {
-    /// Command for the `join` combinator, waiting for two commands to complete in no particular
-    /// order.
+    /// Task for the `join` combinator, waiting for two tasks to complete in no particular order.
     (Join, <A, B>),
 
-    /// Command for the `join3` combinator, waiting for three commands to complete in no particular
-    /// order.
+    /// Task for the `join3` combinator, waiting for three tasks to complete in no particular order.
     (Join3, <A, B, C>),
 
-    /// Command for the `join4` combinator, waiting for four commands to complete in no particular
-    /// order.
+    /// Task for the `join4` combinator, waiting for four tasks to complete in no particular order.
     (Join4, <A, B, C, D>),
 
-    /// Command for the `join5` combinator, waiting for five commands to complete in no particular
-    /// order.
+    /// Task for the `join5` combinator, waiting for five tasks to complete in no particular order.
     (Join5, <A, B, C, D, E>),
 }
 
-enum MaybeDone<T, Ec> where T: GpuCommand<Ec> {
+enum MaybeDone<T, Ec> where T: GpuTask<Ec> {
     NotYet(T, PhantomData<Ec>),
     Done(T::Output),
     Gone
 }
 
-impl<T, Ec> MaybeDone<T, Ec> where T: GpuCommand<Ec> {
+impl<T, Ec> MaybeDone<T, Ec> where T: GpuTask<Ec> {
     fn progress(&mut self, execution_context: &mut Ec) -> Result<bool, T::Error> {
         let res = match self {
             MaybeDone::Done(_) => return Ok(true),
-            MaybeDone::NotYet(ref mut command, _) => command.execute(execution_context),
-            MaybeDone::Gone => panic!("Cannot execute a Join twice.")
+            MaybeDone::NotYet(ref mut task, _) => task.progress(execution_context),
+            MaybeDone::Gone => panic!("Cannot progress a Join twice.")
         };
 
         match res {

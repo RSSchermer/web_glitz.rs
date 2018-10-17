@@ -4,8 +4,8 @@ pub use self::and_then::AndThen;
 mod empty;
 pub use self::empty::Empty;
 
-mod gpu_command;
-pub use self::gpu_command::{ GpuCommand, GpuCommandExt, Execution };
+mod gpu_task;
+pub use self::gpu_task::{GpuTask, GpuTaskExt, Execution };
 
 mod join;
 pub use self::join::{ Join, Join3, Join4, Join5 };
