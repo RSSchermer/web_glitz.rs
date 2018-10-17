@@ -1,5 +1,6 @@
 #![feature(plugin)]
 #![feature(concat_idents)]
+#![feature(nll)]
 //#![plugin(phf_macros)]
 
 //extern crate phf;
@@ -9,4 +10,4 @@ extern crate web_sys;
 
 //pub mod buffer;
 pub mod command;
-pub mod rendering_context;
+//pub mod rendering_context;

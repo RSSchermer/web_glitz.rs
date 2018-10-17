@@ -1,45 +1,49 @@
-use super::{ GpuCommand, GpuCommandExt, CommandObject, Execution };
+use std::marker::PhantomData;
 
-pub struct OrElse<A, F, Ec> where A: GpuCommand<Ec> {
-    data: Option<OrElseData<A, F, Ec>>
+use super::{ GpuCommand, Execution };
+
+pub struct OrElse<C1, C2, F, Ec> where C1: GpuCommand<Ec>, C2: GpuCommand<Ec, Output=C1::Output>, F: FnOnce(C1::Error) -> C2 {
+    state: OrElseState<C1, C2, F>,
+    ec: PhantomData<Ec>
 }
 
-struct OrElseData<A, F, Ec> where A: GpuCommand<Ec> {
-    command: CommandObject<A, Ec>,
-    f: F
+enum OrElseState<C1, C2, F> {
+    A(C1, Option<F>),
+    B(C2)
 }
 
-impl <A, B, F, Ec> OrElse<A, F, Ec> where A: GpuCommand<Ec>, B: GpuCommand<Ec, Output=A::Output>, F: FnOnce(A::Error) -> B {
-    pub fn new<T>(command: T, f: F) -> Self where T: Into<CommandObject<A, Ec>> {
+impl <C1, C2, F, Ec> OrElse<C1, C2, F, Ec> where C1: GpuCommand<Ec>, C2: GpuCommand<Ec, Output=C1::Output>, F: FnOnce(C1::Error) -> C2 {
+    pub fn new(command: C1, f: F) -> Self {
         OrElse {
-            data: Some(OrElseData {
-                command: command.into(),
-                f
-            })
-        }
-    }
-
-    fn execute_internal(&mut self, execution_context: &mut Ec) -> Execution<<B as GpuCommand<Ec>>::Output, <B as GpuCommand<Ec>>::Error, Ec> {
-        let OrElseData { command, f } = self.data.take().expect("Cannot execute OrElse twice");
-
-        match command.execute(execution_context) {
-            Execution::Finished(Ok(output)) => Execution::Finished(Ok(output)),
-            Execution::Finished(Err(err)) => f(err).execute(execution_context),
-            Execution::ContinueFenced(command) => Execution::ContinueFenced(OrElse::new(command, f))
+            state: OrElseState::A(command, Some(f)),
+            ec: PhantomData
         }
     }
 }
 
-impl <A, B, F, Ec> GpuCommand<Ec> for OrElse<A, F, Ec> where A: GpuCommand<Ec>, B: GpuCommand<Ec, Output=A::Output>, F: FnOnce(A::Error) -> B {
-    type Output = <B as GpuCommand<Ec>>::Output;
+impl <C1, C2, F, Ec> GpuCommand<Ec> for OrElse<C1, C2, F, Ec> where C1: GpuCommand<Ec>, C2: GpuCommand<Ec, Output=C1::Output>, F: FnOnce(C1::Error) -> C2 {
+    type Output = C2::Output;
 
-    type Error = <B as GpuCommand<Ec>>::Error;
+    type Error = C2::Error;
 
-    fn execute_static(mut self, execution_context: &mut Ec) -> Execution<Self::Output, Self::Error, Ec> {
-        self.execute_internal(execution_context)
-    }
+    fn execute(&mut self, execution_context: &mut Ec) -> Execution<C2::Output, C2::Error> {
+        match self.state {
+            OrElseState::A(ref mut command, ref mut f) => {
+                match command.execute(execution_context) {
+                    Execution::Finished(Ok(output)) => Execution::Finished(Ok(output)),
+                    Execution::Finished(Err(err)) => {
+                        let f = f.take().expect("Cannot execute state A again after it finishes");
+                        let mut b = f(err);
+                        let execution = b.execute(execution_context);
 
-    fn execute_dynamic(mut self: Box<Self>, execution_context: &mut Ec) -> Execution<Self::Output, Self::Error, Ec> {
-        self.execute_internal(execution_context)
+                        self.state = OrElseState::B(b);
+
+                        execution
+                    },
+                    Execution::ContinueFenced => Execution::ContinueFenced
+                }
+            }
+            OrElseState::B(ref mut command) => command.execute(execution_context)
+        }
     }
 }

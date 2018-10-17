@@ -1,44 +1,48 @@
-use super::{ GpuCommand, GpuCommandExt, CommandObject, Execution };
+use std::marker::PhantomData;
 
-pub struct Then<A, F, Ec> where A: GpuCommand<Ec> {
-    data: Option<ThenData<A, F, Ec>>
+use super::{ GpuCommand, Execution };
+
+pub struct Then<C1, C2, F, Ec> where C1: GpuCommand<Ec>, C2: GpuCommand<Ec>, F: FnOnce(Result<C1::Output, C1::Error>) -> C2 {
+    state: ThenState<C1, C2, F>,
+    ec: PhantomData<Ec>
 }
 
-struct ThenData<A, F, Ec> where A: GpuCommand<Ec> {
-    command: CommandObject<A, Ec>,
-    f: F
+enum ThenState<C1, C2, F> {
+    A(C1, Option<F>),
+    B(C2)
 }
 
-impl <A, B, F, Ec> Then<A, F, Ec> where A: GpuCommand<Ec>, B: GpuCommand<Ec>, F: FnOnce(Result<A::Output, A::Error>) -> B {
-    pub fn new<T>(command: T, f: F) -> Self where T: Into<CommandObject<A, Ec>> {
+impl <C1, C2, F, Ec> Then<C1, C2, F, Ec> where C1: GpuCommand<Ec>, C2: GpuCommand<Ec>, F: FnOnce(Result<C1::Output, C1::Error>) -> C2 {
+    pub fn new(command: C1, f: F) -> Self {
         Then {
-            data: Some(ThenData {
-                command: command.into(),
-                f
-            })
-        }
-    }
-
-    fn execute_internal(&mut self, execution_context: &mut Ec) -> Execution<<B as GpuCommand<Ec>>::Output, <B as GpuCommand<Ec>>::Error, Ec> {
-        let ThenData { command, f } = self.data.take().expect("Cannot execute Then twice");
-
-        match command.execute(execution_context) {
-            Execution::Finished(result) => f(result).execute(execution_context),
-            Execution::ContinueFenced(command) => Execution::ContinueFenced(Then::new(command, f))
+            state: ThenState::A(command, Some(f)),
+            ec: PhantomData
         }
     }
 }
 
-impl <A, B, F, Ec> GpuCommand<Ec> for Then<A, F, Ec> where A: GpuCommand<Ec>, B: GpuCommand<Ec>, F: FnOnce(Result<A::Output, A::Error>) -> B {
-    type Output = <B as GpuCommand<Ec>>::Output;
+impl <C1, C2, F, Ec> GpuCommand<Ec> for Then<C1, C2, F, Ec> where C1: GpuCommand<Ec>, C2: GpuCommand<Ec>, F: FnOnce(Result<C1::Output, C1::Error>) -> C2 {
+    type Output = C2::Output;
 
-    type Error = <B as GpuCommand<Ec>>::Error;
+    type Error = C2::Error;
 
-    fn execute_static(mut self, execution_context: &mut Ec) -> Execution<Self::Output, Self::Error, Ec> {
-        self.execute_internal(execution_context)
-    }
+    fn execute(&mut self, execution_context: &mut Ec) -> Execution<C2::Output, C2::Error> {
+        match self.state {
+            ThenState::A(ref mut command, ref mut f) => {
+                match command.execute(execution_context) {
+                    Execution::Finished(result) => {
+                        let f = f.take().expect("Cannot execute state A again after it finishes");
+                        let mut b = f(result);
+                        let execution = b.execute(execution_context);
 
-    fn execute_dynamic(mut self: Box<Self>, execution_context: &mut Ec) -> Execution<Self::Output, Self::Error, Ec> {
-        self.execute_internal(execution_context)
+                        self.state = ThenState::B(b);
+
+                        execution
+                    }
+                    Execution::ContinueFenced => Execution::ContinueFenced
+                }
+            }
+            ThenState::B(ref mut command) => command.execute(execution_context)
+        }
     }
 }

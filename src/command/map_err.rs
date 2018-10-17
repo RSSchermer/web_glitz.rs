@@ -1,44 +1,36 @@
-use super::{ GpuCommand, GpuCommandExt, CommandObject, Execution };
+use std::marker::PhantomData;
+
+use super::{ GpuCommand, Execution };
 
 pub struct MapErr<A, F, Ec> where A: GpuCommand<Ec> {
-    data: Option<MapErrData<A, F, Ec>>
+    command: A,
+    f: Option<F>,
+    ec: PhantomData<Ec>
 }
 
-struct MapErrData<A, F, Ec> where A: GpuCommand<Ec> {
-    command: CommandObject<A, Ec>,
-    f: F
-}
-
-impl <A, B, F, Ec> MapErr<A, F, Ec> where A: GpuCommand<Ec>, F: FnOnce(A::Error) -> B {
-    pub fn new<T>(command: T, f: F) -> Self where T: Into<CommandObject<A, Ec>> {
+impl <A, B, F, Ec> MapErr<A, F, Ec> where A: GpuCommand<Ec>, F: FnOnce(A::Error) -> B, B: 'static {
+    pub fn new(command: A, f: F) -> Self {
         MapErr {
-            data: Some(MapErrData {
-                command: command.into(),
-                f
-            })
-        }
-    }
-
-    fn execute_internal(&mut self, execution_context: &mut Ec) -> Execution<A::Output, B, Ec> {
-        let MapErrData { command, f } = self.data.take().expect("Cannot execute MapErr twice");
-
-        match command.execute(execution_context) {
-            Execution::Finished(result) => Execution::Finished(result.map_err(f)),
-            Execution::ContinueFenced(command) => Execution::ContinueFenced(MapErr::new(command, f))
+            command,
+            f: Some(f),
+            ec: PhantomData
         }
     }
 }
 
-impl <A, B, F, Ec> GpuCommand<Ec> for MapErr<A, F, Ec> where A: GpuCommand<Ec>, F: FnOnce(A::Error) -> B {
-    type Output = <A as GpuCommand<Ec>>::Output;
+impl <A, B, F, Ec> GpuCommand<Ec> for MapErr<A, F, Ec> where A: GpuCommand<Ec>, F: FnOnce(A::Error) -> B, B: 'static {
+    type Output = A::Output;
 
     type Error = B;
 
-    fn execute_static(mut self, execution_context: &mut Ec) -> Execution<Self::Output, Self::Error, Ec> {
-        self.execute_internal(execution_context)
-    }
+    fn execute(&mut self, execution_context: &mut Ec) -> Execution<A::Output, B> {
+        match self.command.execute(execution_context) {
+            Execution::Finished(result) => {
+                let f = self.f.take().expect("Cannot execute MapErr again after it has finished");
 
-    fn execute_dynamic(mut self: Box<Self>, execution_context: &mut Ec) -> Execution<Self::Output, Self::Error, Ec> {
-        self.execute_internal(execution_context)
+                Execution::Finished(result.map_err(f))
+            },
+            Execution::ContinueFenced => Execution::ContinueFenced
+        }
     }
 }
