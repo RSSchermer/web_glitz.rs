@@ -1,9 +1,9 @@
 use super::{ Map, MapErr, Then, AndThen, OrElse, Join, Join3, Join4, Join5 };
 
 pub trait GpuTask<Ec> {
-    type Output: 'static;
+    type Output;
 
-    type Error: 'static;
+    type Error;
 
     fn progress(&mut self, execution_context: &mut Ec) -> Execution<Self::Output, Self::Error>;
 }
