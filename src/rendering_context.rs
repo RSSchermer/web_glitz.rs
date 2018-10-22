@@ -1,5 +1,7 @@
 use std::borrow::Borrow;
+use std::cell::RefCell;
 use std::collections::VecDeque;
+use std::rc::Rc;
 
 use futures::{ Async, Poll };
 use futures::future::Future;
@@ -15,13 +17,11 @@ use web_sys::{
     WebGlSampler,
     WebGlSync,
     WebGlTexture,
-    WebGlVertexArrayObject
+    WebGlVertexArrayObject,
+    window
 };
 
 use super::task::{GpuTask, Progress};
-use std::rc::Rc;
-use std::cell::RefCell;
-use web_sys::window;
 
 const TEXTURE_UNIT_CONSTANTS: [u32;32] = [
     GL::TEXTURE0,
