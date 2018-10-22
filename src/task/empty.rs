@@ -1,4 +1,4 @@
-use super::{GpuTask, Execution };
+use super::{GpuTask, Progress};
 
 pub struct Empty;
 
@@ -7,7 +7,7 @@ impl<Ec> GpuTask<Ec> for Empty {
 
     type Error = ();
 
-    fn progress(&mut self, _execution_context: &mut Ec) -> Execution<Self::Output, Self::Error> {
-        Execution::Finished(Ok(()))
+    fn progress(&mut self, _execution_context: &mut Ec) -> Progress<Self::Output, Self::Error> {
+        Progress::Finished(Ok(()))
     }
 }

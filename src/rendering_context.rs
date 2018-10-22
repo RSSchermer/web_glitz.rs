@@ -1,10 +1,11 @@
-//use command::GpuCommand;
-
 use std::borrow::Borrow;
-//use std::collections::VecDeque;
+use std::collections::VecDeque;
 
-use futures::sync::oneshot::Sender;
-use wasm_bindgen::JsValue;
+use futures::{ Async, Poll };
+use futures::future::Future;
+use futures::sync::oneshot::{ channel, Sender, Receiver, Canceled };
+use wasm_bindgen::{ JsValue, JsCast };
+use wasm_bindgen::closure::Closure;
 use web_sys::{
     WebGl2RenderingContext as GL,
     WebGlBuffer,
@@ -12,11 +13,15 @@ use web_sys::{
     WebGlProgram,
     WebGlRenderbuffer,
     WebGlSampler,
+    WebGlSync,
     WebGlTexture,
     WebGlVertexArrayObject
 };
 
-use super::command::{ GpuCommand, CommandObject };
+use super::task::{GpuTask, Progress};
+use std::rc::Rc;
+use std::cell::RefCell;
+use web_sys::window;
 
 const TEXTURE_UNIT_CONSTANTS: [u32;32] = [
     GL::TEXTURE0,
@@ -53,64 +58,220 @@ const TEXTURE_UNIT_CONSTANTS: [u32;32] = [
     GL::TEXTURE31
 ];
 
-pub trait ExecutionStrategy {
-    type Executor: Executor;
-
-    fn executor(&self, connection: Connection) -> Self::Executor;
+pub trait Submitter: Clone {
+    fn accept<T>(&self, task: T) -> Execution<T::Output, T::Error> where T: GpuTask<Connection> + 'static;
 }
 
-pub trait Executor {
-    fn enqueue<T, C>(&mut self, command: T, result_tx: Sender<C::Output>) where C: GpuCommand<Connection>, T: Into<CommandObject<C, Connection>>;
+pub enum Execution<O, E> {
+    Ready(Option<Result<O, E>>),
+    Pending(Receiver<Result<O, E>>)
 }
 
-pub struct Connection(GL, DynamicStateCache);
+impl<O, E> Future for Execution<O, E> {
+    type Item = O;
 
-//
-//pub struct RenderingContext {
-//    sender: mpsc::Sender<Box<GpuCommand<Connection>>>
-//}
-//
-//
-//pub enum ContextError {
-//    ContextMismatch,
-//    ContextLost
-//}
-//
-//pub struct Connection {
-//    receiver: mpsc::Receiver<Box<GpuCommand<Connection>>>,
-//    gl_context: GL,
-//    fenced_task_queue: FencedTaskQueue
-//}
-//
-//impl Connection {
-//    pub fn submit<T>(&mut self, command: T) where T: GpuCommand<Connection> {
-//        self.fenced_task_queue.execute_ready();
-//        command.execute_static(self);
-//    }
-//
-//    pub fn submit_queued(&mut self) {
-//        let command = self.receiver.recv();
-//
-//        command.execute_dynamic(self)
-//    }
-//
-//    pub fn try_submit_queued(&mut self) -> bool {
-//
-//    }
-//}
-//
-//pub struct Runtime {
-//    receiver: mpsc::Receiver<Box<GpuCommand<Connection>>>,
-//    fenced_task_queue: FencedTaskQueue,
-//    connection: Connection
-//}
-//
-//pub struct Connection {
-//    gl_context: GL,
-//    state_cache: StateCache
-//}
+    type Error = SubmitError<E>;
 
-pub struct DynamicStateCache {
+    fn poll(&mut self) -> Poll<O, SubmitError<E>> {
+        match self {
+            Execution::Ready(ref mut res) => res.take().expect("Cannot poll Execution more than once after its ready").map(|o| Async::Ready(o)).map_err(|e| SubmitError::TaskError(e)),
+            Execution::Pending(ref mut recv) => match recv.poll() {
+                Ok(Async::Ready(Ok(output))) => Ok(Async::Ready(output)),
+                Ok(Async::Ready(Err(err))) => Err(SubmitError::TaskError(err)),
+                Ok(Async::NotReady) => Ok(Async::NotReady),
+                Err(Canceled) => Err(SubmitError::Cancelled)
+            }
+        }
+    }
+}
+
+impl<O, E> From<Result<O, E>> for Execution<O, E> {
+    fn from(result: Result<O, E>) -> Self {
+        Execution::Ready(Some(result))
+    }
+}
+
+impl<O, E> From<Receiver<Result<O, E>>> for Execution<O, E> {
+    fn from(recv: Receiver<Result<O, E>>) -> Self {
+        Execution::Pending(recv)
+    }
+}
+
+trait ExecutorJob {
+    fn progress(&mut self, connection: &mut Connection) -> JobState;
+}
+
+#[derive(PartialEq)]
+enum JobState {
+    Finished,
+    ContinueFenced
+}
+
+struct Job<T> where T: GpuTask<Connection> {
+    task: T,
+    result_tx: Option<Sender<Result<T::Output, T::Error>>>
+}
+
+impl<T> ExecutorJob for Job<T> where T: GpuTask<Connection> {
+    fn progress(&mut self, connection: &mut Connection) -> JobState {
+        match self.task.progress(connection) {
+            Progress::Finished(res) => {
+                self.result_tx.take().expect("Cannot progress a Job after it finished").send(res).map_err(|_| SendFailed).unwrap();
+
+                JobState::Finished
+            },
+            Progress::ContinueFenced => JobState::ContinueFenced
+        }
+    }
+}
+
+#[derive(Debug)]
+struct SendFailed;
+
+fn job<T>(task: T) -> (Job<T>, Execution<T::Output, T::Error>) where T: GpuTask<Connection> {
+    let (tx, rx) = channel();
+    let job = Job {
+        task,
+        result_tx: Some(tx)
+    };
+
+    (job, Execution::Pending(rx))
+}
+
+#[derive(Clone)]
+pub struct SingleThreadedSubmitter {
+    executor: Rc<RefCell<SingleThreadedExecutor>>
+}
+
+impl SingleThreadedSubmitter {
+    pub fn new(connection: Connection) -> Self {
+        SingleThreadedSubmitter {
+            executor: RefCell::new(SingleThreadedExecutor::new(connection)).into()
+        }
+    }
+}
+
+impl Submitter for SingleThreadedSubmitter {
+    fn accept<T>(&self, task: T) -> Execution<T::Output, T::Error> where T: GpuTask<Connection> + 'static{
+        self.executor.borrow_mut().accept(task)
+    }
+}
+
+struct SingleThreadedExecutor {
+    connection: Rc<RefCell<Connection>>,
+    fenced_task_queue: Rc<RefCell<FencedTaskQueue>>,
+    animation_frame_handle: i32
+}
+
+impl SingleThreadedExecutor {
+    fn new(connection: Connection) -> Self {
+        let connection = Rc::new(RefCell::new(connection));
+        let connection_clone = connection.clone();
+        let fenced_task_queue = Rc::new(RefCell::new(FencedTaskQueue::new()));
+        let fenced_task_queue_clone = fenced_task_queue.clone();
+
+        let closure: Closure<FnMut()> = Closure::wrap(Box::new(move ||  {
+            fenced_task_queue_clone.borrow_mut().run(&mut connection_clone.borrow_mut());
+        }) as Box<FnMut()>);
+
+        let animation_frame_handle = window().unwrap().request_animation_frame(closure.as_ref().unchecked_ref()).unwrap();
+
+        closure.forget();
+
+        SingleThreadedExecutor {
+            connection,
+            fenced_task_queue,
+            animation_frame_handle
+        }
+    }
+
+    fn accept<T>(&mut self, mut task: T) -> Execution<T::Output, T::Error> where T: GpuTask<Connection> + 'static {
+        match task.progress(&mut self.connection.borrow_mut()) {
+            Progress::Finished(res) => res.into(),
+            Progress::ContinueFenced => {
+                let (job, execution) = job(task);
+
+                self.fenced_task_queue.borrow_mut().push(job, &mut self.connection.borrow_mut());
+
+                execution
+            }
+        }
+    }
+}
+
+impl Drop for SingleThreadedExecutor {
+    fn drop(&mut self) {
+        window().unwrap().cancel_animation_frame(self.animation_frame_handle).unwrap();
+    }
+}
+
+struct FencedTaskQueue {
+    queue: VecDeque<(WebGlSync, Box<ExecutorJob>)>
+}
+
+impl FencedTaskQueue {
+    fn new() -> Self {
+        FencedTaskQueue {
+            queue: VecDeque::new()
+        }
+    }
+
+    fn push<T>(&mut self, job: T, connection: &mut Connection) where T: ExecutorJob + 'static {
+        let fence = connection.0.fence_sync(GL::SYNC_GPU_COMMANDS_COMPLETE, 0).unwrap();
+
+        self.queue.push_back((fence, Box::new(job)));
+    }
+
+    fn run(&mut self, connection: &mut Connection) {
+        let Connection(gl, _) = connection;
+
+        for _ in 0..self.queue.len() {
+            if gl.get_sync_parameter(&self.queue[0].0, GL::SYNC_STATUS).as_f64().unwrap() as u32 == GL::SIGNALED {
+                let (_, job) = self.queue.pop_front().unwrap();
+
+                let fence = gl.fence_sync(GL::SYNC_GPU_COMMANDS_COMPLETE, 0).unwrap();
+
+                self.queue.push_back((fence, job));
+            } else {
+                break;
+            }
+        }
+    }
+}
+
+pub struct Connection(GL, DynamicState);
+
+#[derive(Clone)]
+pub struct RenderingContext<E> {
+    submitter: E,
+}
+
+impl<E> RenderingContext<E> where E: Submitter {
+    pub fn submit<T>(&self, task: T) -> Execution<T::Output, T::Error> where T: GpuTask<Connection> + 'static {
+        self.submitter.accept(task)
+    }
+}
+
+impl RenderingContext<SingleThreadedSubmitter> {
+    pub fn from_webgl2_context(gl: GL, state: DynamicState) -> RenderingContext<SingleThreadedSubmitter> {
+        RenderingContext {
+            submitter: SingleThreadedSubmitter::new(Connection(gl, state))
+        }
+    }
+}
+
+pub enum SubmitError<E> {
+    Cancelled,
+    TaskError(E)
+}
+
+impl<E> From<Canceled> for SubmitError<E> {
+    fn from(_: Canceled) -> Self {
+        SubmitError::Cancelled
+    }
+}
+
+pub struct DynamicState {
     active_program: Option<WebGlProgram>,
     bound_array_buffer: Option<WebGlBuffer>,
     bound_element_array_buffer: Option<WebGlBuffer>,
@@ -179,7 +340,7 @@ pub struct DynamicStateCache {
 //    stencil_op_alpha: StencilOp,
 }
 
-impl DynamicStateCache {
+impl DynamicState {
     pub fn active_program(&self) -> Option<&WebGlProgram> {
         self.active_program.as_ref()
     }
@@ -793,6 +954,49 @@ impl DynamicStateCache {
     }
 }
 
+impl DynamicState {
+    pub fn initial(context: &GL) -> Self {
+        let max_combined_texture_image_units = context.get_parameter(GL::MAX_COMBINED_TEXTURE_IMAGE_UNITS).unwrap().as_f64().unwrap() as usize;
+
+        DynamicState {
+            active_program: None,
+            bound_array_buffer: None,
+            bound_element_array_buffer: None,
+            bound_copy_read_buffer: None,
+            bound_copy_write_buffer: None,
+            bound_pixel_pack_buffer: None,
+            bound_pixel_unpack_buffer: None,
+            bound_transform_feedback_buffers: vec![BufferRange::None; context.get_parameter(GL::MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS).unwrap().as_f64().unwrap() as usize],
+            bound_uniform_buffers: vec![BufferRange::None; context.get_parameter(GL::MAX_UNIFORM_BUFFER_BINDINGS).unwrap().as_f64().unwrap() as usize],
+            bound_draw_framebuffer: None,
+            bound_read_framebuffer: None,
+            bound_renderbuffer: None,
+            bound_texture_2d: None,
+            bound_texture_cube_map: None,
+            bound_texture_3d: None,
+            bound_texture_2d_array: None,
+            bound_samplers: vec![None; max_combined_texture_image_units],
+            texture_units_lru: TextureUnitLRU::new(max_combined_texture_image_units),
+            texture_units_textures: vec![None; max_combined_texture_image_units],
+            bound_vertex_array: None,
+            active_texture: 0,
+            clear_color: [0.0, 0.0, 0.0, 0.0],
+            clear_depth: 1.0,
+            clear_stencil: 0,
+            depth_test_enabled: false,
+            stencil_test_enabled: false,
+            scissor_test_enabled: false,
+            blend_enabled: false,
+            cull_face_enabled: false,
+            dither_enabled: true,
+            polygon_offset_fill_enabled: false,
+            sample_aplha_to_coverage_enabled: false,
+            sample_coverage_enabled: false,
+            rasterizer_discard_enabled: false,
+        }
+    }
+}
+
 fn identical<T>(a: Option<&T>, b: Option<&T>) -> bool where T: AsRef<JsValue> {
     a.map(|t| t.as_ref()) == b.map(|t| t.as_ref())
 }
@@ -807,6 +1011,7 @@ impl<'a, F, E> ContextUpdate<'a, E> for Option<F> where F: FnOnce(&GL) -> Result
     }
 }
 
+#[derive(Clone)]
 pub enum BufferRange<T> {
     None,
     Full(T),

@@ -18,6 +18,8 @@ features = [
     "WebGlProgram",
     "WebGlRenderbuffer",
     "WebGlSampler",
+    "WebGlSync",
     "WebGlTexture",
-    "WebGlVertexArrayObject"
+    "WebGlVertexArrayObject",
+    "Window"
 ]

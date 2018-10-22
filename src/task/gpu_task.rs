@@ -5,11 +5,11 @@ pub trait GpuTask<Ec> {
 
     type Error;
 
-    fn progress(&mut self, execution_context: &mut Ec) -> Execution<Self::Output, Self::Error>;
+    fn progress(&mut self, execution_context: &mut Ec) -> Progress<Self::Output, Self::Error>;
 }
 
 
-pub enum Execution<O, E> {
+pub enum Progress<O, E> {
     Finished(Result<O, E>),
     ContinueFenced
 }

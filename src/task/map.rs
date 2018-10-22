@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use super::{GpuTask, Execution };
+use super::{GpuTask, Progress};
 
 pub struct Map<A, F, Ec> where A: GpuTask<Ec> {
     task: A,
@@ -23,14 +23,14 @@ impl <A, B, F, Ec> GpuTask<Ec> for Map<A, F, Ec> where A: GpuTask<Ec>, F: FnOnce
 
     type Error = A::Error;
 
-    fn progress(&mut self, execution_context: &mut Ec) -> Execution<B, A::Error> {
+    fn progress(&mut self, execution_context: &mut Ec) -> Progress<B, A::Error> {
         match self.task.progress(execution_context) {
-            Execution::Finished(result) => {
+            Progress::Finished(result) => {
                 let f = self.f.take().expect("Cannot execute Map again after it has finished");
 
-                Execution::Finished(result.map(f))
+                Progress::Finished(result.map(f))
             },
-            Execution::ContinueFenced => Execution::ContinueFenced
+            Progress::ContinueFenced => Progress::ContinueFenced
         }
     }
 }

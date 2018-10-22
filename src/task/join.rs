@@ -1,6 +1,6 @@
 #![allow(non_snake_case)]
 
-use super::{GpuTask, Execution};
+use super::{GpuTask, Progress};
 use super::maybe_done::{MaybeDone, maybe_done};
 
 macro_rules! generate {
@@ -11,8 +11,8 @@ macro_rules! generate {
         $(#[$doc])*
         pub struct $Join<A, $($B),*, Ec> where A: GpuTask<Ec>, $($B: GpuTask<Ec, Error=A::Error>),*
         {
-            a: MaybeDone<A, Ec>,
-            $($B: MaybeDone<$B, Ec>),*
+            a: MaybeDone<A, A::Output, Ec>,
+            $($B: MaybeDone<$B, $B::Output, Ec>),*
         }
 
         impl<A, $($B),*, Ec> $Join<A, $($B),*, Ec> where A: GpuTask<Ec>, $($B: GpuTask<Ec, Error=A::Error>),* {
@@ -29,23 +29,23 @@ macro_rules! generate {
 
             type Error = A::Error;
 
-            fn progress(&mut self, execution_context: &mut Ec) -> Execution<(A::Output, $($B::Output),*), A::Error> {
+            fn progress(&mut self, execution_context: &mut Ec) -> Progress<(A::Output, $($B::Output),*), A::Error> {
                 let mut all_done = match self.a.progress(execution_context) {
                     Ok(done) => done,
-                    Err(err) => return Execution::Finished(Err(err))
+                    Err(err) => return Progress::Finished(Err(err))
                 };
 
                 $(
                     all_done = match self.$B.progress(execution_context) {
                         Ok(done) => all_done && done,
-                        Err(err) => return Execution::Finished(Err(err))
+                        Err(err) => return Progress::Finished(Err(err))
                     };
                 )*
 
                 if all_done {
-                    Execution::Finished(Ok((self.a.take(), $(self.$B.take()),*)))
+                    Progress::Finished(Ok((self.a.take(), $(self.$B.take()),*)))
                 } else {
-                    Execution::ContinueFenced
+                    Progress::ContinueFenced
                 }
             }
         }

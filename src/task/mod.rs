@@ -5,10 +5,13 @@ mod empty;
 pub use self::empty::Empty;
 
 mod gpu_task;
-pub use self::gpu_task::{GpuTask, GpuTaskExt, Execution };
+pub use self::gpu_task::{GpuTask, GpuTaskExt, Progress};
 
 mod join;
 pub use self::join::{ Join, Join3, Join4, Join5 };
+
+//mod join_all;
+//pub use self::join_all::{ JoinAll };
 
 mod map;
 pub use self::map::Map;

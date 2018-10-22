@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use super::{GpuTask, Execution };
+use super::{GpuTask, Progress};
 
 pub struct OrElse<C1, C2, F, Ec> where C1: GpuTask<Ec>, C2: GpuTask<Ec, Output=C1::Output>, F: FnOnce(C1::Error) -> C2 {
     state: OrElseState<C1, C2, F>,
@@ -26,12 +26,12 @@ impl <C1, C2, F, Ec> GpuTask<Ec> for OrElse<C1, C2, F, Ec> where C1: GpuTask<Ec>
 
     type Error = C2::Error;
 
-    fn progress(&mut self, execution_context: &mut Ec) -> Execution<C2::Output, C2::Error> {
+    fn progress(&mut self, execution_context: &mut Ec) -> Progress<C2::Output, C2::Error> {
         match self.state {
             OrElseState::A(ref mut task, ref mut f) => {
                 match task.progress(execution_context) {
-                    Execution::Finished(Ok(output)) => Execution::Finished(Ok(output)),
-                    Execution::Finished(Err(err)) => {
+                    Progress::Finished(Ok(output)) => Progress::Finished(Ok(output)),
+                    Progress::Finished(Err(err)) => {
                         let f = f.take().expect("Cannot execute state A again after it finishes");
                         let mut b = f(err);
                         let execution = b.progress(execution_context);
@@ -40,7 +40,7 @@ impl <C1, C2, F, Ec> GpuTask<Ec> for OrElse<C1, C2, F, Ec> where C1: GpuTask<Ec>
 
                         execution
                     },
-                    Execution::ContinueFenced => Execution::ContinueFenced
+                    Progress::ContinueFenced => Progress::ContinueFenced
                 }
             }
             OrElseState::B(ref mut task) => task.progress(execution_context)
