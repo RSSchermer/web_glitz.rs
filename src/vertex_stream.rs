@@ -1,3 +1,8 @@
+use std::hash::Hash;
+use std::ops::RangeBounds;
+use std::ops::RangeFull;
+use std::ops::Index;
+
 pub trait VertexSource {
     fn input_attribute_description(&self, name: &str) -> &VertexInputAttributeDescription;
 }
@@ -6,7 +11,7 @@ pub struct VertexInputAttributeDescription {
     pub format: AttributeFormat,
     pub offset_in_bytes: usize,
     pub stride_in_bytes: usize,
-    pub per_instance: bool
+    pub divisor: usize
 }
 
 enum AttributeFormat {
@@ -81,6 +86,7 @@ impl <T, R> Index<R> for T where T: VertexStreamDescription, R: RangeBounds<usiz
 pub struct VertexStreamDescription {
     attributes: FnvHashmap<u64, (Buffer, VertexInputAttributeDescription)>,
     indices: Option<(Buffer, IndexFormat)>,
+    instances: usize
 }
 
 impl VertexStreamDescription {
@@ -132,10 +138,13 @@ impl VertexStreamDescriptionBuilder {
             let hasher = FnvHasher::default();
             let hash = hasher.write(name).finish();
 
-            if let Some(context) = self.attributes.values().first().map(|b| b.context) && context != buffer.context {
-                self.error = Some(VertexStreamDescriptionBuildError::AttributeBufferContextMismatch(name.to_string()))
-            } else {
-                self.attributes.set(hash, (buffer, description))
+            match self.attributes.values().first().map(|b| b.context) {
+                Some(context) if context != buffer.context => {
+                    self.error = Some(VertexStreamDescriptionBuildError::AttributeBufferContextMismatch(name.to_string()))
+                },
+                _ => {
+                    self.attributes.set(hash, (buffer, description))
+                }
             }
         }
     }

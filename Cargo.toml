@@ -6,6 +6,7 @@ authors = ["Roland <roland0507@gmail.com>"]
 [dependencies]
 #phf = "0.7.22"
 #phf_macros = "0.7.22"
+failure = "0.1.3"
 futures = "0.1.25"
 wasm-bindgen = "0.2.23"
 

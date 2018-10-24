@@ -1,20 +1,24 @@
-trait Uniforms {
-    fn get(&self, identifier: &UniformIdentifier) -> Option<&AsUniformValue>;
+use std::fmt;
+use std::fmt::Display;
+use std::borrow::Borrow;
+
+pub trait Uniforms {
+    fn get(&self, identifier: &UniformIdentifier) -> Option<UniformValue>;
 }
 
 #[derive(PartialEq, Hash)]
-struct UniformIdentifier {
+pub struct UniformIdentifier {
     segments: Vec<UniformIdentifierSegment>
 }
 
 impl UniformIdentifier {
-    fn from_string(string: &str) -> Self {
+    pub fn from_string(string: &str) -> Self {
         UniformIdentifier {
             segments: string.split(".").map(|s| UniformIdentifierSegment::from_string(s)).collect()
         }
     }
 
-    fn is_array_identifier(&self) -> bool {
+    pub fn is_array_identifier(&self) -> bool {
         if let Some(segment) = self.segments.last() {
             segment.is_array_identifier()
         } else {
@@ -25,30 +29,30 @@ impl UniformIdentifier {
 
 impl Display for UniformIdentifier {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, segments.map(|s| s.to_string()).join("."))
+        write!(f, "{}", self.segments.iter().map(|s| s.to_string()).collect::<Vec<_>>().join("."))
     }
 }
 
 #[derive(Clone, PartialEq, Hash)]
-enum UniformIdentifierSegment {
+pub enum UniformIdentifierSegment {
     Simple(String),
     ArrayElement(String, u32)
 }
 
 impl UniformIdentifierSegment {
-    fn from_string(string: &str) -> Self {
-        let parts = string.split("[");
+    pub fn from_string(string: &str) -> Self {
+        let parts = string.split("[").collect::<Vec<_>>();
 
         if parts.len() == 1 {
-            UniformIdentifierSegment::Simple(parts[0])
+            UniformIdentifierSegment::Simple(parts[0].to_string())
         } else {
             let index = parts[1].trim_right_matches("]").parse::<u32>().unwrap();
 
-            UniformIdentifierSegment::ArrayElement(parts[0], index);
+            UniformIdentifierSegment::ArrayElement(parts[0].to_string(), index)
         }
     }
 
-    fn is_array_identifier(&self) -> bool {
+    pub fn is_array_identifier(&self) -> bool {
         if let UniformIdentifierSegment::ArrayElement(_, _) = self {
             true
         } else {
@@ -68,17 +72,17 @@ impl Into<UniformIdentifier> for UniformIdentifierSegment {
 impl Display for UniformIdentifierSegment {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            UniformIdentifierSegment::Simple(name) => write!(f, name),
+            UniformIdentifierSegment::Simple(name) => write!(f, "{}", name),
             UniformIdentifierSegment::ArrayElement(array_name, index) => write!(f, "{}[{}]", array_name, index)
         }
     }
 }
 
-enum UniformValue<'a> {
+pub enum UniformValue<'a> {
     Float(f32),
     Vector2((f32, f32)),
-    Vector3((f32, f32)),
-    Vector4((f32, f32)),
+    Vector3((f32, f32, f32)),
+    Vector4((f32, f32, f32, f32)),
     Matrix2x2([f32;4]),
     Matrix2x3([f32;6]),
     Matrix2x4([f32;8]),
@@ -127,7 +131,7 @@ enum UniformValue<'a> {
     UnsignedIntegerVector4Array(ArrayValue<'a, (u32, u32, u32, u32)>),
 }
 
-enum ArrayValue<'a, T> {
+pub enum ArrayValue<'a, T> {
     Slice(&'a [T]),
     BoxedSlice(Box<[T]>)
 }
@@ -146,14 +150,14 @@ impl<T> From<Box<[T]>> for ArrayValue<'static, T> {
 
 impl<'a, T> Borrow<[T]> for ArrayValue<'a, T> {
     fn borrow(&self) -> &[T] {
-        match *self {
+        match self {
             ArrayValue::Slice(value) => value,
             ArrayValue::BoxedSlice(value) => value.borrow()
         }
     }
 }
 
-pub trait AsUniformValue: Display {
+pub trait AsUniformValue {
     fn as_uniform_value(&self) -> UniformValue;
 }
 

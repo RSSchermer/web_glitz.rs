@@ -239,22 +239,26 @@ impl FencedTaskQueue {
     }
 }
 
-pub struct Connection(GL, DynamicState);
+pub struct Connection(pub GL, pub DynamicState);
 
-#[derive(Clone)]
-pub struct RenderingContext<E> {
-    submitter: E,
+pub trait RenderingContext: Clone {
+    fn submit<T>(&self, task: T) -> Execution<T::Output, T::Error> where T: GpuTask<Connection> + 'static;
 }
 
-impl<E> RenderingContext<E> where E: Submitter {
+#[derive(Clone)]
+pub struct SingleThreadedContext {
+    submitter: SingleThreadedSubmitter,
+}
+
+impl SingleThreadedContext {
     pub fn submit<T>(&self, task: T) -> Execution<T::Output, T::Error> where T: GpuTask<Connection> + 'static {
         self.submitter.accept(task)
     }
 }
 
-impl RenderingContext<SingleThreadedSubmitter> {
-    pub fn from_webgl2_context(gl: GL, state: DynamicState) -> RenderingContext<SingleThreadedSubmitter> {
-        RenderingContext {
+impl SingleThreadedContext {
+    pub fn from_webgl2_context(gl: GL, state: DynamicState) -> Self {
+        SingleThreadedContext {
             submitter: SingleThreadedSubmitter::new(Connection(gl, state))
         }
     }

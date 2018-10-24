@@ -10,6 +10,10 @@ extern crate futures;
 extern crate wasm_bindgen;
 extern crate web_sys;
 
-//pub mod buffer;
+//#[macro_use] extern crate failure;
+
+pub mod buffer;
 pub mod task;
 pub mod rendering_context;
+pub mod uniforms;
+//pub mod vertex_stream;
