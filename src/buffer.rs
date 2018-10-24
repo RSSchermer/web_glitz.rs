@@ -153,6 +153,10 @@ impl<C> BufferSlice<C> where C: RenderingContext {
         &self.buffer_handle.context
     }
 
+    pub fn buffer(&self) -> &GpuBufferHandle<C> {
+        &self.buffer_handle
+    }
+
     pub fn offset_in_bytes(&self) -> usize {
         self.offset_in_bytes
     }
