@@ -21,6 +21,7 @@ use web_sys::{
     window
 };
 
+use super::buffer::{BufferHandle, BufferUsage };
 use super::task::{GpuTask, Progress};
 
 const TEXTURE_UNIT_CONSTANTS: [u32;32] = [
@@ -242,6 +243,10 @@ impl FencedTaskQueue {
 pub struct Connection(pub GL, pub DynamicState);
 
 pub trait RenderingContext: Clone {
+    fn create_value_buffer<T>(&self, usage_hint: BufferUsage) -> BufferHandle<T, Self>;
+
+    fn create_array_buffer<T>(&self, len: usize, usage_hint: BufferUsage) -> BufferHandle<[T], Self>;
+
     fn submit<T>(&self, task: T) -> Execution<T::Output, T::Error> where T: GpuTask<Connection> + 'static;
 }
 
@@ -250,8 +255,16 @@ pub struct SingleThreadedContext {
     submitter: SingleThreadedSubmitter,
 }
 
-impl SingleThreadedContext {
-    pub fn submit<T>(&self, task: T) -> Execution<T::Output, T::Error> where T: GpuTask<Connection> + 'static {
+impl RenderingContext for SingleThreadedContext {
+    fn create_value_buffer<T>(&self, usage_hint: BufferUsage) -> BufferHandle<T, Self> {
+        BufferHandle::value(self.clone(), usage_hint)
+    }
+
+    fn create_array_buffer<T>(&self, len: usize, usage_hint: BufferUsage) -> BufferHandle<[T], Self> {
+        BufferHandle::array(self.clone(), len, usage_hint)
+    }
+
+    fn submit<T>(&self, task: T) -> Execution<T::Output, T::Error> where T: GpuTask<Connection> + 'static {
         self.submitter.accept(task)
     }
 }

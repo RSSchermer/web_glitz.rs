@@ -85,8 +85,7 @@ impl <T, R> Index<R> for T where T: VertexStreamDescription, R: RangeBounds<usiz
 
 pub struct VertexStreamDescription {
     attributes: FnvHashmap<u64, (Buffer, VertexInputAttributeDescription)>,
-    indices: Option<(Buffer, IndexFormat)>,
-    instances: usize
+    indices: Option<(Buffer, IndexFormat)>
 }
 
 impl VertexStreamDescription {
@@ -158,13 +157,16 @@ impl VertexStreamDescriptionBuilder {
             Err(error)
         } else {
             if let Some(context) = self.attributes.values().first().map(|b| b.context) {
-                if let Some((index_buffer, _)) = self.indices && index_buffer.context != context {
-                    Err(VertexStreamDescriptionBuildError::IndexBufferContextMismatch)
-                } else {
-                    Ok(VertexStreamDescription {
-                        attributes: self.attributes,
-                        indices: self.indices
-                    })
+                match self.indices {
+                    Some((index_buffer, _)) if index_buffer.context != context => {
+                        Err(VertexStreamDescriptionBuildError::IndexBufferContextMismatch)
+                    },
+                    _ => {
+                        Ok(VertexStreamDescription {
+                            attributes: self.attributes,
+                            indices: self.indices
+                        })
+                    }
                 }
             } else {
                 Err(VertexStreamDescriptionBuildError::NoAttributes)
