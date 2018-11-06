@@ -1,0 +1,14 @@
+[package]
+name = "web-glitz-derive"
+version = "0.1.0"
+authors = ["Roland Schermer <roland0507@gmail.com>"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "0.4"
+quote = "0.6.3"
+syn = "0.15"
+web-glitz = { version = "0.1.0", path = "../web_glitz" }
+

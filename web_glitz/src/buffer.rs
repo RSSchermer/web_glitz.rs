@@ -45,43 +45,51 @@ impl BufferUsage {
 }
 
 pub struct BufferHandle<T, C> where T: ?Sized, C: RenderingContext {
-    gl_object_id: Arc<Option<JsId>>,
+    internal: Arc<BufferHandleInternal<C>>,
+    _marker: marker::PhantomData<Box<T>>,
+}
+
+struct BufferHandleInternal<C> where C: RenderingContext {
+    gl_object_id: Option<JsId>,
     context: C,
     len: usize,
     size_in_bytes: usize,
     usage_hint: BufferUsage,
-    _marker: marker::PhantomData<Box<T>>,
 }
 
 impl<T, C> BufferHandle<T, C> where T: ?Sized, C: RenderingContext {
     pub fn context(&self) -> &C {
-        &self.context
+        &self.internal.context
     }
 
     pub fn usage_hint(&self) -> BufferUsage {
-        self.usage_hint
+        self.internal.usage_hint
     }
 
     pub(crate) fn gl_object(&self, connection: &mut Connection) -> WebGlBuffer {
+        // It is safe to mutate the handle's JsId here without a Mutex, because by design an
+        // &mut Connection should be globally unique (this can only happen on the main graphics
+        // thread, not on multiple threads concurrently).
+
         unsafe {
             let Connection(gl, state) = connection;
+            let internal = &self.internal;
+            let maybe_buffer = &internal.gl_object_id as *const _ as *mut Option<JsId>;
 
-            let maybe_buffer = Arc::into_raw(self.gl_object_id.clone()) as *mut Option<JsId>;
-
-            if (*maybe_buffer).is_none() {
+            if let Some(js_id) = *maybe_buffer {
+                JsId::into_value(js_id).unchecked_into()
+            } else {
                 let buffer_object = gl.create_buffer().unwrap();
 
                 state.set_bound_copy_write_buffer(Some(&buffer_object)).apply(gl).unwrap();
-                gl.buffer_data_with_i32(GL::COPY_WRITE_BUFFER, self.size_in_bytes as i32, self.usage_hint.gl_id());
+                gl.buffer_data_with_i32(GL::COPY_WRITE_BUFFER, internal.size_in_bytes as i32, internal.usage_hint.gl_id());
 
-                *maybe_buffer = Some(JsId::from_value(buffer_object.into()));
-            };
+                let js_id = JsId::from_value(buffer_object.into());
 
-            let js_id = (*maybe_buffer).unwrap();
+                *maybe_buffer = Some(js_id);
 
-            Arc::from_raw(maybe_buffer);
-
-            JsId::into_value(js_id).unchecked_into()
+                JsId::into_value(js_id).unchecked_into()
+            }
         }
     }
 }
@@ -89,11 +97,13 @@ impl<T, C> BufferHandle<T, C> where T: ?Sized, C: RenderingContext {
 impl<T, C> BufferHandle<T, C> where C: RenderingContext {
     pub(crate) fn value(context: C, usage_hint: BufferUsage) -> Self {
         BufferHandle {
-            gl_object_id: Arc::new(None),
-            context,
-            len: 1,
-            usage_hint,
-            size_in_bytes: mem::size_of::<T>(),
+            internal: Arc::new(BufferHandleInternal {
+                gl_object_id: None,
+                context,
+                len: 1,
+                usage_hint,
+                size_in_bytes: mem::size_of::<T>()
+            }),
             _marker: marker::PhantomData
         }
     }
@@ -116,17 +126,19 @@ impl<T, C> BufferHandle<T, C> where C: RenderingContext {
 impl<T, C> BufferHandle<[T], C> where C: RenderingContext {
     pub(crate) fn array(context: C, len: usize, usage_hint: BufferUsage) -> Self {
         BufferHandle {
-            gl_object_id: Arc::new(None),
-            context,
-            len,
-            usage_hint,
-            size_in_bytes: mem::size_of::<T>() * len,
+            internal: Arc::new(BufferHandleInternal {
+                gl_object_id: None,
+                context,
+                len,
+                usage_hint,
+                size_in_bytes: mem::size_of::<T>() * len
+            }),
             _marker: marker::PhantomData
         }
     }
 
     pub fn len(&self) -> usize {
-        self.len
+        self.internal.len
     }
 
     pub fn upload_task<D>(&self, data: D) -> BufferUploadTask<ArrayBufferSlice<T, C>, D> where D: Borrow<[T]> + Send + Sync + 'static {
@@ -144,10 +156,11 @@ impl<T, C> BufferHandle<[T], C> where C: RenderingContext {
     }
 
     pub fn slice<R>(&self, range: R) -> ArrayBufferSlice<T, C> where R: RangeBounds<usize> {
-        let (start, end) = slice_bounds(range, self.len);
+        let len = self.internal.len;
+        let (start, end) = slice_bounds(range, len);
 
-        if end - start < 1 || end > self.len {
-            panic!("Range must be a positive non-zero range that fits 0..{}", self.len);
+        if end - start < 1 || end > len {
+            panic!("Range must be a positive non-zero range that fits 0..{}", len);
         }
 
         ArrayBufferSlice {
@@ -161,11 +174,7 @@ impl<T, C> BufferHandle<[T], C> where C: RenderingContext {
 impl<T, C> Clone for BufferHandle<T, C> where C: RenderingContext {
     fn clone(&self) -> Self {
         BufferHandle {
-            gl_object_id: self.gl_object_id.clone(),
-            context: self.context.clone(),
-            len: self.len,
-            size_in_bytes: self.size_in_bytes,
-            usage_hint: self.usage_hint,
+            internal: self.internal.clone(),
             _marker: marker::PhantomData
         }
     }
@@ -174,19 +183,15 @@ impl<T, C> Clone for BufferHandle<T, C> where C: RenderingContext {
 impl<T, C> Clone for BufferHandle<[T], C> where C: RenderingContext {
     fn clone(&self) -> Self {
         BufferHandle {
-            gl_object_id: self.gl_object_id.clone(),
-            context: self.context.clone(),
-            len: self.len,
-            size_in_bytes: self.size_in_bytes,
-            usage_hint: self.usage_hint,
+            internal: self.internal.clone(),
             _marker: marker::PhantomData
         }
     }
 }
 
-impl<T, C> Drop for BufferHandle<T, C> where T: ?Sized, C: RenderingContext {
+impl<C> Drop for BufferHandleInternal<C> where C: RenderingContext {
     fn drop(&mut self) {
-        if let Some(buffer_id) = *self.gl_object_id {
+        if let Some(buffer_id) = self.gl_object_id {
             self.context.submit(DropGlBufferTask {
                 buffer_id
             });
@@ -202,11 +207,11 @@ pub struct ArrayBufferSlice<T, C> where C: RenderingContext {
 
 impl<T, C> ArrayBufferSlice<T, C> where C: RenderingContext {
     pub fn context(&self) -> &C {
-        &self.buffer_handle.context
+        &self.buffer_handle.internal.context
     }
 
     pub fn usage_hint(&self) -> BufferUsage {
-        self.buffer_handle.usage_hint
+        self.buffer_handle.internal.usage_hint
     }
 
     pub fn len(&self) -> usize {
@@ -256,7 +261,7 @@ impl<T, C> Into<ArrayBufferSlice<T, C>> for BufferHandle<[T], C> where C: Render
     fn into(self) -> ArrayBufferSlice<T, C> {
         ArrayBufferSlice {
             offset: 0,
-            len: self.len,
+            len: self.internal.len,
             buffer_handle: self
         }
     }
@@ -362,10 +367,11 @@ impl<T, C> GpuTask<Connection> for BufferDownloadTask<BufferHandle<T, C>> where 
                 let buffer = self.buffer_rep.gl_object(connection);
                 let Connection(gl, state) = connection;
                 let read_buffer = gl.create_buffer().unwrap();
+                let size_in_bytes = self.buffer_rep.internal.size_in_bytes;
 
                 state.set_bound_copy_write_buffer(Some(&read_buffer)).apply(gl).unwrap();
 
-                gl.buffer_data_with_i32(GL::COPY_WRITE_BUFFER, self.buffer_rep.size_in_bytes as i32, GL::STREAM_READ);
+                gl.buffer_data_with_i32(GL::COPY_WRITE_BUFFER, size_in_bytes as i32, GL::STREAM_READ);
 
                 state.set_bound_copy_read_buffer(Some(&buffer)).apply(gl).unwrap();
 
@@ -374,7 +380,7 @@ impl<T, C> GpuTask<Connection> for BufferDownloadTask<BufferHandle<T, C>> where 
                     GL::COPY_WRITE_BUFFER,
                     0,
                     0,
-                    self.buffer_rep.size_in_bytes as i32
+                    size_in_bytes as i32
                 );
 
                 mem::replace(&mut self.state, BufferDownloadState::Copied(Some(read_buffer)));
@@ -389,7 +395,7 @@ impl<T, C> GpuTask<Connection> for BufferDownloadTask<BufferHandle<T, C>> where 
 
                 state.set_bound_copy_read_buffer(Some(&read_buffer)).apply(gl).unwrap();
 
-                let mut data = vec![0; self.buffer_rep.size_in_bytes];
+                let mut data = vec![0; self.buffer_rep.internal.size_in_bytes];
 
                 gl.get_buffer_sub_data_with_i32_and_u8_array(GL::COPY_READ_BUFFER, 0, &mut data);
 
@@ -445,7 +451,7 @@ impl<T, C> GpuTask<Connection> for BufferDownloadTask<ArrayBufferSlice<T, C>> wh
 
                 state.set_bound_copy_read_buffer(Some(&read_buffer)).apply(gl).unwrap();
 
-                let mut data = vec![0; self.buffer_rep.buffer_handle.len * mem::size_of::<T>()];
+                let mut data = vec![0; self.buffer_rep.len * mem::size_of::<T>()];
 
                 gl.get_buffer_sub_data_with_i32_and_u8_array(GL::COPY_READ_BUFFER, 0, &mut data);
 
