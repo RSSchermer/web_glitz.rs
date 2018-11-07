@@ -7,14 +7,14 @@ use wasm_bindgen::JsValue;
 
 #[derive(Clone, Copy)]
 pub(crate) struct JsId {
-    id: u32
+    id: u32,
 }
 
 impl JsId {
     pub(crate) fn from_value(value: JsValue) -> JsId {
         unsafe {
             JsId {
-                id: mem::transmute(value)
+                id: mem::transmute(value),
             }
         }
     }

@@ -1,10 +1,10 @@
 use crate::buffer::BufferHandle;
 use crate::rendering_context::RenderingContext;
 
-use super::{ AttributeFormat, VertexInputAttributeDescriptor };
+use super::{AttributeFormat, VertexInputAttributeDescriptor};
 
 pub trait Vertex: Sized {
-    type InputAttributeDescriptors: IntoIterator<Item=VertexInputAttributeDescriptor>;
+    type InputAttributeDescriptors: IntoIterator<Item = VertexInputAttributeDescriptor>;
 
     fn input_attribute_descriptors() -> Self::InputAttributeDescriptors;
 }

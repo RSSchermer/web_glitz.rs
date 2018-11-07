@@ -5,10 +5,10 @@ extern crate syn;
 
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{ DeriveInput, parse_macro_input };
+use syn::{parse_macro_input, DeriveInput};
 
-mod vertex;
 mod util;
+mod vertex;
 
 #[proc_macro_derive(Vertex, attributes(vertex_attribute))]
 pub fn derive_vertex(input: TokenStream) -> TokenStream {

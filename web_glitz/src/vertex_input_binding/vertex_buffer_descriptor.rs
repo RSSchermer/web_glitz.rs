@@ -8,14 +8,14 @@ pub trait VertexBufferDescriptor {
 
 pub enum InputRate {
     PerVertex,
-    PerInstance
+    PerInstance,
 }
 
 #[derive(PartialEq, Debug)]
 pub struct VertexInputAttributeDescriptor {
     pub location: u32,
     pub offset: u8,
-    pub format: AttributeFormat
+    pub format: AttributeFormat,
 }
 
 #[derive(PartialEq, Debug)]

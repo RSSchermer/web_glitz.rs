@@ -3,28 +3,20 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
 
-use futures::{ Async, Poll };
 use futures::future::Future;
-use futures::sync::oneshot::{ channel, Sender, Receiver, Canceled };
-use wasm_bindgen::{ JsValue, JsCast };
+use futures::sync::oneshot::{channel, Canceled, Receiver, Sender};
+use futures::{Async, Poll};
 use wasm_bindgen::closure::Closure;
+use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{
-    WebGl2RenderingContext as GL,
-    WebGlBuffer,
-    WebGlFramebuffer,
-    WebGlProgram,
-    WebGlRenderbuffer,
-    WebGlSampler,
-    WebGlSync,
-    WebGlTexture,
-    WebGlVertexArrayObject,
-    window
+    window, WebGl2RenderingContext as GL, WebGlBuffer, WebGlFramebuffer, WebGlProgram,
+    WebGlRenderbuffer, WebGlSampler, WebGlSync, WebGlTexture, WebGlVertexArrayObject,
 };
 
-use super::buffer::{BufferHandle, BufferUsage };
+use super::buffer::{BufferHandle, BufferUsage};
 use super::task::{GpuTask, Progress};
 
-const TEXTURE_UNIT_CONSTANTS: [u32;32] = [
+const TEXTURE_UNIT_CONSTANTS: [u32; 32] = [
     GL::TEXTURE0,
     GL::TEXTURE1,
     GL::TEXTURE2,
@@ -56,16 +48,18 @@ const TEXTURE_UNIT_CONSTANTS: [u32;32] = [
     GL::TEXTURE28,
     GL::TEXTURE29,
     GL::TEXTURE30,
-    GL::TEXTURE31
+    GL::TEXTURE31,
 ];
 
 pub trait Submitter: Clone {
-    fn accept<T>(&self, task: T) -> Execution<T::Output, T::Error> where T: GpuTask<Connection> + 'static;
+    fn accept<T>(&self, task: T) -> Execution<T::Output, T::Error>
+    where
+        T: GpuTask<Connection> + 'static;
 }
 
 pub enum Execution<O, E> {
     Ready(Option<Result<O, E>>),
-    Pending(Receiver<Result<O, E>>)
+    Pending(Receiver<Result<O, E>>),
 }
 
 impl<O, E> Future for Execution<O, E> {
@@ -75,13 +69,17 @@ impl<O, E> Future for Execution<O, E> {
 
     fn poll(&mut self) -> Poll<O, SubmitError<E>> {
         match self {
-            Execution::Ready(ref mut res) => res.take().expect("Cannot poll Execution more than once after its ready").map(|o| Async::Ready(o)).map_err(|e| SubmitError::TaskError(e)),
+            Execution::Ready(ref mut res) => res
+                .take()
+                .expect("Cannot poll Execution more than once after its ready")
+                .map(|o| Async::Ready(o))
+                .map_err(|e| SubmitError::TaskError(e)),
             Execution::Pending(ref mut recv) => match recv.poll() {
                 Ok(Async::Ready(Ok(output))) => Ok(Async::Ready(output)),
                 Ok(Async::Ready(Err(err))) => Err(SubmitError::TaskError(err)),
                 Ok(Async::NotReady) => Ok(Async::NotReady),
-                Err(Canceled) => Err(SubmitError::Cancelled)
-            }
+                Err(Canceled) => Err(SubmitError::Cancelled),
+            },
         }
     }
 }
@@ -105,23 +103,34 @@ trait ExecutorJob {
 #[derive(PartialEq)]
 enum JobState {
     Finished,
-    ContinueFenced
+    ContinueFenced,
 }
 
-struct Job<T> where T: GpuTask<Connection> {
+struct Job<T>
+where
+    T: GpuTask<Connection>,
+{
     task: T,
-    result_tx: Option<Sender<Result<T::Output, T::Error>>>
+    result_tx: Option<Sender<Result<T::Output, T::Error>>>,
 }
 
-impl<T> ExecutorJob for Job<T> where T: GpuTask<Connection> {
+impl<T> ExecutorJob for Job<T>
+where
+    T: GpuTask<Connection>,
+{
     fn progress(&mut self, connection: &mut Connection) -> JobState {
         match self.task.progress(connection) {
             Progress::Finished(res) => {
-                self.result_tx.take().expect("Cannot progress a Job after it finished").send(res).map_err(|_| SendFailed).unwrap();
+                self.result_tx
+                    .take()
+                    .expect("Cannot progress a Job after it finished")
+                    .send(res)
+                    .map_err(|_| SendFailed)
+                    .unwrap();
 
                 JobState::Finished
-            },
-            Progress::ContinueFenced => JobState::ContinueFenced
+            }
+            Progress::ContinueFenced => JobState::ContinueFenced,
         }
     }
 }
@@ -129,11 +138,14 @@ impl<T> ExecutorJob for Job<T> where T: GpuTask<Connection> {
 #[derive(Debug)]
 struct SendFailed;
 
-fn job<T>(task: T) -> (Job<T>, Execution<T::Output, T::Error>) where T: GpuTask<Connection> {
+fn job<T>(task: T) -> (Job<T>, Execution<T::Output, T::Error>)
+where
+    T: GpuTask<Connection>,
+{
     let (tx, rx) = channel();
     let job = Job {
         task,
-        result_tx: Some(tx)
+        result_tx: Some(tx),
     };
 
     (job, Execution::Pending(rx))
@@ -141,19 +153,22 @@ fn job<T>(task: T) -> (Job<T>, Execution<T::Output, T::Error>) where T: GpuTask<
 
 #[derive(Clone)]
 pub struct SingleThreadedSubmitter {
-    executor: Rc<RefCell<SingleThreadedExecutor>>
+    executor: Rc<RefCell<SingleThreadedExecutor>>,
 }
 
 impl SingleThreadedSubmitter {
     pub fn new(connection: Connection) -> Self {
         SingleThreadedSubmitter {
-            executor: RefCell::new(SingleThreadedExecutor::new(connection)).into()
+            executor: RefCell::new(SingleThreadedExecutor::new(connection)).into(),
         }
     }
 }
 
 impl Submitter for SingleThreadedSubmitter {
-    fn accept<T>(&self, task: T) -> Execution<T::Output, T::Error> where T: GpuTask<Connection> + 'static{
+    fn accept<T>(&self, task: T) -> Execution<T::Output, T::Error>
+    where
+        T: GpuTask<Connection> + 'static,
+    {
         self.executor.borrow_mut().accept(task)
     }
 }
@@ -161,7 +176,7 @@ impl Submitter for SingleThreadedSubmitter {
 struct SingleThreadedExecutor {
     connection: Rc<RefCell<Connection>>,
     fenced_task_queue: Rc<RefCell<FencedTaskQueue>>,
-    animation_frame_handle: i32
+    animation_frame_handle: i32,
 }
 
 impl SingleThreadedExecutor {
@@ -171,28 +186,38 @@ impl SingleThreadedExecutor {
         let fenced_task_queue = Rc::new(RefCell::new(FencedTaskQueue::new()));
         let fenced_task_queue_clone = fenced_task_queue.clone();
 
-        let closure: Closure<FnMut()> = Closure::wrap(Box::new(move ||  {
-            fenced_task_queue_clone.borrow_mut().run(&mut connection_clone.borrow_mut());
+        let closure: Closure<FnMut()> = Closure::wrap(Box::new(move || {
+            fenced_task_queue_clone
+                .borrow_mut()
+                .run(&mut connection_clone.borrow_mut());
         }) as Box<FnMut()>);
 
-        let animation_frame_handle = window().unwrap().request_animation_frame(closure.as_ref().unchecked_ref()).unwrap();
+        let animation_frame_handle = window()
+            .unwrap()
+            .request_animation_frame(closure.as_ref().unchecked_ref())
+            .unwrap();
 
         closure.forget();
 
         SingleThreadedExecutor {
             connection,
             fenced_task_queue,
-            animation_frame_handle
+            animation_frame_handle,
         }
     }
 
-    fn accept<T>(&mut self, mut task: T) -> Execution<T::Output, T::Error> where T: GpuTask<Connection> + 'static {
+    fn accept<T>(&mut self, mut task: T) -> Execution<T::Output, T::Error>
+    where
+        T: GpuTask<Connection> + 'static,
+    {
         match task.progress(&mut self.connection.borrow_mut()) {
             Progress::Finished(res) => res.into(),
             Progress::ContinueFenced => {
                 let (job, execution) = job(task);
 
-                self.fenced_task_queue.borrow_mut().push(job, &mut self.connection.borrow_mut());
+                self.fenced_task_queue
+                    .borrow_mut()
+                    .push(job, &mut self.connection.borrow_mut());
 
                 execution
             }
@@ -202,23 +227,32 @@ impl SingleThreadedExecutor {
 
 impl Drop for SingleThreadedExecutor {
     fn drop(&mut self) {
-        window().unwrap().cancel_animation_frame(self.animation_frame_handle).unwrap();
+        window()
+            .unwrap()
+            .cancel_animation_frame(self.animation_frame_handle)
+            .unwrap();
     }
 }
 
 struct FencedTaskQueue {
-    queue: VecDeque<(WebGlSync, Box<ExecutorJob>)>
+    queue: VecDeque<(WebGlSync, Box<ExecutorJob>)>,
 }
 
 impl FencedTaskQueue {
     fn new() -> Self {
         FencedTaskQueue {
-            queue: VecDeque::new()
+            queue: VecDeque::new(),
         }
     }
 
-    fn push<T>(&mut self, job: T, connection: &mut Connection) where T: ExecutorJob + 'static {
-        let fence = connection.0.fence_sync(GL::SYNC_GPU_COMMANDS_COMPLETE, 0).unwrap();
+    fn push<T>(&mut self, job: T, connection: &mut Connection)
+    where
+        T: ExecutorJob + 'static,
+    {
+        let fence = connection
+            .0
+            .fence_sync(GL::SYNC_GPU_COMMANDS_COMPLETE, 0)
+            .unwrap();
 
         self.queue.push_back((fence, Box::new(job)));
     }
@@ -227,7 +261,12 @@ impl FencedTaskQueue {
         let Connection(gl, _) = connection;
 
         for _ in 0..self.queue.len() {
-            if gl.get_sync_parameter(&self.queue[0].0, GL::SYNC_STATUS).as_f64().unwrap() as u32 == GL::SIGNALED {
+            if gl
+                .get_sync_parameter(&self.queue[0].0, GL::SYNC_STATUS)
+                .as_f64()
+                .unwrap() as u32
+                == GL::SIGNALED
+            {
                 let (_, job) = self.queue.pop_front().unwrap();
 
                 let fence = gl.fence_sync(GL::SYNC_GPU_COMMANDS_COMPLETE, 0).unwrap();
@@ -245,9 +284,15 @@ pub struct Connection(pub GL, pub DynamicState);
 pub trait RenderingContext: Clone {
     fn create_value_buffer<T>(&self, usage_hint: BufferUsage) -> BufferHandle<T, Self>;
 
-    fn create_array_buffer<T>(&self, len: usize, usage_hint: BufferUsage) -> BufferHandle<[T], Self>;
+    fn create_array_buffer<T>(
+        &self,
+        len: usize,
+        usage_hint: BufferUsage,
+    ) -> BufferHandle<[T], Self>;
 
-    fn submit<T>(&self, task: T) -> Execution<T::Output, T::Error> where T: GpuTask<Connection> + 'static;
+    fn submit<T>(&self, task: T) -> Execution<T::Output, T::Error>
+    where
+        T: GpuTask<Connection> + 'static;
 }
 
 #[derive(Clone)]
@@ -260,11 +305,18 @@ impl RenderingContext for SingleThreadedContext {
         BufferHandle::value(self.clone(), usage_hint)
     }
 
-    fn create_array_buffer<T>(&self, len: usize, usage_hint: BufferUsage) -> BufferHandle<[T], Self> {
+    fn create_array_buffer<T>(
+        &self,
+        len: usize,
+        usage_hint: BufferUsage,
+    ) -> BufferHandle<[T], Self> {
         BufferHandle::array(self.clone(), len, usage_hint)
     }
 
-    fn submit<T>(&self, task: T) -> Execution<T::Output, T::Error> where T: GpuTask<Connection> + 'static {
+    fn submit<T>(&self, task: T) -> Execution<T::Output, T::Error>
+    where
+        T: GpuTask<Connection> + 'static,
+    {
         self.submitter.accept(task)
     }
 }
@@ -272,14 +324,14 @@ impl RenderingContext for SingleThreadedContext {
 impl SingleThreadedContext {
     pub fn from_webgl2_context(gl: GL, state: DynamicState) -> Self {
         SingleThreadedContext {
-            submitter: SingleThreadedSubmitter::new(Connection(gl, state))
+            submitter: SingleThreadedSubmitter::new(Connection(gl, state)),
         }
     }
 }
 
 pub enum SubmitError<E> {
     Cancelled,
-    TaskError(E)
+    TaskError(E),
 }
 
 impl<E> From<Canceled> for SubmitError<E> {
@@ -310,7 +362,7 @@ pub struct DynamicState {
     texture_units_textures: Vec<Option<WebGlTexture>>,
     bound_vertex_array: Option<WebGlVertexArrayObject>,
     active_texture: u32,
-    clear_color: [f32;4],
+    clear_color: [f32; 4],
     clear_depth: f32,
     clear_stencil: i32,
     depth_test_enabled: bool,
@@ -323,38 +375,38 @@ pub struct DynamicState {
     sample_aplha_to_coverage_enabled: bool,
     sample_coverage_enabled: bool,
     rasterizer_discard_enabled: bool,
-//    read_buffer: ReadBuffer,
-//    blend_color: [f32;4],
-//    blend_equation_rgb: BlendEquation,
-//    blend_equation_alpha: BlendEquation,
-//    blend_func_rgb: BlendFunc,
-//    blend_func_alpha: BlendFunc,
-//    color_mask: [bool;4],
-//    cull_face: CullFace,
-//    front_face: FrontFace,
-//    line_width: f32,
-//    pixel_pack_alignment: u32,
-//    pixel_unpack_alignment: u32,
-//    pixel_unpack_flip_y: bool,
-//    pixel_unpack_premultiply_alpha: bool,
-//    pixel_unpack_colorspace_conversion: ColorspaceConversion,
-//    pixel_pack_row_length: u32,
-//    pixel_pack_skip_pixels: u32,
-//    pixel_pack_skip_rows: u32,
-//    pixel_unpack_row_length: u32,
-//    pixel_unpack_image_height: u32,
-//    pixel_unpack_skip_pixels: u32,
-//    pixel_unpack_skip_rows: u32,
-//    pixel_unpack_skip_images: u32,
-//    sample_coverage: SampleCoverage,
-//    scissor: Region,
-//    viewport: Region,
-//    stencil_func_rgb: StencilFunc,
-//    stencil_func_alpha: StencilFunc,
-//    stencil_mask_rgb: u32,
-//    stencil_mask_alpha: u32,
-//    stencil_op_rgb: StencilOp,
-//    stencil_op_alpha: StencilOp,
+    //    read_buffer: ReadBuffer,
+    //    blend_color: [f32;4],
+    //    blend_equation_rgb: BlendEquation,
+    //    blend_equation_alpha: BlendEquation,
+    //    blend_func_rgb: BlendFunc,
+    //    blend_func_alpha: BlendFunc,
+    //    color_mask: [bool;4],
+    //    cull_face: CullFace,
+    //    front_face: FrontFace,
+    //    line_width: f32,
+    //    pixel_pack_alignment: u32,
+    //    pixel_unpack_alignment: u32,
+    //    pixel_unpack_flip_y: bool,
+    //    pixel_unpack_premultiply_alpha: bool,
+    //    pixel_unpack_colorspace_conversion: ColorspaceConversion,
+    //    pixel_pack_row_length: u32,
+    //    pixel_pack_skip_pixels: u32,
+    //    pixel_pack_skip_rows: u32,
+    //    pixel_unpack_row_length: u32,
+    //    pixel_unpack_image_height: u32,
+    //    pixel_unpack_skip_pixels: u32,
+    //    pixel_unpack_skip_rows: u32,
+    //    pixel_unpack_skip_images: u32,
+    //    sample_coverage: SampleCoverage,
+    //    scissor: Region,
+    //    viewport: Region,
+    //    stencil_func_rgb: StencilFunc,
+    //    stencil_func_alpha: StencilFunc,
+    //    stencil_mask_rgb: u32,
+    //    stencil_mask_alpha: u32,
+    //    stencil_op_rgb: StencilOp,
+    //    stencil_op_alpha: StencilOp,
 }
 
 impl DynamicState {
@@ -362,7 +414,10 @@ impl DynamicState {
         self.active_program.as_ref()
     }
 
-    pub fn set_active_program<'a>(&mut self, program: Option<&'a WebGlProgram>) -> impl ContextUpdate<'a, ()> {
+    pub fn set_active_program<'a>(
+        &mut self,
+        program: Option<&'a WebGlProgram>,
+    ) -> impl ContextUpdate<'a, ()> {
         if !identical(program, self.active_program.as_ref()) {
             self.active_program = program.map(|p| p.clone());
 
@@ -380,7 +435,10 @@ impl DynamicState {
         self.bound_array_buffer.as_ref()
     }
 
-    pub fn set_bound_array_buffer<'a>(&mut self, buffer: Option<&'a WebGlBuffer>) -> impl ContextUpdate<'a, ()> {
+    pub fn set_bound_array_buffer<'a>(
+        &mut self,
+        buffer: Option<&'a WebGlBuffer>,
+    ) -> impl ContextUpdate<'a, ()> {
         if !identical(buffer, self.bound_array_buffer.as_ref()) {
             self.bound_array_buffer = buffer.map(|b| b.clone());
 
@@ -398,7 +456,10 @@ impl DynamicState {
         self.bound_element_array_buffer.as_ref()
     }
 
-    pub fn set_bound_element_array_buffer<'a>(&mut self, buffer: Option<&'a WebGlBuffer>) -> impl ContextUpdate<'a, ()> {
+    pub fn set_bound_element_array_buffer<'a>(
+        &mut self,
+        buffer: Option<&'a WebGlBuffer>,
+    ) -> impl ContextUpdate<'a, ()> {
         if !identical(buffer, self.bound_element_array_buffer.as_ref()) {
             self.bound_element_array_buffer = buffer.map(|b| b.clone());
 
@@ -416,7 +477,10 @@ impl DynamicState {
         self.bound_copy_read_buffer.as_ref()
     }
 
-    pub fn set_bound_copy_read_buffer<'a>(&mut self, buffer: Option<&'a WebGlBuffer>) -> impl ContextUpdate<'a, ()> {
+    pub fn set_bound_copy_read_buffer<'a>(
+        &mut self,
+        buffer: Option<&'a WebGlBuffer>,
+    ) -> impl ContextUpdate<'a, ()> {
         if !identical(buffer, self.bound_copy_read_buffer.as_ref()) {
             self.bound_copy_read_buffer = buffer.map(|b| b.clone());
 
@@ -434,7 +498,10 @@ impl DynamicState {
         self.bound_copy_write_buffer.as_ref()
     }
 
-    pub fn set_bound_copy_write_buffer<'a>(&mut self, buffer: Option<&'a WebGlBuffer>) -> impl ContextUpdate<'a, ()> {
+    pub fn set_bound_copy_write_buffer<'a>(
+        &mut self,
+        buffer: Option<&'a WebGlBuffer>,
+    ) -> impl ContextUpdate<'a, ()> {
         if !identical(buffer, self.bound_copy_write_buffer.as_ref()) {
             self.bound_copy_write_buffer = buffer.map(|b| b.clone());
 
@@ -452,7 +519,10 @@ impl DynamicState {
         self.bound_pixel_pack_buffer.as_ref()
     }
 
-    pub fn set_bound_pixel_pack_buffer<'a>(&mut self, buffer: Option<&'a WebGlBuffer>) -> impl ContextUpdate<'a, ()> {
+    pub fn set_bound_pixel_pack_buffer<'a>(
+        &mut self,
+        buffer: Option<&'a WebGlBuffer>,
+    ) -> impl ContextUpdate<'a, ()> {
         if !identical(buffer, self.bound_pixel_pack_buffer.as_ref()) {
             self.bound_pixel_pack_buffer = buffer.map(|b| b.clone());
 
@@ -470,7 +540,10 @@ impl DynamicState {
         self.bound_pixel_unpack_buffer.as_ref()
     }
 
-    pub fn set_bound_pixel_unpack_buffer<'a>(&mut self, buffer: Option<&'a WebGlBuffer>) -> impl ContextUpdate<'a, ()> {
+    pub fn set_bound_pixel_unpack_buffer<'a>(
+        &mut self,
+        buffer: Option<&'a WebGlBuffer>,
+    ) -> impl ContextUpdate<'a, ()> {
         if !identical(buffer, self.bound_pixel_unpack_buffer.as_ref()) {
             self.bound_pixel_unpack_buffer = buffer.map(|b| b.clone());
 
@@ -488,17 +561,30 @@ impl DynamicState {
         self.bound_transform_feedback_buffers[index as usize].as_ref()
     }
 
-    pub fn set_bound_transform_feedback_buffer_range<'a>(&mut self, index: u32, buffer_range: BufferRange<&'a WebGlBuffer>) -> impl ContextUpdate<'a, ()> {
+    pub fn set_bound_transform_feedback_buffer_range<'a>(
+        &mut self,
+        index: u32,
+        buffer_range: BufferRange<&'a WebGlBuffer>,
+    ) -> impl ContextUpdate<'a, ()> {
         if buffer_range != self.bound_transform_feedback_buffers[index as usize].as_ref() {
             self.bound_transform_feedback_buffers[index as usize] = buffer_range.to_owned_buffer();
 
             Some(move |context: &GL| {
                 match buffer_range {
-                    BufferRange::None => context.bind_buffer_base(GL::TRANSFORM_FEEDBACK_BUFFER, index, None),
-                    BufferRange::Full(buffer) => context.bind_buffer_base(GL::TRANSFORM_FEEDBACK_BUFFER, index, Some(buffer)),
-                    BufferRange::OffsetSize(buffer, offset, size) => {
-                        context.bind_buffer_range_with_i32_and_i32(GL::TRANSFORM_FEEDBACK_BUFFER, index, Some(buffer), offset as i32, size as i32)
+                    BufferRange::None => {
+                        context.bind_buffer_base(GL::TRANSFORM_FEEDBACK_BUFFER, index, None)
                     }
+                    BufferRange::Full(buffer) => {
+                        context.bind_buffer_base(GL::TRANSFORM_FEEDBACK_BUFFER, index, Some(buffer))
+                    }
+                    BufferRange::OffsetSize(buffer, offset, size) => context
+                        .bind_buffer_range_with_i32_and_i32(
+                            GL::TRANSFORM_FEEDBACK_BUFFER,
+                            index,
+                            Some(buffer),
+                            offset as i32,
+                            size as i32,
+                        ),
                 };
 
                 Ok(())
@@ -512,17 +598,28 @@ impl DynamicState {
         self.bound_uniform_buffers[index as usize].as_ref()
     }
 
-    pub fn set_bound_uniform_buffer_range<'a>(&mut self, index: u32, buffer_range: BufferRange<&'a WebGlBuffer>) -> impl ContextUpdate<'a, ()> {
+    pub fn set_bound_uniform_buffer_range<'a>(
+        &mut self,
+        index: u32,
+        buffer_range: BufferRange<&'a WebGlBuffer>,
+    ) -> impl ContextUpdate<'a, ()> {
         if buffer_range != self.bound_uniform_buffers[index as usize].as_ref() {
             self.bound_uniform_buffers[index as usize] = buffer_range.to_owned_buffer();
 
             Some(move |context: &GL| {
                 match buffer_range {
                     BufferRange::None => context.bind_buffer_base(GL::UNIFORM_BUFFER, index, None),
-                    BufferRange::Full(buffer) => context.bind_buffer_base(GL::UNIFORM_BUFFER, index, Some(buffer)),
-                    BufferRange::OffsetSize(buffer, offset, size) => {
-                        context.bind_buffer_range_with_i32_and_i32(GL::UNIFORM_BUFFER, index, Some(buffer), offset as i32, size as i32)
+                    BufferRange::Full(buffer) => {
+                        context.bind_buffer_base(GL::UNIFORM_BUFFER, index, Some(buffer))
                     }
+                    BufferRange::OffsetSize(buffer, offset, size) => context
+                        .bind_buffer_range_with_i32_and_i32(
+                            GL::UNIFORM_BUFFER,
+                            index,
+                            Some(buffer),
+                            offset as i32,
+                            size as i32,
+                        ),
                 };
 
                 Ok(())
@@ -536,7 +633,10 @@ impl DynamicState {
         self.bound_draw_framebuffer.as_ref()
     }
 
-    pub fn set_bound_draw_framebuffer<'a>(&mut self, framebuffer: Option<&'a WebGlFramebuffer>) -> impl ContextUpdate<'a, ()> {
+    pub fn set_bound_draw_framebuffer<'a>(
+        &mut self,
+        framebuffer: Option<&'a WebGlFramebuffer>,
+    ) -> impl ContextUpdate<'a, ()> {
         if !identical(framebuffer, self.bound_draw_framebuffer.as_ref()) {
             self.bound_draw_framebuffer = framebuffer.map(|f| f.clone());
 
@@ -554,7 +654,10 @@ impl DynamicState {
         self.bound_read_framebuffer.as_ref()
     }
 
-    pub fn set_bound_read_framebuffer<'a>(&mut self, framebuffer: Option<&'a WebGlFramebuffer>) -> impl ContextUpdate<'a, ()> {
+    pub fn set_bound_read_framebuffer<'a>(
+        &mut self,
+        framebuffer: Option<&'a WebGlFramebuffer>,
+    ) -> impl ContextUpdate<'a, ()> {
         if !identical(framebuffer, self.bound_read_framebuffer.as_ref()) {
             self.bound_read_framebuffer = framebuffer.map(|f| f.clone());
 
@@ -572,7 +675,10 @@ impl DynamicState {
         self.bound_renderbuffer.as_ref()
     }
 
-    pub fn set_bound_renderbuffer<'a>(&mut self, renderbuffer: Option<&'a WebGlRenderbuffer>) -> impl ContextUpdate<'a, ()> {
+    pub fn set_bound_renderbuffer<'a>(
+        &mut self,
+        renderbuffer: Option<&'a WebGlRenderbuffer>,
+    ) -> impl ContextUpdate<'a, ()> {
         if !identical(renderbuffer, self.bound_renderbuffer.as_ref()) {
             self.bound_renderbuffer = renderbuffer.map(|r| r.clone());
 
@@ -590,7 +696,10 @@ impl DynamicState {
         self.bound_texture_2d.as_ref()
     }
 
-    pub fn set_bound_texture_2d<'a>(&mut self, texture: Option<&'a WebGlTexture>) -> impl ContextUpdate<'a, ()> {
+    pub fn set_bound_texture_2d<'a>(
+        &mut self,
+        texture: Option<&'a WebGlTexture>,
+    ) -> impl ContextUpdate<'a, ()> {
         if !identical(texture, self.bound_texture_2d.as_ref()) {
             self.bound_texture_2d = texture.map(|t| t.clone());
             self.texture_units_textures[self.active_texture as usize] = texture.map(|t| t.clone());
@@ -609,7 +718,10 @@ impl DynamicState {
         self.bound_texture_2d_array.as_ref()
     }
 
-    pub fn set_bound_texture_2d_array<'a>(&mut self, texture: Option<&'a WebGlTexture>) -> impl ContextUpdate<'a, ()> {
+    pub fn set_bound_texture_2d_array<'a>(
+        &mut self,
+        texture: Option<&'a WebGlTexture>,
+    ) -> impl ContextUpdate<'a, ()> {
         if !identical(texture, self.bound_texture_2d_array.as_ref()) {
             self.bound_texture_2d_array = texture.map(|t| t.clone());
             self.texture_units_textures[self.active_texture as usize] = texture.map(|t| t.clone());
@@ -628,7 +740,10 @@ impl DynamicState {
         self.bound_texture_3d.as_ref()
     }
 
-    pub fn set_bound_texture_3d<'a>(&mut self, texture: Option<&'a WebGlTexture>) -> impl ContextUpdate<'a, ()> {
+    pub fn set_bound_texture_3d<'a>(
+        &mut self,
+        texture: Option<&'a WebGlTexture>,
+    ) -> impl ContextUpdate<'a, ()> {
         if !identical(texture, self.bound_texture_3d.as_ref()) {
             self.bound_texture_3d = texture.map(|t| t.clone());
             self.texture_units_textures[self.active_texture as usize] = texture.map(|t| t.clone());
@@ -647,7 +762,10 @@ impl DynamicState {
         self.bound_texture_cube_map.as_ref()
     }
 
-    pub fn set_bound_texture_cube_map<'a>(&mut self, texture: Option<&'a WebGlTexture>) -> impl ContextUpdate<'a, ()> {
+    pub fn set_bound_texture_cube_map<'a>(
+        &mut self,
+        texture: Option<&'a WebGlTexture>,
+    ) -> impl ContextUpdate<'a, ()> {
         if !identical(texture, self.bound_texture_cube_map.as_ref()) {
             self.bound_texture_cube_map = texture.map(|t| t.clone());
             self.texture_units_textures[self.active_texture as usize] = texture.map(|t| t.clone());
@@ -674,7 +792,11 @@ impl DynamicState {
         self.bound_samplers[texture_unit as usize].as_ref()
     }
 
-    pub fn set_bound_sampler<'a>(&mut self, texture_unit: u32, sampler: Option<&'a WebGlSampler>) -> impl ContextUpdate<'a, ()> {
+    pub fn set_bound_sampler<'a>(
+        &mut self,
+        texture_unit: u32,
+        sampler: Option<&'a WebGlSampler>,
+    ) -> impl ContextUpdate<'a, ()> {
         if !identical(sampler, self.bound_samplers[texture_unit as usize].as_ref()) {
             self.bound_samplers[texture_unit as usize] = sampler.map(|v| v.clone());
 
@@ -692,7 +814,10 @@ impl DynamicState {
         self.bound_vertex_array.as_ref()
     }
 
-    pub fn set_bound_vertex_array<'a>(&mut self, vertex_array: Option<&'a WebGlVertexArrayObject>) -> impl ContextUpdate<'a, ()> {
+    pub fn set_bound_vertex_array<'a>(
+        &mut self,
+        vertex_array: Option<&'a WebGlVertexArrayObject>,
+    ) -> impl ContextUpdate<'a, ()> {
         if !identical(vertex_array, self.bound_vertex_array.as_ref()) {
             self.bound_vertex_array = vertex_array.map(|v| v.clone());
 
@@ -736,11 +861,11 @@ impl DynamicState {
         })
     }
 
-    pub fn clear_color(&self) -> [f32;4] {
+    pub fn clear_color(&self) -> [f32; 4] {
         self.clear_color
     }
 
-    pub fn set_clear_color(&mut self, color: [f32;4]) -> impl ContextUpdate<'static, ()> {
+    pub fn set_clear_color(&mut self, color: [f32; 4]) -> impl ContextUpdate<'static, ()> {
         if color != self.clear_color {
             self.clear_color = color;
 
@@ -794,7 +919,10 @@ impl DynamicState {
         self.depth_test_enabled
     }
 
-    pub fn set_depth_test_enabled(&mut self, depth_test_enabled: bool) -> impl ContextUpdate<'static, ()> {
+    pub fn set_depth_test_enabled(
+        &mut self,
+        depth_test_enabled: bool,
+    ) -> impl ContextUpdate<'static, ()> {
         if depth_test_enabled != self.depth_test_enabled {
             self.depth_test_enabled = depth_test_enabled;
 
@@ -812,7 +940,10 @@ impl DynamicState {
         self.stencil_test_enabled
     }
 
-    pub fn set_stencil_test_enabled(&mut self, stencil_test_enabled: bool) -> impl ContextUpdate<'static, ()> {
+    pub fn set_stencil_test_enabled(
+        &mut self,
+        stencil_test_enabled: bool,
+    ) -> impl ContextUpdate<'static, ()> {
         if stencil_test_enabled != self.stencil_test_enabled {
             self.stencil_test_enabled = stencil_test_enabled;
 
@@ -830,7 +961,10 @@ impl DynamicState {
         self.scissor_test_enabled
     }
 
-    pub fn set_scissor_test_enabled(&mut self, scissor_test_enabled: bool) -> impl ContextUpdate<'static, ()> {
+    pub fn set_scissor_test_enabled(
+        &mut self,
+        scissor_test_enabled: bool,
+    ) -> impl ContextUpdate<'static, ()> {
         if scissor_test_enabled != self.scissor_test_enabled {
             self.scissor_test_enabled = scissor_test_enabled;
 
@@ -866,7 +1000,10 @@ impl DynamicState {
         self.cull_face_enabled
     }
 
-    pub fn set_cull_face_enabled(&mut self, cull_face_enabled: bool) -> impl ContextUpdate<'static, ()> {
+    pub fn set_cull_face_enabled(
+        &mut self,
+        cull_face_enabled: bool,
+    ) -> impl ContextUpdate<'static, ()> {
         if cull_face_enabled != self.cull_face_enabled {
             self.cull_face_enabled = cull_face_enabled;
 
@@ -902,7 +1039,10 @@ impl DynamicState {
         self.polygon_offset_fill_enabled
     }
 
-    pub fn set_polygon_offset_fill_enabled(&mut self, polygon_offset_fill_enabled: bool) -> impl ContextUpdate<'static, ()> {
+    pub fn set_polygon_offset_fill_enabled(
+        &mut self,
+        polygon_offset_fill_enabled: bool,
+    ) -> impl ContextUpdate<'static, ()> {
         if polygon_offset_fill_enabled != self.polygon_offset_fill_enabled {
             self.polygon_offset_fill_enabled = polygon_offset_fill_enabled;
 
@@ -920,7 +1060,10 @@ impl DynamicState {
         self.sample_aplha_to_coverage_enabled
     }
 
-    pub fn set_sample_aplha_to_coverage_enabled(&mut self, sample_aplha_to_coverage_enabled: bool) -> impl ContextUpdate<'static, ()> {
+    pub fn set_sample_aplha_to_coverage_enabled(
+        &mut self,
+        sample_aplha_to_coverage_enabled: bool,
+    ) -> impl ContextUpdate<'static, ()> {
         if sample_aplha_to_coverage_enabled != self.sample_aplha_to_coverage_enabled {
             self.sample_aplha_to_coverage_enabled = sample_aplha_to_coverage_enabled;
 
@@ -938,7 +1081,10 @@ impl DynamicState {
         self.sample_coverage_enabled
     }
 
-    pub fn set_sample_coverage_enabled(&mut self, sample_coverage_enabled: bool) -> impl ContextUpdate<'static, ()> {
+    pub fn set_sample_coverage_enabled(
+        &mut self,
+        sample_coverage_enabled: bool,
+    ) -> impl ContextUpdate<'static, ()> {
         if sample_coverage_enabled != self.sample_coverage_enabled {
             self.sample_coverage_enabled = sample_coverage_enabled;
 
@@ -956,7 +1102,10 @@ impl DynamicState {
         self.rasterizer_discard_enabled
     }
 
-    pub fn set_rasterizer_discard_enabled(&mut self, rasterizer_discard_enabled: bool) -> impl ContextUpdate<'static, ()> {
+    pub fn set_rasterizer_discard_enabled(
+        &mut self,
+        rasterizer_discard_enabled: bool,
+    ) -> impl ContextUpdate<'static, ()> {
         if rasterizer_discard_enabled != self.rasterizer_discard_enabled {
             self.rasterizer_discard_enabled = rasterizer_discard_enabled;
 
@@ -973,7 +1122,11 @@ impl DynamicState {
 
 impl DynamicState {
     pub fn initial(context: &GL) -> Self {
-        let max_combined_texture_image_units = context.get_parameter(GL::MAX_COMBINED_TEXTURE_IMAGE_UNITS).unwrap().as_f64().unwrap() as usize;
+        let max_combined_texture_image_units = context
+            .get_parameter(GL::MAX_COMBINED_TEXTURE_IMAGE_UNITS)
+            .unwrap()
+            .as_f64()
+            .unwrap() as usize;
 
         DynamicState {
             active_program: None,
@@ -983,8 +1136,22 @@ impl DynamicState {
             bound_copy_write_buffer: None,
             bound_pixel_pack_buffer: None,
             bound_pixel_unpack_buffer: None,
-            bound_transform_feedback_buffers: vec![BufferRange::None; context.get_parameter(GL::MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS).unwrap().as_f64().unwrap() as usize],
-            bound_uniform_buffers: vec![BufferRange::None; context.get_parameter(GL::MAX_UNIFORM_BUFFER_BINDINGS).unwrap().as_f64().unwrap() as usize],
+            bound_transform_feedback_buffers: vec![
+                BufferRange::None;
+                context
+                    .get_parameter(GL::MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS)
+                    .unwrap()
+                    .as_f64()
+                    .unwrap() as usize
+            ],
+            bound_uniform_buffers: vec![
+                BufferRange::None;
+                context
+                    .get_parameter(GL::MAX_UNIFORM_BUFFER_BINDINGS)
+                    .unwrap()
+                    .as_f64()
+                    .unwrap() as usize
+            ],
             bound_draw_framebuffer: None,
             bound_read_framebuffer: None,
             bound_renderbuffer: None,
@@ -1014,7 +1181,10 @@ impl DynamicState {
     }
 }
 
-fn identical<T>(a: Option<&T>, b: Option<&T>) -> bool where T: AsRef<JsValue> {
+fn identical<T>(a: Option<&T>, b: Option<&T>) -> bool
+where
+    T: AsRef<JsValue>,
+{
     a.map(|t| t.as_ref()) == b.map(|t| t.as_ref())
 }
 
@@ -1022,7 +1192,10 @@ pub trait ContextUpdate<'a, E> {
     fn apply(self, context: &GL) -> Result<(), E>;
 }
 
-impl<'a, F, E> ContextUpdate<'a, E> for Option<F> where F: FnOnce(&GL) -> Result<(), E> + 'a {
+impl<'a, F, E> ContextUpdate<'a, E> for Option<F>
+where
+    F: FnOnce(&GL) -> Result<(), E> + 'a,
+{
     fn apply(self, context: &GL) -> Result<(), E> {
         self.map(|f| f(context)).unwrap_or(Ok(()))
     }
@@ -1032,7 +1205,7 @@ impl<'a, F, E> ContextUpdate<'a, E> for Option<F> where F: FnOnce(&GL) -> Result
 pub enum BufferRange<T> {
     None,
     Full(T),
-    OffsetSize(T, u32, u32)
+    OffsetSize(T, u32, u32),
 }
 
 impl<T> BufferRange<T> {
@@ -1040,11 +1213,11 @@ impl<T> BufferRange<T> {
         match *self {
             BufferRange::None => BufferRange::None,
             BufferRange::Full(ref buffer) => BufferRange::Full(buffer),
-            BufferRange::OffsetSize(ref buffer, offset, size) => BufferRange::OffsetSize(buffer, offset, size)
+            BufferRange::OffsetSize(ref buffer, offset, size) => {
+                BufferRange::OffsetSize(buffer, offset, size)
+            }
         }
     }
-
-
 }
 
 impl<'a> BufferRange<&'a WebGlBuffer> {
@@ -1052,22 +1225,32 @@ impl<'a> BufferRange<&'a WebGlBuffer> {
         match *self {
             BufferRange::None => BufferRange::None,
             BufferRange::Full(buffer) => BufferRange::Full(buffer.clone()),
-            BufferRange::OffsetSize(buffer, offset, size) => BufferRange::OffsetSize(buffer.clone(), offset, size)
+            BufferRange::OffsetSize(buffer, offset, size) => {
+                BufferRange::OffsetSize(buffer.clone(), offset, size)
+            }
         }
     }
 }
 
-impl<T> PartialEq for BufferRange<T> where T: Borrow<WebGlBuffer> {
+impl<T> PartialEq for BufferRange<T>
+where
+    T: Borrow<WebGlBuffer>,
+{
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (BufferRange::None, BufferRange::None) => true,
             (BufferRange::Full(a), BufferRange::Full(b)) => {
                 AsRef::<JsValue>::as_ref(a.borrow()) == AsRef::<JsValue>::as_ref(b.borrow())
-            },
-            (BufferRange::OffsetSize(a, offset_a, size_a), BufferRange::OffsetSize(b, offset_b, size_b) ) => {
-                offset_a == offset_b && size_a == size_b && AsRef::<JsValue>::as_ref(a.borrow()) == AsRef::<JsValue>::as_ref(b.borrow())
             }
-            _ => false
+            (
+                BufferRange::OffsetSize(a, offset_a, size_a),
+                BufferRange::OffsetSize(b, offset_b, size_b),
+            ) => {
+                offset_a == offset_b
+                    && size_a == size_b
+                    && AsRef::<JsValue>::as_ref(a.borrow()) == AsRef::<JsValue>::as_ref(b.borrow())
+            }
+            _ => false,
         }
     }
 }
@@ -1075,7 +1258,7 @@ impl<T> PartialEq for BufferRange<T> where T: Borrow<WebGlBuffer> {
 struct TextureUnitLRU {
     linkage: Vec<(usize, usize)>,
     lru_index: usize,
-    mru_index: usize
+    mru_index: usize,
 }
 
 impl TextureUnitLRU {
@@ -1084,13 +1267,16 @@ impl TextureUnitLRU {
         let texture_units = texture_units as i32;
 
         for i in 0..texture_units {
-            linkage.push((((i - 1) % texture_units) as usize, ((i + 1) % texture_units) as usize));
+            linkage.push((
+                ((i - 1) % texture_units) as usize,
+                ((i + 1) % texture_units) as usize,
+            ));
         }
 
         TextureUnitLRU {
             linkage,
             lru_index: 0,
-            mru_index: (texture_units - 1) as usize
+            mru_index: (texture_units - 1) as usize,
         }
     }
 

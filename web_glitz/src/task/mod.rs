@@ -8,7 +8,7 @@ mod gpu_task;
 pub use self::gpu_task::{GpuTask, GpuTaskExt, Progress};
 
 mod join;
-pub use self::join::{ Join, Join3, Join4, Join5 };
+pub use self::join::{Join, Join3, Join4, Join5};
 
 //mod join_all;
 //pub use self::join_all::{ JoinAll };
@@ -23,7 +23,7 @@ mod or_else;
 pub use self::or_else::OrElse;
 
 mod sequence;
-pub use self::sequence::{ Sequence, Sequence3, Sequence4, Sequence5 };
+pub use self::sequence::{Sequence, Sequence3, Sequence4, Sequence5};
 
 mod then;
 pub use self::then::Then;

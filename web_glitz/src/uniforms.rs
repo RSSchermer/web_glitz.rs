@@ -1,6 +1,6 @@
+use std::borrow::Borrow;
 use std::fmt;
 use std::fmt::Display;
-use std::borrow::Borrow;
 
 pub trait Uniforms {
     fn get(&self, identifier: &UniformIdentifier) -> Option<UniformValue>;
@@ -8,13 +8,16 @@ pub trait Uniforms {
 
 #[derive(PartialEq, Hash)]
 pub struct UniformIdentifier {
-    segments: Vec<UniformIdentifierSegment>
+    segments: Vec<UniformIdentifierSegment>,
 }
 
 impl UniformIdentifier {
     pub fn from_string(string: &str) -> Self {
         UniformIdentifier {
-            segments: string.split(".").map(|s| UniformIdentifierSegment::from_string(s)).collect()
+            segments: string
+                .split(".")
+                .map(|s| UniformIdentifierSegment::from_string(s))
+                .collect(),
         }
     }
 
@@ -29,14 +32,22 @@ impl UniformIdentifier {
 
 impl Display for UniformIdentifier {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.segments.iter().map(|s| s.to_string()).collect::<Vec<_>>().join("."))
+        write!(
+            f,
+            "{}",
+            self.segments
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>()
+                .join(".")
+        )
     }
 }
 
 #[derive(Clone, PartialEq, Hash)]
 pub enum UniformIdentifierSegment {
     Simple(String),
-    ArrayElement(String, u32)
+    ArrayElement(String, u32),
 }
 
 impl UniformIdentifierSegment {
@@ -64,7 +75,7 @@ impl UniformIdentifierSegment {
 impl Into<UniformIdentifier> for UniformIdentifierSegment {
     fn into(self) -> UniformIdentifier {
         UniformIdentifier {
-            segments: vec![self]
+            segments: vec![self],
         }
     }
 }
@@ -73,7 +84,9 @@ impl Display for UniformIdentifierSegment {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             UniformIdentifierSegment::Simple(name) => write!(f, "{}", name),
-            UniformIdentifierSegment::ArrayElement(array_name, index) => write!(f, "{}[{}]", array_name, index)
+            UniformIdentifierSegment::ArrayElement(array_name, index) => {
+                write!(f, "{}[{}]", array_name, index)
+            }
         }
     }
 }
@@ -83,15 +96,15 @@ pub enum UniformValue<'a> {
     Vector2((f32, f32)),
     Vector3((f32, f32, f32)),
     Vector4((f32, f32, f32, f32)),
-    Matrix2x2([f32;4]),
-    Matrix2x3([f32;6]),
-    Matrix2x4([f32;8]),
-    Matrix3x2([f32;6]),
-    Matrix3x3([f32;9]),
-    Matrix3x4([f32;12]),
-    Matrix4x2([f32;8]),
-    Matrix4x3([f32;12]),
-    Matrix4x4([f32;16]),
+    Matrix2x2([f32; 4]),
+    Matrix2x3([f32; 6]),
+    Matrix2x4([f32; 8]),
+    Matrix3x2([f32; 6]),
+    Matrix3x3([f32; 9]),
+    Matrix3x4([f32; 12]),
+    Matrix4x2([f32; 8]),
+    Matrix4x3([f32; 12]),
+    Matrix4x4([f32; 16]),
     Boolean(bool),
     BooleanVector2((bool, bool)),
     BooleanVector3((bool, bool, bool)),
@@ -108,15 +121,15 @@ pub enum UniformValue<'a> {
     Vector2Array(ArrayValue<'a, (f32, f32)>),
     Vector3Array(ArrayValue<'a, (f32, f32, f32)>),
     Vector4Array(ArrayValue<'a, (f32, f32, f32, f32)>),
-    Matrix2x2Array(ArrayValue<'a, [f32;4]>),
-    Matrix2x3Array(ArrayValue<'a, [f32;6]>),
-    Matrix2x4Array(ArrayValue<'a, [f32;8]>),
-    Matrix3x2Array(ArrayValue<'a, [f32;6]>),
-    Matrix3x3Array(ArrayValue<'a, [f32;9]>),
-    Matrix3x4Array(ArrayValue<'a, [f32;12]>),
-    Matrix4x2Array(ArrayValue<'a, [f32;8]>),
-    Matrix4x3Array(ArrayValue<'a, [f32;12]>),
-    Matrix4x4Array(ArrayValue<'a, [f32;16]>),
+    Matrix2x2Array(ArrayValue<'a, [f32; 4]>),
+    Matrix2x3Array(ArrayValue<'a, [f32; 6]>),
+    Matrix2x4Array(ArrayValue<'a, [f32; 8]>),
+    Matrix3x2Array(ArrayValue<'a, [f32; 6]>),
+    Matrix3x3Array(ArrayValue<'a, [f32; 9]>),
+    Matrix3x4Array(ArrayValue<'a, [f32; 12]>),
+    Matrix4x2Array(ArrayValue<'a, [f32; 8]>),
+    Matrix4x3Array(ArrayValue<'a, [f32; 12]>),
+    Matrix4x4Array(ArrayValue<'a, [f32; 16]>),
     BooleanArray(ArrayValue<'a, bool>),
     BooleanVector2Array(ArrayValue<'a, (bool, bool)>),
     BooleanVector3Array(ArrayValue<'a, (bool, bool, bool)>),
@@ -133,7 +146,7 @@ pub enum UniformValue<'a> {
 
 pub enum ArrayValue<'a, T> {
     Slice(&'a [T]),
-    BoxedSlice(Box<[T]>)
+    BoxedSlice(Box<[T]>),
 }
 
 impl<'a, T> From<&'a [T]> for ArrayValue<'a, T> {
@@ -152,7 +165,7 @@ impl<'a, T> Borrow<[T]> for ArrayValue<'a, T> {
     fn borrow(&self) -> &[T] {
         match self {
             ArrayValue::Slice(value) => value,
-            ArrayValue::BoxedSlice(value) => value.borrow()
+            ArrayValue::BoxedSlice(value) => value.borrow(),
         }
     }
 }

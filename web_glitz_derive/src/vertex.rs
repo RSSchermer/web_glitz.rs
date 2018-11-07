@@ -1,7 +1,7 @@
 use proc_macro2::{Span, TokenStream};
-use quote::{ quote, quote_spanned, ToTokens };
-use syn::{ DeriveInput, Data, Field, Meta, NestedMeta, Attribute, Ident, Lit, Type };
+use quote::{quote, quote_spanned, ToTokens};
 use syn::spanned::Spanned;
+use syn::{Attribute, Data, DeriveInput, Field, Ident, Lit, Meta, NestedMeta, Type};
 
 use crate::util::ErrorLog;
 
@@ -22,7 +22,11 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
         }
 
         let recurse = vertex_attributes.iter().map(|a| {
-            let field_name = a.ident.clone().map(|i| i.into_token_stream()).unwrap_or(a.position.into_token_stream());
+            let field_name = a
+                .ident
+                .clone()
+                .map(|i| i.into_token_stream())
+                .unwrap_or(a.position.into_token_stream());
             let location = a.location;
             let ty = &a.ty;
 
@@ -36,7 +40,6 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
         });
 
         let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
-        let attribute_count = vertex_attributes.len();
 
         let impl_block = quote! {
             #[automatically_derived]
@@ -52,12 +55,10 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
         };
 
         let suffix = struct_name.to_string().trim_left_matches("r#").to_owned();
-        let dummy_const = Ident::new(
-            &format!("_IMPL_VERTEX_FOR_{}", suffix),
-            Span::call_site(),
-        );
+        let dummy_const = Ident::new(&format!("_IMPL_VERTEX_FOR_{}", suffix), Span::call_site());
 
         // Modified from the memoffset crate (https://github.com/Gilnaa/memoffset)
+        // TODO: replace with std::mem::offset_of when it becomes available
         let offset_of = quote! {
             macro_rules! offset_of {
                 ($father:ty, $($field:tt)+) => ({
@@ -98,13 +99,21 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
 
 enum VertexField {
     Attribute(AttributeField),
-    Excluded
+    Excluded,
 }
 
 impl VertexField {
     pub fn from_ast(ast: &Field, position: usize, log: &mut ErrorLog) -> Self {
-        let vertex_attributes: Vec<&Attribute> = ast.attrs.iter().filter(|a| is_vertex_attribute(a)).collect();
-        let field_name = ast.ident.clone().map(|i| i.to_string()).unwrap_or(position.to_string());
+        let vertex_attributes: Vec<&Attribute> = ast
+            .attrs
+            .iter()
+            .filter(|a| is_vertex_attribute(a))
+            .collect();
+        let field_name = ast
+            .ident
+            .clone()
+            .map(|i| i.to_string())
+            .unwrap_or(position.to_string());
 
         match vertex_attributes.len() {
             0 => VertexField::Excluded,
@@ -114,7 +123,10 @@ impl VertexField {
                 let meta_items: Vec<NestedMeta> = match attr.interpret_meta() {
                     Some(Meta::List(ref meta)) => meta.nested.iter().cloned().collect(),
                     _ => {
-                        log.log_error(format!("Malformed #[vertex_attribute] attribute for field `{}`.", field_name));
+                        log.log_error(format!(
+                            "Malformed #[vertex_attribute] attribute for field `{}`.",
+                            field_name
+                        ));
 
                         Vec::new()
                     }
@@ -141,7 +153,7 @@ impl VertexField {
                         ty: ast.ty.clone(),
                         position,
                         location,
-                        span: ast.span()
+                        span: ast.span(),
                     })
                 } else {
                     log.log_error(format!("Field `{}` is marked as a vertex attribute, but does not declare a binding location.", field_name));
@@ -150,7 +162,10 @@ impl VertexField {
                 }
             }
             _ => {
-                log.log_error(format!("#[vertex_attribute] must not be defined more than once for field `{}`.", field_name));
+                log.log_error(format!(
+                    "#[vertex_attribute] must not be defined more than once for field `{}`.",
+                    field_name
+                ));
 
                 VertexField::Excluded
             }
@@ -163,7 +178,7 @@ struct AttributeField {
     ty: Type,
     position: usize,
     location: u64,
-    span: Span
+    span: Span,
 }
 
 fn is_vertex_attribute(attribute: &Attribute) -> bool {

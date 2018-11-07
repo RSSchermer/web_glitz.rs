@@ -3,18 +3,21 @@ use std::mem;
 
 use super::{GpuTask, Progress};
 
-pub(crate) enum MaybeDone<T, O, Ec>  {
+pub(crate) enum MaybeDone<T, O, Ec> {
     NotYet(T, PhantomData<Ec>),
     Done(O),
-    Gone
+    Gone,
 }
 
-impl<T, O, Ec> MaybeDone<T, O, Ec> where T: GpuTask<Ec, Output=O> {
+impl<T, O, Ec> MaybeDone<T, O, Ec>
+where
+    T: GpuTask<Ec, Output = O>,
+{
     pub fn progress(&mut self, execution_context: &mut Ec) -> Result<bool, T::Error> {
         let res = match self {
             MaybeDone::Done(_) => return Ok(true),
             MaybeDone::NotYet(ref mut task, _) => task.progress(execution_context),
-            MaybeDone::Gone => panic!("Cannot progress a Join twice.")
+            MaybeDone::Gone => panic!("Cannot progress a Join twice."),
         };
 
         match res {
@@ -22,9 +25,9 @@ impl<T, O, Ec> MaybeDone<T, O, Ec> where T: GpuTask<Ec, Output=O> {
                 *self = MaybeDone::Done(output);
 
                 Ok(true)
-            },
+            }
             Progress::Finished(Err(err)) => Err(err),
-            Progress::ContinueFenced => Ok(false)
+            Progress::ContinueFenced => Ok(false),
         }
     }
 
@@ -36,6 +39,9 @@ impl<T, O, Ec> MaybeDone<T, O, Ec> where T: GpuTask<Ec, Output=O> {
     }
 }
 
-pub(crate) fn maybe_done<T, O, Ec>(task: T) -> MaybeDone<T, O, Ec> where T: GpuTask<Ec, Output=O> {
+pub(crate) fn maybe_done<T, O, Ec>(task: T) -> MaybeDone<T, O, Ec>
+where
+    T: GpuTask<Ec, Output = O>,
+{
     MaybeDone::NotYet(task, PhantomData)
 }

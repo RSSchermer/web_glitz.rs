@@ -1,18 +1,15 @@
 use std::borrow::Borrow;
 use std::marker;
 use std::mem;
-use std::ops::{ Bound, RangeBounds };
+use std::ops::{Bound, RangeBounds};
 use std::slice;
 use std::sync::Arc;
 
 use wasm_bindgen::JsCast;
-use web_sys::{
-    WebGl2RenderingContext as GL,
-    WebGlBuffer
-};
+use web_sys::{WebGl2RenderingContext as GL, WebGlBuffer};
 
-use super::task::{ GpuTask, Progress };
-use super::rendering_context::{ Connection, RenderingContext, ContextUpdate };
+use super::rendering_context::{Connection, ContextUpdate, RenderingContext};
+use super::task::{GpuTask, Progress};
 use super::util::JsId;
 
 #[derive(Clone, Copy, Debug)]
@@ -25,7 +22,7 @@ pub enum BufferUsage {
     StreamRead,
     StaticCopy,
     DynamicCopy,
-    StreamCopy
+    StreamCopy,
 }
 
 impl BufferUsage {
@@ -39,17 +36,24 @@ impl BufferUsage {
             BufferUsage::StreamRead => GL::STREAM_READ,
             BufferUsage::StaticCopy => GL::STATIC_COPY,
             BufferUsage::DynamicCopy => GL::DYNAMIC_COPY,
-            BufferUsage::StreamCopy => GL::STREAM_COPY
+            BufferUsage::StreamCopy => GL::STREAM_COPY,
         }
     }
 }
 
-pub struct BufferHandle<T, C> where T: ?Sized, C: RenderingContext {
+pub struct BufferHandle<T, C>
+where
+    T: ?Sized,
+    C: RenderingContext,
+{
     internal: Arc<BufferHandleInternal<C>>,
     _marker: marker::PhantomData<Box<T>>,
 }
 
-struct BufferHandleInternal<C> where C: RenderingContext {
+struct BufferHandleInternal<C>
+where
+    C: RenderingContext,
+{
     gl_object_id: Option<JsId>,
     context: C,
     len: usize,
@@ -57,7 +61,11 @@ struct BufferHandleInternal<C> where C: RenderingContext {
     usage_hint: BufferUsage,
 }
 
-impl<T, C> BufferHandle<T, C> where T: ?Sized, C: RenderingContext {
+impl<T, C> BufferHandle<T, C>
+where
+    T: ?Sized,
+    C: RenderingContext,
+{
     pub fn context(&self) -> &C {
         &self.internal.context
     }
@@ -81,8 +89,16 @@ impl<T, C> BufferHandle<T, C> where T: ?Sized, C: RenderingContext {
             } else {
                 let buffer_object = gl.create_buffer().unwrap();
 
-                state.set_bound_copy_write_buffer(Some(&buffer_object)).apply(gl).unwrap();
-                gl.buffer_data_with_i32(GL::COPY_WRITE_BUFFER, internal.size_in_bytes as i32, internal.usage_hint.gl_id());
+                state
+                    .set_bound_copy_write_buffer(Some(&buffer_object))
+                    .apply(gl)
+                    .unwrap();
+
+                gl.buffer_data_with_i32(
+                    GL::COPY_WRITE_BUFFER,
+                    internal.size_in_bytes as i32,
+                    internal.usage_hint.gl_id(),
+                );
 
                 let js_id = JsId::from_value(buffer_object.into());
 
@@ -94,7 +110,10 @@ impl<T, C> BufferHandle<T, C> where T: ?Sized, C: RenderingContext {
     }
 }
 
-impl<T, C> BufferHandle<T, C> where C: RenderingContext {
+impl<T, C> BufferHandle<T, C>
+where
+    C: RenderingContext,
+{
     pub(crate) fn value(context: C, usage_hint: BufferUsage) -> Self {
         BufferHandle {
             internal: Arc::new(BufferHandleInternal {
@@ -102,28 +121,34 @@ impl<T, C> BufferHandle<T, C> where C: RenderingContext {
                 context,
                 len: 1,
                 usage_hint,
-                size_in_bytes: mem::size_of::<T>()
+                size_in_bytes: mem::size_of::<T>(),
             }),
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 
-    pub fn upload_task<D>(&self, data: D) -> BufferUploadTask<Self, D> where D: Borrow<[T]> + Send + Sync + 'static {
+    pub fn upload_task<D>(&self, data: D) -> BufferUploadTask<Self, D>
+    where
+        D: Borrow<[T]> + Send + Sync + 'static,
+    {
         BufferUploadTask {
             buffer_rep: self.clone(),
-            data
+            data,
         }
     }
 
     pub fn download_task(&self) -> BufferDownloadTask<Self> {
         BufferDownloadTask {
             buffer_rep: self.clone(),
-            state: BufferDownloadState::Initial
+            state: BufferDownloadState::Initial,
         }
     }
 }
 
-impl<T, C> BufferHandle<[T], C> where C: RenderingContext {
+impl<T, C> BufferHandle<[T], C>
+where
+    C: RenderingContext,
+{
     pub(crate) fn array(context: C, len: usize, usage_hint: BufferUsage) -> Self {
         BufferHandle {
             internal: Arc::new(BufferHandleInternal {
@@ -131,9 +156,9 @@ impl<T, C> BufferHandle<[T], C> where C: RenderingContext {
                 context,
                 len,
                 usage_hint,
-                size_in_bytes: mem::size_of::<T>() * len
+                size_in_bytes: mem::size_of::<T>() * len,
             }),
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 
@@ -141,71 +166,93 @@ impl<T, C> BufferHandle<[T], C> where C: RenderingContext {
         self.internal.len
     }
 
-    pub fn upload_task<D>(&self, data: D) -> BufferUploadTask<ArrayBufferSlice<T, C>, D> where D: Borrow<[T]> + Send + Sync + 'static {
+    pub fn upload_task<D>(&self, data: D) -> BufferUploadTask<ArrayBufferSlice<T, C>, D>
+    where
+        D: Borrow<[T]> + Send + Sync + 'static,
+    {
         BufferUploadTask {
             buffer_rep: self.clone().into(),
-            data
+            data,
         }
     }
 
     pub fn download_task(&self) -> BufferDownloadTask<ArrayBufferSlice<T, C>> {
         BufferDownloadTask {
             buffer_rep: self.clone().into(),
-            state: BufferDownloadState::Initial
+            state: BufferDownloadState::Initial,
         }
     }
 
-    pub fn slice<R>(&self, range: R) -> ArrayBufferSlice<T, C> where R: RangeBounds<usize> {
+    pub fn slice<R>(&self, range: R) -> ArrayBufferSlice<T, C>
+    where
+        R: RangeBounds<usize>,
+    {
         let len = self.internal.len;
         let (start, end) = slice_bounds(range, len);
 
         if end - start < 1 || end > len {
-            panic!("Range must be a positive non-zero range that fits 0..{}", len);
+            panic!(
+                "Range must be a positive non-zero range that fits 0..{}",
+                len
+            );
         }
 
         ArrayBufferSlice {
             buffer_handle: self.clone(),
             offset: start,
-            len: end - start
+            len: end - start,
         }
     }
 }
 
-impl<T, C> Clone for BufferHandle<T, C> where C: RenderingContext {
+impl<T, C> Clone for BufferHandle<T, C>
+where
+    C: RenderingContext,
+{
     fn clone(&self) -> Self {
         BufferHandle {
             internal: self.internal.clone(),
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 }
 
-impl<T, C> Clone for BufferHandle<[T], C> where C: RenderingContext {
+impl<T, C> Clone for BufferHandle<[T], C>
+where
+    C: RenderingContext,
+{
     fn clone(&self) -> Self {
         BufferHandle {
             internal: self.internal.clone(),
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 }
 
-impl<C> Drop for BufferHandleInternal<C> where C: RenderingContext {
+impl<C> Drop for BufferHandleInternal<C>
+where
+    C: RenderingContext,
+{
     fn drop(&mut self) {
         if let Some(buffer_id) = self.gl_object_id {
-            self.context.submit(DropGlBufferTask {
-                buffer_id
-            });
+            self.context.submit(DropGlBufferTask { buffer_id });
         }
     }
 }
 
-pub struct ArrayBufferSlice<T, C> where C: RenderingContext {
+pub struct ArrayBufferSlice<T, C>
+where
+    C: RenderingContext,
+{
     buffer_handle: BufferHandle<[T], C>,
     offset: usize,
-    len: usize
+    len: usize,
 }
 
-impl<T, C> ArrayBufferSlice<T, C> where C: RenderingContext {
+impl<T, C> ArrayBufferSlice<T, C>
+where
+    C: RenderingContext,
+{
     pub fn context(&self) -> &C {
         &self.buffer_handle.internal.context
     }
@@ -218,57 +265,72 @@ impl<T, C> ArrayBufferSlice<T, C> where C: RenderingContext {
         self.len
     }
 
-    pub fn upload_task<D>(&self, data: D) -> BufferUploadTask<Self, D> where D: Borrow<[T]> + Send + Sync + 'static {
+    pub fn upload_task<D>(&self, data: D) -> BufferUploadTask<Self, D>
+    where
+        D: Borrow<[T]> + Send + Sync + 'static,
+    {
         BufferUploadTask {
             buffer_rep: self.clone(),
-            data
+            data,
         }
     }
 
     pub fn download_task(&self) -> BufferDownloadTask<Self> {
         BufferDownloadTask {
             buffer_rep: self.clone(),
-            state: BufferDownloadState::Initial
+            state: BufferDownloadState::Initial,
         }
     }
 
-    pub fn slice<R>(&self, range: R) -> ArrayBufferSlice<T, C> where R: RangeBounds<usize> {
+    pub fn slice<R>(&self, range: R) -> ArrayBufferSlice<T, C>
+    where
+        R: RangeBounds<usize>,
+    {
         let (start, end) = slice_bounds(range, self.len);
 
         if end - start < 1 || end > self.len {
-            panic!("Range must be a positive non-zero range that fits 0..{}", self.len);
+            panic!(
+                "Range must be a positive non-zero range that fits 0..{}",
+                self.len
+            );
         }
 
         ArrayBufferSlice {
             buffer_handle: self.buffer_handle.clone(),
             offset: self.offset + start,
-            len: end - start
+            len: end - start,
         }
     }
 }
 
-impl<T, C> Clone for ArrayBufferSlice<T, C> where C: RenderingContext {
+impl<T, C> Clone for ArrayBufferSlice<T, C>
+where
+    C: RenderingContext,
+{
     fn clone(&self) -> Self {
         ArrayBufferSlice {
             buffer_handle: self.buffer_handle.clone(),
             offset: self.offset,
-            len: self.len
+            len: self.len,
         }
     }
 }
 
-impl<T, C> Into<ArrayBufferSlice<T, C>> for BufferHandle<[T], C> where C: RenderingContext {
+impl<T, C> Into<ArrayBufferSlice<T, C>> for BufferHandle<[T], C>
+where
+    C: RenderingContext,
+{
     fn into(self) -> ArrayBufferSlice<T, C> {
         ArrayBufferSlice {
             offset: 0,
             len: self.internal.len,
-            buffer_handle: self
+            buffer_handle: self,
         }
     }
 }
 
 struct DropGlBufferTask {
-    buffer_id: JsId
+    buffer_id: JsId,
 }
 
 impl GpuTask<Connection> for DropGlBufferTask {
@@ -287,10 +349,14 @@ impl GpuTask<Connection> for DropGlBufferTask {
 
 pub struct BufferUploadTask<B, D> {
     buffer_rep: B,
-    data: D
+    data: D,
 }
 
-impl<D, T, C> GpuTask<Connection> for BufferUploadTask<BufferHandle<T, C>, D> where D: Borrow<T>, C: RenderingContext {
+impl<D, T, C> GpuTask<Connection> for BufferUploadTask<BufferHandle<T, C>, D>
+where
+    D: Borrow<T>,
+    C: RenderingContext,
+{
     type Output = ();
 
     type Error = ();
@@ -299,12 +365,22 @@ impl<D, T, C> GpuTask<Connection> for BufferUploadTask<BufferHandle<T, C>, D> wh
         let buffer_object = self.buffer_rep.gl_object(connection);
         let Connection(gl, state) = connection;
 
-        state.set_bound_copy_write_buffer(Some(&buffer_object)).apply(gl).unwrap();
+        state
+            .set_bound_copy_write_buffer(Some(&buffer_object))
+            .apply(gl)
+            .unwrap();
 
         unsafe {
-            let data = slice::from_raw_parts(self.data.borrow() as *const _ as *const u8, mem::size_of::<T>());
+            let data = slice::from_raw_parts(
+                self.data.borrow() as *const _ as *const u8,
+                mem::size_of::<T>(),
+            );
 
-            gl.buffer_sub_data_with_i32_and_u8_array(GL::COPY_WRITE_BUFFER, 0, &mut *(data as *const _ as *mut _));
+            gl.buffer_sub_data_with_i32_and_u8_array(
+                GL::COPY_WRITE_BUFFER,
+                0,
+                &mut *(data as *const _ as *mut _),
+            );
         };
 
         mem::forget(buffer_object);
@@ -313,7 +389,11 @@ impl<D, T, C> GpuTask<Connection> for BufferUploadTask<BufferHandle<T, C>, D> wh
     }
 }
 
-impl<D, T, C> GpuTask<Connection> for BufferUploadTask<ArrayBufferSlice<T, C>, D> where D: Borrow<[T]>, C: RenderingContext {
+impl<D, T, C> GpuTask<Connection> for BufferUploadTask<ArrayBufferSlice<T, C>, D>
+where
+    D: Borrow<[T]>,
+    C: RenderingContext,
+{
     type Output = ();
 
     type Error = ();
@@ -322,12 +402,18 @@ impl<D, T, C> GpuTask<Connection> for BufferUploadTask<ArrayBufferSlice<T, C>, D
         let buffer_object = self.buffer_rep.buffer_handle.gl_object(connection);
         let Connection(gl, state) = connection;
 
-        state.set_bound_copy_write_buffer(Some(&buffer_object)).apply(gl).unwrap();
+        state
+            .set_bound_copy_write_buffer(Some(&buffer_object))
+            .apply(gl)
+            .unwrap();
 
         unsafe {
             let data = self.data.borrow();
             let len = data.len();
-            let mut data = slice::from_raw_parts(self.data.borrow() as *const _ as *const u8, mem::size_of::<T>() * len);
+            let mut data = slice::from_raw_parts(
+                self.data.borrow() as *const _ as *const u8,
+                mem::size_of::<T>() * len,
+            );
             let element_size = mem::size_of::<T>();
             let max_len = element_size * self.buffer_rep.len;
 
@@ -337,7 +423,11 @@ impl<D, T, C> GpuTask<Connection> for BufferUploadTask<ArrayBufferSlice<T, C>, D
 
             let offset = element_size * self.buffer_rep.offset;
 
-            gl.buffer_sub_data_with_i32_and_u8_array(GL::COPY_WRITE_BUFFER, offset as i32, &mut *(data as *const _ as *mut _));
+            gl.buffer_sub_data_with_i32_and_u8_array(
+                GL::COPY_WRITE_BUFFER,
+                offset as i32,
+                &mut *(data as *const _ as *mut _),
+            );
         };
 
         mem::forget(buffer_object);
@@ -348,15 +438,18 @@ impl<D, T, C> GpuTask<Connection> for BufferUploadTask<ArrayBufferSlice<T, C>, D
 
 pub struct BufferDownloadTask<B> {
     buffer_rep: B,
-    state: BufferDownloadState
+    state: BufferDownloadState,
 }
 
 enum BufferDownloadState {
     Initial,
-    Copied(Option<WebGlBuffer>)
+    Copied(Option<WebGlBuffer>),
 }
 
-impl<T, C> GpuTask<Connection> for BufferDownloadTask<BufferHandle<T, C>> where C: RenderingContext {
+impl<T, C> GpuTask<Connection> for BufferDownloadTask<BufferHandle<T, C>>
+where
+    C: RenderingContext,
+{
     type Output = Box<T>;
 
     type Error = ();
@@ -369,31 +462,49 @@ impl<T, C> GpuTask<Connection> for BufferDownloadTask<BufferHandle<T, C>> where 
                 let read_buffer = gl.create_buffer().unwrap();
                 let size_in_bytes = self.buffer_rep.internal.size_in_bytes;
 
-                state.set_bound_copy_write_buffer(Some(&read_buffer)).apply(gl).unwrap();
+                state
+                    .set_bound_copy_write_buffer(Some(&read_buffer))
+                    .apply(gl)
+                    .unwrap();
 
-                gl.buffer_data_with_i32(GL::COPY_WRITE_BUFFER, size_in_bytes as i32, GL::STREAM_READ);
+                gl.buffer_data_with_i32(
+                    GL::COPY_WRITE_BUFFER,
+                    size_in_bytes as i32,
+                    GL::STREAM_READ,
+                );
 
-                state.set_bound_copy_read_buffer(Some(&buffer)).apply(gl).unwrap();
+                state
+                    .set_bound_copy_read_buffer(Some(&buffer))
+                    .apply(gl)
+                    .unwrap();
 
                 gl.copy_buffer_sub_data_with_i32_and_i32_and_i32(
                     GL::COPY_READ_BUFFER,
                     GL::COPY_WRITE_BUFFER,
                     0,
                     0,
-                    size_in_bytes as i32
+                    size_in_bytes as i32,
                 );
 
-                mem::replace(&mut self.state, BufferDownloadState::Copied(Some(read_buffer)));
+                mem::replace(
+                    &mut self.state,
+                    BufferDownloadState::Copied(Some(read_buffer)),
+                );
 
                 mem::forget(buffer);
 
                 Progress::ContinueFenced
-            },
+            }
             BufferDownloadState::Copied(ref mut read_buffer) => {
-                let read_buffer = read_buffer.take().expect("Cannot make progress on a BufferDownload task after it has finished");
+                let read_buffer = read_buffer
+                    .take()
+                    .expect("Cannot make progress on a BufferDownload task after it has finished");
                 let Connection(gl, state) = connection;
 
-                state.set_bound_copy_read_buffer(Some(&read_buffer)).apply(gl).unwrap();
+                state
+                    .set_bound_copy_read_buffer(Some(&read_buffer))
+                    .apply(gl)
+                    .unwrap();
 
                 let mut data = vec![0; self.buffer_rep.internal.size_in_bytes];
 
@@ -411,7 +522,10 @@ impl<T, C> GpuTask<Connection> for BufferDownloadTask<BufferHandle<T, C>> where 
     }
 }
 
-impl<T, C> GpuTask<Connection> for BufferDownloadTask<ArrayBufferSlice<T, C>> where C: RenderingContext {
+impl<T, C> GpuTask<Connection> for BufferDownloadTask<ArrayBufferSlice<T, C>>
+where
+    C: RenderingContext,
+{
     type Output = Box<[T]>;
 
     type Error = ();
@@ -425,31 +539,45 @@ impl<T, C> GpuTask<Connection> for BufferDownloadTask<ArrayBufferSlice<T, C>> wh
                 let element_size = mem::size_of::<T>();
                 let size = element_size * self.buffer_rep.len;
 
-                state.set_bound_copy_write_buffer(Some(&read_buffer)).apply(gl).unwrap();
+                state
+                    .set_bound_copy_write_buffer(Some(&read_buffer))
+                    .apply(gl)
+                    .unwrap();
 
                 gl.buffer_data_with_i32(GL::COPY_WRITE_BUFFER, size as i32, GL::STREAM_READ);
 
-                state.set_bound_copy_read_buffer(Some(&buffer)).apply(gl).unwrap();
+                state
+                    .set_bound_copy_read_buffer(Some(&buffer))
+                    .apply(gl)
+                    .unwrap();
 
                 gl.copy_buffer_sub_data_with_i32_and_i32_and_i32(
                     GL::COPY_READ_BUFFER,
                     GL::COPY_WRITE_BUFFER,
                     (self.buffer_rep.offset * element_size) as i32,
                     0,
-                    size as i32
+                    size as i32,
                 );
 
-                mem::replace(&mut self.state, BufferDownloadState::Copied(Some(read_buffer)));
+                mem::replace(
+                    &mut self.state,
+                    BufferDownloadState::Copied(Some(read_buffer)),
+                );
 
                 mem::forget(buffer);
 
                 Progress::ContinueFenced
-            },
+            }
             BufferDownloadState::Copied(ref mut read_buffer) => {
-                let read_buffer = read_buffer.take().expect("Cannot make progress on a BufferDownload task after it has finished");
+                let read_buffer = read_buffer
+                    .take()
+                    .expect("Cannot make progress on a BufferDownload task after it has finished");
                 let Connection(gl, state) = connection;
 
-                state.set_bound_copy_read_buffer(Some(&read_buffer)).apply(gl).unwrap();
+                state
+                    .set_bound_copy_read_buffer(Some(&read_buffer))
+                    .apply(gl)
+                    .unwrap();
 
                 let mut data = vec![0; self.buffer_rep.len * mem::size_of::<T>()];
 
@@ -472,17 +600,20 @@ impl<T, C> GpuTask<Connection> for BufferDownloadTask<ArrayBufferSlice<T, C>> wh
     }
 }
 
-fn slice_bounds<R>(range: R, len: usize) -> (usize, usize) where R: RangeBounds<usize> {
+fn slice_bounds<R>(range: R, len: usize) -> (usize, usize)
+where
+    R: RangeBounds<usize>,
+{
     let start = match range.start_bound() {
         Bound::Unbounded => 0,
         Bound::Excluded(b) => b + 1,
-        Bound::Included(b) => *b
+        Bound::Included(b) => *b,
     };
 
     let end = match range.end_bound() {
         Bound::Unbounded => len,
         Bound::Excluded(b) => *b,
-        Bound::Included(b) => b - 1
+        Bound::Included(b) => b - 1,
     };
 
     (start, end)

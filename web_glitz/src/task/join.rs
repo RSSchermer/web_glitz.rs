@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
+use super::maybe_done::{maybe_done, MaybeDone};
 use super::{GpuTask, Progress};
-use super::maybe_done::{MaybeDone, maybe_done};
 
 macro_rules! generate {
     ($(

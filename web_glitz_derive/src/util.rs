@@ -1,17 +1,18 @@
 use std::fmt::Display;
 
 pub struct ErrorLog {
-    errors: Vec<String>
+    errors: Vec<String>,
 }
 
 impl ErrorLog {
-    pub fn new () -> Self {
-        ErrorLog {
-            errors: Vec::new()
-        }
+    pub fn new() -> Self {
+        ErrorLog { errors: Vec::new() }
     }
 
-    pub fn log_error<T>(&mut self, error: T) where T: Display {
+    pub fn log_error<T>(&mut self, error: T)
+    where
+        T: Display,
+    {
         self.errors.push(error.to_string());
     }
 
