@@ -8,6 +8,7 @@ use crate::util::ErrorLog;
 pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> {
     if let Data::Struct(ref data) = input.data {
         let struct_name = &input.ident;
+        let mod_path = quote!(_web_glitz::vertex_input);
         let mut log = ErrorLog::new();
 
         let mut position = 0;
@@ -29,11 +30,19 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
                 .unwrap_or(a.position.into_token_stream());
             let location = a.location;
             let ty = &a.ty;
+            let format = match a.format {
+                Some(ref format) => {
+                    let ident = Ident::new(format.as_str(), Span::call_site()).into_token_stream();
+
+                    quote!(#mod_path::AttributeFormat::#ident)
+                }
+                None => quote!(<#ty as #mod_path::VertexAttribute>::format())
+            };
 
             quote_spanned! {a.span=>
-                _web_glitz::vertex_input_binding::VertexInputAttributeDescriptor {
+                #mod_path::VertexInputAttributeDescriptor {
                     location: #location as u32,
-                    format: <#ty as _web_glitz::vertex_input_binding::VertexAttribute>::format(),
+                    format: #format,
                     offset: offset_of!(#struct_name, #field_name) as u8
                 }
             }
@@ -43,8 +52,8 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
 
         let impl_block = quote! {
             #[automatically_derived]
-            impl #impl_generics _web_glitz::vertex_input_binding::Vertex for #struct_name #ty_generics #where_clause {
-                type InputAttributeDescriptors = Vec<_web_glitz::vertex_input_binding::VertexInputAttributeDescriptor>;
+            impl #impl_generics #mod_path::Vertex for #struct_name #ty_generics #where_clause {
+                type InputAttributeDescriptors = Vec<#mod_path::VertexInputAttributeDescriptor>;
 
                 fn input_attribute_descriptors() -> Self::InputAttributeDescriptors {
                     vec![
@@ -122,6 +131,7 @@ impl VertexField {
 
                 let meta_items: Vec<NestedMeta> = match attr.interpret_meta() {
                     Some(Meta::List(ref meta)) => meta.nested.iter().cloned().collect(),
+                    Some(Meta::Word(ref i)) if i == "vertex_attribute" => Vec::new(),
                     _ => {
                         log.log_error(format!(
                             "Malformed #[vertex_attribute] attribute for field `{}`.",
@@ -133,6 +143,7 @@ impl VertexField {
                 };
 
                 let mut location = None;
+                let mut format = None;
 
                 for meta_item in meta_items.into_iter() {
                     match meta_item {
@@ -140,10 +151,30 @@ impl VertexField {
                             if let Lit::Int(ref i) = m.lit {
                                 location = Some(i.value());
                             } else {
-                                log.log_error(format!("Malformed #[vertex_attribute] attribute for field `{}`: expected `location` to be a positive integer.", field_name));
+                                log.log_error(format!(
+                                    "Malformed #[vertex_attribute] attribute for field `{}`: \
+                                     expected `location` to be a positive integer.",
+                                    field_name
+                                ));
                             };
                         }
-                        _ => log.log_error(format!("Malformed #[vertex_attribute] attribute for field `{}`: unrecognized option `{}`.", field_name, meta_item.into_token_stream()))
+                        NestedMeta::Meta(Meta::NameValue(ref m)) if m.ident == "format" => {
+                            if let Lit::Str(ref f) = m.lit {
+                                format = Some(f.value());
+                            } else {
+                                log.log_error(format!(
+                                    "Malformed #[vertex_attribute] attribute for field `{}`: \
+                                     expected `format` to be a string.",
+                                    field_name
+                                ));
+                            };
+                        }
+                        _ => log.log_error(format!(
+                            "Malformed #[vertex_attribute] attribute for field `{}`: unrecognized \
+                             option `{}`.",
+                            field_name,
+                            meta_item.into_token_stream()
+                        )),
                     }
                 }
 
@@ -153,10 +184,15 @@ impl VertexField {
                         ty: ast.ty.clone(),
                         position,
                         location,
+                        format,
                         span: ast.span(),
                     })
                 } else {
-                    log.log_error(format!("Field `{}` is marked as a vertex attribute, but does not declare a binding location.", field_name));
+                    log.log_error(format!(
+                        "Field `{}` is marked a vertex attribute, but does not declare a binding \
+                         location.",
+                        field_name
+                    ));
 
                     VertexField::Excluded
                 }
@@ -178,6 +214,7 @@ struct AttributeField {
     ty: Type,
     position: usize,
     location: u64,
+    format: Option<String>,
     span: Span,
 }
 

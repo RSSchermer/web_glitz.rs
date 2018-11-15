@@ -1,0 +1,9 @@
+[package]
+name = "web-glitz-derive-test"
+version = "0.1.0"
+authors = ["Roland Schermer <roland0507@gmail.com>"]
+publish = false
+
+[dev-dependencies]
+compiletest_rs = "*"
+web-glitz = { version = "0.1.0", path = "../web_glitz" }

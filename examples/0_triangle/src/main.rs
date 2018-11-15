@@ -1,13 +1,4 @@
-extern crate stdweb;
-extern crate web_draw_2;
-
-use stdweb::web::document;
-use stdweb::web::html_element::CanvasElement;
-use web_draw_2::core::{
-    RenderingContext as WebDraw2Context,
-    Shader,
-    Buffer
-};
+extern crate web_glitz;
 
 #[derive(VertexDefinition)]
 struct Vertex {
