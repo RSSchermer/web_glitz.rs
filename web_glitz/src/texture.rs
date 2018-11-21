@@ -3,9 +3,14 @@ use std::sync::Arc;
 
 use crate::image_format::*;
 use crate::util::JsId;
+use task::GpuTask;
+use rendering_context::Connection;
+use task::Progress;
+use rendering_context::RenderingContext;
+use wasm_bindgen::JsCast;
 
 pub trait Texture<F> where F: TextureFormat {
-    type Image: Image;
+    type Image: TextureImage<F>;
 
     fn level_count(&self) -> usize;
 
@@ -14,127 +19,24 @@ pub trait Texture<F> where F: TextureFormat {
     fn image(&self, level: usize, layer: usize) -> Option<Self::Image>;
 }
 
-pub unsafe trait Filterable {}
+pub trait TextureImage<F> where F: TextureFormat {
+    fn width(&self) -> u32;
 
-unsafe impl<T> Filterable for T where T: Texture<R8> {}
-unsafe impl<T> Filterable for T where T: Texture<R16F> {}
-unsafe impl<T> Filterable for T where T: Texture<RG8> {}
-unsafe impl<T> Filterable for T where T: Texture<RG16F> {}
-unsafe impl<T> Filterable for T where T: Texture<RGB8> {}
-unsafe impl<T> Filterable for T where T: Texture<SRGB8> {}
-unsafe impl<T> Filterable for T where T: Texture<RGB565> {}
-unsafe impl<T> Filterable for T where T: Texture<R11F_G11F_B10F> {}
-unsafe impl<T> Filterable for T where T: Texture<RGB9_E5> {}
-unsafe impl<T> Filterable for T where T: Texture<RGB16F> {}
-unsafe impl<T> Filterable for T where T: Texture<RGBA8> {}
-unsafe impl<T> Filterable for T where T: Texture<SRGB8_APLHA8> {}
-unsafe impl<T> Filterable for T where T: Texture<RGB5_A1> {}
-unsafe impl<T> Filterable for T where T: Texture<RGBA4> {}
-unsafe impl<T> Filterable for T where T: Texture<RGB10_A2> {}
-unsafe impl<T> Filterable for T where T: Texture<RGBA16F> {}
+    fn height(&self) -> u32;
 
-pub trait Image<F> where F: InternalImageFormat {
-    fn width(&self) -> usize;
-
-    fn height(&self) -> usize;
-
-    fn upload_task<D, T>(&self, data: D) -> ImageUploadTask<D> where D: ImageData<T>, T: ClientFormat<F::ClientFormat>;
+    fn upload_task<D, T>(&self, data: D, region: ImageRegion) -> TextureImageUploadTask<T> where D: Into<ImageSource<T>>, T: ClientFormat<F>;
 }
 
-pub unsafe trait ColorAttachable {}
-
-unsafe impl<T> ColorAttachable for T where T: Image<R8> {}
-unsafe impl<T> ColorAttachable for T where T: Image<R8UI> {}
-unsafe impl<T> ColorAttachable for T where T: Image<RG8> {}
-unsafe impl<T> ColorAttachable for T where T: Image<RG8UI> {}
-unsafe impl<T> ColorAttachable for T where T: Image<RGB8> {}
-unsafe impl<T> ColorAttachable for T where T: Image<RGB565> {}
-unsafe impl<T> ColorAttachable for T where T: Image<RGBA8> {}
-unsafe impl<T> ColorAttachable for T where T: Image<SRGB8_APLHA8> {}
-unsafe impl<T> ColorAttachable for T where T: Image<RGB5_A1> {}
-unsafe impl<T> ColorAttachable for T where T: Image<RGBA4> {}
-unsafe impl<T> ColorAttachable for T where T: Image<RGB10_A2> {}
-unsafe impl<T> ColorAttachable for T where T: Image<RGBA8UI> {}
-
-pub struct Texture2D<F, C> {
-    data: Arc<Texture2DData<F, C>>
+pub enum ImageRegion {
+    Fill,
+    Rectangle(u32, u32, u32, u32)
 }
 
-struct Texture2DData<F, C> {
-    gl_object_id: Option<JsId>,
-    context: C,
-    width: usize,
-    height: usize,
-    level_count: usize,
-    format: marker::PhantomData<Box<[F]>>,
+pub struct ImageSource<P> {
+    _mark: marker::PhantomData<[P]>
 }
 
-impl<F, C> Texture<F> for Texture2D<F, C> where F: InternalImageFormat {
-    type Image = Texture2DImage<F, C>;
-
-    fn level_count(&self) -> usize {
-        self.data.level_count
-    }
-
-    fn layer_count(&self) -> usize {
-        1
-    }
-
-    fn image(&self, level: usize, layer: usize) -> Option<Self::Image> {
-        if layer == 0 && level < self.data.level_count {
-            Some(Texture2DImage {
-                texture_data: self.data.clone(),
-                level
-            })
-        } else {
-            None
-        }
-    }
-}
-
-pub struct Texture2DImage<F, C> {
-    texture_data: Arc<Texture2DData<F, C>>,
-    level: usize
-}
-
-struct Texture2DLevels<F> {
-    format: F
-}
-
-impl<F> Texture2DLevels<F> where F: InternalImageFormat {
-
-}
-
-
-
-
-struct Texture2DArray {
-
-}
-
-impl Texture2DArray {
-    pub fn width(&self) -> usize {
-
-    }
-
-    pub fn height(&self) -> usize {
-
-    }
-
-    pub fn layers(&self) -> TextureLayers {
-
-    }
-}
-
-struct TextureLayers {
-
-}
-
-struct TextureLayer {
-
-}
-
-pub unsafe trait TextureFormat: InternalImageFormat {}
+pub unsafe trait TextureFormat: InternalFormat {}
 
 unsafe impl TextureFormat for R8 {}
 unsafe impl TextureFormat for R16F {}
@@ -153,7 +55,7 @@ unsafe impl TextureFormat for RGB16F {}
 unsafe impl TextureFormat for RGB32F {}
 unsafe impl TextureFormat for RGB8UI {}
 unsafe impl TextureFormat for RGBA8 {}
-unsafe impl TextureFormat for SRGB8_APLHA8 {}
+unsafe impl TextureFormat for SRGB8_ALPHA8 {}
 unsafe impl TextureFormat for RGB5_A1 {}
 unsafe impl TextureFormat for RGBA4 {}
 unsafe impl TextureFormat for RGB10_A2 {}
@@ -166,4 +68,161 @@ unsafe impl TextureFormat for DepthComponent32F {}
 unsafe impl TextureFormat for Depth24Stencil8 {}
 unsafe impl TextureFormat for Depth32FStencil8 {}
 unsafe impl TextureFormat for Luminance {}
-unsafe impl TextureFormat for LuminanceAlph {}
+unsafe impl TextureFormat for LuminanceAlpha {}
+
+pub struct Texture2D<F, C> where C: RenderingContext {
+    data: Arc<TextureData<C>>,
+    _format: marker::PhantomData<Box<[F]>>
+}
+
+#[derive(Debug)]
+struct TextureData<C> where C: RenderingContext {
+    gl_object_id: Option<JsId>,
+    context: C,
+    width: u32,
+    height: u32,
+    level_count: usize
+}
+
+impl<F, C> Texture<F> for Texture2D<F, C> where F: TextureFormat, C: RenderingContext {
+    type Image = Texture2DImage<F, C>;
+
+    fn level_count(&self) -> usize {
+        self.data.level_count
+    }
+
+    fn layer_count(&self) -> usize {
+        1
+    }
+
+    fn image(&self, level: usize, layer: usize) -> Option<Self::Image> {
+        if layer == 0 && level < self.data.level_count {
+            Some(Texture2DImage {
+                data: TextureImageData {
+                    texture_data: self.data.clone(),
+                    level,
+                    target: TextureImageTarget::Texture2D
+                },
+                _format: marker::PhantomData
+            })
+        } else {
+            None
+        }
+    }
+}
+
+impl<C> Drop for TextureData<C> where C: RenderingContext {
+    fn drop(&mut self) {
+        if let Some(id) = self.gl_object_id {
+            self.context.submit(TextureDropTask {
+                id
+            });
+        }
+    }
+}
+
+struct TextureDropTask {
+    id: JsId
+}
+
+impl GpuTask<Connection> for TextureDropTask {
+    type Output = ();
+
+    type Error = ();
+
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output, Self::Error> {
+        let Connection(gl, _) = connection;
+
+        unsafe {
+            gl.delete_texture(Some(&JsId::into_value(self.id).unchecked_into()));
+        }
+
+        Progress::Finished(Ok(()))
+    }
+}
+
+pub struct Texture2DImage<F, C> where C: RenderingContext {
+    data: TextureImageData<C>,
+    _format: marker::PhantomData<Box<[F]>>
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct TextureImageData<C> where C: RenderingContext {
+    texture_data: Arc<TextureData<C>>,
+    level: usize,
+    target: TextureImageTarget
+}
+
+pub(crate) trait TextureImageReference<C> where C: RenderingContext {
+    fn reference(&self) -> TextureImageData<C>;
+}
+
+#[derive(Clone, Debug)]
+enum TextureImageTarget {
+    Texture2D,
+    TextureCubeMapPositiveX,
+    TextureCubeMapNegativeX,
+    TextureCubeMapPositiveY,
+    TextureCubeMapNegativeY,
+    TextureCubeMapPositiveZ,
+    TextureCubeMapNegativeZ,
+    Texture2DArray(usize),
+    Texture3D(usize)
+}
+
+impl<F, C> TextureImage<F> for Texture2DImage<F, C> where F: TextureFormat, C: RenderingContext {
+    fn width(&self) -> u32 {
+        let base_width = self.data.texture_data.width;
+        let level_width = base_width / 2 ^ (self.data.level as u32);
+
+        if level_width < 1 {
+            1
+        } else {
+            level_width
+        }
+    }
+
+    fn height(&self) -> u32 {
+        let base_height = self.data.texture_data.height;
+        let level_height = base_height / 2 ^ (self.data.level as u32);
+
+        if level_height < 1 {
+            1
+        } else {
+            level_height
+        }
+    }
+
+    fn upload_task<D, T>(&self, data: D, region: ImageRegion) -> TextureImageUploadTask<T> where D: Into<ImageSource<T>>, T: ClientFormat<F> {
+        TextureImageUploadTask {
+            data: data.into(),
+            region
+        }
+    }
+}
+
+impl<F, C> TextureImageReference<C> for Texture2DImage<F, C> where C: RenderingContext {
+    fn reference(&self) -> TextureImageData<C> {
+        self.data.clone()
+    }
+}
+
+//struct Texture2DArray {
+//
+//}
+//
+//impl Texture2DArray {
+//    pub fn width(&self) -> usize {
+//
+//    }
+//
+//    pub fn height(&self) -> usize {
+//
+//    }
+//}
+
+pub struct TextureImageUploadTask<T> {
+    data: ImageSource<T>,
+    region: ImageRegion
+}
+

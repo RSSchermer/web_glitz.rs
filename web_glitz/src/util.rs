@@ -5,7 +5,7 @@ use wasm_bindgen::JsValue;
 // This is a hack untill wasm_bindgen's API settles around `anyref`, see
 // https://github.com/rustwasm/wasm-bindgen/issues/999
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub(crate) struct JsId {
     id: u32,
 }

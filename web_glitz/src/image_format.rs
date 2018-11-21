@@ -53,10 +53,29 @@ unsafe impl StencilRenderable for StencilIndex8 {}
 unsafe impl StencilRenderable for Depth24Stencil8 {}
 unsafe impl StencilRenderable for Depth32FStencil8 {}
 
+pub unsafe trait Filterable {}
+
+unsafe impl Filterable for R8 {}
+unsafe impl Filterable for R16F {}
+unsafe impl Filterable for RG8 {}
+unsafe impl Filterable for RG16F {}
+unsafe impl Filterable for RGB8 {}
+unsafe impl Filterable for SRGB8 {}
+unsafe impl Filterable for RGB565 {}
+unsafe impl Filterable for R11F_G11F_B10F {}
+unsafe impl Filterable for RGB9_E5 {}
+unsafe impl Filterable for RGB16F {}
+unsafe impl Filterable for RGBA8 {}
+unsafe impl Filterable for SRGB8_ALPHA8 {}
+unsafe impl Filterable for RGB5_A1 {}
+unsafe impl Filterable for RGBA4 {}
+unsafe impl Filterable for RGB10_A2 {}
+unsafe impl Filterable for RGBA16F {}
+
 pub unsafe trait CopyCompatible<F> where F: InternalFormat {}
 
 // TODO implement CopyCompatible for formats: copyTexSubImage requires the target format to contain
-// a subset of the information
+// a subset of the information contained in the source format
 
 pub struct R8;
 

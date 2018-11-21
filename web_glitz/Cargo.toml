@@ -10,7 +10,7 @@ wasm-bindgen = "0.2.23"
 web-glitz-derive = { version = "0.1.0", path = "../web_glitz_derive" }
 
 [dependencies.web-sys]
-version = "0.3.0"
+version = "0.3.5"
 features = [
     "WebGl2RenderingContext",
     "WebGlBuffer",
