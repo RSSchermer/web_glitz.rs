@@ -36,7 +36,7 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
 
                     quote!(#mod_path::AttributeFormat::#ident)
                 }
-                None => quote!(<#ty as #mod_path::VertexAttribute>::format())
+                None => quote!(<#ty as #mod_path::VertexAttribute>::format()),
             };
 
             quote_spanned! {a.span=>

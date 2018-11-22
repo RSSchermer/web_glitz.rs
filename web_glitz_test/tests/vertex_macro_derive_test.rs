@@ -9,7 +9,7 @@ struct VertexA {
     #[vertex_attribute(location = 0)]
     position: (f32, f32, f32, f32),
     #[vertex_attribute(location = 1, format = "Float3_i8_norm")]
-    normal: [i8;3],
+    normal: [i8; 3],
     not_an_attribute: f32,
     #[vertex_attribute(location = 2)]
     matrix: [[f32; 4]; 4],

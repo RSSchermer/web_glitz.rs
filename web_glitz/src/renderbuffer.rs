@@ -1,36 +1,49 @@
-use rendering_context::RenderingContext;
-use util::JsId;
-use task::GpuTask;
-use rendering_context::Connection;
-use task::Progress;
-use wasm_bindgen::JsCast;
-use std::sync::Arc;
-use rendering_context::ContextUpdate;
 use image_format::InternalFormat;
+use rendering_context::Connection;
+use rendering_context::ContextUpdate;
+use rendering_context::RenderingContext;
 use std::marker;
+use std::sync::Arc;
+use task::GpuTask;
+use task::Progress;
+use util::JsId;
+use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
 
 pub unsafe trait RenderbufferFormat: InternalFormat {}
 
-pub trait Renderbuffer<F> where F: RenderbufferFormat {
+pub trait Renderbuffer<F>
+where
+    F: RenderbufferFormat,
+{
     fn width(&self) -> u32;
 
     fn height(&self) -> u32;
 }
 
-pub struct RenderbufferHandle<F, C> where C: RenderingContext {
-    data: Arc<RenderbufferData<C>>,
-    _marker: marker::PhantomData<[F]>
+pub struct RenderbufferHandle<F, C>
+where
+    C: RenderingContext,
+{
+    pub(crate) data: Arc<RenderbufferData<C>>,
+    _marker: marker::PhantomData<[F]>,
 }
 
-pub(crate) struct RenderbufferData<C> where C: RenderingContext {
+pub(crate) struct RenderbufferData<C>
+where
+    C: RenderingContext,
+{
     gl_object_id: Option<JsId>,
     context: C,
     width: u32,
-    height: u32
+    height: u32,
 }
 
-impl<F, C> Renderbuffer<F> for RenderbufferHandle<F, C> where F: RenderbufferFormat, C: RenderingContext {
+impl<F, C> Renderbuffer<F> for RenderbufferHandle<F, C>
+where
+    F: RenderbufferFormat,
+    C: RenderingContext,
+{
     fn width(&self) -> u32 {
         self.data.width
     }
@@ -40,22 +53,30 @@ impl<F, C> Renderbuffer<F> for RenderbufferHandle<F, C> where F: RenderbufferFor
     }
 }
 
-impl<C> Drop for RenderbufferData<C> where C: RenderingContext {
+impl<C> Drop for RenderbufferData<C>
+where
+    C: RenderingContext,
+{
     fn drop(&mut self) {
         if let Some(id) = self.gl_object_id {
-            self.context.submit(RenderbufferDropTask {
-                id
-            });
+            self.context.submit(RenderbufferDropTask { id });
         }
     }
 }
 
-struct RenderbufferAllocateTask<F, C> where C: RenderingContext {
+struct RenderbufferAllocateTask<F, C>
+where
+    C: RenderingContext,
+{
     data: Arc<RenderbufferData<C>>,
-    _marker: marker::PhantomData<[F]>
+    _marker: marker::PhantomData<[F]>,
 }
 
-impl<F, C> GpuTask<Connection> for RenderbufferAllocateTask<F, C> where F: RenderbufferFormat, C: RenderingContext {
+impl<F, C> GpuTask<Connection> for RenderbufferAllocateTask<F, C>
+where
+    F: RenderbufferFormat,
+    C: RenderingContext,
+{
     type Output = ();
 
     type Error = ();
@@ -65,11 +86,19 @@ impl<F, C> GpuTask<Connection> for RenderbufferAllocateTask<F, C> where F: Rende
 
         let object = gl.create_renderbuffer().unwrap();
 
-        state.set_bound_renderbuffer(Some(&object)).apply(gl).unwrap();
+        state
+            .set_bound_renderbuffer(Some(&object))
+            .apply(gl)
+            .unwrap();
 
         let data = &self.data;
 
-        gl.renderbuffer_storage(Gl::RENDERBUFFER, F::id(), data.width as i32, data.height as i32);
+        gl.renderbuffer_storage(
+            Gl::RENDERBUFFER,
+            F::id(),
+            data.width as i32,
+            data.height as i32,
+        );
 
         unsafe {
             let ptr = &data.gl_object_id as *const _ as *mut Option<JsId>;
@@ -82,7 +111,7 @@ impl<F, C> GpuTask<Connection> for RenderbufferAllocateTask<F, C> where F: Rende
 }
 
 struct RenderbufferDropTask {
-    id: JsId
+    id: JsId,
 }
 
 impl GpuTask<Connection> for RenderbufferDropTask {

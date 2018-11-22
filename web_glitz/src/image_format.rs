@@ -4,7 +4,10 @@ pub unsafe trait InternalFormat {
     fn id() -> u32;
 }
 
-pub unsafe trait ClientFormat<T> where T: InternalFormat {
+pub unsafe trait ClientFormat<T>
+where
+    T: InternalFormat,
+{
     fn id() -> u32;
 }
 
@@ -72,7 +75,11 @@ unsafe impl Filterable for RGBA4 {}
 unsafe impl Filterable for RGB10_A2 {}
 unsafe impl Filterable for RGBA16F {}
 
-pub unsafe trait CopyCompatible<F> where F: InternalFormat {}
+pub unsafe trait CopyCompatible<F>
+where
+    F: InternalFormat,
+{
+}
 
 // TODO implement CopyCompatible for formats: copyTexSubImage requires the target format to contain
 // a subset of the information contained in the source format

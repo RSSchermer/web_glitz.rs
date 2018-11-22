@@ -3,13 +3,16 @@ use std::sync::Arc;
 
 use crate::image_format::*;
 use crate::util::JsId;
-use task::GpuTask;
 use rendering_context::Connection;
-use task::Progress;
 use rendering_context::RenderingContext;
+use task::GpuTask;
+use task::Progress;
 use wasm_bindgen::JsCast;
 
-pub trait Texture<F> where F: TextureFormat {
+pub trait Texture<F>
+where
+    F: TextureFormat,
+{
     type Image: TextureImage<F>;
 
     fn level_count(&self) -> usize;
@@ -19,21 +22,27 @@ pub trait Texture<F> where F: TextureFormat {
     fn image(&self, level: usize, layer: usize) -> Option<Self::Image>;
 }
 
-pub trait TextureImage<F> where F: TextureFormat {
+pub trait TextureImage<F>
+where
+    F: TextureFormat,
+{
     fn width(&self) -> u32;
 
     fn height(&self) -> u32;
 
-    fn upload_task<D, T>(&self, data: D, region: ImageRegion) -> TextureImageUploadTask<T> where D: Into<ImageSource<T>>, T: ClientFormat<F>;
+    fn upload_task<D, T>(&self, data: D, region: ImageRegion) -> TextureImageUploadTask<T>
+    where
+        D: Into<ImageSource<T>>,
+        T: ClientFormat<F>;
 }
 
 pub enum ImageRegion {
     Fill,
-    Rectangle(u32, u32, u32, u32)
+    Rectangle(u32, u32, u32, u32),
 }
 
 pub struct ImageSource<P> {
-    _mark: marker::PhantomData<[P]>
+    _mark: marker::PhantomData<[P]>,
 }
 
 pub unsafe trait TextureFormat: InternalFormat {}
@@ -70,22 +79,32 @@ unsafe impl TextureFormat for Depth32FStencil8 {}
 unsafe impl TextureFormat for Luminance {}
 unsafe impl TextureFormat for LuminanceAlpha {}
 
-pub struct Texture2D<F, C> where C: RenderingContext {
+pub struct Texture2DHandle<F, C>
+where
+    C: RenderingContext,
+{
     data: Arc<TextureData<C>>,
-    _format: marker::PhantomData<Box<[F]>>
+    _format: marker::PhantomData<Box<[F]>>,
 }
 
 #[derive(Debug)]
-struct TextureData<C> where C: RenderingContext {
+struct TextureData<C>
+where
+    C: RenderingContext,
+{
     gl_object_id: Option<JsId>,
     context: C,
     width: u32,
     height: u32,
-    level_count: usize
+    level_count: usize,
 }
 
-impl<F, C> Texture<F> for Texture2D<F, C> where F: TextureFormat, C: RenderingContext {
-    type Image = Texture2DImage<F, C>;
+impl<F, C> Texture<F> for Texture2DHandle<F, C>
+where
+    F: TextureFormat,
+    C: RenderingContext,
+{
+    type Image = Texture2DImageRef<F, C>;
 
     fn level_count(&self) -> usize {
         self.data.level_count
@@ -97,13 +116,13 @@ impl<F, C> Texture<F> for Texture2D<F, C> where F: TextureFormat, C: RenderingCo
 
     fn image(&self, level: usize, layer: usize) -> Option<Self::Image> {
         if layer == 0 && level < self.data.level_count {
-            Some(Texture2DImage {
+            Some(Texture2DImageRef {
                 data: TextureImageData {
                     texture_data: self.data.clone(),
                     level,
-                    target: TextureImageTarget::Texture2D
+                    target: TextureImageTarget::Texture2D,
                 },
-                _format: marker::PhantomData
+                _format: marker::PhantomData,
             })
         } else {
             None
@@ -111,18 +130,19 @@ impl<F, C> Texture<F> for Texture2D<F, C> where F: TextureFormat, C: RenderingCo
     }
 }
 
-impl<C> Drop for TextureData<C> where C: RenderingContext {
+impl<C> Drop for TextureData<C>
+where
+    C: RenderingContext,
+{
     fn drop(&mut self) {
         if let Some(id) = self.gl_object_id {
-            self.context.submit(TextureDropTask {
-                id
-            });
+            self.context.submit(TextureDropTask { id });
         }
     }
 }
 
 struct TextureDropTask {
-    id: JsId
+    id: JsId,
 }
 
 impl GpuTask<Connection> for TextureDropTask {
@@ -141,20 +161,22 @@ impl GpuTask<Connection> for TextureDropTask {
     }
 }
 
-pub struct Texture2DImage<F, C> where C: RenderingContext {
-    data: TextureImageData<C>,
-    _format: marker::PhantomData<Box<[F]>>
+pub struct Texture2DImageRef<F, C>
+where
+    C: RenderingContext,
+{
+    pub(crate) data: TextureImageData<C>,
+    _format: marker::PhantomData<Box<[F]>>,
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct TextureImageData<C> where C: RenderingContext {
+pub(crate) struct TextureImageData<C>
+where
+    C: RenderingContext,
+{
     texture_data: Arc<TextureData<C>>,
     level: usize,
-    target: TextureImageTarget
-}
-
-pub(crate) trait TextureImageReference<C> where C: RenderingContext {
-    fn reference(&self) -> TextureImageData<C>;
+    target: TextureImageTarget,
 }
 
 #[derive(Clone, Debug)]
@@ -167,10 +189,14 @@ enum TextureImageTarget {
     TextureCubeMapPositiveZ,
     TextureCubeMapNegativeZ,
     Texture2DArray(usize),
-    Texture3D(usize)
+    Texture3D(usize),
 }
 
-impl<F, C> TextureImage<F> for Texture2DImage<F, C> where F: TextureFormat, C: RenderingContext {
+impl<F, C> TextureImage<F> for Texture2DImageRef<F, C>
+where
+    F: TextureFormat,
+    C: RenderingContext,
+{
     fn width(&self) -> u32 {
         let base_width = self.data.texture_data.width;
         let level_width = base_width / 2 ^ (self.data.level as u32);
@@ -193,20 +219,17 @@ impl<F, C> TextureImage<F> for Texture2DImage<F, C> where F: TextureFormat, C: R
         }
     }
 
-    fn upload_task<D, T>(&self, data: D, region: ImageRegion) -> TextureImageUploadTask<T> where D: Into<ImageSource<T>>, T: ClientFormat<F> {
+    fn upload_task<D, T>(&self, data: D, region: ImageRegion) -> TextureImageUploadTask<T>
+    where
+        D: Into<ImageSource<T>>,
+        T: ClientFormat<F>,
+    {
         TextureImageUploadTask {
             data: data.into(),
-            region
+            region,
         }
     }
 }
-
-impl<F, C> TextureImageReference<C> for Texture2DImage<F, C> where C: RenderingContext {
-    fn reference(&self) -> TextureImageData<C> {
-        self.data.clone()
-    }
-}
-
 //struct Texture2DArray {
 //
 //}
@@ -223,6 +246,5 @@ impl<F, C> TextureImageReference<C> for Texture2DImage<F, C> where C: RenderingC
 
 pub struct TextureImageUploadTask<T> {
     data: ImageSource<T>,
-    region: ImageRegion
+    region: ImageRegion,
 }
-
