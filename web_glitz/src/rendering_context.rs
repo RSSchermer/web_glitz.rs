@@ -15,6 +15,8 @@ use web_sys::{
 
 use super::buffer::{BufferHandle, BufferUsage};
 use super::task::{GpuTask, Progress};
+use framebuffer::FramebufferHandle;
+use framebuffer::FramebufferDescriptor;
 
 const TEXTURE_UNIT_CONSTANTS: [u32; 32] = [
     GL::TEXTURE0,
@@ -290,6 +292,8 @@ pub trait RenderingContext: Clone {
         usage_hint: BufferUsage,
     ) -> BufferHandle<[T], Self>;
 
+    fn create_framebuffer<D>(&self, descriptor: &D) -> FramebufferHandle<Self> where D: FramebufferDescriptor<Self>;
+
     fn submit<T>(&self, task: T) -> Execution<T::Output, T::Error>
     where
         T: GpuTask<Connection> + 'static;
@@ -311,6 +315,10 @@ impl RenderingContext for SingleThreadedContext {
         usage_hint: BufferUsage,
     ) -> BufferHandle<[T], Self> {
         BufferHandle::array(self.clone(), len, usage_hint)
+    }
+
+    fn create_framebuffer<D>(&self, descriptor: &D) -> FramebufferHandle<Self> where D: FramebufferDescriptor<Self> {
+        FramebufferHandle::new(self, descriptor)
     }
 
     fn submit<T>(&self, task: T) -> Execution<T::Output, T::Error>

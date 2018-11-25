@@ -33,7 +33,7 @@ pub(crate) struct RenderbufferData<C>
 where
     C: RenderingContext,
 {
-    gl_object_id: Option<JsId>,
+    pub(crate) gl_object_id: Option<JsId>,
     context: C,
     width: u32,
     height: u32,

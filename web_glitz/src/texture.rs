@@ -36,6 +36,11 @@ where
         T: ClientFormat<F>;
 }
 
+//pub enum TextureLevel {
+//    Image2D(TextureImage2D),
+//
+//}
+
 pub enum ImageRegion {
     Fill,
     Rectangle(u32, u32, u32, u32),
@@ -88,11 +93,11 @@ where
 }
 
 #[derive(Debug)]
-struct TextureData<C>
+pub(crate) struct TextureData<C>
 where
     C: RenderingContext,
 {
-    gl_object_id: Option<JsId>,
+    pub(crate) gl_object_id: Option<JsId>,
     context: C,
     width: u32,
     height: u32,
@@ -167,6 +172,8 @@ where
 {
     pub(crate) data: TextureImageData<C>,
     _format: marker::PhantomData<Box<[F]>>,
+
+    //TODO: track
 }
 
 #[derive(Clone, Debug)]
@@ -174,13 +181,14 @@ pub(crate) struct TextureImageData<C>
 where
     C: RenderingContext,
 {
-    texture_data: Arc<TextureData<C>>,
-    level: usize,
-    target: TextureImageTarget,
+    pub(crate) texture_data: Arc<TextureData<C>>,
+    pub(crate) level: usize,
+    pub(crate) target: TextureImageTarget,
 }
 
 #[derive(Clone, Debug)]
-enum TextureImageTarget {
+#[allow(unused)]
+pub(crate) enum TextureImageTarget {
     Texture2D,
     TextureCubeMapPositiveX,
     TextureCubeMapNegativeX,
