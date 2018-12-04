@@ -1,7 +1,10 @@
 use std::marker;
 
-use crate::framebuffer::{FramebufferDescriptor, AsFramebufferAttachment, ColorAttachable, DepthAttachable, StencilAttachable};
-use crate::rendering_context::{RenderingContext};
+use crate::framebuffer::{
+    AsFramebufferAttachment, ColorAttachable, DepthAttachable, FramebufferDescriptor,
+    StencilAttachable,
+};
+use crate::rendering_context::RenderingContext;
 
 pub struct FramebufferDescriptorBuilder<
     Rc,
@@ -46,29 +49,29 @@ pub struct FramebufferDescriptorBuilder<
 }
 
 impl<Rc>
-FramebufferDescriptorBuilder<
-    Rc,
-    (),
-    (),
-    (),
-    (),
-    (),
-    (),
-    (),
-    (),
-    (),
-    (),
-    (),
-    (),
-    (),
-    (),
-    (),
-    (),
-    (),
-    (),
->
-    where
-        Rc: RenderingContext,
+    FramebufferDescriptorBuilder<
+        Rc,
+        (),
+        (),
+        (),
+        (),
+        (),
+        (),
+        (),
+        (),
+        (),
+        (),
+        (),
+        (),
+        (),
+        (),
+        (),
+        (),
+        (),
+        (),
+    >
+where
+    Rc: RenderingContext,
 {
     pub fn new() -> Self {
         FramebufferDescriptorBuilder {
@@ -96,47 +99,47 @@ FramebufferDescriptorBuilder<
 }
 
 impl<Rc, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, D, S>
-FramebufferDescriptorBuilder<
-    Rc,
-    C0,
-    C1,
-    C2,
-    C3,
-    C4,
-    C5,
-    C6,
-    C7,
-    C8,
-    C9,
-    C10,
-    C11,
-    C12,
-    C13,
-    C14,
-    C15,
-    D,
-    S,
->
-    where
-        Rc: RenderingContext,
-        C0: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C1: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C2: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C3: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C4: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C5: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C6: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C7: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C8: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C9: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C10: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C11: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C12: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C13: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C14: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C15: ColorAttachable + AsFramebufferAttachment<Rc>,
-        D: DepthAttachable + AsFramebufferAttachment<Rc>,
-        S: StencilAttachable + AsFramebufferAttachment<Rc>,
+    FramebufferDescriptorBuilder<
+        Rc,
+        C0,
+        C1,
+        C2,
+        C3,
+        C4,
+        C5,
+        C6,
+        C7,
+        C8,
+        C9,
+        C10,
+        C11,
+        C12,
+        C13,
+        C14,
+        C15,
+        D,
+        S,
+    >
+where
+    Rc: RenderingContext,
+    C0: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C1: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C2: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C3: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C4: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C5: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C6: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C7: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C8: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C9: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C10: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C11: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C12: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C13: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C14: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C15: ColorAttachable + AsFramebufferAttachment<Rc>,
+    D: DepthAttachable + AsFramebufferAttachment<Rc>,
+    S: StencilAttachable + AsFramebufferAttachment<Rc>,
 {
     pub fn color_attachment_0<A>(
         self,
@@ -162,8 +165,8 @@ FramebufferDescriptorBuilder<
         D,
         S,
     >
-        where
-            A: ColorAttachable + AsFramebufferAttachment<Rc>,
+    where
+        A: ColorAttachable + AsFramebufferAttachment<Rc>,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: attachable,
@@ -212,8 +215,8 @@ FramebufferDescriptorBuilder<
         D,
         S,
     >
-        where
-            A: ColorAttachable + AsFramebufferAttachment<Rc>,
+    where
+        A: ColorAttachable + AsFramebufferAttachment<Rc>,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -262,8 +265,8 @@ FramebufferDescriptorBuilder<
         D,
         S,
     >
-        where
-            A: ColorAttachable + AsFramebufferAttachment<Rc>,
+    where
+        A: ColorAttachable + AsFramebufferAttachment<Rc>,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -312,8 +315,8 @@ FramebufferDescriptorBuilder<
         D,
         S,
     >
-        where
-            A: ColorAttachable + AsFramebufferAttachment<Rc>,
+    where
+        A: ColorAttachable + AsFramebufferAttachment<Rc>,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -362,8 +365,8 @@ FramebufferDescriptorBuilder<
         D,
         S,
     >
-        where
-            A: ColorAttachable + AsFramebufferAttachment<Rc>,
+    where
+        A: ColorAttachable + AsFramebufferAttachment<Rc>,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -412,8 +415,8 @@ FramebufferDescriptorBuilder<
         D,
         S,
     >
-        where
-            A: ColorAttachable + AsFramebufferAttachment<Rc>,
+    where
+        A: ColorAttachable + AsFramebufferAttachment<Rc>,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -462,8 +465,8 @@ FramebufferDescriptorBuilder<
         D,
         S,
     >
-        where
-            A: ColorAttachable + AsFramebufferAttachment<Rc>,
+    where
+        A: ColorAttachable + AsFramebufferAttachment<Rc>,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -512,8 +515,8 @@ FramebufferDescriptorBuilder<
         D,
         S,
     >
-        where
-            A: ColorAttachable + AsFramebufferAttachment<Rc>,
+    where
+        A: ColorAttachable + AsFramebufferAttachment<Rc>,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -562,8 +565,8 @@ FramebufferDescriptorBuilder<
         D,
         S,
     >
-        where
-            A: ColorAttachable + AsFramebufferAttachment<Rc>,
+    where
+        A: ColorAttachable + AsFramebufferAttachment<Rc>,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -612,8 +615,8 @@ FramebufferDescriptorBuilder<
         D,
         S,
     >
-        where
-            A: ColorAttachable + AsFramebufferAttachment<Rc>,
+    where
+        A: ColorAttachable + AsFramebufferAttachment<Rc>,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -662,8 +665,8 @@ FramebufferDescriptorBuilder<
         D,
         S,
     >
-        where
-            A: ColorAttachable + AsFramebufferAttachment<Rc>,
+    where
+        A: ColorAttachable + AsFramebufferAttachment<Rc>,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -712,8 +715,8 @@ FramebufferDescriptorBuilder<
         D,
         S,
     >
-        where
-            A: ColorAttachable + AsFramebufferAttachment<Rc>,
+    where
+        A: ColorAttachable + AsFramebufferAttachment<Rc>,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -762,8 +765,8 @@ FramebufferDescriptorBuilder<
         D,
         S,
     >
-        where
-            A: ColorAttachable + AsFramebufferAttachment<Rc>,
+    where
+        A: ColorAttachable + AsFramebufferAttachment<Rc>,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -812,8 +815,8 @@ FramebufferDescriptorBuilder<
         D,
         S,
     >
-        where
-            A: ColorAttachable + AsFramebufferAttachment<Rc>,
+    where
+        A: ColorAttachable + AsFramebufferAttachment<Rc>,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -862,8 +865,8 @@ FramebufferDescriptorBuilder<
         D,
         S,
     >
-        where
-            A: ColorAttachable + AsFramebufferAttachment<Rc>,
+    where
+        A: ColorAttachable + AsFramebufferAttachment<Rc>,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -912,8 +915,8 @@ FramebufferDescriptorBuilder<
         D,
         S,
     >
-        where
-            A: ColorAttachable + AsFramebufferAttachment<Rc>,
+    where
+        A: ColorAttachable + AsFramebufferAttachment<Rc>,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -962,8 +965,8 @@ FramebufferDescriptorBuilder<
         A,
         S,
     >
-        where
-            A: DepthAttachable + AsFramebufferAttachment<Rc>,
+    where
+        A: DepthAttachable + AsFramebufferAttachment<Rc>,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -1012,8 +1015,8 @@ FramebufferDescriptorBuilder<
         D,
         A,
     >
-        where
-            A: StencilAttachable + AsFramebufferAttachment<Rc>,
+    where
+        A: StencilAttachable + AsFramebufferAttachment<Rc>,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -1062,8 +1065,8 @@ FramebufferDescriptorBuilder<
         A,
         A,
     >
-        where
-            A: DepthAttachable + StencilAttachable + AsFramebufferAttachment<Rc> + Clone,
+    where
+        A: DepthAttachable + StencilAttachable + AsFramebufferAttachment<Rc> + Clone,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -1174,47 +1177,47 @@ pub struct BuildFramebufferDescriptor<
 }
 
 impl<Rc, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, D, S>
-FramebufferDescriptor<Rc>
-for BuildFramebufferDescriptor<
-    C0,
-    C1,
-    C2,
-    C3,
-    C4,
-    C5,
-    C6,
-    C7,
-    C8,
-    C9,
-    C10,
-    C11,
-    C12,
-    C13,
-    C14,
-    C15,
-    D,
-    S,
->
-    where
-        Rc: RenderingContext,
-        C0: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C1: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C2: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C3: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C4: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C5: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C6: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C7: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C8: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C9: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C10: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C11: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C12: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C13: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C14: ColorAttachable + AsFramebufferAttachment<Rc>,
-        C15: ColorAttachable + AsFramebufferAttachment<Rc>,
-        D: DepthAttachable + AsFramebufferAttachment<Rc>,
-        S: StencilAttachable + AsFramebufferAttachment<Rc>,
+    FramebufferDescriptor<Rc>
+    for BuildFramebufferDescriptor<
+        C0,
+        C1,
+        C2,
+        C3,
+        C4,
+        C5,
+        C6,
+        C7,
+        C8,
+        C9,
+        C10,
+        C11,
+        C12,
+        C13,
+        C14,
+        C15,
+        D,
+        S,
+    >
+where
+    Rc: RenderingContext,
+    C0: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C1: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C2: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C3: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C4: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C5: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C6: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C7: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C8: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C9: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C10: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C11: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C12: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C13: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C14: ColorAttachable + AsFramebufferAttachment<Rc>,
+    C15: ColorAttachable + AsFramebufferAttachment<Rc>,
+    D: DepthAttachable + AsFramebufferAttachment<Rc>,
+    S: StencilAttachable + AsFramebufferAttachment<Rc>,
 {
     type ColorAttachment0 = C0;
 

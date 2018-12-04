@@ -7,10 +7,15 @@ use web_sys::WebGl2RenderingContext as Gl;
 use crate::framebuffer::FramebufferDescriptor;
 use crate::image_format::{ColorRenderable, DepthRenderable, StencilRenderable};
 use crate::renderbuffer::{RenderbufferData, RenderbufferHandle};
-use crate::rendering_context::{Connection, RenderingContext, ContextUpdate};
+use crate::rendering_context::{Connection, ContextUpdate, RenderingContext};
 use crate::task::{GpuTask, Progress};
-use crate::texture::{Texture2DImageRef, TextureImageData, TextureImageTarget};
+use crate::texture::Texture2DLevel;
 use crate::util::JsId;
+use texture::texture_2d::Texture2DData;
+use texture::texture_2d_array::Texture2DArrayData;
+use texture::texture_3d::Texture3DData;
+use texture::texture_cube::TextureCubeData;
+use texture::CubeFace;
 
 const COLOR_ATTACHMENT_IDS: [u32; 16] = [
     Gl::COLOR_ATTACHMENT0,
@@ -32,15 +37,15 @@ const COLOR_ATTACHMENT_IDS: [u32; 16] = [
 ];
 
 pub struct FramebufferHandle<Rc>
-    where
-        Rc: RenderingContext,
+where
+    Rc: RenderingContext,
 {
     data: Arc<FramebufferData<Rc>>,
 }
 
 pub(crate) struct FramebufferData<Rc>
-    where
-        Rc: RenderingContext,
+where
+    Rc: RenderingContext,
 {
     context: Rc,
     pub(crate) gl_object_id: Option<JsId>,
@@ -49,8 +54,14 @@ pub(crate) struct FramebufferData<Rc>
     stencil_attachment: FramebufferAttachment<Rc>,
 }
 
-impl<Rc> FramebufferHandle<Rc> where Rc: RenderingContext + 'static {
-    pub(crate) fn new<D>(context: &Rc, descriptor: &D) -> Self where D: FramebufferDescriptor<Rc> {
+impl<Rc> FramebufferHandle<Rc>
+where
+    Rc: RenderingContext + 'static,
+{
+    pub(crate) fn new<D>(context: &Rc, descriptor: &D) -> Self
+    where
+        D: FramebufferDescriptor<Rc>,
+    {
         let data = Arc::new(FramebufferData {
             context: context.clone(),
             gl_object_id: None,
@@ -76,19 +87,15 @@ impl<Rc> FramebufferHandle<Rc> where Rc: RenderingContext + 'static {
             stencil_attachment: descriptor.stencil_attachment().as_framebuffer_attachment(),
         });
 
-        context.submit(FramebufferAllocateTask {
-            data: data.clone()
-        });
+        context.submit(FramebufferAllocateTask { data: data.clone() });
 
-        FramebufferHandle {
-            data
-        }
+        FramebufferHandle { data }
     }
 }
 
 impl<Rc> Drop for FramebufferData<Rc>
-    where
-        Rc: RenderingContext,
+where
+    Rc: RenderingContext,
 {
     fn drop(&mut self) {
         if let Some(id) = self.gl_object_id {
@@ -98,145 +105,105 @@ impl<Rc> Drop for FramebufferData<Rc>
 }
 
 pub struct FramebufferAttachment<Rc>
-    where
-        Rc: RenderingContext,
+where
+    Rc: RenderingContext,
 {
-    internal: FramebufferAttachmentInternal<Rc>,
+    pub(crate) internal: FramebufferAttachmentInternal<Rc>,
 }
 
-enum FramebufferAttachmentInternal<Rc>
-    where
-        Rc: RenderingContext,
+pub(crate) enum FramebufferAttachmentInternal<Rc>
+where
+    Rc: RenderingContext,
 {
-    TextureImage(TextureImageData<Rc>),
+    Texture2DLevel(Arc<Texture2DData<Rc>>, usize),
+    Texture2DArrayLevelLayer(Arc<Texture2DArrayData<Rc>>, usize, usize),
+    Texture3DLevelLayer(Arc<Texture3DData<Rc>>, usize, usize),
+    TextureCubeLevelFace(Arc<TextureCubeData<Rc>>, usize, CubeFace),
     Renderbuffer(Arc<RenderbufferData<Rc>>),
     Empty,
 }
 
 impl<Rc> FramebufferAttachment<Rc>
-    where
-        Rc: RenderingContext,
+where
+    Rc: RenderingContext,
 {
     fn attach(&self, gl: &Gl, slot: u32) {
         let target = Gl::DRAW_FRAMEBUFFER;
 
         match &self.internal {
-            FramebufferAttachmentInternal::TextureImage(image) => {
-                let object = unsafe {
-                    JsId::into_value(image.texture_data.gl_object_id.unwrap()).unchecked_into()
-                };
-                let level = image.level as i32;
-
-                match image.target {
-                    TextureImageTarget::Texture2D => {
-                        gl.framebuffer_texture_2d(
-                            target,
-                            slot,
-                            Gl::TEXTURE_2D,
-                            Some(&object),
-                            level,
-                        );
-                    }
-                    TextureImageTarget::TextureCubeMapPositiveX => {
-                        gl.framebuffer_texture_2d(
-                            target,
-                            slot,
-                            Gl::TEXTURE_CUBE_MAP_POSITIVE_X,
-                            Some(&object),
-                            level,
-                        );
-                    }
-                    TextureImageTarget::TextureCubeMapNegativeX => {
-                        gl.framebuffer_texture_2d(
-                            target,
-                            slot,
-                            Gl::TEXTURE_CUBE_MAP_NEGATIVE_X,
-                            Some(&object),
-                            level,
-                        );
-                    }
-                    TextureImageTarget::TextureCubeMapPositiveY => {
-                        gl.framebuffer_texture_2d(
-                            target,
-                            slot,
-                            Gl::TEXTURE_CUBE_MAP_POSITIVE_Y,
-                            Some(&object),
-                            level,
-                        );
-                    }
-                    TextureImageTarget::TextureCubeMapNegativeY => {
-                        gl.framebuffer_texture_2d(
-                            target,
-                            slot,
-                            Gl::TEXTURE_CUBE_MAP_NEGATIVE_Y,
-                            Some(&object),
-                            level,
-                        );
-                    }
-                    TextureImageTarget::TextureCubeMapPositiveZ => {
-                        gl.framebuffer_texture_2d(
-                            target,
-                            slot,
-                            Gl::TEXTURE_CUBE_MAP_POSITIVE_Z,
-                            Some(&object),
-                            level,
-                        );
-                    }
-                    TextureImageTarget::TextureCubeMapNegativeZ => {
-                        gl.framebuffer_texture_2d(
-                            target,
-                            slot,
-                            Gl::TEXTURE_CUBE_MAP_NEGATIVE_Z,
-                            Some(&object),
-                            level,
-                        );
-                    }
-                    TextureImageTarget::Texture2DArray(layer) => {
-                        gl.framebuffer_texture_layer(
-                            target,
-                            slot,
-                            Some(&object),
-                            level,
-                            layer as i32,
-                        );
-                    }
-                    TextureImageTarget::Texture3D(layer) => {
-                        gl.framebuffer_texture_layer(
-                            target,
-                            slot,
-                            Some(&object),
-                            level,
-                            layer as i32,
-                        );
-                    }
-                }
-
-                mem::forget(object);
-            }
-            FramebufferAttachmentInternal::Renderbuffer(renderbuffer) => {
-                let object = unsafe {
-                    JsId::into_value(renderbuffer.gl_object_id.unwrap()).unchecked_into()
+            FramebufferAttachmentInternal::Texture2DLevel(texture_data, level) => {
+                texture_data.id.unwrap().with_value_unchecked(|texture_object| {
+                    gl.framebuffer_texture_2d(
+                        target,
+                        slot,
+                        Gl::TEXTURE_2D,
+                        Some(&texture_object),
+                        *level as i32,
+                    );
+                });
+            },
+            FramebufferAttachmentInternal::Texture2DArrayLevelLayer(texture_data, level, layer) => {
+                texture_data.id.unwrap().with_value_unchecked(|texture_object| {
+                    gl.framebuffer_texture_layer(
+                        target,
+                        slot,
+                        Some(&texture_object),
+                        *level as i32,
+                        *layer as i32,
+                    );
+                });
+            },
+            FramebufferAttachmentInternal::Texture3DLevelLayer(texture_data, level, layer) => {
+                texture_data.id.unwrap().with_value_unchecked(|texture_object| {
+                    gl.framebuffer_texture_layer(
+                        target,
+                        slot,
+                        Some(&texture_object),
+                        *level as i32,
+                        *layer as i32,
+                    );
+                });
+            },
+            FramebufferAttachmentInternal::TextureCubeLevelFace(texture_data, level, face) => {
+                let texture_target = match face {
+                    CubeFace::PositiveX => Gl::TEXTURE_CUBE_MAP_POSITIVE_X,
+                    CubeFace::NegativeX => Gl::TEXTURE_CUBE_MAP_NEGATIVE_X,
+                    CubeFace::PositiveY => Gl::TEXTURE_CUBE_MAP_POSITIVE_Y,
+                    CubeFace::NegativeY => Gl::TEXTURE_CUBE_MAP_NEGATIVE_Y,
+                    CubeFace::PositiveZ => Gl::TEXTURE_CUBE_MAP_POSITIVE_Z,
+                    CubeFace::NegativeZ => Gl::TEXTURE_CUBE_MAP_NEGATIVE_Z,
                 };
 
-                gl.framebuffer_renderbuffer(target, slot, Gl::RENDERBUFFER, Some(&object));
-
-                mem::forget(object)
+                texture_data.id.unwrap().with_value_unchecked(|texture_object| {
+                    gl.framebuffer_texture_2d(
+                        target,
+                        slot,
+                        texture_target,
+                        Some(&texture_object),
+                        *level as i32,
+                    );
+                });
+            },
+            FramebufferAttachmentInternal::Renderbuffer(renderbuffer_data) => {
+                renderbuffer_data.id.unwrap().with_value_unchecked(|renderbuffer_object| {
+                    gl.framebuffer_renderbuffer(target, slot, Gl::RENDERBUFFER, Some(&renderbuffer_object));
+                });
             }
-            _ => (),
+            FramebufferAttachmentInternal::Empty => (),
         }
     }
 }
 
 pub trait AsFramebufferAttachment<Rc>
-    where
-        Rc: RenderingContext,
+where
+    Rc: RenderingContext,
 {
     fn as_framebuffer_attachment(&self) -> FramebufferAttachment<Rc>;
 }
 
 impl<Rc> AsFramebufferAttachment<Rc> for ()
-    where
-        Rc: RenderingContext,
+where
+    Rc: RenderingContext,
 {
     fn as_framebuffer_attachment(&self) -> FramebufferAttachment<Rc> {
         FramebufferAttachment {
@@ -246,9 +213,9 @@ impl<Rc> AsFramebufferAttachment<Rc> for ()
 }
 
 impl<Rc, T> AsFramebufferAttachment<Rc> for Option<T>
-    where
-        T: AsFramebufferAttachment<Rc>,
-        Rc: RenderingContext,
+where
+    T: AsFramebufferAttachment<Rc>,
+    Rc: RenderingContext,
 {
     fn as_framebuffer_attachment(&self) -> FramebufferAttachment<Rc> {
         match self {
@@ -261,8 +228,8 @@ impl<Rc, T> AsFramebufferAttachment<Rc> for Option<T>
 }
 
 impl<F, Rc> AsFramebufferAttachment<Rc> for RenderbufferHandle<F, Rc>
-    where
-        Rc: RenderingContext,
+where
+    Rc: RenderingContext,
 {
     fn as_framebuffer_attachment(&self) -> FramebufferAttachment<Rc> {
         FramebufferAttachment {
@@ -271,27 +238,16 @@ impl<F, Rc> AsFramebufferAttachment<Rc> for RenderbufferHandle<F, Rc>
     }
 }
 
-impl<F, Rc> AsFramebufferAttachment<Rc> for Texture2DImageRef<F, Rc>
-    where
-        Rc: RenderingContext,
-{
-    fn as_framebuffer_attachment(&self) -> FramebufferAttachment<Rc> {
-        FramebufferAttachment {
-            internal: FramebufferAttachmentInternal::TextureImage(self.data.clone()),
-        }
-    }
-}
-
 struct FramebufferAllocateTask<Rc>
-    where
-        Rc: RenderingContext,
+where
+    Rc: RenderingContext,
 {
     data: Arc<FramebufferData<Rc>>,
 }
 
 impl<Rc> GpuTask<Connection> for FramebufferAllocateTask<Rc>
-    where
-        Rc: RenderingContext,
+where
+    Rc: RenderingContext,
 {
     type Output = ();
 

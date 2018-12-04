@@ -4,10 +4,10 @@ use std::sync::Arc;
 
 use wasm_bindgen::JsCast;
 
-use crate::rendering_context::{Connection, RenderingContext, ContextUpdate};
+use crate::framebuffer::framebuffer_handle::FramebufferData;
+use crate::rendering_context::{Connection, ContextUpdate, RenderingContext};
 use crate::task::{GpuTask, Progress};
 use crate::util::JsId;
-use crate::framebuffer::framebuffer_handle::FramebufferData;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum DrawBuffer {
@@ -30,9 +30,12 @@ pub enum DrawBuffer {
     ColorAttachment15,
 }
 
-pub struct RenderPass<T, Rc> where Rc: RenderingContext {
+pub struct RenderPass<T, Rc>
+where
+    Rc: RenderingContext,
+{
     task: T,
-    framebuffer_data: Arc<FramebufferData<Rc>>
+    framebuffer_data: Arc<FramebufferData<Rc>>,
 }
 
 pub struct RenderPassContext {
@@ -54,9 +57,9 @@ impl DerefMut for RenderPassContext {
 }
 
 impl<T, Rc> GpuTask<Connection> for RenderPass<T, Rc>
-    where
-        T: GpuTask<RenderPassContext>,
-Rc: RenderingContext
+where
+    T: GpuTask<RenderPassContext>,
+    Rc: RenderingContext,
 {
     type Output = T::Output;
 
@@ -65,11 +68,15 @@ Rc: RenderingContext
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output, Self::Error> {
         let Connection(gl, state) = connection;
 
-        let fbo = unsafe {
-            JsId::into_value(self.framebuffer_data.gl_object_id.unwrap()).unchecked_into()
-        };
-
-        state.set_bound_draw_framebuffer(Some(&fbo)).apply(gl).unwrap();
+        self.framebuffer_data
+            .gl_object_id
+            .unwrap()
+            .with_value_unchecked(|fbo| {
+                state
+                    .set_bound_draw_framebuffer(Some(&fbo))
+                    .apply(gl)
+                    .unwrap();
+            });
 
         self.task.progress(&mut RenderPassContext {
             connection: connection as *mut _,
@@ -83,9 +90,9 @@ pub struct SubPass<T> {
 }
 
 pub fn sub_pass<B, T>(draw_buffers: B, task: T) -> SubPass<T>
-    where
-        B: IntoIterator<Item = DrawBuffer>,
-        T: GpuTask<SubPassContext>,
+where
+    B: IntoIterator<Item = DrawBuffer>,
+    T: GpuTask<SubPassContext>,
 {
     let mut draw_buffer_array = [DrawBuffer::None; 16];
 
@@ -118,8 +125,8 @@ impl DerefMut for SubPassContext {
 }
 
 impl<T> GpuTask<RenderPassContext> for SubPass<T>
-    where
-        T: GpuTask<SubPassContext>,
+where
+    T: GpuTask<SubPassContext>,
 {
     type Output = T::Output;
 

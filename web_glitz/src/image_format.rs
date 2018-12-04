@@ -8,7 +8,9 @@ pub unsafe trait ClientFormat<T>
 where
     T: InternalFormat,
 {
-    fn id() -> u32;
+    fn format_id() -> u32;
+
+    fn type_id() -> u32;
 }
 
 pub unsafe trait ColorRenderable: InternalFormat {}
@@ -93,7 +95,11 @@ unsafe impl InternalFormat for R8 {
 }
 
 unsafe impl ClientFormat<R8> for u8 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RED
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_BYTE
     }
 }
@@ -107,7 +113,11 @@ unsafe impl InternalFormat for R16F {
 }
 
 unsafe impl ClientFormat<R16F> for f32 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RED
+    }
+
+    fn type_id() -> u32 {
         Gl::FLOAT
     }
 }
@@ -121,7 +131,11 @@ unsafe impl InternalFormat for R32F {
 }
 
 unsafe impl ClientFormat<R32F> for f32 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RED
+    }
+
+    fn type_id() -> u32 {
         Gl::FLOAT
     }
 }
@@ -135,7 +149,11 @@ unsafe impl InternalFormat for R8UI {
 }
 
 unsafe impl ClientFormat<R8UI> for u8 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RED_INTEGER
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_BYTE
     }
 }
@@ -149,7 +167,11 @@ unsafe impl InternalFormat for R8I {
 }
 
 unsafe impl ClientFormat<R8I> for u8 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RED_INTEGER
+    }
+
+    fn type_id() -> u32 {
         Gl::BYTE
     }
 }
@@ -163,7 +185,11 @@ unsafe impl InternalFormat for R16UI {
 }
 
 unsafe impl ClientFormat<R16UI> for u16 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RED_INTEGER
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_SHORT
     }
 }
@@ -177,7 +203,11 @@ unsafe impl InternalFormat for R16I {
 }
 
 unsafe impl ClientFormat<R16I> for i16 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RED_INTEGER
+    }
+
+    fn type_id() -> u32 {
         Gl::SHORT
     }
 }
@@ -191,7 +221,11 @@ unsafe impl InternalFormat for R32UI {
 }
 
 unsafe impl ClientFormat<R32UI> for u32 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RED_INTEGER
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_INT
     }
 }
@@ -205,7 +239,11 @@ unsafe impl InternalFormat for R32I {
 }
 
 unsafe impl ClientFormat<R32I> for i32 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RED_INTEGER
+    }
+
+    fn type_id() -> u32 {
         Gl::INT
     }
 }
@@ -219,7 +257,11 @@ unsafe impl InternalFormat for RG8 {
 }
 
 unsafe impl ClientFormat<RG8> for (u8, u8) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RG
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_BYTE
     }
 }
@@ -233,7 +275,11 @@ unsafe impl InternalFormat for RG16F {
 }
 
 unsafe impl ClientFormat<RG16F> for (f32, f32) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RG
+    }
+
+    fn type_id() -> u32 {
         Gl::FLOAT
     }
 }
@@ -247,7 +293,11 @@ unsafe impl InternalFormat for RG32F {
 }
 
 unsafe impl ClientFormat<RG32F> for (f32, f32) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RG
+    }
+
+    fn type_id() -> u32 {
         Gl::FLOAT
     }
 }
@@ -261,7 +311,11 @@ unsafe impl InternalFormat for RG8UI {
 }
 
 unsafe impl ClientFormat<RG8UI> for (u8, u8) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RG_INTEGER
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_BYTE
     }
 }
@@ -275,7 +329,11 @@ unsafe impl InternalFormat for RG8I {
 }
 
 unsafe impl ClientFormat<RG8I> for (i8, i8) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RG_INTEGER
+    }
+
+    fn type_id() -> u32 {
         Gl::BYTE
     }
 }
@@ -289,7 +347,11 @@ unsafe impl InternalFormat for RG16UI {
 }
 
 unsafe impl ClientFormat<RG16UI> for (u16, u16) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RG_INTEGER
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_SHORT
     }
 }
@@ -303,7 +365,11 @@ unsafe impl InternalFormat for RG16I {
 }
 
 unsafe impl ClientFormat<RG16I> for (i16, i16) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RG_INTEGER
+    }
+
+    fn type_id() -> u32 {
         Gl::SHORT
     }
 }
@@ -317,7 +383,11 @@ unsafe impl InternalFormat for RG32UI {
 }
 
 unsafe impl ClientFormat<RG32UI> for (u32, u32) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RG_INTEGER
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_INT
     }
 }
@@ -331,7 +401,11 @@ unsafe impl InternalFormat for RG32I {
 }
 
 unsafe impl ClientFormat<RG32I> for (i32, i32) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RG_INTEGER
+    }
+
+    fn type_id() -> u32 {
         Gl::INT
     }
 }
@@ -345,7 +419,11 @@ unsafe impl InternalFormat for RGB8 {
 }
 
 unsafe impl ClientFormat<RGB8> for (u8, u8, u8) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGB
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_BYTE
     }
 }
@@ -359,7 +437,11 @@ unsafe impl InternalFormat for SRGB8 {
 }
 
 unsafe impl ClientFormat<SRGB8> for (u8, u8, u8) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGB
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_BYTE
     }
 }
@@ -373,13 +455,21 @@ unsafe impl InternalFormat for RGB565 {
 }
 
 unsafe impl ClientFormat<RGB565> for (u8, u8, u8) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGB
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_BYTE
     }
 }
 
 unsafe impl ClientFormat<RGB565> for u16 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGB
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_SHORT_5_6_5
     }
 }
@@ -394,13 +484,21 @@ unsafe impl InternalFormat for R11F_G11F_B10F {
 }
 
 unsafe impl ClientFormat<R11F_G11F_B10F> for u32 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGB
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_INT_10F_11F_11F_REV
     }
 }
 
 unsafe impl ClientFormat<R11F_G11F_B10F> for (f32, f32, f32) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGB
+    }
+
+    fn type_id() -> u32 {
         Gl::FLOAT
     }
 }
@@ -415,13 +513,21 @@ unsafe impl InternalFormat for RGB9_E5 {
 }
 
 unsafe impl ClientFormat<RGB9_E5> for u32 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGB
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_INT_5_9_9_9_REV
     }
 }
 
 unsafe impl ClientFormat<RGB9_E5> for f32 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGB
+    }
+
+    fn type_id() -> u32 {
         Gl::FLOAT
     }
 }
@@ -435,7 +541,11 @@ unsafe impl InternalFormat for RGB16F {
 }
 
 unsafe impl ClientFormat<RGB16F> for (f32, f32, f32) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGB
+    }
+
+    fn type_id() -> u32 {
         Gl::FLOAT
     }
 }
@@ -449,7 +559,11 @@ unsafe impl InternalFormat for RGB32F {
 }
 
 unsafe impl ClientFormat<RGB32F> for (f32, f32, f32) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGB
+    }
+
+    fn type_id() -> u32 {
         Gl::FLOAT
     }
 }
@@ -463,7 +577,11 @@ unsafe impl InternalFormat for RGB8UI {
 }
 
 unsafe impl ClientFormat<RGB8UI> for (u8, u8, u8) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGB_INTEGER
+    }
+
+    fn type_id() -> u32 {
         Gl::FLOAT
     }
 }
@@ -477,7 +595,11 @@ unsafe impl InternalFormat for RGBA8 {
 }
 
 unsafe impl ClientFormat<RGBA8> for (u8, u8, u8, u8) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGBA
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_BYTE
     }
 }
@@ -492,7 +614,11 @@ unsafe impl InternalFormat for SRGB8_ALPHA8 {
 }
 
 unsafe impl ClientFormat<SRGB8_ALPHA8> for (u8, u8, u8, u8) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGBA
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_BYTE
     }
 }
@@ -507,19 +633,31 @@ unsafe impl InternalFormat for RGB5_A1 {
 }
 
 unsafe impl ClientFormat<RGB5_A1> for (u8, u8, u8, u8) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGBA
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_BYTE
     }
 }
 
 unsafe impl ClientFormat<RGB5_A1> for u16 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGBA
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_SHORT_5_5_5_1
     }
 }
 
 unsafe impl ClientFormat<RGB5_A1> for u32 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGBA
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_INT_2_10_10_10_REV
     }
 }
@@ -533,13 +671,21 @@ unsafe impl InternalFormat for RGBA4 {
 }
 
 unsafe impl ClientFormat<RGBA4> for (u8, u8, u8, u8) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGBA
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_BYTE
     }
 }
 
 unsafe impl ClientFormat<RGBA4> for u16 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGBA
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_SHORT_4_4_4_4
     }
 }
@@ -554,7 +700,11 @@ unsafe impl InternalFormat for RGB10_A2 {
 }
 
 unsafe impl ClientFormat<RGB10_A2> for u32 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGBA
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_INT_2_10_10_10_REV
     }
 }
@@ -569,7 +719,11 @@ unsafe impl InternalFormat for RGB10_A2UI {
 }
 
 unsafe impl ClientFormat<RGB10_A2UI> for u32 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGBA
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_INT_2_10_10_10_REV
     }
 }
@@ -583,7 +737,11 @@ unsafe impl InternalFormat for RGBA16F {
 }
 
 unsafe impl ClientFormat<RGBA16F> for (f32, f32, f32, f32) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGBA
+    }
+
+    fn type_id() -> u32 {
         Gl::FLOAT
     }
 }
@@ -597,7 +755,11 @@ unsafe impl InternalFormat for RGBA32F {
 }
 
 unsafe impl ClientFormat<RGBA32F> for (f32, f32, f32, f32) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGBA
+    }
+
+    fn type_id() -> u32 {
         Gl::FLOAT
     }
 }
@@ -611,7 +773,11 @@ unsafe impl InternalFormat for RGBA8UI {
 }
 
 unsafe impl ClientFormat<RGBA8UI> for (u8, u8, u8, u8) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGBA_INTEGER
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_BYTE
     }
 }
@@ -625,7 +791,11 @@ unsafe impl InternalFormat for RGBA8I {
 }
 
 unsafe impl ClientFormat<RGBA8I> for (i8, i8, i8, i8) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGBA_INTEGER
+    }
+
+    fn type_id() -> u32 {
         Gl::BYTE
     }
 }
@@ -639,7 +809,11 @@ unsafe impl InternalFormat for RGBA16UI {
 }
 
 unsafe impl ClientFormat<RGBA16UI> for (u16, u16, u16, u16) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGBA_INTEGER
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_SHORT
     }
 }
@@ -653,7 +827,11 @@ unsafe impl InternalFormat for RGBA16I {
 }
 
 unsafe impl ClientFormat<RGBA16I> for (i16, i16, i16, i16) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGBA_INTEGER
+    }
+
+    fn type_id() -> u32 {
         Gl::SHORT
     }
 }
@@ -667,7 +845,11 @@ unsafe impl InternalFormat for RGBA32UI {
 }
 
 unsafe impl ClientFormat<RGBA32UI> for (u32, u32, u32, u32) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGBA_INTEGER
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_INT
     }
 }
@@ -681,7 +863,11 @@ unsafe impl InternalFormat for RGBA32I {
 }
 
 unsafe impl ClientFormat<RGBA32I> for (i32, i32, i32, i32) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::RGBA_INTEGER
+    }
+
+    fn type_id() -> u32 {
         Gl::INT
     }
 }
@@ -695,13 +881,21 @@ unsafe impl InternalFormat for DepthComponent16 {
 }
 
 unsafe impl ClientFormat<DepthComponent16> for u16 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::DEPTH_COMPONENT
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_SHORT
     }
 }
 
 unsafe impl ClientFormat<DepthComponent16> for u32 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::DEPTH_COMPONENT
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_INT
     }
 }
@@ -715,7 +909,11 @@ unsafe impl InternalFormat for DepthComponent24 {
 }
 
 unsafe impl ClientFormat<DepthComponent24> for u32 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::DEPTH_COMPONENT
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_INT
     }
 }
@@ -729,7 +927,11 @@ unsafe impl InternalFormat for DepthComponent32F {
 }
 
 unsafe impl ClientFormat<DepthComponent32F> for f32 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::DEPTH_COMPONENT
+    }
+
+    fn type_id() -> u32 {
         Gl::FLOAT
     }
 }
@@ -751,7 +953,11 @@ unsafe impl InternalFormat for Depth24Stencil8 {
 }
 
 unsafe impl ClientFormat<Depth24Stencil8> for u32 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::DEPTH_STENCIL
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_INT_24_8
     }
 }
@@ -773,7 +979,11 @@ unsafe impl InternalFormat for Luminance {
 }
 
 unsafe impl ClientFormat<Luminance> for u8 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::LUMINANCE
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_BYTE
     }
 }
@@ -787,7 +997,11 @@ unsafe impl InternalFormat for LuminanceAlpha {
 }
 
 unsafe impl ClientFormat<LuminanceAlpha> for (u8, u8) {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::LUMINANCE_ALPHA
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_BYTE
     }
 }
@@ -801,7 +1015,11 @@ unsafe impl InternalFormat for Alpha {
 }
 
 unsafe impl ClientFormat<Alpha> for u8 {
-    fn id() -> u32 {
+    fn format_id() -> u32 {
+        Gl::ALPHA
+    }
+
+    fn type_id() -> u32 {
         Gl::UNSIGNED_BYTE
     }
 }

@@ -9,6 +9,51 @@ use task::GpuTask;
 use task::Progress;
 use wasm_bindgen::JsCast;
 
+struct LayeredImageRef<F, Rc> {
+
+}
+
+impl<F, Rc> LayeredImageRef<F, Rc> {
+    pub fn layer(&self, index: usize) -> Option<Image2DRef<F, Rc>> {
+
+    }
+
+    pub fn upload_task<D, T>(&self, data: D, region: ImageRegion) -> LayeredImageUploadTask<T>
+        where
+            D: Into<LayeredImageSource<T>>,
+            T: ClientFormat<F>,
+    {
+        LayeredImageUploadTask {
+            data: data.into(),
+            region,
+        }
+    }
+}
+
+impl<F, Rc> IntoIterator for LayeredImageRef<F, Rc> {
+    type Item = Image2DRef<F, Rc>;
+
+    type IntoIter = LayeredImageIntoIter<F, Rc>;
+
+    fn into_iter(self) -> LayeredImageIntoIter<F, Rc> {
+
+    }
+}
+
+struct LayeredImageIntoIter<F, Rc> {}
+
+impl<F, Rc> Iterator for LayeredImageIntoIter<F, Rc> {
+    type Item = Image2DRef<F, Rc>;
+
+    fn next(&mut self) -> Self::Item {
+
+    }
+}
+
+struct Image2DRef<F, Rc> {
+
+}
+
 pub trait Texture<F>
 where
     F: TextureFormat,
@@ -50,39 +95,7 @@ pub struct ImageSource<P> {
     _mark: marker::PhantomData<[P]>,
 }
 
-pub unsafe trait TextureFormat: InternalFormat {}
 
-unsafe impl TextureFormat for R8 {}
-unsafe impl TextureFormat for R16F {}
-unsafe impl TextureFormat for R32F {}
-unsafe impl TextureFormat for R8UI {}
-unsafe impl TextureFormat for RG8 {}
-unsafe impl TextureFormat for RG16F {}
-unsafe impl TextureFormat for RG32F {}
-unsafe impl TextureFormat for RG8UI {}
-unsafe impl TextureFormat for RGB8 {}
-unsafe impl TextureFormat for SRGB8 {}
-unsafe impl TextureFormat for RGB565 {}
-unsafe impl TextureFormat for R11F_G11F_B10F {}
-unsafe impl TextureFormat for RGB9_E5 {}
-unsafe impl TextureFormat for RGB16F {}
-unsafe impl TextureFormat for RGB32F {}
-unsafe impl TextureFormat for RGB8UI {}
-unsafe impl TextureFormat for RGBA8 {}
-unsafe impl TextureFormat for SRGB8_ALPHA8 {}
-unsafe impl TextureFormat for RGB5_A1 {}
-unsafe impl TextureFormat for RGBA4 {}
-unsafe impl TextureFormat for RGB10_A2 {}
-unsafe impl TextureFormat for RGBA16F {}
-unsafe impl TextureFormat for RGBA32F {}
-unsafe impl TextureFormat for RGBA8UI {}
-unsafe impl TextureFormat for DepthComponent16 {}
-unsafe impl TextureFormat for DepthComponent24 {}
-unsafe impl TextureFormat for DepthComponent32F {}
-unsafe impl TextureFormat for Depth24Stencil8 {}
-unsafe impl TextureFormat for Depth32FStencil8 {}
-unsafe impl TextureFormat for Luminance {}
-unsafe impl TextureFormat for LuminanceAlpha {}
 
 pub struct Texture2DHandle<F, C>
 where
@@ -256,3 +269,19 @@ pub struct TextureImageUploadTask<T> {
     data: ImageSource<T>,
     region: ImageRegion,
 }
+
+struct Texture2DHandle<F, Rc> {}
+
+struct Texture2DLevels<F, Rc> {}
+
+struct TextureCubeHandle<F, Rc> {}
+
+struct TextureCubeLevels<F, Rc> {}
+
+struct Texture2DArrayHandle<F, Rc> {}
+
+struct Texture2DArrayLevels<F, Rc> {}
+
+struct Texture3DHandle<F, Rc> {}
+
+struct Texture3DLevels<F, Rc> {}

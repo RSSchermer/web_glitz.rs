@@ -21,28 +21,28 @@ where
     fn height(&self) -> u32;
 }
 
-pub struct RenderbufferHandle<F, C>
+pub struct RenderbufferHandle<F, Rc>
 where
-    C: RenderingContext,
+    Rc: RenderingContext,
 {
-    pub(crate) data: Arc<RenderbufferData<C>>,
+    pub(crate) data: Arc<RenderbufferData<Rc>>,
     _marker: marker::PhantomData<[F]>,
 }
 
-pub(crate) struct RenderbufferData<C>
+pub(crate) struct RenderbufferData<Rc>
 where
-    C: RenderingContext,
+    Rc: RenderingContext,
 {
-    pub(crate) gl_object_id: Option<JsId>,
-    context: C,
+    pub(crate) id: Option<JsId>,
+    context: Rc,
     width: u32,
     height: u32,
 }
 
-impl<F, C> Renderbuffer<F> for RenderbufferHandle<F, C>
+impl<F, Rc> Renderbuffer<F> for RenderbufferHandle<F, Rc>
 where
     F: RenderbufferFormat,
-    C: RenderingContext,
+    Rc: RenderingContext,
 {
     fn width(&self) -> u32 {
         self.data.width
@@ -53,29 +53,29 @@ where
     }
 }
 
-impl<C> Drop for RenderbufferData<C>
+impl<Rc> Drop for RenderbufferData<Rc>
 where
-    C: RenderingContext,
+    Rc: RenderingContext,
 {
     fn drop(&mut self) {
-        if let Some(id) = self.gl_object_id {
+        if let Some(id) = self.id {
             self.context.submit(RenderbufferDropTask { id });
         }
     }
 }
 
-struct RenderbufferAllocateTask<F, C>
+struct RenderbufferAllocateTask<F, Rc>
 where
-    C: RenderingContext,
+    Rc: RenderingContext,
 {
-    data: Arc<RenderbufferData<C>>,
+    data: Arc<RenderbufferData<Rc>>,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F, C> GpuTask<Connection> for RenderbufferAllocateTask<F, C>
+impl<F, Rc> GpuTask<Connection> for RenderbufferAllocateTask<F, Rc>
 where
     F: RenderbufferFormat,
-    C: RenderingContext,
+    Rc: RenderingContext,
 {
     type Output = ();
 
@@ -83,15 +83,13 @@ where
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output, Self::Error> {
         let Connection(gl, state) = connection;
-
+        let mut data = Arc::get_mut(&mut self.data).unwrap();
         let object = gl.create_renderbuffer().unwrap();
 
         state
             .set_bound_renderbuffer(Some(&object))
             .apply(gl)
             .unwrap();
-
-        let data = &self.data;
 
         gl.renderbuffer_storage(
             Gl::RENDERBUFFER,
@@ -100,11 +98,7 @@ where
             data.height as i32,
         );
 
-        unsafe {
-            let ptr = &data.gl_object_id as *const _ as *mut Option<JsId>;
-
-            *ptr = Some(JsId::from_value(object.into()));
-        }
+        data.id = Some(JsId::from_value(object.into()));
 
         Progress::Finished(Ok(()))
     }

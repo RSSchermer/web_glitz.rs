@@ -15,8 +15,8 @@ use web_sys::{
 
 use super::buffer::{BufferHandle, BufferUsage};
 use super::task::{GpuTask, Progress};
-use framebuffer::FramebufferHandle;
 use framebuffer::FramebufferDescriptor;
+use framebuffer::FramebufferHandle;
 
 const TEXTURE_UNIT_CONSTANTS: [u32; 32] = [
     GL::TEXTURE0,
@@ -292,7 +292,9 @@ pub trait RenderingContext: Clone {
         usage_hint: BufferUsage,
     ) -> BufferHandle<[T], Self>;
 
-    fn create_framebuffer<D>(&self, descriptor: &D) -> FramebufferHandle<Self> where D: FramebufferDescriptor<Self>;
+    fn create_framebuffer<D>(&self, descriptor: &D) -> FramebufferHandle<Self>
+    where
+        D: FramebufferDescriptor<Self>;
 
     fn submit<T>(&self, task: T) -> Execution<T::Output, T::Error>
     where
@@ -317,7 +319,10 @@ impl RenderingContext for SingleThreadedContext {
         BufferHandle::array(self.clone(), len, usage_hint)
     }
 
-    fn create_framebuffer<D>(&self, descriptor: &D) -> FramebufferHandle<Self> where D: FramebufferDescriptor<Self> {
+    fn create_framebuffer<D>(&self, descriptor: &D) -> FramebufferHandle<Self>
+    where
+        D: FramebufferDescriptor<Self>,
+    {
         FramebufferHandle::new(self, descriptor)
     }
 
@@ -394,15 +399,15 @@ pub struct DynamicState {
     //    front_face: FrontFace,
     //    line_width: f32,
     //    pixel_pack_alignment: u32,
-    //    pixel_unpack_alignment: u32,
+    pixel_unpack_alignment: i32,
     //    pixel_unpack_flip_y: bool,
     //    pixel_unpack_premultiply_alpha: bool,
     //    pixel_unpack_colorspace_conversion: ColorspaceConversion,
     //    pixel_pack_row_length: u32,
     //    pixel_pack_skip_pixels: u32,
     //    pixel_pack_skip_rows: u32,
-    //    pixel_unpack_row_length: u32,
-    //    pixel_unpack_image_height: u32,
+    pixel_unpack_row_length: i32,
+    pixel_unpack_image_height: i32,
     //    pixel_unpack_skip_pixels: u32,
     //    pixel_unpack_skip_rows: u32,
     //    pixel_unpack_skip_images: u32,
@@ -923,6 +928,69 @@ impl DynamicState {
         }
     }
 
+    pub fn pixel_unpack_alignment(&self) -> i32 {
+        self.pixel_unpack_alignment
+    }
+
+    pub fn set_pixel_unpack_alignment(
+        &mut self,
+        pixel_unpack_alignment: i32,
+    ) -> impl ContextUpdate<'static, ()> {
+        if pixel_unpack_alignment != self.pixel_unpack_alignment {
+            self.pixel_unpack_alignment = pixel_unpack_alignment;
+
+            Some(move |context: &GL| {
+                context.pixel_storei(GL::UNPACK_ALIGNMENT, pixel_unpack_alignment);
+
+                Ok(())
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn pixel_unpack_row_length(&self) -> i32 {
+        self.pixel_unpack_row_length
+    }
+
+    pub fn set_pixel_unpack_row_length(
+        &mut self,
+        pixel_unpack_row_length: i32,
+    ) -> impl ContextUpdate<'static, ()> {
+        if pixel_unpack_row_length != self.pixel_unpack_row_length {
+            self.pixel_unpack_row_length = pixel_unpack_row_length;
+
+            Some(move |context: &GL| {
+                context.pixel_storei(GL::UNPACK_ROW_LENGTH, pixel_unpack_row_length);
+
+                Ok(())
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn pixel_unpack_image_height(&self) -> i32 {
+        self.pixel_unpack_image_height
+    }
+
+    pub fn set_pixel_unpack_image_height(
+        &mut self,
+        pixel_unpack_image_height: i32,
+    ) -> impl ContextUpdate<'static, ()> {
+        if pixel_unpack_image_height != self.pixel_unpack_image_height {
+            self.pixel_unpack_image_height = pixel_unpack_image_height;
+
+            Some(move |context: &GL| {
+                context.pixel_storei(GL::UNPACK_IMAGE_HEIGHT, pixel_unpack_image_height);
+
+                Ok(())
+            })
+        } else {
+            None
+        }
+    }
+
     pub fn depth_test_enabled(&self) -> bool {
         self.depth_test_enabled
     }
@@ -1175,6 +1243,9 @@ impl DynamicState {
             clear_color: [0.0, 0.0, 0.0, 0.0],
             clear_depth: 1.0,
             clear_stencil: 0,
+            pixel_unpack_alignment: 4,
+            pixel_unpack_row_length: 0,
+            pixel_unpack_image_height: 0,
             depth_test_enabled: false,
             stencil_test_enabled: false,
             scissor_test_enabled: false,

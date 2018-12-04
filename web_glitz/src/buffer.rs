@@ -410,11 +410,11 @@ where
         unsafe {
             let data = self.data.borrow();
             let len = data.len();
+            let element_size = mem::size_of::<T>();
             let mut data = slice::from_raw_parts(
                 self.data.borrow() as *const _ as *const u8,
-                mem::size_of::<T>() * len,
+                element_size * len,
             );
-            let element_size = mem::size_of::<T>();
             let max_len = element_size * self.buffer_rep.len;
 
             if max_len > len {

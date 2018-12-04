@@ -1,12 +1,12 @@
 use crate::framebuffer::AsFramebufferAttachment;
 use crate::image_format::{ColorRenderable, DepthRenderable, StencilRenderable};
-use crate::renderbuffer::{RenderbufferData, RenderbufferHandle};
-use crate::rendering_context::{RenderingContext};
-use crate::texture::{Texture2DImageRef, TextureImageData};
+use crate::renderbuffer::RenderbufferHandle;
+use crate::rendering_context::RenderingContext;
+use crate::texture::Texture2DLevel;
 
 pub trait FramebufferDescriptor<Rc>
-    where
-        Rc: RenderingContext,
+where
+    Rc: RenderingContext,
 {
     type ColorAttachment0: ColorAttachable + AsFramebufferAttachment<Rc>;
 
@@ -83,48 +83,48 @@ pub trait FramebufferDescriptor<Rc>
 
 pub unsafe trait ColorAttachable {}
 
-unsafe impl<F, Rc> ColorAttachable for Texture2DImageRef<F, Rc>
-    where
-        F: ColorRenderable,
-        Rc: RenderingContext,
+unsafe impl<F, Rc> ColorAttachable for Texture2DLevel<F, Rc>
+where
+    F: ColorRenderable,
+    Rc: RenderingContext,
 {
 }
 
 unsafe impl<F, Rc> ColorAttachable for RenderbufferHandle<F, Rc>
-    where
-        F: ColorRenderable,
-        Rc: RenderingContext,
+where
+    F: ColorRenderable,
+    Rc: RenderingContext,
 {
 }
 
 pub unsafe trait DepthAttachable {}
 
-unsafe impl<F, Rc> DepthAttachable for Texture2DImageRef<F, Rc>
-    where
-        F: DepthRenderable,
-        Rc: RenderingContext,
+unsafe impl<F, Rc> DepthAttachable for Texture2DLevel<F, Rc>
+where
+    F: DepthRenderable,
+    Rc: RenderingContext,
 {
 }
 
 unsafe impl<F, Rc> DepthAttachable for RenderbufferHandle<F, Rc>
-    where
-        F: DepthRenderable,
-        Rc: RenderingContext,
+where
+    F: DepthRenderable,
+    Rc: RenderingContext,
 {
 }
 
 pub unsafe trait StencilAttachable {}
 
-unsafe impl<F, Rc> StencilAttachable for Texture2DImageRef<F, Rc>
-    where
-        F: StencilRenderable,
-        Rc: RenderingContext,
+unsafe impl<F, Rc> StencilAttachable for Texture2DLevel<F, Rc>
+where
+    F: StencilRenderable,
+    Rc: RenderingContext,
 {
 }
 
 unsafe impl<F, Rc> StencilAttachable for RenderbufferHandle<F, Rc>
-    where
-        F: StencilRenderable,
-        Rc: RenderingContext,
+where
+    F: StencilRenderable,
+    Rc: RenderingContext,
 {
 }
