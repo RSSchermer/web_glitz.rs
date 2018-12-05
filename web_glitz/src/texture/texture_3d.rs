@@ -726,9 +726,7 @@ where
 {
     type Output = ();
 
-    type Error = ();
-
-    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output, Self::Error> {
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let Connection(gl, state) = connection;
         let mut data = Arc::get_mut(&mut self.data).unwrap();
 
@@ -751,7 +749,7 @@ where
 
         data.id = Some(JsId::from_value(texture_object.into()));
 
-        Progress::Finished(Ok(()))
+        Progress::Finished(())
     }
 }
 
@@ -762,15 +760,13 @@ struct Texture3DDropTask {
 impl GpuTask<Connection> for Texture3DDropTask {
     type Output = ();
 
-    type Error = ();
-
-    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output, Self::Error> {
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let Connection(gl, _) = connection;
         let texture_object = unsafe { JsId::into_value(self.id).unchecked_into() };
 
         gl.delete_texture(Some(&texture_object));
 
-        Progress::Finished(Ok(()))
+        Progress::Finished(())
     }
 }
 
@@ -791,16 +787,14 @@ where
 {
     type Output = ();
 
-    type Error = ();
-
-    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output, Self::Error> {
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let mut width = region_3d_overlap_width(self.texture_data.width, self.level, &self.region);
         let mut height =
             region_3d_overlap_height(self.texture_data.height, self.level, &self.region);
         let depth = region_3d_overlap_depth(self.texture_data.height, &self.region);
 
         if width == 0 || height == 0 || depth == 0 {
-            return Progress::Finished(Ok(()));
+            return Progress::Finished(());
         }
 
         let Connection(gl, state) = connection;
@@ -861,7 +855,7 @@ where
                 unsafe {
                     let len = row_length * image_height * image_count * element_size;
                     let mut data = slice::from_raw_parts(
-                        self.data.borrow() as *const _ as *const u8,
+                        data.borrow() as *const _ as *const u8,
                         (element_size * len) as usize,
                     );
                     let max_len = element_size * row_length * image_height * depth;
@@ -882,12 +876,12 @@ where
                         T::format_id(),
                         T::type_id(),
                         Some(&mut *(data as *const _ as *mut _)),
-                    );
+                    ).unwrap();
                 }
             }
         }
 
-        Progress::Finished(Ok(()))
+        Progress::Finished(())
     }
 }
 
@@ -909,14 +903,12 @@ where
 {
     type Output = ();
 
-    type Error = ();
-
-    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output, Self::Error> {
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let mut width = region_2d_overlap_width(self.texture_data.width, self.level, &self.region);
         let height = region_2d_overlap_height(self.texture_data.height, self.level, &self.region);
 
         if width == 0 || height == 0 {
-            return Progress::Finished(Ok(()));
+            return Progress::Finished(());
         }
 
         let Connection(gl, state) = connection;
@@ -965,7 +957,7 @@ where
                 unsafe {
                     let len = row_length * image_height * element_size;
                     let mut data = slice::from_raw_parts(
-                        self.data.borrow() as *const _ as *const u8,
+                        data.borrow() as *const _ as *const u8,
                         (element_size * len) as usize,
                     );
                     let max_len = element_size * row_length * height;
@@ -986,11 +978,11 @@ where
                         T::format_id(),
                         T::type_id(),
                         Some(&mut *(data as *const _ as *mut _)),
-                    );
+                    ).unwrap();
                 }
             }
         }
 
-        Progress::Finished(Ok(()))
+        Progress::Finished(())
     }
 }

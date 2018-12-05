@@ -336,14 +336,12 @@ struct DropGlBufferTask {
 impl GpuTask<Connection> for DropGlBufferTask {
     type Output = ();
 
-    type Error = ();
-
-    fn progress(&mut self, _connection: &mut Connection) -> Progress<Self::Output, Self::Error> {
+    fn progress(&mut self, _connection: &mut Connection) -> Progress<Self::Output> {
         unsafe {
             JsId::into_value(self.buffer_id);
         }
 
-        Progress::Finished(Ok(()))
+        Progress::Finished(())
     }
 }
 
@@ -359,9 +357,7 @@ where
 {
     type Output = ();
 
-    type Error = ();
-
-    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output, Self::Error> {
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let buffer_object = self.buffer_rep.gl_object(connection);
         let Connection(gl, state) = connection;
 
@@ -385,7 +381,7 @@ where
 
         mem::forget(buffer_object);
 
-        Progress::Finished(Ok(()))
+        Progress::Finished(())
     }
 }
 
@@ -396,9 +392,7 @@ where
 {
     type Output = ();
 
-    type Error = ();
-
-    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output, Self::Error> {
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let buffer_object = self.buffer_rep.buffer_handle.gl_object(connection);
         let Connection(gl, state) = connection;
 
@@ -432,7 +426,7 @@ where
 
         mem::forget(buffer_object);
 
-        Progress::Finished(Ok(()))
+        Progress::Finished(())
     }
 }
 
@@ -452,9 +446,7 @@ where
 {
     type Output = Box<T>;
 
-    type Error = ();
-
-    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output, Self::Error> {
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         match self.state {
             BufferDownloadState::Initial => {
                 let buffer = self.buffer_rep.gl_object(connection);
@@ -516,7 +508,7 @@ where
 
                 mem::forget(data);
 
-                Progress::Finished(Ok(value))
+                Progress::Finished(value)
             }
         }
     }
@@ -528,9 +520,7 @@ where
 {
     type Output = Box<[T]>;
 
-    type Error = ();
-
-    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output, Self::Error> {
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         match self.state {
             BufferDownloadState::Initial => {
                 let buffer = self.buffer_rep.buffer_handle.gl_object(connection);
@@ -593,7 +583,7 @@ where
 
                     mem::forget(data);
 
-                    Progress::Finished(Ok(boxed))
+                    Progress::Finished(boxed)
                 }
             }
         }

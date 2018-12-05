@@ -1,13 +1,9 @@
-use std::mem;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
-
-use wasm_bindgen::JsCast;
 
 use crate::framebuffer::framebuffer_handle::FramebufferData;
 use crate::rendering_context::{Connection, ContextUpdate, RenderingContext};
 use crate::task::{GpuTask, Progress};
-use crate::util::JsId;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum DrawBuffer {
@@ -63,9 +59,7 @@ where
 {
     type Output = T::Output;
 
-    type Error = T::Error;
-
-    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output, Self::Error> {
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let Connection(gl, state) = connection;
 
         self.framebuffer_data
@@ -130,9 +124,7 @@ where
 {
     type Output = T::Output;
 
-    type Error = T::Error;
-
-    fn progress(&mut self, context: &mut RenderPassContext) -> Progress<Self::Output, Self::Error> {
+    fn progress(&mut self, context: &mut RenderPassContext) -> Progress<Self::Output> {
         // TODO: set draw_buffers (not supported yet by web_sys)
 
         self.task.progress(&mut SubPassContext {

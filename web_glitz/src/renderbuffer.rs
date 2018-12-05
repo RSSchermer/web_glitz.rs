@@ -79,9 +79,7 @@ where
 {
     type Output = ();
 
-    type Error = ();
-
-    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output, Self::Error> {
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let Connection(gl, state) = connection;
         let mut data = Arc::get_mut(&mut self.data).unwrap();
         let object = gl.create_renderbuffer().unwrap();
@@ -100,7 +98,7 @@ where
 
         data.id = Some(JsId::from_value(object.into()));
 
-        Progress::Finished(Ok(()))
+        Progress::Finished(())
     }
 }
 
@@ -111,15 +109,13 @@ struct RenderbufferDropTask {
 impl GpuTask<Connection> for RenderbufferDropTask {
     type Output = ();
 
-    type Error = ();
-
-    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output, Self::Error> {
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let Connection(gl, _) = connection;
 
         unsafe {
             gl.delete_renderbuffer(Some(&JsId::into_value(self.id).unchecked_into()));
         }
 
-        Progress::Finished(Ok(()))
+        Progress::Finished(())
     }
 }

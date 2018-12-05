@@ -36,16 +36,4 @@ impl JsId {
 
         mem::forget(value);
     }
-
-    pub(crate) fn with_value_unchecked_mut<F, T>(&self, f: F)
-    where
-        F: FnOnce(&mut T),
-        T: JsCast,
-    {
-        let mut value = unsafe { JsId::into_value(self.clone()).unchecked_into() };
-
-        f(&mut value);
-
-        mem::forget(value);
-    }
 }

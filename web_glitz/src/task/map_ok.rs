@@ -2,23 +2,23 @@ use std::marker::PhantomData;
 
 use super::{GpuTask, Progress, TryGpuTask};
 
-pub struct MapErr<A, F, Ec>
-where
-    A: TryGpuTask<Ec>,
+pub struct MapOk<A, F, Ec>
+    where
+        A: TryGpuTask<Ec>,
 {
     task: A,
     f: Option<F>,
     ec: PhantomData<Ec>,
 }
 
-impl<A, B, F, Ec> MapErr<A, F, Ec>
-where
-    A: TryGpuTask<Ec>,
-    F: FnOnce(A::Error) -> B,
-    B: 'static,
+impl<A, B, F, Ec> MapOk<A, F, Ec>
+    where
+        A: TryGpuTask<Ec>,
+        F: FnOnce(A::Ok) -> B,
+        B: 'static,
 {
     pub fn new(task: A, f: F) -> Self {
-        MapErr {
+        MapOk {
             task,
             f: Some(f),
             ec: PhantomData,
@@ -26,13 +26,13 @@ where
     }
 }
 
-impl<A, B, F, Ec> GpuTask<Ec> for MapErr<A, F, Ec>
-where
-    A: TryGpuTask<Ec>,
-    F: FnOnce(A::Error) -> B,
-    B: 'static,
+impl<A, B, F, Ec> GpuTask<Ec> for MapOk<A, F, Ec>
+    where
+        A: TryGpuTask<Ec>,
+        F: FnOnce(A::Ok) -> B,
+        B: 'static,
 {
-    type Output = Result<A::Ok, B>;
+    type Output = Result<B, A::Error>;
 
     fn progress(&mut self, execution_context: &mut Ec) -> Progress<Self::Output> {
         match self.task.try_progress(execution_context) {
@@ -40,9 +40,9 @@ where
                 let f = self
                     .f
                     .take()
-                    .expect("Cannot execute MapErr again after it has finished");
+                    .expect("Cannot execute MapOk again after it has finished");
 
-                Progress::Finished(result.map_err(f))
+                Progress::Finished(result.map(f))
             }
             Progress::ContinueFenced => Progress::ContinueFenced,
         }

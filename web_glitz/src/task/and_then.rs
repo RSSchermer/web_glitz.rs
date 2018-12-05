@@ -1,12 +1,12 @@
 use std::marker::PhantomData;
 
-use super::{GpuTask, Progress};
+use super::{GpuTask, Progress, TryGpuTask};
 
 pub struct AndThen<C1, C2, F, Ec>
 where
-    C1: GpuTask<Ec>,
-    C2: GpuTask<Ec, Error = C1::Error>,
-    F: FnOnce(C1::Output) -> C2,
+    C1: TryGpuTask<Ec>,
+    C2: TryGpuTask<Ec, Error = C1::Error>,
+    F: FnOnce(C1::Ok) -> C2,
 {
     state: AndThenState<C1, C2, F>,
     ec: PhantomData<Ec>,
@@ -19,9 +19,9 @@ enum AndThenState<C1, C2, F> {
 
 impl<C1, C2, F, Ec> AndThen<C1, C2, F, Ec>
 where
-    C1: GpuTask<Ec>,
-    C2: GpuTask<Ec, Error = C1::Error>,
-    F: FnOnce(C1::Output) -> C2,
+    C1: TryGpuTask<Ec>,
+    C2: TryGpuTask<Ec, Error = C1::Error>,
+    F: FnOnce(C1::Ok) -> C2,
 {
     pub fn new(task: C1, f: F) -> Self {
         AndThen {
@@ -33,23 +33,21 @@ where
 
 impl<C1, C2, F, Ec> GpuTask<Ec> for AndThen<C1, C2, F, Ec>
 where
-    C1: GpuTask<Ec>,
-    C2: GpuTask<Ec, Error = C1::Error>,
-    F: FnOnce(C1::Output) -> C2,
+    C1: TryGpuTask<Ec>,
+    C2: TryGpuTask<Ec, Error = C1::Error>,
+    F: FnOnce(C1::Ok) -> C2,
 {
-    type Output = C2::Output;
+    type Output = Result<C2::Ok, C2::Error>;
 
-    type Error = C2::Error;
-
-    fn progress(&mut self, execution_context: &mut Ec) -> Progress<C2::Output, C2::Error> {
+    fn progress(&mut self, execution_context: &mut Ec) -> Progress<Self::Output> {
         match self.state {
-            AndThenState::A(ref mut task, ref mut f) => match task.progress(execution_context) {
-                Progress::Finished(Ok(output)) => {
+            AndThenState::A(ref mut task, ref mut f) => match task.try_progress(execution_context) {
+                Progress::Finished(Ok(ok)) => {
                     let f = f
                         .take()
                         .expect("Cannot execute state A again after it finishes");
-                    let mut b = f(output);
-                    let execution = b.progress(execution_context);
+                    let mut b = f(ok);
+                    let execution = b.try_progress(execution_context);
 
                     self.state = AndThenState::B(b);
 
@@ -58,7 +56,7 @@ where
                 Progress::Finished(Err(err)) => Progress::Finished(Err(err)),
                 Progress::ContinueFenced => Progress::ContinueFenced,
             },
-            AndThenState::B(ref mut task) => task.progress(execution_context),
+            AndThenState::B(ref mut task) => task.try_progress(execution_context),
         }
     }
 }

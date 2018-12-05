@@ -13,21 +13,20 @@ impl<T, O, Ec> MaybeDone<T, O, Ec>
 where
     T: GpuTask<Ec, Output = O>,
 {
-    pub fn progress(&mut self, execution_context: &mut Ec) -> Result<bool, T::Error> {
+    pub fn progress(&mut self, execution_context: &mut Ec) -> bool {
         let res = match self {
-            MaybeDone::Done(_) => return Ok(true),
+            MaybeDone::Done(_) => return true,
             MaybeDone::NotYet(ref mut task, _) => task.progress(execution_context),
             MaybeDone::Gone => panic!("Cannot progress a Join twice."),
         };
 
         match res {
-            Progress::Finished(Ok(output)) => {
+            Progress::Finished(output) => {
                 *self = MaybeDone::Done(output);
 
-                Ok(true)
-            }
-            Progress::Finished(Err(err)) => Err(err),
-            Progress::ContinueFenced => Ok(false),
+                true
+            },
+            Progress::ContinueFenced => false,
         }
     }
 

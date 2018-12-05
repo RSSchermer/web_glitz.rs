@@ -1,15 +1,12 @@
-use std::mem;
 use std::sync::Arc;
 
 use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::framebuffer::FramebufferDescriptor;
-use crate::image_format::{ColorRenderable, DepthRenderable, StencilRenderable};
 use crate::renderbuffer::{RenderbufferData, RenderbufferHandle};
 use crate::rendering_context::{Connection, ContextUpdate, RenderingContext};
 use crate::task::{GpuTask, Progress};
-use crate::texture::Texture2DLevel;
 use crate::util::JsId;
 use texture::texture_2d::Texture2DData;
 use texture::texture_2d_array::Texture2DArrayData;
@@ -251,9 +248,7 @@ where
 {
     type Output = ();
 
-    type Error = ();
-
-    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output, Self::Error> {
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let Connection(gl, state) = connection;
 
         let framebuffer_object = gl.create_framebuffer().unwrap();
@@ -271,7 +266,7 @@ where
         data.depth_attachment.attach(gl, Gl::DEPTH_ATTACHMENT);
         data.stencil_attachment.attach(gl, Gl::STENCIL_ATTACHMENT);
 
-        Progress::Finished(Ok(()))
+        Progress::Finished(())
     }
 }
 
@@ -282,15 +277,13 @@ struct FramebufferDropTask {
 impl GpuTask<Connection> for FramebufferDropTask {
     type Output = ();
 
-    type Error = ();
-
-    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output, Self::Error> {
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let Connection(gl, _) = connection;
 
         unsafe {
             gl.delete_framebuffer(Some(&JsId::into_value(self.id).unchecked_into()));
         }
 
-        Progress::Finished(Ok(()))
+        Progress::Finished(())
     }
 }

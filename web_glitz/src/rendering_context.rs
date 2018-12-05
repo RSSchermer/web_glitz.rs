@@ -54,31 +54,32 @@ const TEXTURE_UNIT_CONSTANTS: [u32; 32] = [
 ];
 
 pub trait Submitter: Clone {
-    fn accept<T>(&self, task: T) -> Execution<T::Output, T::Error>
+    fn accept<T>(&self, task: T) -> Execution<T::Output>
     where
         T: GpuTask<Connection> + 'static;
 }
 
-pub enum Execution<O, E> {
-    Ready(Option<Result<O, E>>),
-    Pending(Receiver<Result<O, E>>),
+pub enum Execution<O> {
+    Ready(Option<O>),
+    Pending(Receiver<O>),
 }
 
-impl<O, E> Future for Execution<O, E> {
+impl<O> Future for Execution<O> {
     type Item = O;
 
-    type Error = SubmitError<E>;
+    type Error = SubmitError;
 
-    fn poll(&mut self) -> Poll<O, SubmitError<E>> {
+    fn poll(&mut self) -> Poll<O, SubmitError> {
         match self {
-            Execution::Ready(ref mut res) => res
-                .take()
-                .expect("Cannot poll Execution more than once after its ready")
-                .map(|o| Async::Ready(o))
-                .map_err(|e| SubmitError::TaskError(e)),
+            Execution::Ready(ref mut output) => {
+                let output = output
+                    .take()
+                    .expect("Cannot poll Execution more than once after its ready");
+
+                Ok(Async::Ready(output))
+            },
             Execution::Pending(ref mut recv) => match recv.poll() {
-                Ok(Async::Ready(Ok(output))) => Ok(Async::Ready(output)),
-                Ok(Async::Ready(Err(err))) => Err(SubmitError::TaskError(err)),
+                Ok(Async::Ready(output)) => Ok(Async::Ready(output)),
                 Ok(Async::NotReady) => Ok(Async::NotReady),
                 Err(Canceled) => Err(SubmitError::Cancelled),
             },
@@ -86,14 +87,14 @@ impl<O, E> Future for Execution<O, E> {
     }
 }
 
-impl<O, E> From<Result<O, E>> for Execution<O, E> {
-    fn from(result: Result<O, E>) -> Self {
-        Execution::Ready(Some(result))
+impl<T> From<T> for Execution<T> {
+    fn from(value: T) -> Self {
+        Execution::Ready(Some(value))
     }
 }
 
-impl<O, E> From<Receiver<Result<O, E>>> for Execution<O, E> {
-    fn from(recv: Receiver<Result<O, E>>) -> Self {
+impl<T> From<Receiver<T>> for Execution<T> {
+    fn from(recv: Receiver<T>) -> Self {
         Execution::Pending(recv)
     }
 }
@@ -113,7 +114,7 @@ where
     T: GpuTask<Connection>,
 {
     task: T,
-    result_tx: Option<Sender<Result<T::Output, T::Error>>>,
+    result_tx: Option<Sender<T::Output>>,
 }
 
 impl<T> ExecutorJob for Job<T>
@@ -140,7 +141,7 @@ where
 #[derive(Debug)]
 struct SendFailed;
 
-fn job<T>(task: T) -> (Job<T>, Execution<T::Output, T::Error>)
+fn job<T>(task: T) -> (Job<T>, Execution<T::Output>)
 where
     T: GpuTask<Connection>,
 {
@@ -167,7 +168,7 @@ impl SingleThreadedSubmitter {
 }
 
 impl Submitter for SingleThreadedSubmitter {
-    fn accept<T>(&self, task: T) -> Execution<T::Output, T::Error>
+    fn accept<T>(&self, task: T) -> Execution<T::Output>
     where
         T: GpuTask<Connection> + 'static,
     {
@@ -208,7 +209,7 @@ impl SingleThreadedExecutor {
         }
     }
 
-    fn accept<T>(&mut self, mut task: T) -> Execution<T::Output, T::Error>
+    fn accept<T>(&mut self, mut task: T) -> Execution<T::Output>
     where
         T: GpuTask<Connection> + 'static,
     {
@@ -296,7 +297,7 @@ pub trait RenderingContext: Clone {
     where
         D: FramebufferDescriptor<Self>;
 
-    fn submit<T>(&self, task: T) -> Execution<T::Output, T::Error>
+    fn submit<T>(&self, task: T) -> Execution<T::Output>
     where
         T: GpuTask<Connection> + 'static;
 }
@@ -326,7 +327,7 @@ impl RenderingContext for SingleThreadedContext {
         FramebufferHandle::new(self, descriptor)
     }
 
-    fn submit<T>(&self, task: T) -> Execution<T::Output, T::Error>
+    fn submit<T>(&self, task: T) -> Execution<T::Output>
     where
         T: GpuTask<Connection> + 'static,
     {
@@ -342,12 +343,11 @@ impl SingleThreadedContext {
     }
 }
 
-pub enum SubmitError<E> {
+pub enum SubmitError {
     Cancelled,
-    TaskError(E),
 }
 
-impl<E> From<Canceled> for SubmitError<E> {
+impl From<Canceled> for SubmitError {
     fn from(_: Canceled) -> Self {
         SubmitError::Cancelled
     }

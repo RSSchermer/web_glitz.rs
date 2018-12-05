@@ -1,6 +1,3 @@
-use crate::buffer::BufferHandle;
-use crate::rendering_context::RenderingContext;
-
 use super::{AttributeFormat, VertexInputAttributeDescriptor};
 
 pub trait Vertex: Sized {

@@ -9,13 +9,13 @@ macro_rules! generate {
         ($Sequence:ident, <A, $($B:ident),*>),
     )*) => ($(
         $(#[$doc])*
-        pub struct $Sequence<A, $($B),*, Ec> where A: GpuTask<Ec>, $($B: GpuTask<Ec, Error=A::Error>),*
+        pub struct $Sequence<A, $($B),*, Ec> where A: GpuTask<Ec>, $($B: GpuTask<Ec>),*
         {
             a: MaybeDone<A, A::Output, Ec>,
             $($B: MaybeDone<$B, $B::Output, Ec>),*
         }
 
-        impl<A, $($B),*, Ec> $Sequence<A, $($B),*, Ec> where A: GpuTask<Ec>, $($B: GpuTask<Ec, Error=A::Error>),* {
+        impl<A, $($B),*, Ec> $Sequence<A, $($B),*, Ec> where A: GpuTask<Ec>, $($B: GpuTask<Ec>),* {
             pub fn new(a: A, $($B: $B),*) -> Self {
                 $Sequence {
                     a: maybe_done(a),
@@ -24,28 +24,20 @@ macro_rules! generate {
             }
         }
 
-        impl<A, $($B),*, Ec> GpuTask<Ec> for $Sequence<A, $($B),*, Ec> where A: GpuTask<Ec>, $($B: GpuTask<Ec, Error=A::Error>),* {
+        impl<A, $($B),*, Ec> GpuTask<Ec> for $Sequence<A, $($B),*, Ec> where A: GpuTask<Ec>, $($B: GpuTask<Ec>),* {
             type Output = (A::Output, $($B::Output),*);
 
-            type Error = A::Error;
-
-            fn progress(&mut self, execution_context: &mut Ec) -> Progress<(A::Output, $($B::Output),*), A::Error> {
-                let mut all_done = match self.a.progress(execution_context) {
-                    Ok(done) => done,
-                    Err(err) => return Progress::Finished(Err(err))
-                };
+            fn progress(&mut self, execution_context: &mut Ec) -> Progress<Self::Output> {
+                let mut all_done = self.a.progress(execution_context);
 
                 while all_done {
                     $(
-                        all_done = match self.$B.progress(execution_context) {
-                            Ok(done) => all_done && done,
-                            Err(err) => return Progress::Finished(Err(err))
-                        };
+                        all_done = all_done && self.$B.progress(execution_context);
                     )*
                 }
 
                 if all_done {
-                    Progress::Finished(Ok((self.a.take(), $(self.$B.take()),*)))
+                    Progress::Finished((self.a.take(), $(self.$B.take()),*))
                 } else {
                     Progress::ContinueFenced
                 }
