@@ -13,13 +13,16 @@ web-glitz-derive = { version = "0.1.0", path = "../web_glitz_derive" }
 version = "0.3.5"
 features = [
     "WebGl2RenderingContext",
+    "WebGlActiveInfo",
     "WebGlBuffer",
     "WebGlFramebuffer",
     "WebGlProgram",
     "WebGlRenderbuffer",
     "WebGlSampler",
+    "WebGlShader",
     "WebGlSync",
     "WebGlTexture",
+    "WebGlUniformLocation",
     "WebGlVertexArrayObject",
     "Window"
 ]

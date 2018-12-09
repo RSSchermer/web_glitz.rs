@@ -1,9 +1,38 @@
 use std::borrow::Borrow;
 use std::fmt;
 use std::fmt::Display;
+use rendering_context::RenderingContext;
+use buffer::BufferHandle;
+use std::marker;
+
+pub trait Uniform<Rc> where Rc: RenderingContext {
+    fn bind_value(&self, binder: UniformValueBinder<Rc>);
+}
+
+pub struct UniformValueBinder<Rc> where Rc: RenderingContext {
+    program_data: ProgramData<Rc>
+}
+
+impl<Rc> UniformValueBinder<Rc> where Rc: RenderingContext {
+    pub fn bind_float(self, value: f32) {
+
+    }
+
+    pub fn bind_vector_2(self, value: (f32, f32)) {
+
+    }
+
+    pub fn bind_vector_3(self, value: (f32, f32, f32)) {
+
+    }
+
+    pub fn bind_vector_4(self, value: (f32, f32, f32, f32)) {
+
+    }
+}
 
 pub trait Uniforms {
-    fn get(&self, identifier: &UniformIdentifier) -> Option<UniformValue>;
+    fn get<Rc>(&self, context: &Rc, identifier: &UniformIdentifier) -> Option<UniformValue<Rc>> where Rc: RenderingContext;
 }
 
 #[derive(PartialEq, Hash)]
@@ -91,7 +120,7 @@ impl Display for UniformIdentifierSegment {
     }
 }
 
-pub enum UniformValue<'a> {
+pub enum UniformValue<'a, Rc> where Rc: RenderingContext {
     Float(f32),
     Vector2((f32, f32)),
     Vector3((f32, f32, f32)),
@@ -142,6 +171,11 @@ pub enum UniformValue<'a> {
     UnsignedIntegerVector2Array(ArrayValue<'a, (u32, u32)>),
     UnsignedIntegerVector3Array(ArrayValue<'a, (u32, u32, u32)>),
     UnsignedIntegerVector4Array(ArrayValue<'a, (u32, u32, u32, u32)>),
+    Buffer(BufferToken<Rc>)
+}
+
+pub struct BufferToken<Rc> where Rc: RenderingContext {
+    _marker: marker::PhantomData<Rc>
 }
 
 pub enum ArrayValue<'a, T> {
@@ -171,47 +205,47 @@ impl<'a, T> Borrow<[T]> for ArrayValue<'a, T> {
 }
 
 pub trait AsUniformValue {
-    fn as_uniform_value(&self) -> UniformValue;
+    fn as_uniform_value<Rc>(&self) -> UniformValue<Rc> where Rc: RenderingContext;
 }
 
 impl AsUniformValue for f32 {
-    fn as_uniform_value(&self) -> UniformValue {
+    fn as_uniform_value<Rc>(&self) -> UniformValue<Rc> where Rc: RenderingContext {
         UniformValue::Float(*self)
     }
 }
 
 impl AsUniformValue for (f32, f32) {
-    fn as_uniform_value(&self) -> UniformValue {
+    fn as_uniform_value<Rc>(&self) -> UniformValue<Rc> where Rc: RenderingContext {
         UniformValue::Vector2(*self)
     }
 }
 
 impl AsUniformValue for [f32; 2] {
-    fn as_uniform_value(&self) -> UniformValue {
+    fn as_uniform_value<Rc>(&self) -> UniformValue<Rc> where Rc: RenderingContext {
         UniformValue::Vector2((self[0], self[1]))
     }
 }
 
 impl AsUniformValue for (f32, f32, f32) {
-    fn as_uniform_value(&self) -> UniformValue {
+    fn as_uniform_value<Rc>(&self) -> UniformValue<Rc> where Rc: RenderingContext {
         UniformValue::Vector3(*self)
     }
 }
 
 impl AsUniformValue for [f32; 3] {
-    fn as_uniform_value(&self) -> UniformValue {
+    fn as_uniform_value<Rc>(&self) -> UniformValue<Rc> where Rc: RenderingContext {
         UniformValue::Vector3((self[0], self[1], self[2]))
     }
 }
 
 impl AsUniformValue for (f32, f32, f32, f32) {
-    fn as_uniform_value(&self) -> UniformValue {
+    fn as_uniform_value<Rc>(&self) -> UniformValue<Rc> where Rc: RenderingContext {
         UniformValue::Vector4(*self)
     }
 }
 
 impl AsUniformValue for [f32; 4] {
-    fn as_uniform_value(&self) -> UniformValue {
+    fn as_uniform_value<Rc>(&self) -> UniformValue<Rc> where Rc: RenderingContext {
         UniformValue::Vector4((self[0], self[1], self[2], self[3]))
     }
 }
