@@ -1,5 +1,7 @@
 use std::mem;
+use std::ops::DerefMut;
 
+use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
 
@@ -25,7 +27,7 @@ impl JsId {
         mem::transmute(id.id)
     }
 
-    pub(crate) fn with_value_unchecked<F, T>(&self, f: F)
+    pub(crate) unsafe fn with_value_unchecked<F, T>(&self, f: F)
     where
         F: FnOnce(&T),
         T: JsCast,
@@ -35,5 +37,13 @@ impl JsId {
         f(&value);
 
         mem::forget(value);
+    }
+}
+
+pub(crate) unsafe fn arc_get_mut_unchecked<T>(arc: &mut Arc<T>) -> &mut T {
+    unsafe {
+        let ptr = arc as *const _;
+
+        &mut *(ptr as *mut _)
     }
 }

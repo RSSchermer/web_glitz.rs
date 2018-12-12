@@ -16,32 +16,44 @@ use crate::task::{GpuTask, Progress};
 use crate::texture::image_source::Image2DSourceInternal;
 use crate::texture::{Image2DSource, TextureFormat};
 use crate::util::JsId;
+use rendering_context::DropObject;
+use rendering_context::Dropper;
+use rendering_context::RefCountedDropper;
 use texture::util::mipmap_size;
-use texture::util::region_2d_overlap_width;
 use texture::util::region_2d_overlap_height;
+use texture::util::region_2d_overlap_width;
 use texture::util::region_2d_sub_image;
+use util::arc_get_mut_unchecked;
 
 #[derive(Clone)]
-pub struct TextureCubeHandle<F, Rc> where Rc: RenderingContext {
-    data: Arc<TextureCubeData<Rc>>,
+pub struct TextureCubeHandle<F> {
+    data: Arc<TextureCubeData>,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F, Rc> TextureCubeHandle<F, Rc>
+impl<F> TextureCubeHandle<F>
 where
     F: TextureFormat + 'static,
-    Rc: RenderingContext + 'static,
 {
-    pub(crate) fn new(context: &Rc, width: u32, height: u32, levels: usize) -> Self {
+    pub(crate) fn new<Rc>(
+        context: &Rc,
+        dropper: RefCountedDropper,
+        width: u32,
+        height: u32,
+        levels: usize,
+    ) -> Self
+    where
+        Rc: RenderingContext,
+    {
         let data = Arc::new(TextureCubeData {
             id: None,
-            context: context.clone(),
+            dropper,
             width,
             height,
             levels,
         });
 
-        context.submit(TextureCubeAllocateTask::<F, Rc> {
+        context.submit(TextureCubeAllocateTask::<F> {
             data: data.clone(),
             _marker: marker::PhantomData,
         });
@@ -52,7 +64,7 @@ where
         }
     }
 
-    pub fn base_level(&self) -> TextureCubeLevel<F, Rc> {
+    pub fn base_level(&self) -> TextureCubeLevel<F> {
         TextureCubeLevel {
             texture_data: self.data.clone(),
             level: 0,
@@ -60,7 +72,7 @@ where
         }
     }
 
-    pub fn levels(&self) -> TextureCubeLevels<F, Rc> {
+    pub fn levels(&self) -> TextureCubeLevels<F> {
         TextureCubeLevels {
             texture_data: self.data.clone(),
             _marker: marker::PhantomData,
@@ -76,37 +88,33 @@ where
     }
 }
 
-pub(crate) struct TextureCubeData<Rc> where Rc: RenderingContext {
+pub(crate) struct TextureCubeData {
     pub(crate) id: Option<JsId>,
-    context: Rc,
+    dropper: RefCountedDropper,
     width: u32,
     height: u32,
     levels: usize,
 }
 
-impl<Rc> Drop for TextureCubeData<Rc>
-where
-    Rc: RenderingContext,
-{
+impl Drop for TextureCubeData {
     fn drop(&mut self) {
         if let Some(id) = self.id {
-            self.context.submit(TextureCubeDropTask { id });
+            self.dropper.drop_gl_object(DropObject::Texture(id));
         }
     }
 }
 
 #[derive(Clone)]
-pub struct TextureCubeLevels<F, Rc> where Rc: RenderingContext {
-    texture_data: Arc<TextureCubeData<Rc>>,
+pub struct TextureCubeLevels<F> {
+    texture_data: Arc<TextureCubeData>,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F, Rc> TextureCubeLevels<F, Rc>
+impl<F> TextureCubeLevels<F>
 where
     F: TextureFormat,
-    Rc: RenderingContext,
 {
-    pub fn texture(&self) -> TextureCubeHandle<F, Rc> {
+    pub fn texture(&self) -> TextureCubeHandle<F> {
         TextureCubeHandle {
             data: self.texture_data.clone(),
             _marker: marker::PhantomData,
@@ -117,7 +125,7 @@ where
         self.texture_data.levels
     }
 
-    pub fn get(&self, level: usize) -> Option<TextureCubeLevel<F, Rc>> {
+    pub fn get(&self, level: usize) -> Option<TextureCubeLevel<F>> {
         let texture_data = &self.texture_data;
 
         if level < texture_data.levels {
@@ -131,7 +139,7 @@ where
         }
     }
 
-    pub unsafe fn get_unchecked(&self, level: usize) -> TextureCubeLevel<F, Rc> {
+    pub unsafe fn get_unchecked(&self, level: usize) -> TextureCubeLevel<F> {
         TextureCubeLevel {
             texture_data: self.texture_data.clone(),
             level,
@@ -139,7 +147,7 @@ where
         }
     }
 
-    pub fn iter(&self) -> TextureCubeLevelsIter<F, Rc> {
+    pub fn iter(&self) -> TextureCubeLevelsIter<F> {
         TextureCubeLevelsIter {
             texture_data: self.texture_data.clone(),
             current_level: 0,
@@ -149,14 +157,13 @@ where
     }
 }
 
-impl<F, Rc> IntoIterator for TextureCubeLevels<F, Rc>
+impl<F> IntoIterator for TextureCubeLevels<F>
 where
     F: TextureFormat,
-    Rc: RenderingContext,
 {
-    type Item = TextureCubeLevel<F, Rc>;
+    type Item = TextureCubeLevel<F>;
 
-    type IntoIter = TextureCubeLevelsIter<F, Rc>;
+    type IntoIter = TextureCubeLevelsIter<F>;
 
     fn into_iter(self) -> Self::IntoIter {
         TextureCubeLevelsIter {
@@ -168,19 +175,18 @@ where
     }
 }
 
-pub struct TextureCubeLevelsIter<F, Rc> where Rc: RenderingContext {
-    texture_data: Arc<TextureCubeData<Rc>>,
+pub struct TextureCubeLevelsIter<F> {
+    texture_data: Arc<TextureCubeData>,
     current_level: usize,
     end_level: usize,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F, Rc> Iterator for TextureCubeLevelsIter<F, Rc>
+impl<F> Iterator for TextureCubeLevelsIter<F>
 where
     F: TextureFormat,
-    Rc: RenderingContext,
 {
-    type Item = TextureCubeLevel<F, Rc>;
+    type Item = TextureCubeLevel<F>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let level = self.current_level;
@@ -200,18 +206,17 @@ where
 }
 
 #[derive(Clone)]
-pub struct TextureCubeLevel<F, Rc> where Rc: RenderingContext {
-    texture_data: Arc<TextureCubeData<Rc>>,
+pub struct TextureCubeLevel<F> {
+    texture_data: Arc<TextureCubeData>,
     level: usize,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F, Rc> TextureCubeLevel<F, Rc>
+impl<F> TextureCubeLevel<F>
 where
     F: TextureFormat,
-    Rc: RenderingContext,
 {
-    pub fn texture(&self) -> TextureCubeHandle<F, Rc> {
+    pub fn texture(&self) -> TextureCubeHandle<F> {
         TextureCubeHandle {
             data: self.texture_data.clone(),
             _marker: marker::PhantomData,
@@ -230,7 +235,7 @@ where
         mipmap_size(self.texture_data.height, self.level)
     }
 
-    pub fn positive_x(&self) -> TextureCubeLevelFace<F, Rc> {
+    pub fn positive_x(&self) -> TextureCubeLevelFace<F> {
         TextureCubeLevelFace {
             texture_data: self.texture_data.clone(),
             level: self.level,
@@ -239,7 +244,7 @@ where
         }
     }
 
-    pub fn negative_x(&self) -> TextureCubeLevelFace<F, Rc> {
+    pub fn negative_x(&self) -> TextureCubeLevelFace<F> {
         TextureCubeLevelFace {
             texture_data: self.texture_data.clone(),
             level: self.level,
@@ -248,7 +253,7 @@ where
         }
     }
 
-    pub fn positive_y(&self) -> TextureCubeLevelFace<F, Rc> {
+    pub fn positive_y(&self) -> TextureCubeLevelFace<F> {
         TextureCubeLevelFace {
             texture_data: self.texture_data.clone(),
             level: self.level,
@@ -257,7 +262,7 @@ where
         }
     }
 
-    pub fn negative_y(&self) -> TextureCubeLevelFace<F, Rc> {
+    pub fn negative_y(&self) -> TextureCubeLevelFace<F> {
         TextureCubeLevelFace {
             texture_data: self.texture_data.clone(),
             level: self.level,
@@ -266,7 +271,7 @@ where
         }
     }
 
-    pub fn positive_z(&self) -> TextureCubeLevelFace<F, Rc> {
+    pub fn positive_z(&self) -> TextureCubeLevelFace<F> {
         TextureCubeLevelFace {
             texture_data: self.texture_data.clone(),
             level: self.level,
@@ -275,7 +280,7 @@ where
         }
     }
 
-    pub fn negative_z(&self) -> TextureCubeLevelFace<F, Rc> {
+    pub fn negative_z(&self) -> TextureCubeLevelFace<F> {
         TextureCubeLevelFace {
             texture_data: self.texture_data.clone(),
             level: self.level,
@@ -309,19 +314,18 @@ impl CubeFace {
 }
 
 #[derive(Clone)]
-pub struct TextureCubeLevelFace<F, Rc> where Rc: RenderingContext {
-    texture_data: Arc<TextureCubeData<Rc>>,
+pub struct TextureCubeLevelFace<F> {
+    texture_data: Arc<TextureCubeData>,
     level: usize,
     face: CubeFace,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F, Rc> TextureCubeLevelFace<F, Rc>
+impl<F> TextureCubeLevelFace<F>
 where
     F: TextureFormat,
-    Rc: RenderingContext,
 {
-    pub fn texture(&self) -> TextureCubeHandle<F, Rc> {
+    pub fn texture(&self) -> TextureCubeHandle<F> {
         TextureCubeHandle {
             data: self.texture_data.clone(),
             _marker: marker::PhantomData,
@@ -344,7 +348,7 @@ where
         mipmap_size(self.texture_data.height, self.level)
     }
 
-    pub fn sub_image(&self, region: Region2D) -> TextureCubeLevelFaceSubImage<F, Rc> {
+    pub fn sub_image(&self, region: Region2D) -> TextureCubeLevelFaceSubImage<F> {
         TextureCubeLevelFaceSubImage {
             texture_data: self.texture_data.clone(),
             level: self.level,
@@ -354,10 +358,7 @@ where
         }
     }
 
-    pub fn upload_task<D, T>(
-        &self,
-        data: Image2DSource<D, T>,
-    ) -> TextureCubeUploadTask<D, T, F, Rc>
+    pub fn upload_task<D, T>(&self, data: Image2DSource<D, T>) -> TextureCubeUploadTask<D, T, F>
     where
         T: ClientFormat<F>,
     {
@@ -372,31 +373,31 @@ where
     }
 }
 
-impl<F, Rc> AsFramebufferAttachment<Rc> for TextureCubeLevelFace<F, Rc>
-where
-    Rc: RenderingContext,
-{
-    fn as_framebuffer_attachment(&self) -> FramebufferAttachment<Rc> {
+impl<F> AsFramebufferAttachment for TextureCubeLevelFace<F> {
+    fn as_framebuffer_attachment(&self) -> FramebufferAttachment {
         FramebufferAttachment {
-            internal: FramebufferAttachmentInternal::TextureCubeLevelFace(self.texture_data.clone(), self.level, self.face),
+            internal: FramebufferAttachmentInternal::TextureCubeLevelFace(
+                self.texture_data.clone(),
+                self.level,
+                self.face,
+            ),
         }
     }
 }
 
-pub struct TextureCubeLevelFaceSubImage<F, Rc> where Rc: RenderingContext {
-    texture_data: Arc<TextureCubeData<Rc>>,
+pub struct TextureCubeLevelFaceSubImage<F> {
+    texture_data: Arc<TextureCubeData>,
     level: usize,
     face: CubeFace,
     region: Region2D,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F, Rc> TextureCubeLevelFaceSubImage<F, Rc>
+impl<F> TextureCubeLevelFaceSubImage<F>
 where
     F: TextureFormat,
-    Rc: RenderingContext,
 {
-    pub fn texture(&self) -> TextureCubeHandle<F, Rc> {
+    pub fn texture(&self) -> TextureCubeHandle<F> {
         TextureCubeHandle {
             data: self.texture_data.clone(),
             _marker: marker::PhantomData,
@@ -423,7 +424,7 @@ where
         region_2d_overlap_height(self.texture_data.height, self.level, &self.region)
     }
 
-    pub fn sub_image(&self, region: Region2D) -> TextureCubeLevelFaceSubImage<F, Rc> {
+    pub fn sub_image(&self, region: Region2D) -> TextureCubeLevelFaceSubImage<F> {
         TextureCubeLevelFaceSubImage {
             texture_data: self.texture_data.clone(),
             level: self.level,
@@ -433,10 +434,7 @@ where
         }
     }
 
-    pub fn upload_task<D, T>(
-        &self,
-        data: Image2DSource<D, T>,
-    ) -> TextureCubeUploadTask<D, T, F, Rc>
+    pub fn upload_task<D, T>(&self, data: Image2DSource<D, T>) -> TextureCubeUploadTask<D, T, F>
     where
         T: ClientFormat<F>,
     {
@@ -451,21 +449,20 @@ where
     }
 }
 
-struct TextureCubeAllocateTask<F, Rc> where Rc: RenderingContext {
-    data: Arc<TextureCubeData<Rc>>,
+struct TextureCubeAllocateTask<F> {
+    data: Arc<TextureCubeData>,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F, Rc> GpuTask<Connection> for TextureCubeAllocateTask<F, Rc>
+impl<F> GpuTask<Connection> for TextureCubeAllocateTask<F>
 where
     F: TextureFormat,
-    Rc: RenderingContext,
 {
     type Output = ();
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let Connection(gl, state) = connection;
-        let mut data = Arc::get_mut(&mut self.data).unwrap();
+        let mut data = unsafe { arc_get_mut_unchecked(&mut self.data) };
 
         let texture_object = gl.create_texture().unwrap();
 
@@ -489,38 +486,20 @@ where
     }
 }
 
-struct TextureCubeDropTask {
-    id: JsId,
-}
-
-impl GpuTask<Connection> for TextureCubeDropTask {
-    type Output = ();
-
-    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        let Connection(gl, _) = connection;
-        let texture_object = unsafe { JsId::into_value(self.id).unchecked_into() };
-
-        gl.delete_texture(Some(&texture_object));
-
-        Progress::Finished(())
-    }
-}
-
-pub struct TextureCubeUploadTask<D, T, F, Rc> where Rc: RenderingContext {
+pub struct TextureCubeUploadTask<D, T, F> {
     data: Image2DSource<D, T>,
-    texture_data: Arc<TextureCubeData<Rc>>,
+    texture_data: Arc<TextureCubeData>,
     level: usize,
     face: CubeFace,
     region: Region2D,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<D, T, F, Rc> GpuTask<Connection> for TextureCubeUploadTask<D, T, F, Rc>
+impl<D, T, F> GpuTask<Connection> for TextureCubeUploadTask<D, T, F>
 where
     D: Borrow<[T]>,
     T: ClientFormat<F>,
     F: TextureFormat,
-    Rc: RenderingContext,
 {
     type Output = ();
 
@@ -543,15 +522,17 @@ where
             } => {
                 state.set_active_texture_lru().apply(gl).unwrap();
 
-                self.texture_data
-                    .id
-                    .unwrap()
-                    .with_value_unchecked(|texture_object| {
-                        state
-                            .set_bound_texture_cube_map(Some(texture_object))
-                            .apply(gl)
-                            .unwrap();
-                    });
+                unsafe {
+                    self.texture_data
+                        .id
+                        .unwrap()
+                        .with_value_unchecked(|texture_object| {
+                            state
+                                .set_bound_texture_cube_map(Some(texture_object))
+                                .apply(gl)
+                                .unwrap();
+                        });
+                }
 
                 state
                     .set_pixel_unpack_alignment((*alignment).into())
@@ -571,7 +552,7 @@ where
 
                 let (offset_x, offset_y) = match self.region {
                     Region2D::Fill => (0, 0),
-                    Region2D::Area(offset, ..) => offset
+                    Region2D::Area(offset, ..) => offset,
                 };
                 let element_size = mem::size_of::<T>() as u32;
 
@@ -597,7 +578,8 @@ where
                         T::format_id(),
                         T::type_id(),
                         Some(&mut *(data as *const _ as *mut _)),
-                    ).unwrap();
+                    )
+                    .unwrap();
                 }
             }
         }

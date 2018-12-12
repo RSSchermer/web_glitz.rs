@@ -41,21 +41,23 @@ where
 
     fn progress(&mut self, execution_context: &mut Ec) -> Progress<Self::Output> {
         match self.state {
-            AndThenState::A(ref mut task, ref mut f) => match task.try_progress(execution_context) {
-                Progress::Finished(Ok(ok)) => {
-                    let f = f
-                        .take()
-                        .expect("Cannot execute state A again after it finishes");
-                    let mut b = f(ok);
-                    let execution = b.try_progress(execution_context);
+            AndThenState::A(ref mut task, ref mut f) => {
+                match task.try_progress(execution_context) {
+                    Progress::Finished(Ok(ok)) => {
+                        let f = f
+                            .take()
+                            .expect("Cannot execute state A again after it finishes");
+                        let mut b = f(ok);
+                        let execution = b.try_progress(execution_context);
 
-                    self.state = AndThenState::B(b);
+                        self.state = AndThenState::B(b);
 
-                    execution
+                        execution
+                    }
+                    Progress::Finished(Err(err)) => Progress::Finished(Err(err)),
+                    Progress::ContinueFenced => Progress::ContinueFenced,
                 }
-                Progress::Finished(Err(err)) => Progress::Finished(Err(err)),
-                Progress::ContinueFenced => Progress::ContinueFenced,
-            },
+            }
             AndThenState::B(ref mut task) => task.try_progress(execution_context),
         }
     }

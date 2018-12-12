@@ -26,12 +26,9 @@ pub enum DrawBuffer {
     ColorAttachment15,
 }
 
-pub struct RenderPass<T, Rc>
-where
-    Rc: RenderingContext,
-{
+pub struct RenderPass<T> {
     task: T,
-    framebuffer_data: Arc<FramebufferData<Rc>>,
+    framebuffer_data: Arc<FramebufferData>,
 }
 
 pub struct RenderPassContext {
@@ -52,25 +49,26 @@ impl DerefMut for RenderPassContext {
     }
 }
 
-impl<T, Rc> GpuTask<Connection> for RenderPass<T, Rc>
+impl<T> GpuTask<Connection> for RenderPass<T>
 where
     T: GpuTask<RenderPassContext>,
-    Rc: RenderingContext,
 {
     type Output = T::Output;
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let Connection(gl, state) = connection;
 
-        self.framebuffer_data
-            .gl_object_id
-            .unwrap()
-            .with_value_unchecked(|fbo| {
-                state
-                    .set_bound_draw_framebuffer(Some(&fbo))
-                    .apply(gl)
-                    .unwrap();
-            });
+        unsafe {
+            self.framebuffer_data
+                .id
+                .unwrap()
+                .with_value_unchecked(|fbo| {
+                    state
+                        .set_bound_draw_framebuffer(Some(&fbo))
+                        .apply(gl)
+                        .unwrap();
+                });
+        }
 
         self.task.progress(&mut RenderPassContext {
             connection: connection as *mut _,

@@ -1,6 +1,3 @@
-mod progress;
-pub use self::progress::Progress;
-
 mod and_then;
 pub use self::and_then::AndThen;
 
@@ -8,10 +5,10 @@ mod empty;
 pub use self::empty::Empty;
 
 mod gpu_task;
-pub use self::gpu_task::{GpuTask, GpuTaskExt};
+pub use self::gpu_task::{GpuTask, GpuTaskExt, Progress};
 
 mod try_gpu_task;
-pub use self::try_gpu_task::{TryGpuTask, TryGpuTaskExt};
+pub use self::try_gpu_task::{TryGpuTask, TryGpuTaskExt, TryProgress};
 
 mod join;
 pub use self::join::{Join, Join3, Join4, Join5};

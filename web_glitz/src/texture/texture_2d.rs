@@ -14,32 +14,44 @@ use crate::image_region::Region2D;
 use crate::rendering_context::{Connection, ContextUpdate, RenderingContext};
 use crate::task::{GpuTask, Progress};
 use crate::texture::image_source::Image2DSourceInternal;
-use crate::texture::{Image2DSource, TextureFormat};
-use crate::texture::util::{region_2d_overlap_width, region_2d_overlap_height};
 use crate::texture::util::mipmap_size;
+use crate::texture::util::{region_2d_overlap_height, region_2d_overlap_width};
+use crate::texture::{Image2DSource, TextureFormat};
 use crate::util::JsId;
+use rendering_context::DropObject;
+use rendering_context::Dropper;
+use rendering_context::RefCountedDropper;
 use texture::util::region_2d_sub_image;
+use util::arc_get_mut_unchecked;
 
-pub struct Texture2DHandle<F, Rc> where Rc: RenderingContext {
-    data: Arc<Texture2DData<Rc>>,
+pub struct Texture2DHandle<F> {
+    data: Arc<Texture2DData>,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F, Rc> Texture2DHandle<F, Rc>
+impl<F> Texture2DHandle<F>
 where
     F: TextureFormat + 'static,
-    Rc: RenderingContext + 'static,
 {
-    pub(crate) fn new(context: &Rc, width: u32, height: u32, levels: usize) -> Self {
+    pub(crate) fn new<Rc>(
+        context: &Rc,
+        dropper: RefCountedDropper,
+        width: u32,
+        height: u32,
+        levels: usize,
+    ) -> Self
+    where
+        Rc: RenderingContext,
+    {
         let data = Arc::new(Texture2DData {
             id: None,
-            context: context.clone(),
+            dropper,
             width,
             height,
             levels,
         });
 
-        context.submit(Texture2DAllocateTask::<F, Rc> {
+        context.submit(Texture2DAllocateTask::<F> {
             data: data.clone(),
             _marker: marker::PhantomData,
         });
@@ -50,7 +62,7 @@ where
         }
     }
 
-    pub fn base_level(&self) -> Texture2DLevel<F, Rc> {
+    pub fn base_level(&self) -> Texture2DLevel<F> {
         Texture2DLevel {
             texture_data: self.data.clone(),
             level: 0,
@@ -58,7 +70,7 @@ where
         }
     }
 
-    pub fn levels(&self) -> Texture2DLevels<F, Rc> {
+    pub fn levels(&self) -> Texture2DLevels<F> {
         Texture2DLevels {
             texture_data: self.data.clone(),
             _marker: marker::PhantomData,
@@ -74,40 +86,36 @@ where
     }
 }
 
-pub(crate) struct Texture2DData<Rc> where Rc: RenderingContext {
+pub(crate) struct Texture2DData {
     pub(crate) id: Option<JsId>,
-    context: Rc,
+    dropper: RefCountedDropper,
     width: u32,
     height: u32,
     levels: usize,
 }
 
-impl<Rc> Drop for Texture2DData<Rc>
-where
-    Rc: RenderingContext,
-{
+impl Drop for Texture2DData {
     fn drop(&mut self) {
         if let Some(id) = self.id {
-            self.context.submit(Texture2DDropTask { id });
+            self.dropper.drop_gl_object(DropObject::Texture(id));
         }
     }
 }
 
-pub struct Texture2DLevels<F, Rc> where Rc: RenderingContext {
-    texture_data: Arc<Texture2DData<Rc>>,
+pub struct Texture2DLevels<F> {
+    texture_data: Arc<Texture2DData>,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F, Rc> Texture2DLevels<F, Rc>
+impl<F> Texture2DLevels<F>
 where
     F: TextureFormat,
-    Rc: RenderingContext,
 {
     pub fn len(&self) -> usize {
         self.texture_data.levels
     }
 
-    pub fn get(&self, level: usize) -> Option<Texture2DLevel<F, Rc>> {
+    pub fn get(&self, level: usize) -> Option<Texture2DLevel<F>> {
         let texture_data = &self.texture_data;
 
         if level < texture_data.levels {
@@ -121,7 +129,7 @@ where
         }
     }
 
-    pub unsafe fn get_unchecked(&self, level: usize) -> Texture2DLevel<F, Rc> {
+    pub unsafe fn get_unchecked(&self, level: usize) -> Texture2DLevel<F> {
         Texture2DLevel {
             texture_data: self.texture_data.clone(),
             level,
@@ -129,7 +137,7 @@ where
         }
     }
 
-    pub fn iter(&self) -> Texture2DLevelsIter<F, Rc> {
+    pub fn iter(&self) -> Texture2DLevelsIter<F> {
         Texture2DLevelsIter {
             texture_data: self.texture_data.clone(),
             current_level: 0,
@@ -139,14 +147,13 @@ where
     }
 }
 
-impl<F, Rc> IntoIterator for Texture2DLevels<F, Rc>
+impl<F> IntoIterator for Texture2DLevels<F>
 where
     F: TextureFormat,
-    Rc: RenderingContext,
 {
-    type Item = Texture2DLevel<F, Rc>;
+    type Item = Texture2DLevel<F>;
 
-    type IntoIter = Texture2DLevelsIter<F, Rc>;
+    type IntoIter = Texture2DLevelsIter<F>;
 
     fn into_iter(self) -> Self::IntoIter {
         Texture2DLevelsIter {
@@ -158,19 +165,18 @@ where
     }
 }
 
-pub struct Texture2DLevelsIter<F, Rc> where Rc: RenderingContext {
-    texture_data: Arc<Texture2DData<Rc>>,
+pub struct Texture2DLevelsIter<F> {
+    texture_data: Arc<Texture2DData>,
     current_level: usize,
     end_level: usize,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F, Rc> Iterator for Texture2DLevelsIter<F, Rc>
+impl<F> Iterator for Texture2DLevelsIter<F>
 where
     F: TextureFormat,
-    Rc: RenderingContext,
 {
-    type Item = Texture2DLevel<F, Rc>;
+    type Item = Texture2DLevel<F>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let level = self.current_level;
@@ -189,16 +195,15 @@ where
     }
 }
 
-pub struct Texture2DLevel<F, Rc> where Rc: RenderingContext {
-    texture_data: Arc<Texture2DData<Rc>>,
+pub struct Texture2DLevel<F> {
+    texture_data: Arc<Texture2DData>,
     level: usize,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F, Rc> Texture2DLevel<F, Rc>
+impl<F> Texture2DLevel<F>
 where
     F: TextureFormat,
-    Rc: RenderingContext,
 {
     pub fn level(&self) -> usize {
         self.level
@@ -212,7 +217,7 @@ where
         mipmap_size(self.texture_data.height, self.level)
     }
 
-    pub fn sub_image(&self, region: Region2D) -> Texture2DLevelSubImage<F, Rc> {
+    pub fn sub_image(&self, region: Region2D) -> Texture2DLevelSubImage<F> {
         Texture2DLevelSubImage {
             texture_data: self.texture_data.clone(),
             level: self.level,
@@ -221,10 +226,7 @@ where
         }
     }
 
-    pub fn upload_task<D, T>(
-        &self,
-        data: Image2DSource<D, T>,
-    ) -> Texture2DUploadTask<D, T, F, Rc>
+    pub fn upload_task<D, T>(&self, data: Image2DSource<D, T>) -> Texture2DUploadTask<D, T, F>
     where
         T: ClientFormat<F>,
     {
@@ -238,11 +240,8 @@ where
     }
 }
 
-impl<F, Rc> AsFramebufferAttachment<Rc> for Texture2DLevel<F, Rc>
-where
-    Rc: RenderingContext,
-{
-    fn as_framebuffer_attachment(&self) -> FramebufferAttachment<Rc> {
+impl<F> AsFramebufferAttachment for Texture2DLevel<F> {
+    fn as_framebuffer_attachment(&self) -> FramebufferAttachment {
         FramebufferAttachment {
             internal: FramebufferAttachmentInternal::Texture2DLevel(
                 self.texture_data.clone(),
@@ -252,17 +251,16 @@ where
     }
 }
 
-pub struct Texture2DLevelSubImage<F, Rc> where Rc: RenderingContext {
-    texture_data: Arc<Texture2DData<Rc>>,
+pub struct Texture2DLevelSubImage<F> {
+    texture_data: Arc<Texture2DData>,
     level: usize,
     region: Region2D,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F, Rc> Texture2DLevelSubImage<F, Rc>
+impl<F> Texture2DLevelSubImage<F>
 where
     F: TextureFormat,
-    Rc: RenderingContext,
 {
     pub fn level(&self) -> usize {
         self.level
@@ -280,7 +278,7 @@ where
         region_2d_overlap_width(self.texture_data.height, self.level, &self.region)
     }
 
-    pub fn sub_image(&self, region: Region2D) -> Texture2DLevelSubImage<F, Rc> {
+    pub fn sub_image(&self, region: Region2D) -> Texture2DLevelSubImage<F> {
         Texture2DLevelSubImage {
             texture_data: self.texture_data.clone(),
             level: self.level,
@@ -289,10 +287,7 @@ where
         }
     }
 
-    pub fn upload_task<D, T>(
-        &self,
-        data: Image2DSource<D, T>,
-    ) -> Texture2DUploadTask<D, T, F, Rc>
+    pub fn upload_task<D, T>(&self, data: Image2DSource<D, T>) -> Texture2DUploadTask<D, T, F>
     where
         T: ClientFormat<F>,
     {
@@ -306,21 +301,20 @@ where
     }
 }
 
-struct Texture2DAllocateTask<F, Rc> where Rc: RenderingContext {
-    data: Arc<Texture2DData<Rc>>,
+struct Texture2DAllocateTask<F> {
+    data: Arc<Texture2DData>,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F, Rc> GpuTask<Connection> for Texture2DAllocateTask<F, Rc>
+impl<F> GpuTask<Connection> for Texture2DAllocateTask<F>
 where
     F: TextureFormat,
-    Rc: RenderingContext,
 {
     type Output = ();
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let Connection(gl, state) = connection;
-        let mut data = Arc::get_mut(&mut self.data).unwrap();
+        let mut data = unsafe { arc_get_mut_unchecked(&mut self.data) };
 
         let texture_object = gl.create_texture().unwrap();
 
@@ -344,37 +338,19 @@ where
     }
 }
 
-struct Texture2DDropTask {
-    id: JsId,
-}
-
-impl GpuTask<Connection> for Texture2DDropTask {
-    type Output = ();
-
-    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        let Connection(gl, _) = connection;
-        let texture_object = unsafe { JsId::into_value(self.id).unchecked_into() };
-
-        gl.delete_texture(Some(&texture_object));
-
-        Progress::Finished(())
-    }
-}
-
-pub struct Texture2DUploadTask<D, T, F, Rc> where Rc: RenderingContext {
+pub struct Texture2DUploadTask<D, T, F> {
     data: Image2DSource<D, T>,
-    texture_data: Arc<Texture2DData<Rc>>,
+    texture_data: Arc<Texture2DData>,
     level: usize,
     region: Region2D,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<D, T, F, Rc> GpuTask<Connection> for Texture2DUploadTask<D, T, F, Rc>
+impl<D, T, F> GpuTask<Connection> for Texture2DUploadTask<D, T, F>
 where
     D: Borrow<[T]>,
     T: ClientFormat<F>,
     F: TextureFormat,
-    Rc: RenderingContext,
 {
     type Output = ();
 
@@ -397,15 +373,17 @@ where
             } => {
                 state.set_active_texture_lru().apply(gl).unwrap();
 
-                self.texture_data
-                    .id
-                    .unwrap()
-                    .with_value_unchecked(|texture_object| {
-                        state
-                            .set_bound_texture_2d(Some(texture_object))
-                            .apply(gl)
-                            .unwrap();
-                    });
+                unsafe {
+                    self.texture_data
+                        .id
+                        .unwrap()
+                        .with_value_unchecked(|texture_object| {
+                            state
+                                .set_bound_texture_2d(Some(texture_object))
+                                .apply(gl)
+                                .unwrap();
+                        });
+                }
 
                 state
                     .set_pixel_unpack_alignment((*alignment).into())
@@ -425,7 +403,7 @@ where
 
                 let (offset_x, offset_y) = match self.region {
                     Region2D::Fill => (0, 0),
-                    Region2D::Area((offset_x, offset_y), ..) => (offset_x, offset_y)
+                    Region2D::Area((offset_x, offset_y), ..) => (offset_x, offset_y),
                 };
 
                 let element_size = mem::size_of::<T>() as u32;
@@ -452,7 +430,8 @@ where
                         T::format_id(),
                         T::type_id(),
                         Some(&mut *(data as *const _ as *mut _)),
-                    ).unwrap();
+                    )
+                    .unwrap();
                 }
             }
         }

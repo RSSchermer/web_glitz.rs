@@ -17,6 +17,10 @@ use super::buffer::{BufferHandle, BufferUsage};
 use super::task::{GpuTask, Progress};
 use framebuffer::FramebufferDescriptor;
 use framebuffer::FramebufferHandle;
+use renderbuffer::RenderbufferFormat;
+use renderbuffer::RenderbufferHandle;
+use std::sync::Arc;
+use util::JsId;
 
 const TEXTURE_UNIT_CONSTANTS: [u32; 32] = [
     GL::TEXTURE0,
@@ -53,10 +57,76 @@ const TEXTURE_UNIT_CONSTANTS: [u32; 32] = [
     GL::TEXTURE31,
 ];
 
-pub trait Submitter: Clone {
+pub trait Submitter {
     fn accept<T>(&self, task: T) -> Execution<T::Output>
     where
         T: GpuTask<Connection> + 'static;
+}
+
+pub(crate) enum DropObject {
+    Buffer(JsId),
+    Framebuffer(JsId),
+    Program(JsId),
+    Renderbuffer(JsId),
+    Texture(JsId),
+    Shader(JsId),
+    VertexArray(JsId),
+}
+
+struct DropTask {
+    object: DropObject,
+}
+
+impl GpuTask<Connection> for DropTask {
+    type Output = ();
+
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
+        let Connection(gl, _) = connection;
+
+        match self.object {
+            DropObject::Buffer(id) => unsafe {
+                gl.delete_buffer(Some(&JsId::into_value(id).unchecked_into()));
+            },
+            DropObject::Framebuffer(id) => unsafe {
+                gl.delete_framebuffer(Some(&JsId::into_value(id).unchecked_into()));
+            },
+            DropObject::Program(id) => unsafe {
+                gl.delete_program(Some(&JsId::into_value(id).unchecked_into()));
+            },
+            DropObject::Renderbuffer(id) => unsafe {
+                gl.delete_renderbuffer(Some(&JsId::into_value(id).unchecked_into()));
+            },
+            DropObject::Texture(id) => unsafe {
+                gl.delete_texture(Some(&JsId::into_value(id).unchecked_into()));
+            },
+            DropObject::Shader(id) => unsafe {
+                gl.delete_shader(Some(&JsId::into_value(id).unchecked_into()));
+            },
+            DropObject::VertexArray(id) => unsafe {
+                gl.delete_vertex_array(Some(&JsId::into_value(id).unchecked_into()));
+            },
+        }
+
+        Progress::Finished(())
+    }
+}
+
+pub(crate) trait Dropper {
+    fn drop_gl_object(&self, object: DropObject);
+}
+
+pub(crate) enum RefCountedDropper {
+    Rc(Rc<Dropper>),
+    Arc(Arc<Dropper>),
+}
+
+impl Dropper for RefCountedDropper {
+    fn drop_gl_object(&self, object: DropObject) {
+        match self {
+            RefCountedDropper::Rc(dropper) => dropper.drop_gl_object(object),
+            RefCountedDropper::Arc(dropper) => dropper.drop_gl_object(object),
+        }
+    }
 }
 
 pub enum Execution<O> {
@@ -77,7 +147,7 @@ impl<O> Future for Execution<O> {
                     .expect("Cannot poll Execution more than once after its ready");
 
                 Ok(Async::Ready(output))
-            },
+            }
             Execution::Pending(ref mut recv) => match recv.poll() {
                 Ok(Async::Ready(output)) => Ok(Async::Ready(output)),
                 Ok(Async::NotReady) => Ok(Async::NotReady),
@@ -159,6 +229,12 @@ pub struct SingleThreadedSubmitter {
     executor: Rc<RefCell<SingleThreadedExecutor>>,
 }
 
+impl Dropper for RefCell<SingleThreadedExecutor> {
+    fn drop_gl_object(&self, object: DropObject) {
+        self.borrow_mut().accept(DropTask { object });
+    }
+}
+
 impl SingleThreadedSubmitter {
     pub fn new(connection: Connection) -> Self {
         SingleThreadedSubmitter {
@@ -176,36 +252,100 @@ impl Submitter for SingleThreadedSubmitter {
     }
 }
 
+#[derive(Clone)]
+struct Loop {
+    queue: Rc<RefCell<FencedTaskQueue>>,
+    connection: Rc<RefCell<Connection>>,
+}
+
+impl Loop {
+    fn init(queue: Rc<RefCell<FencedTaskQueue>>, connection: Rc<RefCell<Connection>>) {
+        let as_closure = Closure::wrap(Box::new(Loop { queue, connection }) as Box<FnMut()>);
+
+        window()
+            .unwrap()
+            .request_animation_frame(as_closure.as_ref().unchecked_ref())
+            .unwrap();
+    }
+}
+
+impl FnOnce<()> for Loop {
+    type Output = ();
+
+    extern "rust-call" fn call_once(mut self, _: ()) -> () {
+        self.call_mut(())
+    }
+}
+
+impl FnMut<()> for Loop {
+    extern "rust-call" fn call_mut(&mut self, _: ()) -> () {
+        self.queue
+            .borrow_mut()
+            .run(&mut self.connection.borrow_mut());
+
+        let as_closure = Closure::wrap(Box::new(self.clone()) as Box<FnMut()>);
+
+        window()
+            .unwrap()
+            .request_animation_frame(as_closure.as_ref().unchecked_ref())
+            .unwrap();
+    }
+}
+
+#[derive(Clone)]
+struct FrameCounter {
+    count: usize,
+}
+
+impl FrameCounter {
+    fn init() {
+        let as_closure = Closure::wrap(Box::new(FrameCounter { count: 0 }) as Box<FnMut()>);
+
+        window()
+            .unwrap()
+            .request_animation_frame(as_closure.as_ref().unchecked_ref())
+            .unwrap();
+    }
+}
+
+impl FnOnce<()> for FrameCounter {
+    type Output = ();
+
+    extern "rust-call" fn call_once(mut self, _: ()) -> () {
+        self.call_mut(())
+    }
+}
+
+impl FnMut<()> for FrameCounter {
+    extern "rust-call" fn call_mut(&mut self, _: ()) -> () {
+        self.count += 1;
+
+        let as_closure = Closure::wrap(Box::new(self.clone()) as Box<FnMut()>);
+
+        window()
+            .unwrap()
+            .request_animation_frame(as_closure.as_ref().unchecked_ref())
+            .unwrap();
+    }
+}
+
 struct SingleThreadedExecutor {
     connection: Rc<RefCell<Connection>>,
     fenced_task_queue: Rc<RefCell<FencedTaskQueue>>,
-    animation_frame_handle: i32,
+    //animation_frame_handle: i32,
 }
 
 impl SingleThreadedExecutor {
     fn new(connection: Connection) -> Self {
         let connection = Rc::new(RefCell::new(connection));
-        let connection_clone = connection.clone();
         let fenced_task_queue = Rc::new(RefCell::new(FencedTaskQueue::new()));
-        let fenced_task_queue_clone = fenced_task_queue.clone();
 
-        let closure: Closure<FnMut()> = Closure::wrap(Box::new(move || {
-            fenced_task_queue_clone
-                .borrow_mut()
-                .run(&mut connection_clone.borrow_mut());
-        }) as Box<FnMut()>);
-
-        let animation_frame_handle = window()
-            .unwrap()
-            .request_animation_frame(closure.as_ref().unchecked_ref())
-            .unwrap();
-
-        closure.forget();
+        let animation_frame_handle = Loop::init(fenced_task_queue.clone(), connection.clone());
 
         SingleThreadedExecutor {
             connection,
             fenced_task_queue,
-            animation_frame_handle,
+            //animation_frame_handle,
         }
     }
 
@@ -228,14 +368,14 @@ impl SingleThreadedExecutor {
     }
 }
 
-impl Drop for SingleThreadedExecutor {
-    fn drop(&mut self) {
-        window()
-            .unwrap()
-            .cancel_animation_frame(self.animation_frame_handle)
-            .unwrap();
-    }
-}
+//impl Drop for SingleThreadedExecutor {
+//    fn drop(&mut self) {
+//        window()
+//            .unwrap()
+//            .cancel_animation_frame(self.animation_frame_handle)
+//            .unwrap();
+//    }
+//}
 
 struct FencedTaskQueue {
     queue: VecDeque<(WebGlSync, Box<ExecutorJob>)>,
@@ -285,17 +425,17 @@ impl FencedTaskQueue {
 pub struct Connection(pub GL, pub DynamicState);
 
 pub trait RenderingContext: Clone {
-    fn create_value_buffer<T>(&self, usage_hint: BufferUsage) -> BufferHandle<T, Self>;
+    fn create_value_buffer<T>(&self, usage_hint: BufferUsage) -> BufferHandle<T>;
 
-    fn create_array_buffer<T>(
-        &self,
-        len: usize,
-        usage_hint: BufferUsage,
-    ) -> BufferHandle<[T], Self>;
+    fn create_array_buffer<T>(&self, len: usize, usage_hint: BufferUsage) -> BufferHandle<[T]>;
 
-    fn create_framebuffer<D>(&self, descriptor: &D) -> FramebufferHandle<Self>
+    fn create_framebuffer<D>(&self, descriptor: &D) -> FramebufferHandle
     where
-        D: FramebufferDescriptor<Self>;
+        D: FramebufferDescriptor;
+
+    fn create_renderbuffer<F>(&self, width: u32, height: u32) -> RenderbufferHandle<F>
+    where
+        F: RenderbufferFormat + 'static;
 
     fn submit<T>(&self, task: T) -> Execution<T::Output>
     where
@@ -308,23 +448,44 @@ pub struct SingleThreadedContext {
 }
 
 impl RenderingContext for SingleThreadedContext {
-    fn create_value_buffer<T>(&self, usage_hint: BufferUsage) -> BufferHandle<T, Self> {
-        BufferHandle::value(self.clone(), usage_hint)
+    fn create_value_buffer<T>(&self, usage_hint: BufferUsage) -> BufferHandle<T> {
+        BufferHandle::value(
+            self,
+            RefCountedDropper::Rc(self.submitter.executor.clone()),
+            usage_hint,
+        )
     }
 
-    fn create_array_buffer<T>(
-        &self,
-        len: usize,
-        usage_hint: BufferUsage,
-    ) -> BufferHandle<[T], Self> {
-        BufferHandle::array(self.clone(), len, usage_hint)
+    fn create_array_buffer<T>(&self, len: usize, usage_hint: BufferUsage) -> BufferHandle<[T]> {
+        BufferHandle::array(
+            self,
+            RefCountedDropper::Rc(self.submitter.executor.clone()),
+            len,
+            usage_hint,
+        )
     }
 
-    fn create_framebuffer<D>(&self, descriptor: &D) -> FramebufferHandle<Self>
+    fn create_framebuffer<D>(&self, descriptor: &D) -> FramebufferHandle
     where
-        D: FramebufferDescriptor<Self>,
+        D: FramebufferDescriptor,
     {
-        FramebufferHandle::new(self, descriptor)
+        FramebufferHandle::new(
+            self,
+            RefCountedDropper::Rc(self.submitter.executor.clone()),
+            descriptor,
+        )
+    }
+
+    fn create_renderbuffer<F>(&self, width: u32, height: u32) -> RenderbufferHandle<F>
+    where
+        F: RenderbufferFormat + 'static,
+    {
+        RenderbufferHandle::new(
+            self,
+            RefCountedDropper::Rc(self.submitter.executor.clone()),
+            width,
+            height,
+        )
     }
 
     fn submit<T>(&self, task: T) -> Execution<T::Output>

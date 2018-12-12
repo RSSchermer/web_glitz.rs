@@ -7,7 +7,6 @@ use crate::framebuffer::{
 use crate::rendering_context::RenderingContext;
 
 pub struct FramebufferDescriptorBuilder<
-    Rc,
     C0,
     C1,
     C2,
@@ -45,12 +44,10 @@ pub struct FramebufferDescriptorBuilder<
     color_attachment_15: C15,
     depth_attachment: D,
     stencil_attachment: S,
-    _marker: marker::PhantomData<Rc>,
 }
 
-impl<Rc>
+impl
     FramebufferDescriptorBuilder<
-        Rc,
         (),
         (),
         (),
@@ -70,8 +67,6 @@ impl<Rc>
         (),
         (),
     >
-where
-    Rc: RenderingContext,
 {
     pub fn new() -> Self {
         FramebufferDescriptorBuilder {
@@ -93,14 +88,12 @@ where
             color_attachment_15: (),
             depth_attachment: (),
             stencil_attachment: (),
-            _marker: marker::PhantomData,
         }
     }
 }
 
-impl<Rc, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, D, S>
+impl<C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, D, S>
     FramebufferDescriptorBuilder<
-        Rc,
         C0,
         C1,
         C2,
@@ -121,31 +114,29 @@ impl<Rc, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, D
         S,
     >
 where
-    Rc: RenderingContext,
-    C0: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C1: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C2: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C3: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C4: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C5: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C6: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C7: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C8: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C9: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C10: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C11: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C12: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C13: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C14: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C15: ColorAttachable + AsFramebufferAttachment<Rc>,
-    D: DepthAttachable + AsFramebufferAttachment<Rc>,
-    S: StencilAttachable + AsFramebufferAttachment<Rc>,
+    C0: ColorAttachable + AsFramebufferAttachment,
+    C1: ColorAttachable + AsFramebufferAttachment,
+    C2: ColorAttachable + AsFramebufferAttachment,
+    C3: ColorAttachable + AsFramebufferAttachment,
+    C4: ColorAttachable + AsFramebufferAttachment,
+    C5: ColorAttachable + AsFramebufferAttachment,
+    C6: ColorAttachable + AsFramebufferAttachment,
+    C7: ColorAttachable + AsFramebufferAttachment,
+    C8: ColorAttachable + AsFramebufferAttachment,
+    C9: ColorAttachable + AsFramebufferAttachment,
+    C10: ColorAttachable + AsFramebufferAttachment,
+    C11: ColorAttachable + AsFramebufferAttachment,
+    C12: ColorAttachable + AsFramebufferAttachment,
+    C13: ColorAttachable + AsFramebufferAttachment,
+    C14: ColorAttachable + AsFramebufferAttachment,
+    C15: ColorAttachable + AsFramebufferAttachment,
+    D: DepthAttachable + AsFramebufferAttachment,
+    S: StencilAttachable + AsFramebufferAttachment,
 {
     pub fn color_attachment_0<A>(
         self,
         attachable: A,
     ) -> FramebufferDescriptorBuilder<
-        Rc,
         A,
         C1,
         C2,
@@ -166,7 +157,7 @@ where
         S,
     >
     where
-        A: ColorAttachable + AsFramebufferAttachment<Rc>,
+        A: ColorAttachable + AsFramebufferAttachment,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: attachable,
@@ -187,7 +178,6 @@ where
             color_attachment_15: self.color_attachment_15,
             depth_attachment: self.depth_attachment,
             stencil_attachment: self.stencil_attachment,
-            _marker: marker::PhantomData,
         }
     }
 
@@ -195,7 +185,6 @@ where
         self,
         attachable: A,
     ) -> FramebufferDescriptorBuilder<
-        Rc,
         C0,
         A,
         C2,
@@ -216,7 +205,7 @@ where
         S,
     >
     where
-        A: ColorAttachable + AsFramebufferAttachment<Rc>,
+        A: ColorAttachable + AsFramebufferAttachment,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -237,7 +226,6 @@ where
             color_attachment_15: self.color_attachment_15,
             depth_attachment: self.depth_attachment,
             stencil_attachment: self.stencil_attachment,
-            _marker: marker::PhantomData,
         }
     }
 
@@ -245,7 +233,6 @@ where
         self,
         attachable: A,
     ) -> FramebufferDescriptorBuilder<
-        Rc,
         C0,
         C1,
         A,
@@ -266,7 +253,7 @@ where
         S,
     >
     where
-        A: ColorAttachable + AsFramebufferAttachment<Rc>,
+        A: ColorAttachable + AsFramebufferAttachment,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -287,7 +274,6 @@ where
             color_attachment_15: self.color_attachment_15,
             depth_attachment: self.depth_attachment,
             stencil_attachment: self.stencil_attachment,
-            _marker: marker::PhantomData,
         }
     }
 
@@ -295,7 +281,6 @@ where
         self,
         attachable: A,
     ) -> FramebufferDescriptorBuilder<
-        Rc,
         C0,
         C1,
         C2,
@@ -316,7 +301,7 @@ where
         S,
     >
     where
-        A: ColorAttachable + AsFramebufferAttachment<Rc>,
+        A: ColorAttachable + AsFramebufferAttachment,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -337,7 +322,6 @@ where
             color_attachment_15: self.color_attachment_15,
             depth_attachment: self.depth_attachment,
             stencil_attachment: self.stencil_attachment,
-            _marker: marker::PhantomData,
         }
     }
 
@@ -345,7 +329,6 @@ where
         self,
         attachable: A,
     ) -> FramebufferDescriptorBuilder<
-        Rc,
         C0,
         C1,
         C2,
@@ -366,7 +349,7 @@ where
         S,
     >
     where
-        A: ColorAttachable + AsFramebufferAttachment<Rc>,
+        A: ColorAttachable + AsFramebufferAttachment,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -387,7 +370,6 @@ where
             color_attachment_15: self.color_attachment_15,
             depth_attachment: self.depth_attachment,
             stencil_attachment: self.stencil_attachment,
-            _marker: marker::PhantomData,
         }
     }
 
@@ -395,7 +377,6 @@ where
         self,
         attachable: A,
     ) -> FramebufferDescriptorBuilder<
-        Rc,
         C0,
         C1,
         C2,
@@ -416,7 +397,7 @@ where
         S,
     >
     where
-        A: ColorAttachable + AsFramebufferAttachment<Rc>,
+        A: ColorAttachable + AsFramebufferAttachment,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -437,7 +418,6 @@ where
             color_attachment_15: self.color_attachment_15,
             depth_attachment: self.depth_attachment,
             stencil_attachment: self.stencil_attachment,
-            _marker: marker::PhantomData,
         }
     }
 
@@ -445,7 +425,6 @@ where
         self,
         attachable: A,
     ) -> FramebufferDescriptorBuilder<
-        Rc,
         C0,
         C1,
         C2,
@@ -466,7 +445,7 @@ where
         S,
     >
     where
-        A: ColorAttachable + AsFramebufferAttachment<Rc>,
+        A: ColorAttachable + AsFramebufferAttachment,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -487,7 +466,6 @@ where
             color_attachment_15: self.color_attachment_15,
             depth_attachment: self.depth_attachment,
             stencil_attachment: self.stencil_attachment,
-            _marker: marker::PhantomData,
         }
     }
 
@@ -495,7 +473,6 @@ where
         self,
         attachable: A,
     ) -> FramebufferDescriptorBuilder<
-        Rc,
         C0,
         C1,
         C2,
@@ -516,7 +493,7 @@ where
         S,
     >
     where
-        A: ColorAttachable + AsFramebufferAttachment<Rc>,
+        A: ColorAttachable + AsFramebufferAttachment,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -537,7 +514,6 @@ where
             color_attachment_15: self.color_attachment_15,
             depth_attachment: self.depth_attachment,
             stencil_attachment: self.stencil_attachment,
-            _marker: marker::PhantomData,
         }
     }
 
@@ -545,7 +521,6 @@ where
         self,
         attachable: A,
     ) -> FramebufferDescriptorBuilder<
-        Rc,
         C0,
         C1,
         C2,
@@ -566,7 +541,7 @@ where
         S,
     >
     where
-        A: ColorAttachable + AsFramebufferAttachment<Rc>,
+        A: ColorAttachable + AsFramebufferAttachment,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -587,7 +562,6 @@ where
             color_attachment_15: self.color_attachment_15,
             depth_attachment: self.depth_attachment,
             stencil_attachment: self.stencil_attachment,
-            _marker: marker::PhantomData,
         }
     }
 
@@ -595,7 +569,6 @@ where
         self,
         attachable: A,
     ) -> FramebufferDescriptorBuilder<
-        Rc,
         C0,
         C1,
         C2,
@@ -616,7 +589,7 @@ where
         S,
     >
     where
-        A: ColorAttachable + AsFramebufferAttachment<Rc>,
+        A: ColorAttachable + AsFramebufferAttachment,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -637,7 +610,6 @@ where
             color_attachment_15: self.color_attachment_15,
             depth_attachment: self.depth_attachment,
             stencil_attachment: self.stencil_attachment,
-            _marker: marker::PhantomData,
         }
     }
 
@@ -645,7 +617,6 @@ where
         self,
         attachable: A,
     ) -> FramebufferDescriptorBuilder<
-        Rc,
         C0,
         C1,
         C2,
@@ -666,7 +637,7 @@ where
         S,
     >
     where
-        A: ColorAttachable + AsFramebufferAttachment<Rc>,
+        A: ColorAttachable + AsFramebufferAttachment,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -687,7 +658,6 @@ where
             color_attachment_15: self.color_attachment_15,
             depth_attachment: self.depth_attachment,
             stencil_attachment: self.stencil_attachment,
-            _marker: marker::PhantomData,
         }
     }
 
@@ -695,7 +665,6 @@ where
         self,
         attachable: A,
     ) -> FramebufferDescriptorBuilder<
-        Rc,
         C0,
         C1,
         C2,
@@ -716,7 +685,7 @@ where
         S,
     >
     where
-        A: ColorAttachable + AsFramebufferAttachment<Rc>,
+        A: ColorAttachable + AsFramebufferAttachment,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -737,7 +706,6 @@ where
             color_attachment_15: self.color_attachment_15,
             depth_attachment: self.depth_attachment,
             stencil_attachment: self.stencil_attachment,
-            _marker: marker::PhantomData,
         }
     }
 
@@ -745,7 +713,6 @@ where
         self,
         attachable: A,
     ) -> FramebufferDescriptorBuilder<
-        Rc,
         C0,
         C1,
         C2,
@@ -766,7 +733,7 @@ where
         S,
     >
     where
-        A: ColorAttachable + AsFramebufferAttachment<Rc>,
+        A: ColorAttachable + AsFramebufferAttachment,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -787,7 +754,6 @@ where
             color_attachment_15: self.color_attachment_15,
             depth_attachment: self.depth_attachment,
             stencil_attachment: self.stencil_attachment,
-            _marker: marker::PhantomData,
         }
     }
 
@@ -795,7 +761,6 @@ where
         self,
         attachable: A,
     ) -> FramebufferDescriptorBuilder<
-        Rc,
         C0,
         C1,
         C2,
@@ -816,7 +781,7 @@ where
         S,
     >
     where
-        A: ColorAttachable + AsFramebufferAttachment<Rc>,
+        A: ColorAttachable + AsFramebufferAttachment,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -837,7 +802,6 @@ where
             color_attachment_15: self.color_attachment_15,
             depth_attachment: self.depth_attachment,
             stencil_attachment: self.stencil_attachment,
-            _marker: marker::PhantomData,
         }
     }
 
@@ -845,7 +809,6 @@ where
         self,
         attachable: A,
     ) -> FramebufferDescriptorBuilder<
-        Rc,
         C0,
         C1,
         C2,
@@ -866,7 +829,7 @@ where
         S,
     >
     where
-        A: ColorAttachable + AsFramebufferAttachment<Rc>,
+        A: ColorAttachable + AsFramebufferAttachment,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -887,7 +850,6 @@ where
             color_attachment_15: self.color_attachment_15,
             depth_attachment: self.depth_attachment,
             stencil_attachment: self.stencil_attachment,
-            _marker: marker::PhantomData,
         }
     }
 
@@ -895,7 +857,6 @@ where
         self,
         attachable: A,
     ) -> FramebufferDescriptorBuilder<
-        Rc,
         C0,
         C1,
         C2,
@@ -916,7 +877,7 @@ where
         S,
     >
     where
-        A: ColorAttachable + AsFramebufferAttachment<Rc>,
+        A: ColorAttachable + AsFramebufferAttachment,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -937,7 +898,6 @@ where
             color_attachment_15: attachable,
             depth_attachment: self.depth_attachment,
             stencil_attachment: self.stencil_attachment,
-            _marker: marker::PhantomData,
         }
     }
 
@@ -945,7 +905,6 @@ where
         self,
         attachable: A,
     ) -> FramebufferDescriptorBuilder<
-        Rc,
         C0,
         C1,
         C2,
@@ -966,7 +925,7 @@ where
         S,
     >
     where
-        A: DepthAttachable + AsFramebufferAttachment<Rc>,
+        A: DepthAttachable + AsFramebufferAttachment,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -987,7 +946,6 @@ where
             color_attachment_15: self.color_attachment_15,
             depth_attachment: attachable,
             stencil_attachment: self.stencil_attachment,
-            _marker: marker::PhantomData,
         }
     }
 
@@ -995,7 +953,6 @@ where
         self,
         attachable: A,
     ) -> FramebufferDescriptorBuilder<
-        Rc,
         C0,
         C1,
         C2,
@@ -1016,7 +973,7 @@ where
         A,
     >
     where
-        A: StencilAttachable + AsFramebufferAttachment<Rc>,
+        A: StencilAttachable + AsFramebufferAttachment,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -1037,7 +994,6 @@ where
             color_attachment_15: self.color_attachment_15,
             depth_attachment: self.depth_attachment,
             stencil_attachment: attachable,
-            _marker: marker::PhantomData,
         }
     }
 
@@ -1045,7 +1001,6 @@ where
         self,
         attachable: A,
     ) -> FramebufferDescriptorBuilder<
-        Rc,
         C0,
         C1,
         C2,
@@ -1066,7 +1021,7 @@ where
         A,
     >
     where
-        A: DepthAttachable + StencilAttachable + AsFramebufferAttachment<Rc> + Clone,
+        A: DepthAttachable + StencilAttachable + AsFramebufferAttachment + Clone,
     {
         FramebufferDescriptorBuilder {
             color_attachment_0: self.color_attachment_0,
@@ -1087,7 +1042,6 @@ where
             color_attachment_15: self.color_attachment_15,
             depth_attachment: attachable.clone(),
             stencil_attachment: attachable,
-            _marker: marker::PhantomData,
         }
     }
 
@@ -1176,8 +1130,8 @@ pub struct BuildFramebufferDescriptor<
     stencil_attachment: S,
 }
 
-impl<Rc, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, D, S>
-    FramebufferDescriptor<Rc>
+impl<C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, D, S>
+    FramebufferDescriptor
     for BuildFramebufferDescriptor<
         C0,
         C1,
@@ -1199,25 +1153,24 @@ impl<Rc, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15, D
         S,
     >
 where
-    Rc: RenderingContext,
-    C0: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C1: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C2: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C3: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C4: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C5: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C6: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C7: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C8: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C9: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C10: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C11: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C12: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C13: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C14: ColorAttachable + AsFramebufferAttachment<Rc>,
-    C15: ColorAttachable + AsFramebufferAttachment<Rc>,
-    D: DepthAttachable + AsFramebufferAttachment<Rc>,
-    S: StencilAttachable + AsFramebufferAttachment<Rc>,
+    C0: ColorAttachable + AsFramebufferAttachment,
+    C1: ColorAttachable + AsFramebufferAttachment,
+    C2: ColorAttachable + AsFramebufferAttachment,
+    C3: ColorAttachable + AsFramebufferAttachment,
+    C4: ColorAttachable + AsFramebufferAttachment,
+    C5: ColorAttachable + AsFramebufferAttachment,
+    C6: ColorAttachable + AsFramebufferAttachment,
+    C7: ColorAttachable + AsFramebufferAttachment,
+    C8: ColorAttachable + AsFramebufferAttachment,
+    C9: ColorAttachable + AsFramebufferAttachment,
+    C10: ColorAttachable + AsFramebufferAttachment,
+    C11: ColorAttachable + AsFramebufferAttachment,
+    C12: ColorAttachable + AsFramebufferAttachment,
+    C13: ColorAttachable + AsFramebufferAttachment,
+    C14: ColorAttachable + AsFramebufferAttachment,
+    C15: ColorAttachable + AsFramebufferAttachment,
+    D: DepthAttachable + AsFramebufferAttachment,
+    S: StencilAttachable + AsFramebufferAttachment,
 {
     type ColorAttachment0 = C0;
 

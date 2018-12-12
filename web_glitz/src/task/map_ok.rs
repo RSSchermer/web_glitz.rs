@@ -3,8 +3,8 @@ use std::marker::PhantomData;
 use super::{GpuTask, Progress, TryGpuTask};
 
 pub struct MapOk<A, F, Ec>
-    where
-        A: TryGpuTask<Ec>,
+where
+    A: TryGpuTask<Ec>,
 {
     task: A,
     f: Option<F>,
@@ -12,10 +12,10 @@ pub struct MapOk<A, F, Ec>
 }
 
 impl<A, B, F, Ec> MapOk<A, F, Ec>
-    where
-        A: TryGpuTask<Ec>,
-        F: FnOnce(A::Ok) -> B,
-        B: 'static,
+where
+    A: TryGpuTask<Ec>,
+    F: FnOnce(A::Ok) -> B,
+    B: 'static,
 {
     pub fn new(task: A, f: F) -> Self {
         MapOk {
@@ -27,10 +27,10 @@ impl<A, B, F, Ec> MapOk<A, F, Ec>
 }
 
 impl<A, B, F, Ec> GpuTask<Ec> for MapOk<A, F, Ec>
-    where
-        A: TryGpuTask<Ec>,
-        F: FnOnce(A::Ok) -> B,
-        B: 'static,
+where
+    A: TryGpuTask<Ec>,
+    F: FnOnce(A::Ok) -> B,
+    B: 'static,
 {
     type Output = Result<B, A::Error>;
 

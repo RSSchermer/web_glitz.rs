@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use std::mem;
 
-use super::{TryGpuTask, Progress};
+use super::{Progress, TryGpuTask};
 
 pub(crate) enum TryMaybeDone<T, O, Ec> {
     NotYet(T, PhantomData<Ec>),
@@ -10,8 +10,8 @@ pub(crate) enum TryMaybeDone<T, O, Ec> {
 }
 
 impl<T, O, Ec> TryMaybeDone<T, O, Ec>
-    where
-        T: TryGpuTask<Ec, Ok = O>,
+where
+    T: TryGpuTask<Ec, Ok = O>,
 {
     pub fn try_progress(&mut self, execution_context: &mut Ec) -> Result<bool, T::Error> {
         let res = match self {
@@ -40,8 +40,8 @@ impl<T, O, Ec> TryMaybeDone<T, O, Ec>
 }
 
 pub(crate) fn try_maybe_done<T, O, Ec>(task: T) -> TryMaybeDone<T, O, Ec>
-    where
-        T: TryGpuTask<Ec, Ok = O>,
+where
+    T: TryGpuTask<Ec, Ok = O>,
 {
     TryMaybeDone::NotYet(task, PhantomData)
 }

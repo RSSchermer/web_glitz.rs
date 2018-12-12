@@ -98,17 +98,14 @@ pub(crate) fn region_3d_overlap_depth(base_depth: u32, region: &Region3D) -> u32
 pub(crate) fn region_2d_sub_image(region_a: Region2D, region_b: Region2D) -> Region2D {
     match region_b {
         Region2D::Fill => region_a,
-        Region2D::Area((b_offset_x, b_offset_y), width, height) => {
-            match region_a {
-                Region2D::Fill => region_b,
-                Region2D::Area((a_offset_x, a_offset_y), ..) => {
-                    Region2D::Area(
-                        (a_offset_x + b_offset_x, a_offset_y + b_offset_y),
-                        width,
-                        height)
-                }
-            }
-        }
+        Region2D::Area((b_offset_x, b_offset_y), width, height) => match region_a {
+            Region2D::Fill => region_b,
+            Region2D::Area((a_offset_x, a_offset_y), ..) => Region2D::Area(
+                (a_offset_x + b_offset_x, a_offset_y + b_offset_y),
+                width,
+                height,
+            ),
+        },
     }
 }
 
@@ -123,11 +120,7 @@ pub(crate) fn region_3d_sub_image(region_a: Region3D, region_b: Region3D) -> Reg
                     let offset_y = a_offset_y + b_offset_y;
                     let offset_z = a_offset_z + b_offset_z;
 
-                    Region3D::Area(
-                        (offset_x, offset_y, offset_z),
-                        width,
-                        height,
-                           depth)
+                    Region3D::Area((offset_x, offset_y, offset_z), width, height, depth)
                 }
             }
         }

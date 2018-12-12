@@ -1,7 +1,11 @@
 use super::{
-    Join, Join3, Join4, Join5, Map, Sequence, Sequence3, Sequence4,
-    Sequence5, Then, Progress
+    Join, Join3, Join4, Join5, Map, Sequence, Sequence3, Sequence4, Sequence5, Then,
 };
+
+pub enum Progress<T> {
+    Finished(T),
+    ContinueFenced,
+}
 
 pub trait GpuTask<Ec> {
     type Output;

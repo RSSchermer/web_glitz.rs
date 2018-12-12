@@ -4,45 +4,42 @@ use crate::renderbuffer::RenderbufferHandle;
 use crate::rendering_context::RenderingContext;
 use crate::texture::Texture2DLevel;
 
-pub trait FramebufferDescriptor<Rc>
-where
-    Rc: RenderingContext,
-{
-    type ColorAttachment0: ColorAttachable + AsFramebufferAttachment<Rc>;
+pub trait FramebufferDescriptor {
+    type ColorAttachment0: ColorAttachable + AsFramebufferAttachment;
 
-    type ColorAttachment1: ColorAttachable + AsFramebufferAttachment<Rc>;
+    type ColorAttachment1: ColorAttachable + AsFramebufferAttachment;
 
-    type ColorAttachment2: ColorAttachable + AsFramebufferAttachment<Rc>;
+    type ColorAttachment2: ColorAttachable + AsFramebufferAttachment;
 
-    type ColorAttachment3: ColorAttachable + AsFramebufferAttachment<Rc>;
+    type ColorAttachment3: ColorAttachable + AsFramebufferAttachment;
 
-    type ColorAttachment4: ColorAttachable + AsFramebufferAttachment<Rc>;
+    type ColorAttachment4: ColorAttachable + AsFramebufferAttachment;
 
-    type ColorAttachment5: ColorAttachable + AsFramebufferAttachment<Rc>;
+    type ColorAttachment5: ColorAttachable + AsFramebufferAttachment;
 
-    type ColorAttachment6: ColorAttachable + AsFramebufferAttachment<Rc>;
+    type ColorAttachment6: ColorAttachable + AsFramebufferAttachment;
 
-    type ColorAttachment7: ColorAttachable + AsFramebufferAttachment<Rc>;
+    type ColorAttachment7: ColorAttachable + AsFramebufferAttachment;
 
-    type ColorAttachment8: ColorAttachable + AsFramebufferAttachment<Rc>;
+    type ColorAttachment8: ColorAttachable + AsFramebufferAttachment;
 
-    type ColorAttachment9: ColorAttachable + AsFramebufferAttachment<Rc>;
+    type ColorAttachment9: ColorAttachable + AsFramebufferAttachment;
 
-    type ColorAttachment10: ColorAttachable + AsFramebufferAttachment<Rc>;
+    type ColorAttachment10: ColorAttachable + AsFramebufferAttachment;
 
-    type ColorAttachment11: ColorAttachable + AsFramebufferAttachment<Rc>;
+    type ColorAttachment11: ColorAttachable + AsFramebufferAttachment;
 
-    type ColorAttachment12: ColorAttachable + AsFramebufferAttachment<Rc>;
+    type ColorAttachment12: ColorAttachable + AsFramebufferAttachment;
 
-    type ColorAttachment13: ColorAttachable + AsFramebufferAttachment<Rc>;
+    type ColorAttachment13: ColorAttachable + AsFramebufferAttachment;
 
-    type ColorAttachment14: ColorAttachable + AsFramebufferAttachment<Rc>;
+    type ColorAttachment14: ColorAttachable + AsFramebufferAttachment;
 
-    type ColorAttachment15: ColorAttachable + AsFramebufferAttachment<Rc>;
+    type ColorAttachment15: ColorAttachable + AsFramebufferAttachment;
 
-    type DepthAttachment: DepthAttachable + AsFramebufferAttachment<Rc>;
+    type DepthAttachment: DepthAttachable + AsFramebufferAttachment;
 
-    type StencilAttachment: StencilAttachable + AsFramebufferAttachment<Rc>;
+    type StencilAttachment: StencilAttachable + AsFramebufferAttachment;
 
     fn color_attachment_0(&self) -> &Self::ColorAttachment0;
 
@@ -83,48 +80,18 @@ where
 
 pub unsafe trait ColorAttachable {}
 
-unsafe impl<F, Rc> ColorAttachable for Texture2DLevel<F, Rc>
-where
-    F: ColorRenderable,
-    Rc: RenderingContext,
-{
-}
+unsafe impl<F> ColorAttachable for Texture2DLevel<F> where F: ColorRenderable {}
 
-unsafe impl<F, Rc> ColorAttachable for RenderbufferHandle<F, Rc>
-where
-    F: ColorRenderable,
-    Rc: RenderingContext,
-{
-}
+unsafe impl<F> ColorAttachable for RenderbufferHandle<F> where F: ColorRenderable {}
 
 pub unsafe trait DepthAttachable {}
 
-unsafe impl<F, Rc> DepthAttachable for Texture2DLevel<F, Rc>
-where
-    F: DepthRenderable,
-    Rc: RenderingContext,
-{
-}
+unsafe impl<F> DepthAttachable for Texture2DLevel<F> where F: DepthRenderable {}
 
-unsafe impl<F, Rc> DepthAttachable for RenderbufferHandle<F, Rc>
-where
-    F: DepthRenderable,
-    Rc: RenderingContext,
-{
-}
+unsafe impl<F> DepthAttachable for RenderbufferHandle<F> where F: DepthRenderable {}
 
 pub unsafe trait StencilAttachable {}
 
-unsafe impl<F, Rc> StencilAttachable for Texture2DLevel<F, Rc>
-where
-    F: StencilRenderable,
-    Rc: RenderingContext,
-{
-}
+unsafe impl<F> StencilAttachable for Texture2DLevel<F> where F: StencilRenderable {}
 
-unsafe impl<F, Rc> StencilAttachable for RenderbufferHandle<F, Rc>
-where
-    F: StencilRenderable,
-    Rc: RenderingContext,
-{
-}
+unsafe impl<F> StencilAttachable for RenderbufferHandle<F> where F: StencilRenderable {}

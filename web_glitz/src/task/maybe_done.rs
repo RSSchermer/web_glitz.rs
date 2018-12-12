@@ -25,7 +25,7 @@ where
                 *self = MaybeDone::Done(output);
 
                 true
-            },
+            }
             Progress::ContinueFenced => false,
         }
     }

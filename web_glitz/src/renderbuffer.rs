@@ -1,49 +1,53 @@
 use image_format::InternalFormat;
 use rendering_context::Connection;
 use rendering_context::ContextUpdate;
+use rendering_context::DropObject;
+use rendering_context::Dropper;
+use rendering_context::RefCountedDropper;
 use rendering_context::RenderingContext;
+use rendering_context::Submitter;
 use std::marker;
 use std::sync::Arc;
 use task::GpuTask;
 use task::Progress;
+use util::arc_get_mut_unchecked;
 use util::JsId;
 use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
 
 pub unsafe trait RenderbufferFormat: InternalFormat {}
 
-pub trait Renderbuffer<F>
-where
-    F: RenderbufferFormat,
-{
-    fn width(&self) -> u32;
-
-    fn height(&self) -> u32;
-}
-
-pub struct RenderbufferHandle<F, Rc>
-where
-    Rc: RenderingContext,
-{
-    pub(crate) data: Arc<RenderbufferData<Rc>>,
+pub struct RenderbufferHandle<F> {
+    pub(crate) data: Arc<RenderbufferData>,
     _marker: marker::PhantomData<[F]>,
 }
 
-pub(crate) struct RenderbufferData<Rc>
+impl<F> RenderbufferHandle<F>
 where
-    Rc: RenderingContext,
+    F: RenderbufferFormat + 'static,
 {
-    pub(crate) id: Option<JsId>,
-    context: Rc,
-    width: u32,
-    height: u32,
-}
+    pub(crate) fn new<Rc>(context: &Rc, dropper: RefCountedDropper, width: u32, height: u32) -> Self
+    where
+        Rc: RenderingContext,
+    {
+        let data = Arc::new(RenderbufferData {
+            id: None,
+            dropper,
+            width,
+            height,
+        });
 
-impl<F, Rc> Renderbuffer<F> for RenderbufferHandle<F, Rc>
-where
-    F: RenderbufferFormat,
-    Rc: RenderingContext,
-{
+        context.submit(RenderbufferAllocateTask::<F> {
+            data: data.clone(),
+            _marker: marker::PhantomData,
+        });
+
+        RenderbufferHandle {
+            data,
+            _marker: marker::PhantomData,
+        }
+    }
+
     fn width(&self) -> u32 {
         self.data.width
     }
@@ -53,35 +57,35 @@ where
     }
 }
 
-impl<Rc> Drop for RenderbufferData<Rc>
-where
-    Rc: RenderingContext,
-{
+pub(crate) struct RenderbufferData {
+    pub(crate) id: Option<JsId>,
+    dropper: RefCountedDropper,
+    width: u32,
+    height: u32,
+}
+
+impl Drop for RenderbufferData {
     fn drop(&mut self) {
         if let Some(id) = self.id {
-            self.context.submit(RenderbufferDropTask { id });
+            self.dropper.drop_gl_object(DropObject::Renderbuffer(id));
         }
     }
 }
 
-struct RenderbufferAllocateTask<F, Rc>
-where
-    Rc: RenderingContext,
-{
-    data: Arc<RenderbufferData<Rc>>,
+struct RenderbufferAllocateTask<F> {
+    data: Arc<RenderbufferData>,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F, Rc> GpuTask<Connection> for RenderbufferAllocateTask<F, Rc>
+impl<F> GpuTask<Connection> for RenderbufferAllocateTask<F>
 where
     F: RenderbufferFormat,
-    Rc: RenderingContext,
 {
     type Output = ();
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let Connection(gl, state) = connection;
-        let mut data = Arc::get_mut(&mut self.data).unwrap();
+        let mut data = unsafe { arc_get_mut_unchecked(&mut self.data) };
         let object = gl.create_renderbuffer().unwrap();
 
         state
@@ -97,24 +101,6 @@ where
         );
 
         data.id = Some(JsId::from_value(object.into()));
-
-        Progress::Finished(())
-    }
-}
-
-struct RenderbufferDropTask {
-    id: JsId,
-}
-
-impl GpuTask<Connection> for RenderbufferDropTask {
-    type Output = ();
-
-    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        let Connection(gl, _) = connection;
-
-        unsafe {
-            gl.delete_renderbuffer(Some(&JsId::into_value(self.id).unchecked_into()));
-        }
 
         Progress::Finished(())
     }

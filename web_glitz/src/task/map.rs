@@ -2,8 +2,7 @@ use std::marker::PhantomData;
 
 use super::{GpuTask, Progress};
 
-pub struct Map<A, F, Ec>
-{
+pub struct Map<A, F, Ec> {
     task: A,
     f: Option<F>,
     ec: PhantomData<Ec>,
