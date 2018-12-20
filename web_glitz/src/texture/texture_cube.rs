@@ -19,6 +19,9 @@ use crate::util::JsId;
 use rendering_context::DropObject;
 use rendering_context::Dropper;
 use rendering_context::RefCountedDropper;
+use sampler::AsSampled;
+use sampler::Sampled;
+use sampler::SampledInternal;
 use texture::util::mipmap_size;
 use texture::util::region_2d_overlap_height;
 use texture::util::region_2d_overlap_width;
@@ -51,6 +54,7 @@ where
             width,
             height,
             levels,
+            most_recent_unit: None,
         });
 
         context.submit(TextureCubeAllocateTask::<F> {
@@ -88,12 +92,21 @@ where
     }
 }
 
+impl<F> AsSampled for TextureCubeHandle<F> {
+    fn as_sampled(&mut self) -> Sampled {
+        Sampled {
+            internal: SampledInternal::TextureCube(&mut self.data),
+        }
+    }
+}
+
 pub(crate) struct TextureCubeData {
     pub(crate) id: Option<JsId>,
     dropper: RefCountedDropper,
     width: u32,
     height: u32,
     levels: usize,
+    pub(crate) most_recent_unit: Option<u32>,
 }
 
 impl Drop for TextureCubeData {

@@ -4,9 +4,10 @@ use std::borrow::Borrow;
 use std::sync::Arc;
 use task::GpuTask;
 use task::Progress;
-use uniform::UniformIdentifier;
+use uniform::UniformValueIdentifier;
 use util::JsId;
 
+use buffer::BufferData;
 use rendering_context::ContextUpdate;
 use rendering_context::DropObject;
 use rendering_context::Dropper;
@@ -15,8 +16,7 @@ use std::marker;
 use std::mem;
 use util::arc_get_mut_unchecked;
 use wasm_bindgen::JsCast;
-use web_sys::{WebGl2RenderingContext as Gl, WebGlProgram, WebGlUniformLocation};
-use buffer::BufferData;
+use web_sys::{WebGl2RenderingContext as Gl, WebGlProgram, WebGlUniformLocation, WebGlActiveInfo};
 
 pub struct VertexShaderHandle {
     data: Arc<ShaderData>,
@@ -136,7 +136,7 @@ struct ProgramData<Fs, Tf> {
     dropper: RefCountedDropper,
     vertex_shader: Option<Arc<ShaderData>>,
     fragment_shader: Option<Arc<ShaderData>>,
-    active_uniforms: Vec<ActiveUniform>,
+    active_uniforms: Vec<(UniformValueIdentifier, UniformInfo)>,
     _fragment_shader_marker: marker::PhantomData<Fs>,
     _transform_feedback_marker: marker::PhantomData<Tf>,
 }
@@ -292,31 +292,28 @@ pub struct VertexShader;
 pub struct FragmentShader;
 pub struct TransformFeedback;
 
-pub(crate) struct ActiveUniform {
-    pub(crate) identifier: UniformIdentifier,
+pub(crate) struct UniformInfo {
     pub(crate) location: JsId,
-    pub(crate) current_value: Option<UniformValue>
+    pub(crate) value_type: UniformType,
+    pub(crate) size: usize,
+    pub(crate) current_value: Option<UniformValue>,
 }
 
 #[derive(PartialEq)]
 pub enum UniformValue {
     Float(f32),
-    Vector2((f32, f32)),
-    Vector3((f32, f32, f32)),
-    Vector4((f32, f32, f32, f32)),
-    Matrix2x2([f32; 4]),
-    Matrix2x3([f32; 6]),
-    Matrix2x4([f32; 8]),
-    Matrix3x2([f32; 6]),
-    Matrix3x3([f32; 9]),
-    Matrix3x4([f32; 12]),
-    Matrix4x2([f32; 8]),
-    Matrix4x3([f32; 12]),
-    Matrix4x4([f32; 16]),
-    Boolean(bool),
-    BooleanVector2((bool, bool)),
-    BooleanVector3((bool, bool, bool)),
-    BooleanVector4((bool, bool, bool, bool)),
+    FloatVector2((f32, f32)),
+    FloatVector3((f32, f32, f32)),
+    FloatVector4((f32, f32, f32, f32)),
+    FloatMatrix2x2([f32; 4]),
+    FloatMatrix2x3([f32; 6]),
+    FloatMatrix2x4([f32; 8]),
+    FloatMatrix3x2([f32; 6]),
+    FloatMatrix3x3([f32; 9]),
+    FloatMatrix3x4([f32; 12]),
+    FloatMatrix4x2([f32; 8]),
+    FloatMatrix4x3([f32; 12]),
+    FloatMatrix4x4([f32; 16]),
     Integer(i32),
     IntegerVector2((i32, i32)),
     IntegerVector3((i32, i32, i32)),
@@ -325,6 +322,187 @@ pub enum UniformValue {
     UnsignedIntegerVector2((u32, u32)),
     UnsignedIntegerVector3((u32, u32, u32)),
     UnsignedIntegerVector4((u32, u32, u32, u32)),
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum UniformType {
+    Float,
+    FloatVector2,
+    FloatVector3,
+    FloatVector4,
+    FloatMatrix2,
+    FloatMatrix3,
+    FloatMatrix4,
+    FloatMatrix2x3,
+    FloatMatrix2x4,
+    FloatMatrix3x2,
+    FloatMatrix3x4,
+    FloatMatrix4x2,
+    FloatMatrix4x3,
+    Integer,
+    IntegerVector2,
+    IntegerVector3,
+    IntegerVector4,
+    UnsignedInteger,
+    UnsignedIntegerVector2,
+    UnsignedIntegerVector3,
+    UnsignedIntegerVector4,
+    Boolean,
+    BooleanVector2,
+    BooleanVector3,
+    BooleanVector4,
+    Sampler2D,
+    SamplerCUBE,
+    Sampler3D,
+    Sampler2DShadow,
+    Sampler2DArray,
+    Sampler2DArrayShadow,
+    SamplerCubeShadow,
+    IntegerSampler2D,
+    IntegerSampler3D,
+    IntegerSamplerCube,
+    IntegerSampler2DArray,
+    UnsignedIntegerSampler2D,
+    UnsignedIntegerSampler3D,
+    UnsignedIntegerSamplerCube,
+    UnsignedIntegerSampler2DArray,
+    ArrayOfFloat(usize),
+    ArrayOfFloatVector2(usize),
+    ArrayOfFloatVector3(usize),
+    ArrayOfFloatVector4(usize),
+    ArrayOfFloatMatrix2(usize),
+    ArrayOfFloatMatrix3(usize),
+    ArrayOfFloatMatrix4(usize),
+    ArrayOfFloatMatrix2x3(usize),
+    ArrayOfFloatMatrix2x4(usize),
+    ArrayOfFloatMatrix3x2(usize),
+    ArrayOfFloatMatrix3x4(usize),
+    ArrayOfFloatMatrix4x2(usize),
+    ArrayOfFloatMatrix4x3(usize),
+    ArrayOfInteger(usize),
+    ArrayOfIntegerVector2(usize),
+    ArrayOfIntegerVector3(usize),
+    ArrayOfIntegerVector4(usize),
+    ArrayOfUnsignedInteger(usize),
+    ArrayOfUnsignedIntegerVector2(usize),
+    ArrayOfUnsignedIntegerVector3(usize),
+    ArrayOfUnsignedIntegerVector4(usize),
+    ArrayOfBoolean(usize),
+    ArrayOfBooleanVector2(usize),
+    ArrayOfBooleanVector3(usize),
+    ArrayOfBooleanVector4(usize),
+    ArrayOfSampler2D(usize),
+    ArrayOfSamplerCUBE(usize),
+    ArrayOfSampler3D(usize),
+    ArrayOfSampler2DShadow(usize),
+    ArrayOfSampler2DArray(usize),
+    ArrayOfSampler2DArrayShadow(usize),
+    ArrayOfSamplerCubeShadow(usize),
+    ArrayOfIntegerSampler2D(usize),
+    ArrayOfIntegerSampler3D(usize),
+    ArrayOfIntegerSamplerCube(usize),
+    ArrayOfIntegerSampler2DArray(usize),
+    ArrayOfUnsignedIntegerSampler2D(usize),
+    ArrayOfUnsignedIntegerSampler3D(usize),
+    ArrayOfUnsignedIntegerSamplerCube(usize),
+    ArrayOfUnsignedIntegerSampler2DArray(usize),
+}
+
+impl UniformType {
+    fn from_info(info: &WebGlActiveInfo) -> Self {
+        let size = info.size() as usize;
+        let is_array = info.name().ends_with("[0]");
+
+        if is_array {
+            match info.type_() {
+                Gl::FLOAT => UniformType::ArrayOfFloat(size),
+                Gl::FLOAT_VEC2 => UniformType::ArrayOfFloatVector2(size),
+                Gl::FLOAT_VEC3 => UniformType::ArrayOfFloatVector3(size),
+                Gl::FLOAT_VEC4 => UniformType::ArrayOfFloatVector4(size),
+                Gl::FLOAT_MAT2 => UniformType::ArrayOfFloatMatrix2(size),
+                Gl::FLOAT_MAT3 => UniformType::ArrayOfFloatMatrix3(size),
+                Gl::FLOAT_MAT4 => UniformType::ArrayOfFloatMatrix4(size),
+                Gl::FLOAT_MAT2X3 => UniformType::ArrayOfFloatMatrix2x3(size),
+                Gl::FLOAT_MAT2X4 => UniformType::ArrayOfFloatMatrix2x4(size),
+                Gl::FLOAT_MAT3X2 => UniformType::ArrayOfFloatMatrix3x2(size),
+                Gl::FLOAT_MAT3X4 => UniformType::ArrayOfFloatMatrix3x4(size),
+                Gl::FLOAT_MAT4X2 => UniformType::ArrayOfFloatMatrix4x2(size),
+                Gl::FLOAT_MAT4X3 => UniformType::ArrayOfFloatMatrix4x3(size),
+                Gl::INT => UniformType::ArrayOfInteger(size),
+                Gl::INT_VEC2 => UniformType::ArrayOfIntegerVector2(size),
+                Gl::INT_VEC3 => UniformType::ArrayOfIntegerVector3(size),
+                Gl::INT_VEC4 => UniformType::ArrayOfIntegerVector4(size),
+                Gl::BOOL => UniformType::ArrayOfBoolean(size),
+                Gl::BOOL_VEC2 => UniformType::ArrayOfBooleanVector2(size),
+                Gl::BOOL_VEC3 => UniformType::ArrayOfBooleanVector3(size),
+                Gl::BOOL_VEC4 => UniformType::ArrayOfBooleanVector4(size),
+                Gl::UNSIGNED_INT => UniformType::ArrayOfUnsignedInteger(size),
+                Gl::UNSIGNED_INT_VEC2 => UniformType::ArrayOfUnsignedIntegerVector2(size),
+                Gl::UNSIGNED_INT_VEC3 => UniformType::ArrayOfUnsignedIntegerVector3(size),
+                Gl::UNSIGNED_INT_VEC4 => UniformType::ArrayOfUnsignedIntegerVector4(size),
+                Gl::SAMPLER_2D => UniformType::ArrayOfSampler2D(size),
+                Gl::SAMPLER_CUBE => UniformType::ArrayOfSamplerCUBE(size),
+                Gl::SAMPLER_3D => UniformType::ArrayOfSampler3D(size),
+                Gl::SAMPLER_2D_SHADOW => UniformType::ArrayOfSampler2DShadow(size),
+                Gl::SAMPLER_2D_ARRAY => UniformType::ArrayOfSampler2DArray(size),
+                Gl::SAMPLER_2D_ARRAY_SHADOW => UniformType::ArrayOfSampler2DArrayShadow(size),
+                Gl::SAMPLER_CUBE_SHADOW => UniformType::ArrayOfSamplerCubeShadow(size),
+                Gl::INT_SAMPLER_2D => UniformType::ArrayOfIntegerSampler2D(size),
+                Gl::INT_SAMPLER_3D => UniformType::ArrayOfIntegerSampler3D(size),
+                Gl::INT_SAMPLER_CUBE => UniformType::ArrayOfIntegerSamplerCube(size),
+                Gl::INT_SAMPLER_2D_ARRAY => UniformType::ArrayOfIntegerSampler2DArray(size),
+                Gl::UNSIGNED_INT_SAMPLER_2D => UniformType::ArrayOfUnsignedIntegerSampler2D(size),
+                Gl::UNSIGNED_INT_SAMPLER_3D => UniformType::ArrayOfUnsignedIntegerSampler3D(size),
+                Gl::UNSIGNED_INT_SAMPLER_CUBE => UniformType::ArrayOfUnsignedIntegerSamplerCube(size),
+                Gl::UNSIGNED_INT_SAMPLER_2D_ARRAY => UniformType::ArrayOfUnsignedIntegerSampler2DArray(size),
+                _ => panic!("Invalid uniform type ID")
+            }
+        } else {
+            match info.type_() {
+                Gl::FLOAT => UniformType::Float,
+                Gl::FLOAT_VEC2 => UniformType::FloatVector2,
+                Gl::FLOAT_VEC3 => UniformType::FloatVector3,
+                Gl::FLOAT_VEC4 => UniformType::FloatVector4,
+                Gl::FLOAT_MAT2 => UniformType::FloatMatrix2,
+                Gl::FLOAT_MAT3 => UniformType::FloatMatrix3,
+                Gl::FLOAT_MAT4 => UniformType::FloatMatrix4,
+                Gl::FLOAT_MAT2X3 => UniformType::FloatMatrix2x3,
+                Gl::FLOAT_MAT2X4 => UniformType::FloatMatrix2x4,
+                Gl::FLOAT_MAT3X2 => UniformType::FloatMatrix3x2,
+                Gl::FLOAT_MAT3X4 => UniformType::FloatMatrix3x4,
+                Gl::FLOAT_MAT4X2 => UniformType::FloatMatrix4x2,
+                Gl::FLOAT_MAT4X3 => UniformType::FloatMatrix4x3,
+                Gl::INT => UniformType::Integer,
+                Gl::INT_VEC2 => UniformType::IntegerVector2,
+                Gl::INT_VEC3 => UniformType::IntegerVector3,
+                Gl::INT_VEC4 => UniformType::IntegerVector4,
+                Gl::BOOL => UniformType::Boolean,
+                Gl::BOOL_VEC2 => UniformType::BooleanVector2,
+                Gl::BOOL_VEC3 => UniformType::BooleanVector3,
+                Gl::BOOL_VEC4 => UniformType::BooleanVector4,
+                Gl::UNSIGNED_INT => UniformType::UnsignedInteger,
+                Gl::UNSIGNED_INT_VEC2 => UniformType::UnsignedIntegerVector2,
+                Gl::UNSIGNED_INT_VEC3 => UniformType::UnsignedIntegerVector3,
+                Gl::UNSIGNED_INT_VEC4 => UniformType::UnsignedIntegerVector4,
+                Gl::SAMPLER_2D => UniformType::Sampler2D,
+                Gl::SAMPLER_CUBE => UniformType::SamplerCUBE,
+                Gl::SAMPLER_3D => UniformType::Sampler3D,
+                Gl::SAMPLER_2D_SHADOW => UniformType::Sampler2DShadow,
+                Gl::SAMPLER_2D_ARRAY => UniformType::Sampler2DArray,
+                Gl::SAMPLER_2D_ARRAY_SHADOW => UniformType::Sampler2DArrayShadow,
+                Gl::SAMPLER_CUBE_SHADOW => UniformType::SamplerCubeShadow,
+                Gl::INT_SAMPLER_2D => UniformType::IntegerSampler2D,
+                Gl::INT_SAMPLER_3D => UniformType::IntegerSampler3D,
+                Gl::INT_SAMPLER_CUBE => UniformType::IntegerSamplerCube,
+                Gl::INT_SAMPLER_2D_ARRAY => UniformType::IntegerSampler2DArray,
+                Gl::UNSIGNED_INT_SAMPLER_2D => UniformType::UnsignedIntegerSampler2D,
+                Gl::UNSIGNED_INT_SAMPLER_3D => UniformType::UnsignedIntegerSampler3D,
+                Gl::UNSIGNED_INT_SAMPLER_CUBE => UniformType::UnsignedIntegerSamplerCube,
+                Gl::UNSIGNED_INT_SAMPLER_2D_ARRAY => UniformType::UnsignedIntegerSampler2DArray,
+                _ => panic!("Invalid uniform type ID")
+            }
+        }
+    }
 }
 
 struct ProgramAllocateTask<Fs, Tf> {
@@ -376,7 +554,7 @@ impl GpuTask<Connection> for ProgramAllocateTask<FragmentShader, ()> {
 
 // TODO: implement GpuTask for the other 2 combinations once web_sys supports transform_feedback_varyings
 
-fn active_uniforms(gl: &Gl, program: &WebGlProgram) -> Vec<ActiveUniform> {
+fn active_uniforms(gl: &Gl, program: &WebGlProgram) -> Vec<(UniformValueIdentifier, UniformInfo)> {
     let active_uniform_count = gl
         .get_program_parameter(program, Gl::ACTIVE_UNIFORMS)
         .as_f64()
@@ -386,14 +564,16 @@ fn active_uniforms(gl: &Gl, program: &WebGlProgram) -> Vec<ActiveUniform> {
     for i in 0..active_uniform_count {
         let info = gl.get_active_uniform(program, i).unwrap();
         let name = info.name();
-        let identifier = UniformIdentifier::from_string(&name);
+        let value_type = UniformType::from_info(&info);
+        let identifier = UniformValueIdentifier::from_string(&name);
         let location = JsId::from_value(gl.get_uniform_location(&program, &name).unwrap().into());
 
-        result.push(ActiveUniform {
-            identifier,
+        result.push((identifier, UniformInfo {
             location,
-            current_value: None
-        });
+            value_type,
+            size: info.size() as usize,
+            current_value: None,
+        }));
     }
 
     result

@@ -10,10 +10,7 @@ pub trait TryGpuTask<Ec> {
 
     type Error;
 
-    fn try_progress(
-        &mut self,
-        execution_context: &mut Ec,
-    ) -> TryProgress<Self::Ok, Self::Error>;
+    fn try_progress(&mut self, execution_context: &mut Ec) -> TryProgress<Self::Ok, Self::Error>;
 }
 
 impl<T, O, E, Ec> TryGpuTask<Ec> for T
@@ -24,10 +21,7 @@ where
 
     type Error = E;
 
-    fn try_progress(
-        &mut self,
-        execution_context: &mut Ec,
-    ) -> TryProgress<Self::Ok, Self::Error> {
+    fn try_progress(&mut self, execution_context: &mut Ec) -> TryProgress<Self::Ok, Self::Error> {
         self.progress(execution_context)
     }
 }

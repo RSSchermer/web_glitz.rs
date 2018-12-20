@@ -2,5 +2,6 @@
 members = [
     "web_glitz",
     "web_glitz_derive",
-    "web_glitz_test"
+    "web_glitz_test",
+    "examples/uniforms"
 ]

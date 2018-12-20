@@ -1,0 +1,7 @@
+[package]
+name = "web-glitz-uniforms-example"
+version = "0.1.0"
+authors = ["Roland Schermer <roland0507@gmail.com>"]
+
+[dependencies]
+web-glitz = { version = "0.1.0", path = "../../web_glitz" }

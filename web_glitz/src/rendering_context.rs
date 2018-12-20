@@ -20,6 +20,12 @@ use framebuffer::FramebufferHandle;
 use renderbuffer::RenderbufferFormat;
 use renderbuffer::RenderbufferHandle;
 use std::sync::Arc;
+use texture::Texture2DArrayHandle;
+use texture::Texture2DHandle;
+use texture::Texture3DHandle;
+use texture::TextureCubeHandle;
+use texture::TextureFormat;
+use util::identical;
 use util::JsId;
 
 const TEXTURE_UNIT_CONSTANTS: [u32; 32] = [
@@ -437,6 +443,39 @@ pub trait RenderingContext: Clone {
     where
         F: RenderbufferFormat + 'static;
 
+    fn create_texture_2d<F>(&self, width: u32, height: u32, levels: usize) -> Texture2DHandle<F>
+    where
+        F: TextureFormat + 'static;
+
+    fn create_texture_2d_array<F>(
+        &self,
+        width: u32,
+        height: u32,
+        depth: u32,
+        levels: usize,
+    ) -> Texture2DArrayHandle<F>
+    where
+        F: TextureFormat + 'static;
+
+    fn create_texture_3d<F>(
+        &self,
+        width: u32,
+        height: u32,
+        depth: u32,
+        levels: usize,
+    ) -> Texture3DHandle<F>
+    where
+        F: TextureFormat + 'static;
+
+    fn create_texture_cube<F>(
+        &self,
+        width: u32,
+        height: u32,
+        levels: usize,
+    ) -> TextureCubeHandle<F>
+    where
+        F: TextureFormat + 'static;
+
     fn submit<T>(&self, task: T) -> Execution<T::Output>
     where
         T: GpuTask<Connection> + 'static;
@@ -488,6 +527,72 @@ impl RenderingContext for SingleThreadedContext {
         )
     }
 
+    fn create_texture_2d<F>(&self, width: u32, height: u32, levels: usize) -> Texture2DHandle<F>
+    where
+        F: TextureFormat + 'static,
+    {
+        Texture2DHandle::new(
+            self,
+            RefCountedDropper::Rc(self.submitter.executor.clone()),
+            width,
+            height,
+            levels,
+        )
+    }
+
+    fn create_texture_2d_array<F>(
+        &self,
+        width: u32,
+        height: u32,
+        depth: u32,
+        levels: usize,
+    ) -> Texture2DArrayHandle<F>
+    where
+        F: TextureFormat + 'static,
+    {
+        Texture2DArrayHandle::new(
+            self,
+            RefCountedDropper::Rc(self.submitter.executor.clone()),
+            width,
+            height,
+            depth,
+            levels,
+        )
+    }
+
+    fn create_texture_3d<F>(
+        &self,
+        width: u32,
+        height: u32,
+        depth: u32,
+        levels: usize,
+    ) -> Texture3DHandle<F>
+    where
+        F: TextureFormat + 'static,
+    {
+        Texture3DHandle::new(
+            self,
+            RefCountedDropper::Rc(self.submitter.executor.clone()),
+            width,
+            height,
+            depth,
+            levels,
+        )
+    }
+
+    fn create_texture_cube<F>(&self, width: u32, height: u32, levels: usize) -> TextureCubeHandle<F>
+    where
+        F: TextureFormat + 'static,
+    {
+        TextureCubeHandle::new(
+            self,
+            RefCountedDropper::Rc(self.submitter.executor.clone()),
+            width,
+            height,
+            levels,
+        )
+    }
+
     fn submit<T>(&self, task: T) -> Execution<T::Output>
     where
         T: GpuTask<Connection> + 'static,
@@ -523,7 +628,9 @@ pub struct DynamicState {
     bound_pixel_pack_buffer: Option<WebGlBuffer>,
     bound_pixel_unpack_buffer: Option<WebGlBuffer>,
     bound_transform_feedback_buffers: Vec<BufferRange<WebGlBuffer>>,
+    active_uniform_buffer_index: u32,
     bound_uniform_buffers: Vec<BufferRange<WebGlBuffer>>,
+    uniform_buffer_index_lru: IndexLRU,
     bound_draw_framebuffer: Option<WebGlFramebuffer>,
     bound_read_framebuffer: Option<WebGlFramebuffer>,
     bound_renderbuffer: Option<WebGlRenderbuffer>,
@@ -532,7 +639,7 @@ pub struct DynamicState {
     bound_texture_3d: Option<WebGlTexture>,
     bound_texture_2d_array: Option<WebGlTexture>,
     bound_samplers: Vec<Option<WebGlSampler>>,
-    texture_units_lru: TextureUnitLRU,
+    texture_units_lru: IndexLRU,
     texture_units_textures: Vec<Option<WebGlTexture>>,
     bound_vertex_array: Option<WebGlVertexArrayObject>,
     active_texture: u32,
@@ -768,15 +875,29 @@ impl DynamicState {
         }
     }
 
+    pub fn active_uniform_buffer_index(&self) -> u32 {
+        self.active_uniform_buffer_index
+    }
+
+    pub fn set_active_uniform_buffer_index(&mut self, index: u32) {
+        self.uniform_buffer_index_lru.use_index(index as usize);
+        self.active_uniform_buffer_index = index;
+    }
+
+    pub fn set_active_uniform_buffer_index_lru(&mut self) {
+        self.active_uniform_buffer_index = self.uniform_buffer_index_lru.use_lru_index() as u32;
+    }
+
     pub fn bound_uniform_buffer_range(&self, index: u32) -> BufferRange<&WebGlBuffer> {
         self.bound_uniform_buffers[index as usize].as_ref()
     }
 
     pub fn set_bound_uniform_buffer_range<'a>(
         &mut self,
-        index: u32,
         buffer_range: BufferRange<&'a WebGlBuffer>,
     ) -> impl ContextUpdate<'a, ()> {
+        let index = self.active_uniform_buffer_index;
+
         if buffer_range != self.bound_uniform_buffers[index as usize].as_ref() {
             self.bound_uniform_buffers[index as usize] = buffer_range.to_owned_buffer();
 
@@ -874,9 +995,13 @@ impl DynamicState {
         &mut self,
         texture: Option<&'a WebGlTexture>,
     ) -> impl ContextUpdate<'a, ()> {
-        if !identical(texture, self.bound_texture_2d.as_ref()) {
+        let active_unit_texture = &mut self.texture_units_textures[self.active_texture as usize];
+
+        if !identical(texture, self.bound_texture_2d.as_ref())
+            || !identical(texture, active_unit_texture.as_ref())
+        {
             self.bound_texture_2d = texture.map(|t| t.clone());
-            self.texture_units_textures[self.active_texture as usize] = texture.map(|t| t.clone());
+            *active_unit_texture = texture.map(|t| t.clone());
 
             Some(move |context: &GL| {
                 context.bind_texture(GL::TEXTURE_2D, texture);
@@ -896,9 +1021,13 @@ impl DynamicState {
         &mut self,
         texture: Option<&'a WebGlTexture>,
     ) -> impl ContextUpdate<'a, ()> {
-        if !identical(texture, self.bound_texture_2d_array.as_ref()) {
+        let active_unit_texture = &mut self.texture_units_textures[self.active_texture as usize];
+
+        if !identical(texture, self.bound_texture_2d_array.as_ref())
+            || !identical(texture, active_unit_texture.as_ref())
+        {
             self.bound_texture_2d_array = texture.map(|t| t.clone());
-            self.texture_units_textures[self.active_texture as usize] = texture.map(|t| t.clone());
+            *active_unit_texture = texture.map(|t| t.clone());
 
             Some(move |context: &GL| {
                 context.bind_texture(GL::TEXTURE_2D_ARRAY, texture);
@@ -918,9 +1047,13 @@ impl DynamicState {
         &mut self,
         texture: Option<&'a WebGlTexture>,
     ) -> impl ContextUpdate<'a, ()> {
-        if !identical(texture, self.bound_texture_3d.as_ref()) {
+        let active_unit_texture = &mut self.texture_units_textures[self.active_texture as usize];
+
+        if !identical(texture, self.bound_texture_3d.as_ref())
+            || !identical(texture, active_unit_texture.as_ref())
+        {
             self.bound_texture_3d = texture.map(|t| t.clone());
-            self.texture_units_textures[self.active_texture as usize] = texture.map(|t| t.clone());
+            *active_unit_texture = texture.map(|t| t.clone());
 
             Some(move |context: &GL| {
                 context.bind_texture(GL::TEXTURE_3D, texture);
@@ -940,9 +1073,13 @@ impl DynamicState {
         &mut self,
         texture: Option<&'a WebGlTexture>,
     ) -> impl ContextUpdate<'a, ()> {
-        if !identical(texture, self.bound_texture_cube_map.as_ref()) {
+        let active_unit_texture = &mut self.texture_units_textures[self.active_texture as usize];
+
+        if !identical(texture, self.bound_texture_cube_map.as_ref())
+            || !identical(texture, active_unit_texture.as_ref())
+        {
             self.bound_texture_cube_map = texture.map(|t| t.clone());
-            self.texture_units_textures[self.active_texture as usize] = texture.map(|t| t.clone());
+            *active_unit_texture = texture.map(|t| t.clone());
 
             Some(move |context: &GL| {
                 context.bind_texture(GL::TEXTURE_CUBE_MAP, texture);
@@ -1012,7 +1149,7 @@ impl DynamicState {
     pub fn set_active_texture(&mut self, texture_unit: u32) -> impl ContextUpdate<'static, ()> {
         if texture_unit != self.active_texture {
             self.active_texture = texture_unit;
-            self.texture_units_lru.use_unit(texture_unit as usize);
+            self.texture_units_lru.use_index(texture_unit as usize);
 
             Some(move |context: &GL| {
                 context.active_texture(TEXTURE_UNIT_CONSTANTS[texture_unit as usize]);
@@ -1025,7 +1162,7 @@ impl DynamicState {
     }
 
     pub fn set_active_texture_lru(&mut self) -> impl ContextUpdate<'static, ()> {
-        let texture_unit = self.texture_units_lru.use_lru_unit();
+        let texture_unit = self.texture_units_lru.use_lru_index();
         self.active_texture = texture_unit as u32;
 
         Some(move |context: &GL| {
@@ -1389,6 +1526,12 @@ impl DynamicState {
                     .as_f64()
                     .unwrap() as usize
             ],
+            active_uniform_buffer_index: 0,
+            uniform_buffer_index_lru: IndexLRU::new(context
+                .get_parameter(GL::MAX_UNIFORM_BUFFER_BINDINGS)
+                .unwrap()
+                .as_f64()
+                .unwrap() as usize),
             bound_draw_framebuffer: None,
             bound_read_framebuffer: None,
             bound_renderbuffer: None,
@@ -1397,7 +1540,7 @@ impl DynamicState {
             bound_texture_3d: None,
             bound_texture_2d_array: None,
             bound_samplers: vec![None; max_combined_texture_image_units],
-            texture_units_lru: TextureUnitLRU::new(max_combined_texture_image_units),
+            texture_units_lru: IndexLRU::new(max_combined_texture_image_units),
             texture_units_textures: vec![None; max_combined_texture_image_units],
             bound_vertex_array: None,
             active_texture: 0,
@@ -1419,13 +1562,6 @@ impl DynamicState {
             rasterizer_discard_enabled: false,
         }
     }
-}
-
-fn identical<T>(a: Option<&T>, b: Option<&T>) -> bool
-where
-    T: AsRef<JsValue>,
-{
-    a.map(|t| t.as_ref()) == b.map(|t| t.as_ref())
 }
 
 pub trait ContextUpdate<'a, E> {
@@ -1495,16 +1631,16 @@ where
     }
 }
 
-struct TextureUnitLRU {
+struct IndexLRU {
     linkage: Vec<(usize, usize)>,
     lru_index: usize,
     mru_index: usize,
 }
 
-impl TextureUnitLRU {
-    fn new(texture_units: usize) -> Self {
-        let mut linkage = Vec::with_capacity(texture_units);
-        let texture_units = texture_units as i32;
+impl IndexLRU {
+    fn new(max_index: usize) -> Self {
+        let mut linkage = Vec::with_capacity(max_index);
+        let texture_units = max_index as i32;
 
         for i in 0..texture_units {
             linkage.push((
@@ -1513,32 +1649,32 @@ impl TextureUnitLRU {
             ));
         }
 
-        TextureUnitLRU {
+        IndexLRU {
             linkage,
             lru_index: 0,
             mru_index: (texture_units - 1) as usize,
         }
     }
 
-    fn use_unit(&mut self, unit: usize) {
-        if unit != self.mru_index {
-            if unit == self.lru_index {
-                self.use_lru_unit();
+    fn use_index(&mut self, index: usize) {
+        if index != self.mru_index {
+            if index == self.lru_index {
+                self.use_lru_index();
             } else {
-                let (previous, next) = self.linkage[unit];
+                let (previous, next) = self.linkage[index];
 
                 self.linkage[previous].1 = next;
                 self.linkage[next].0 = previous;
-                self.linkage[self.lru_index].0 = unit;
-                self.linkage[self.mru_index].1 = unit;
-                self.linkage[unit].0 = self.mru_index;
-                self.linkage[unit].1 = self.lru_index;
-                self.mru_index = unit;
+                self.linkage[self.lru_index].0 = index;
+                self.linkage[self.mru_index].1 = index;
+                self.linkage[index].0 = self.mru_index;
+                self.linkage[index].1 = self.lru_index;
+                self.mru_index = index;
             }
         }
     }
 
-    fn use_lru_unit(&mut self) -> usize {
+    fn use_lru_index(&mut self) -> usize {
         let old_lru_index = self.lru_index;
 
         self.lru_index = self.linkage[old_lru_index].1;
@@ -1553,27 +1689,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_texture_unit_lru() {
-        let mut lru = TextureUnitLRU::new(4);
+    fn test_index_lru() {
+        let mut lru = IndexLRU::new(4);
 
-        assert_eq!(lru.use_lru_unit(), 0);
-        assert_eq!(lru.use_lru_unit(), 1);
-        assert_eq!(lru.use_lru_unit(), 2);
-        assert_eq!(lru.use_lru_unit(), 3);
-        assert_eq!(lru.use_lru_unit(), 0);
+        assert_eq!(lru.use_lru_index(), 0);
+        assert_eq!(lru.use_lru_index(), 1);
+        assert_eq!(lru.use_lru_index(), 2);
+        assert_eq!(lru.use_lru_index(), 3);
+        assert_eq!(lru.use_lru_index(), 0);
 
-        lru.use_unit(0);
+        lru.use_index(0);
 
-        assert_eq!(lru.use_lru_unit(), 1);
+        assert_eq!(lru.use_lru_index(), 1);
 
-        lru.use_unit(3);
+        lru.use_index(3);
 
-        assert_eq!(lru.use_lru_unit(), 2);
-        assert_eq!(lru.use_lru_unit(), 0);
-        assert_eq!(lru.use_lru_unit(), 1);
-        assert_eq!(lru.use_lru_unit(), 3);
-        assert_eq!(lru.use_lru_unit(), 2);
-        assert_eq!(lru.use_lru_unit(), 0);
-        assert_eq!(lru.use_lru_unit(), 1);
+        assert_eq!(lru.use_lru_index(), 2);
+        assert_eq!(lru.use_lru_index(), 0);
+        assert_eq!(lru.use_lru_index(), 1);
+        assert_eq!(lru.use_lru_index(), 3);
+        assert_eq!(lru.use_lru_index(), 2);
+        assert_eq!(lru.use_lru_index(), 0);
+        assert_eq!(lru.use_lru_index(), 1);
     }
 }

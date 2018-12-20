@@ -1,7 +1,6 @@
 use crate::framebuffer::AsFramebufferAttachment;
 use crate::image_format::{ColorRenderable, DepthRenderable, StencilRenderable};
 use crate::renderbuffer::RenderbufferHandle;
-use crate::rendering_context::RenderingContext;
 use crate::texture::Texture2DLevel;
 
 pub trait FramebufferDescriptor {

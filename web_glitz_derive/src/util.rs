@@ -1,5 +1,6 @@
 use std::fmt::Display;
 
+
 pub struct ErrorLog {
     errors: Vec<String>,
 }

@@ -1,14 +1,20 @@
+#![recursion_limit = "128"]
+
+extern crate fnv;
 extern crate proc_macro;
 extern crate proc_macro2;
+extern crate proc_macro_hack;
 extern crate quote;
 extern crate syn;
 
 use proc_macro::TokenStream;
+use proc_macro_hack::proc_macro_hack;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
 mod util;
 mod vertex;
+mod uniforms_impl;
 
 #[proc_macro_derive(Vertex, attributes(vertex_attribute))]
 pub fn derive_vertex(input: TokenStream) -> TokenStream {
@@ -17,6 +23,11 @@ pub fn derive_vertex(input: TokenStream) -> TokenStream {
     vertex::expand_derive_vertex(&input)
         .unwrap_or_else(compile_error)
         .into()
+}
+
+#[proc_macro_hack]
+pub fn uniforms(input: TokenStream) -> TokenStream {
+    uniforms_impl::expand_uniforms(input.into()).into()
 }
 
 fn compile_error(message: String) -> proc_macro2::TokenStream {

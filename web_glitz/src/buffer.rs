@@ -5,7 +5,6 @@ use std::ops::{Bound, RangeBounds};
 use std::slice;
 use std::sync::Arc;
 
-use wasm_bindgen::JsCast;
 use web_sys::{WebGl2RenderingContext as GL, WebGlBuffer};
 
 use super::rendering_context::{Connection, ContextUpdate, RenderingContext};
@@ -286,7 +285,7 @@ impl GpuTask<Connection> for BufferAllocateTask {
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let Connection(gl, state) = connection;
-        let mut data = unsafe { arc_get_mut_unchecked(&mut self.data) };
+        let data = unsafe { arc_get_mut_unchecked(&mut self.data) };
 
         let buffer_object = gl.create_buffer().unwrap();
 

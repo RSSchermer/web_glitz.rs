@@ -21,6 +21,9 @@ use crate::util::JsId;
 use rendering_context::DropObject;
 use rendering_context::Dropper;
 use rendering_context::RefCountedDropper;
+use sampler::AsSampled;
+use sampler::Sampled;
+use sampler::SampledInternal;
 use texture::util::region_2d_sub_image;
 use util::arc_get_mut_unchecked;
 
@@ -49,6 +52,7 @@ where
             width,
             height,
             levels,
+            most_recent_unit: None,
         });
 
         context.submit(Texture2DAllocateTask::<F> {
@@ -86,12 +90,21 @@ where
     }
 }
 
+impl<F> AsSampled for Texture2DHandle<F> {
+    fn as_sampled(&mut self) -> Sampled {
+        Sampled {
+            internal: SampledInternal::Texture2D(&mut self.data),
+        }
+    }
+}
+
 pub(crate) struct Texture2DData {
     pub(crate) id: Option<JsId>,
     dropper: RefCountedDropper,
     width: u32,
     height: u32,
     levels: usize,
+    pub(crate) most_recent_unit: Option<u32>,
 }
 
 impl Drop for Texture2DData {

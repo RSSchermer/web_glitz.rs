@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::framebuffer::FramebufferDescriptor;

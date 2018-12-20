@@ -1,6 +1,4 @@
-use super::{
-    Join, Join3, Join4, Join5, Map, Sequence, Sequence3, Sequence4, Sequence5, Then,
-};
+use super::{Join, Join3, Join4, Join5, Map, Sequence, Sequence3, Sequence4, Sequence5, Then};
 
 pub enum Progress<T> {
     Finished(T),

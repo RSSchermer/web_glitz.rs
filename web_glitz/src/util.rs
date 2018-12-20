@@ -1,5 +1,5 @@
 use std::mem;
-use std::ops::DerefMut;
+use std::ops::Deref;
 
 use std::sync::Arc;
 use wasm_bindgen::JsCast;
@@ -27,23 +27,36 @@ impl JsId {
         mem::transmute(id.id)
     }
 
-    pub(crate) unsafe fn with_value_unchecked<F, T>(&self, f: F)
+    pub(crate) unsafe fn with_value_unchecked<F, T, R>(&self, f: F) -> R
     where
-        F: FnOnce(&T),
+        F: FnOnce(&T) -> R,
         T: JsCast,
     {
         let value = unsafe { JsId::into_value(self.clone()).unchecked_into() };
 
-        f(&value);
+        let result = f(&value);
 
         mem::forget(value);
+
+        result
     }
 }
 
-pub(crate) unsafe fn arc_get_mut_unchecked<T>(arc: &mut Arc<T>) -> &mut T {
+pub(crate) unsafe fn arc_get_mut_unchecked<T>(arc: &Arc<T>) -> &mut T {
     unsafe {
-        let ptr = arc as *const _;
+        let ptr = arc.deref() as *const _;
 
         &mut *(ptr as *mut _)
     }
+}
+
+pub(crate) fn identical<T>(a: Option<&T>, b: Option<&T>) -> bool
+where
+    T: AsRef<JsValue>,
+{
+    a.map(|t| t.as_ref()) == b.map(|t| t.as_ref())
+}
+
+pub(crate) unsafe fn slice_make_mut<T>(slice: &[T]) -> &mut [T] {
+    &mut *(slice as * const _ as *mut _)
 }

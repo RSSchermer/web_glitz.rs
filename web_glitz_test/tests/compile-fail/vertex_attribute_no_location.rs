@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate web_glitz;
 
-use web_glitz::vertex_input_binding::{AttributeFormat, Vertex, VertexInputAttributeDescriptor};
+use web_glitz::vertex_input::{AttributeFormat, Vertex, VertexInputAttributeDescriptor};
 
 #[derive(Vertex)] //~ ERROR: does not declare a binding location
 #[repr(C)]

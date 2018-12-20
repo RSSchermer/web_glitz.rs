@@ -1,10 +1,7 @@
-use std::marker;
-
 use crate::framebuffer::{
     AsFramebufferAttachment, ColorAttachable, DepthAttachable, FramebufferDescriptor,
     StencilAttachable,
 };
-use crate::rendering_context::RenderingContext;
 
 pub struct FramebufferDescriptorBuilder<
     C0,

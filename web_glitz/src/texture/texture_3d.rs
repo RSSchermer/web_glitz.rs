@@ -20,6 +20,9 @@ use crate::util::JsId;
 use rendering_context::DropObject;
 use rendering_context::Dropper;
 use rendering_context::RefCountedDropper;
+use sampler::AsSampled;
+use sampler::Sampled;
+use sampler::SampledInternal;
 use texture::util::mipmap_size;
 use texture::util::region_2d_overlap_height;
 use texture::util::region_2d_overlap_width;
@@ -58,6 +61,7 @@ where
             height,
             depth,
             levels,
+            most_recent_unit: None,
         });
 
         context.submit(Texture3DAllocateTask::<F> {
@@ -99,6 +103,14 @@ where
     }
 }
 
+impl<F> AsSampled for Texture3DHandle<F> {
+    fn as_sampled(&mut self) -> Sampled {
+        Sampled {
+            internal: SampledInternal::Texture3D(&mut self.data),
+        }
+    }
+}
+
 pub(crate) struct Texture3DData {
     pub(crate) id: Option<JsId>,
     dropper: RefCountedDropper,
@@ -106,6 +118,7 @@ pub(crate) struct Texture3DData {
     height: u32,
     depth: u32,
     levels: usize,
+    pub(crate) most_recent_unit: Option<u32>,
 }
 
 impl Drop for Texture3DData {
