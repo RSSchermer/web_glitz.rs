@@ -1,141 +1,115 @@
 use rendering_context::RefCountedDropper;
 use std::sync::Arc;
-use texture::texture_2d::Texture2DData;
-use texture::texture_2d_array::Texture2DArrayData;
-use texture::texture_3d::Texture3DData;
-use texture::texture_cube::TextureCubeData;
-use texture::Texture2DHandle;
+use texture::texture_2d::Texture2DHandle;
+use texture::texture_2d_array::Texture2DArrayHandle;
+use texture::texture_3d::Texture3DHandle;
+use texture::texture_cube::TextureCubeHandle;
 use util::JsId;
 use rendering_context::Connection;
 use util::arc_get_mut_unchecked;
 use util::identical;
 use rendering_context::ContextUpdate;
+use texture::TextureFormat;
+use image_format::DepthRenderable;
 
-pub struct Sampler<T>
-where
-    T: AsSampled,
+pub struct SamplerHandle<T> {
+    pub(crate) data: Arc<SamplerData<T>>,
+}
+
+impl<T> SamplerHandle<T> {
+    fn bind_to_unit(&self, connection: &mut Connection, unit: u32) {
+        unsafe {
+            arc_get_mut_unchecked(&self.data).bind_to_unit(connection, unit)
+        }
+    }
+}
+
+impl<F> SamplerHandle<Texture2DHandle<F>> where F: TextureFormat + 'static {
+    pub(crate) fn bind(&self, connection: &mut Connection) -> u32 {
+        let unit = self.data.texture.bind(connection);
+
+        self.bind_to_unit(connection, unit);
+
+        unit
+    }
+}
+
+impl<F> SamplerHandle<Texture2DArrayHandle<F>> where F: TextureFormat + 'static {
+    pub(crate) fn bind(&self, connection: &mut Connection) -> u32 {
+        let unit = self.data.texture.bind(connection);
+
+        self.bind_to_unit(connection, unit);
+
+        unit
+    }
+}
+
+impl<F> SamplerHandle<Texture3DHandle<F>> where F: TextureFormat + 'static {
+    pub(crate) fn bind(&self, connection: &mut Connection) -> u32 {
+        let unit = self.data.texture.bind(connection);
+
+        self.bind_to_unit(connection, unit);
+
+        unit
+    }
+}
+
+impl<F> SamplerHandle<TextureCubeHandle<F>> where F: TextureFormat + 'static {
+    pub(crate) fn bind(&self, connection: &mut Connection) -> u32 {
+        let unit = self.data.texture.bind(connection);
+
+        self.bind_to_unit(connection, unit);
+
+        unit
+    }
+}
+
+pub struct SamplerShadowHandle<T>
 {
     pub(crate) data: Arc<SamplerData<T>>,
 }
 
-impl<T> Sampler<T> where T: AsSampled {
+impl<T> SamplerShadowHandle<T> {
+    fn bind_to_unit(&self, connection: &mut Connection, unit: u32) {
+        unsafe {
+            arc_get_mut_unchecked(&self.data).bind_to_unit(connection, unit)
+        }
+    }
+}
+
+impl<F> SamplerShadowHandle<Texture2DHandle<F>> where F: TextureFormat + DepthRenderable + 'static {
     pub(crate) fn bind(&self, connection: &mut Connection) -> u32 {
+        let unit = self.data.texture.bind(connection);
+
+        self.bind_to_unit(connection, unit);
+
+        unit
+    }
+}
+
+impl<F> SamplerShadowHandle<Texture2DArrayHandle<F>> where F: TextureFormat + DepthRenderable + 'static {
+    pub(crate) fn bind(&self, connection: &mut Connection) -> u32 {
+        let unit = self.data.texture.bind(connection);
+
+        self.bind_to_unit(connection, unit);
+
+        unit
+    }
+}
+
+pub(crate) struct SamplerData<T>
+{
+    pub(crate) id: Option<JsId>,
+    dropper: RefCountedDropper,
+    pub(crate) texture: T,
+}
+
+impl<T> SamplerData<T> {
+    fn bind_to_unit(&mut self, connection: &mut Connection, unit: u32) {
         let Connection(gl, state) = connection;
-        let data = unsafe { arc_get_mut_unchecked(&self.data) };
-
-        let unit = match data.texture.as_sampled().internal {
-            SampledInternal::Texture2D(ref mut data) => unsafe {
-                let data = unsafe { arc_get_mut_unchecked(data) };
-                let most_recent_unit = &mut data.most_recent_unit;
-
-                data.id.unwrap().with_value_unchecked(|texture_object| {
-                    if most_recent_unit.is_none()
-                        || !identical(
-                        state.texture_units_textures()[most_recent_unit.unwrap() as usize]
-                            .as_ref(),
-                        Some(&texture_object),
-                    ) {
-                        state.set_active_texture_lru().apply(gl).unwrap();
-                        state
-                            .set_bound_texture_2d(Some(&texture_object))
-                            .apply(gl)
-                            .unwrap();
-
-                        let unit = state.active_texture();
-
-                        *most_recent_unit = Some(unit);
-
-                        unit
-                    } else {
-                        most_recent_unit.unwrap()
-                    }
-                })
-            },
-            SampledInternal::Texture2DArray(ref mut data) => unsafe {
-                let data = unsafe { arc_get_mut_unchecked(data) };
-                let most_recent_unit = &mut data.most_recent_unit;
-
-                data.id.unwrap().with_value_unchecked(|texture_object| {
-                    if most_recent_unit.is_none()
-                        || !identical(
-                        state.texture_units_textures()[most_recent_unit.unwrap() as usize]
-                            .as_ref(),
-                        Some(&texture_object),
-                    ) {
-                        state.set_active_texture_lru().apply(gl).unwrap();
-                        state
-                            .set_bound_texture_2d_array(Some(&texture_object))
-                            .apply(gl)
-                            .unwrap();
-
-                        let unit = state.active_texture();
-
-                        *most_recent_unit = Some(unit);
-
-                        unit
-                    } else {
-                        most_recent_unit.unwrap()
-                    }
-                })
-            },
-            SampledInternal::Texture3D(ref mut data) => unsafe {
-                let data = unsafe { arc_get_mut_unchecked(data) };
-                let most_recent_unit = &mut data.most_recent_unit;
-
-                data.id.unwrap().with_value_unchecked(|texture_object| {
-                    if most_recent_unit.is_none()
-                        || !identical(
-                        state.texture_units_textures()[most_recent_unit.unwrap() as usize]
-                            .as_ref(),
-                        Some(&texture_object),
-                    ) {
-                        state.set_active_texture_lru().apply(gl).unwrap();
-                        state
-                            .set_bound_texture_3d(Some(&texture_object))
-                            .apply(gl)
-                            .unwrap();
-
-                        let unit = state.active_texture();
-
-                        *most_recent_unit = Some(unit);
-
-                        unit
-                    } else {
-                        most_recent_unit.unwrap()
-                    }
-                })
-            },
-            SampledInternal::TextureCube(ref mut data) => unsafe {
-                let data = unsafe { arc_get_mut_unchecked(data) };
-                let most_recent_unit = &mut data.most_recent_unit;
-
-                data.id.unwrap().with_value_unchecked(|texture_object| {
-                    if most_recent_unit.is_none()
-                        || !identical(
-                        state.texture_units_textures()[most_recent_unit.unwrap() as usize]
-                            .as_ref(),
-                        Some(&texture_object),
-                    ) {
-                        state.set_active_texture_lru().apply(gl).unwrap();
-                        state
-                            .set_bound_texture_cube_map(Some(&texture_object))
-                            .apply(gl)
-                            .unwrap();
-
-                        let unit = state.active_texture();
-
-                        *most_recent_unit = Some(unit);
-
-                        unit
-                    } else {
-                        most_recent_unit.unwrap()
-                    }
-                })
-            },
-        };
 
         unsafe {
-            data.id.unwrap().with_value_unchecked(|sampler_object| {
+            self.id.unwrap().with_value_unchecked(|sampler_object| {
                 if !identical(state.bound_sampler(unit).as_ref(), Some(&sampler_object)) {
                     state
                         .set_bound_sampler(unit, Some(&sampler_object))
@@ -144,31 +118,5 @@ impl<T> Sampler<T> where T: AsSampled {
                 }
             });
         }
-
-        unit
     }
-}
-
-pub(crate) struct SamplerData<T>
-where
-    T: AsSampled,
-{
-    pub(crate) id: Option<JsId>,
-    dropper: RefCountedDropper,
-    pub(crate) texture: T,
-}
-
-pub struct Sampled<'a> {
-    pub(crate) internal: SampledInternal<'a>,
-}
-
-pub(crate) enum SampledInternal<'a> {
-    Texture2D(&'a mut Arc<Texture2DData>),
-    Texture2DArray(&'a mut Arc<Texture2DArrayData>),
-    Texture3D(&'a mut Arc<Texture3DData>),
-    TextureCube(&'a mut Arc<TextureCubeData>),
-}
-
-pub trait AsSampled {
-    fn as_sampled(&mut self) -> Sampled;
 }

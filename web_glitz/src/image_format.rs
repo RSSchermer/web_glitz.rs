@@ -13,6 +13,71 @@ where
     fn type_id() -> u32;
 }
 
+pub unsafe trait FloatSamplable: InternalFormat {}
+
+unsafe impl FloatSamplable for R8 {}
+unsafe impl FloatSamplable for R16F {}
+unsafe impl FloatSamplable for R32F {}
+unsafe impl FloatSamplable for RG8 {}
+unsafe impl FloatSamplable for RG16F {}
+unsafe impl FloatSamplable for RG32F {}
+unsafe impl FloatSamplable for RGB8 {}
+unsafe impl FloatSamplable for SRGB8 {}
+unsafe impl FloatSamplable for RGB565 {}
+unsafe impl FloatSamplable for RGB16F {}
+unsafe impl FloatSamplable for RGB32F {}
+unsafe impl FloatSamplable for R11F_G11F_B10F {}
+unsafe impl FloatSamplable for RGB9_E5 {}
+unsafe impl FloatSamplable for RGBA8 {}
+unsafe impl FloatSamplable for SRGB8_ALPHA8 {}
+unsafe impl FloatSamplable for RGBA4 {}
+unsafe impl FloatSamplable for RGB5_A1 {}
+unsafe impl FloatSamplable for RGB10_A2 {}
+unsafe impl FloatSamplable for RGBA16F {}
+unsafe impl FloatSamplable for RGBA32F {}
+unsafe impl FloatSamplable for DepthComponent16 {}
+unsafe impl FloatSamplable for DepthComponent24 {}
+unsafe impl FloatSamplable for DepthComponent32F {}
+unsafe impl FloatSamplable for Depth24Stencil8 {}
+unsafe impl FloatSamplable for Depth32FStencil8 {}
+unsafe impl FloatSamplable for Luminance {}
+unsafe impl FloatSamplable for LuminanceAlpha {}
+
+pub unsafe trait IntegerSamplable: InternalFormat {}
+
+unsafe impl UnsignedIntegerSamplable for R8I {}
+unsafe impl UnsignedIntegerSamplable for R16I {}
+unsafe impl UnsignedIntegerSamplable for R32I {}
+unsafe impl UnsignedIntegerSamplable for RG8I {}
+unsafe impl UnsignedIntegerSamplable for RG16I {}
+unsafe impl UnsignedIntegerSamplable for RG32I {}
+unsafe impl UnsignedIntegerSamplable for RGBA8I {}
+unsafe impl UnsignedIntegerSamplable for RGBA16I {}
+unsafe impl UnsignedIntegerSamplable for RGBA32I {}
+
+pub unsafe trait UnsignedIntegerSamplable: InternalFormat {}
+
+unsafe impl UnsignedIntegerSamplable for R8UI {}
+unsafe impl UnsignedIntegerSamplable for R16UI {}
+unsafe impl UnsignedIntegerSamplable for R32UI {}
+unsafe impl UnsignedIntegerSamplable for RG8UI {}
+unsafe impl UnsignedIntegerSamplable for RG16UI {}
+unsafe impl UnsignedIntegerSamplable for RG32UI {}
+unsafe impl UnsignedIntegerSamplable for RGB8UI {}
+unsafe impl UnsignedIntegerSamplable for RGBA8UI {}
+unsafe impl UnsignedIntegerSamplable for RGB10_A2UI {}
+unsafe impl UnsignedIntegerSamplable for RGBA16UI {}
+unsafe impl UnsignedIntegerSamplable for RGBA32UI {}
+unsafe impl UnsignedIntegerSamplable for StencilIndex8 {}
+
+pub unsafe trait ShadowSamplable: InternalFormat {}
+
+unsafe impl ShadowSamplable for DepthComponent16 {}
+unsafe impl ShadowSamplable for DepthComponent24 {}
+unsafe impl ShadowSamplable for DepthComponent32F {}
+unsafe impl ShadowSamplable for Depth24Stencil8 {}
+unsafe impl ShadowSamplable for Depth32FStencil8 {}
+
 pub unsafe trait ColorRenderable: InternalFormat {}
 
 unsafe impl ColorRenderable for R8 {}

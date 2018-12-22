@@ -70,10 +70,10 @@ pub fn expand_uniforms(tokens: TokenStream) -> TokenStream {
         let type_ident = Ident::new(&format!("T{}", index), Span::call_site());
 
         quote_spanned!(span=> #field_name: #type_ident)
-    }); //.collect::<Vec<proc_macro2::TokenStream>>()
+    });
 
     let struct_block = quote! {
-        struct CustomUniforms<#generics> where #constraints {
+        struct CustomUniforms<#generics> {
             #(#struct_fields),*
         }
     };
@@ -96,7 +96,7 @@ pub fn expand_uniforms(tokens: TokenStream) -> TokenStream {
             fn bind_value(
                 &self,
                 identifier: #mod_path::ValueIdentifierTail,
-                slot: #mod_path::UniformValueSlot
+                slot: &mut _web_glitz::program::BindingSlot
             ) -> Result<(), #mod_path::UniformBindingError> {
                 if let Some(#mod_path::ValueIdentifierSegment::Name(segment)) = identifier.head() {
                     let tail = identifier.tail();
@@ -112,17 +112,35 @@ pub fn expand_uniforms(tokens: TokenStream) -> TokenStream {
         }
     };
 
-    let field_values = input.fields.iter().map(|field| {
+    let assignments = input.fields.iter().map(|field| {
         let field_name = &field.name;
         let field_value = &field.value;
-        let span = field_value.span();
 
-        quote_spanned!(span=> #field_name: #field_value)
+        quote!(let #field_name = #field_value;)
+    });
+
+    let assignment_block = quote!(#(#assignments)*);
+
+    let asserts = input.fields.iter().map(|field| {
+        let field_name = &field.name;
+        let span = field.value.span();
+
+        quote_spanned!(span=> assert_uniform(&#field_name);)
+    });
+
+    let assert_block = quote! {
+        fn assert_uniform<T>(value: &T) where T: #mod_path::Uniform {}
+
+        #(#asserts)*
+    };
+
+    let field_names = input.fields.iter().map(|field| {
+        &field.name
     });
 
     let instantiation_block = quote! {
         CustomUniforms {
-            #(#field_values),*
+            #(#field_names),*
         }
     };
 
@@ -132,6 +150,8 @@ pub fn expand_uniforms(tokens: TokenStream) -> TokenStream {
 
             #struct_block
             #impl_block
+            #assignment_block
+            #assert_block
             #instantiation_block
         }
     };

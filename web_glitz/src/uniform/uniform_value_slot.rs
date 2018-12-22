@@ -2,7 +2,6 @@ use std::slice;
 
 use crate::program::{UniformValue, UniformType, UniformInfo};
 use crate::rendering_context::Connection;
-use crate::sampler::{Sampler, AsSampled};
 use crate::util::{identical, slice_make_mut};
 
 pub struct UniformValueSlot<'a> {
@@ -707,37 +706,37 @@ impl<'a> UniformValueSlot<'a> {
         }
     }
 
-    pub fn bind_sampler<T>(self, sampler: &Sampler<T>)
-        where
-            T: AsSampled,
-    {
-        let connection = unsafe { &mut *self.connection };
-        let unit = sampler.bind(connection) as i32;
-        let Connection(gl, _) = connection;
-
-        if self.uniform.current_value != Some(UniformValue::Integer(unit)) {
-            unsafe {
-                self.uniform.location.with_value_unchecked(|location| {
-                    gl.uniform1i(Some(&location), unit);
-                });
-            }
-
-            self.uniform.current_value = Some(UniformValue::Integer(unit))
-        }
-    }
-
-    pub fn bind_sampler_array<T>(self, samplers: &[Sampler<T>])
-        where
-            T: AsSampled,
-    {
-        let connection = unsafe { &mut *self.connection };
-        let units: Vec<i32> = samplers.iter().map(|s| s.bind(connection) as i32).collect();
-        let Connection(gl, _) = connection;
-
-        unsafe {
-            self.uniform.location.with_value_unchecked(|location| {
-                gl.uniform1iv_with_i32_array(Some(&location), slice_make_mut(&units));
-            });
-        }
-    }
+//    pub fn bind_sampler<T>(self, sampler: &SamplerHandle<T>)
+//        where
+//            T: AsSampled,
+//    {
+//        let connection = unsafe { &mut *self.connection };
+//        let unit = sampler.bind(connection) as i32;
+//        let Connection(gl, _) = connection;
+//
+//        if self.uniform.current_value != Some(UniformValue::Integer(unit)) {
+//            unsafe {
+//                self.uniform.location.with_value_unchecked(|location| {
+//                    gl.uniform1i(Some(&location), unit);
+//                });
+//            }
+//
+//            self.uniform.current_value = Some(UniformValue::Integer(unit))
+//        }
+//    }
+//
+//    pub fn bind_sampler_array<T>(self, samplers: &[SamplerHandle<T>])
+//        where
+//            T: AsSampled,
+//    {
+//        let connection = unsafe { &mut *self.connection };
+//        let units: Vec<i32> = samplers.iter().map(|s| s.bind(connection) as i32).collect();
+//        let Connection(gl, _) = connection;
+//
+//        unsafe {
+//            self.uniform.location.with_value_unchecked(|location| {
+//                gl.uniform1iv_with_i32_array(Some(&location), slice_make_mut(&units));
+//            });
+//        }
+//    }
 }

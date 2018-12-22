@@ -5,20 +5,19 @@ use uniform::uniform_identifier::ValueIdentifierTail;
 use std::sync::Arc;
 use std::ops::Deref;
 use uniform::ValueIdentifierSegment;
+use program::BindingSlot;
+use sampler::SamplerHandle;
+use texture::Texture2DHandle;
+use texture::TextureFormat;
+use image_format::FloatSamplable;
 
 pub trait Uniforms {
-    fn bind_value(&self, identifier: ValueIdentifierTail, slot: UniformValueSlot) -> Result<(), UniformBindingError>;
-
-    //fn bind_block(&self, identifier: &UniformBlockIdentifier, slot: UniformBlockSlot);
+    fn bind_value(&self, identifier: ValueIdentifierTail, slot: &mut BindingSlot) -> Result<(), UniformBindingError>;
 }
 
 pub trait Uniform {
-    fn bind_value(&self, identifier: ValueIdentifierTail, slot: UniformValueSlot) -> Result<(), UniformBindingError>;
+    fn bind_value(&self, identifier: ValueIdentifierTail, slot: &mut BindingSlot) -> Result<(), UniformBindingError>;
 }
-
-//pub trait UniformArray {
-//    fn bind_slice()
-//}
 
 pub enum UniformBindingError {
     NotFound,
@@ -26,15 +25,13 @@ pub enum UniformBindingError {
 }
 
 impl Uniform for f32 {
-    fn bind_value(&self, identifier: ValueIdentifierTail, slot: UniformValueSlot) -> Result<(), UniformBindingError> {
+    fn bind_value(&self, identifier: ValueIdentifierTail, slot: &mut BindingSlot) -> Result<(), UniformBindingError> {
         if !identifier.is_empty() {
             return Err(UniformBindingError::NotFound)
         }
 
-        let value_type = slot.value_type();
-
-        if let UniformType::Float = value_type {
-            slot.bind_float(*self);
+        if let BindingSlot::Float(binder) = slot {
+            binder.bind(*self);
 
             Ok(())
         } else {
@@ -44,32 +41,13 @@ impl Uniform for f32 {
 }
 
 impl<'a> Uniform for &'a [f32] {
-    fn bind_value(&self, identifier: ValueIdentifierTail, slot: UniformValueSlot) -> Result<(), UniformBindingError> {
+    fn bind_value(&self, identifier: ValueIdentifierTail, slot: &mut BindingSlot) -> Result<(), UniformBindingError> {
         if !identifier.tail().is_empty() || identifier.head() != Some(&ValueIdentifierSegment::ArrayIndex(0)) {
             return Err(UniformBindingError::NotFound)
         }
 
-        let value_type = slot.value_type();
-
-        match slot.value_type() {
-            UniformType::ArrayOfFloat(len) if len == self.len() => {
-                slot.bind_float_array(&self);
-
-                Ok(())
-            },
-            _ => Err(UniformBindingError::TypeMismatch)
-        }
-    }
-}
-
-impl Uniform for (f32, f32) {
-    fn bind_value(&self, identifier: ValueIdentifierTail, slot: UniformValueSlot) -> Result<(), UniformBindingError> {
-        if !identifier.is_empty() {
-            return Err(UniformBindingError::NotFound)
-        }
-
-        if slot.value_type() == UniformType::FloatVector2 {
-            slot.bind_float_vector_2(*self);
+        if let BindingSlot::ArrayOfFloat(binder) = slot {
+            binder.bind(self);
 
             Ok(())
         } else {
@@ -78,74 +56,108 @@ impl Uniform for (f32, f32) {
     }
 }
 
-//impl<T, E> Uniform for T where T: Borrow<[E]>, E: Uniform {
-//    fn bind_value(&self, identifier: &UniformValueIdentifier, slot: UniformValueSlot) -> Result<(), UniformBindingError> {
-//        if let Some(UniformValueIdentifierSegment) = identifier.get(0) {
-//
-//        }
-//        if identifer.is_array
-//        if slot.value_type() == UniformType::FloatVector2 {
-//            slot.bind_float_vector_2(*self);
-//
-//            Ok(())
-//        } else {
-//            Err(UniformBindingError::TypeMismatch(identifier.clone(), UniformType::FloatVector2))
-//        }
-//    }
-//}
+impl<F> Uniform for SamplerHandle<Texture2DHandle<F>> where F: TextureFormat + FloatSamplable + 'static {
+    fn bind_value(&self, identifier: ValueIdentifierTail, slot: &mut BindingSlot) -> Result<(), UniformBindingError> {
+        if !identifier.is_empty() {
+            return Err(UniformBindingError::NotFound)
+        }
 
-//pub trait BorrowSlice<T> {
-//    fn borrow_slice(&self) -> &[T];
-//}
-//
-//impl<T> BorrowSlice<T> for Vec<T> {
-//    fn borrow_slice(&self) -> &[T] {
-//        self.deref()
-//    }
-//}
-//
-//impl<T> BorrowSlice<T> for Arc<[T]> {
-//    fn borrow_slice(&self) -> &[T] {
-//        self.deref()
-//    }
-//}
-//
-//impl<T> BorrowSlice<T> for Box<[T]> {
-//    fn borrow_slice(&self) -> &[T] {
-//        self.deref()
-//    }
-//}
-//
-//impl<T> Uniform for T where T: BorrowSlice<f32> {
-//    fn bind_value(&self, identifier: ValueIdentifierTail, slot: UniformValueSlot) -> Result<(), UniformBindingError> {
-//        if !identifier.is_empty() {
-//            return Err(UniformBindingError::NotFound)
-//        }
-//
-//        let value_type = slot.value_type();
-//        let value = self.borrow_slice();
-//
-//        match slot.value_type() {
-//            UniformType::ArrayOfFloat(len) if len == value.len() => {
-//                slot.bind_float_array(value);
-//
-//                Ok(())
-//            },
-//            _ => Err(UniformBindingError::TypeMismatch)
-//        }
-//    }
-//}
-//
-//impl<T> Uniform for Vec<T> where T: Uniform {
-//    fn bind_value(&self, identifier: ValueIdentifierTail, slot: UniformValueSlot) -> Result<(), UniformBindingError> {
-//        if let Some(UniformValueIdentifierSegment::ArrayIndex(index)) = identifier.head() {
-//            let slice = self.borrow_slice();
-//
-//            if let Some(element) = slice.get(index) {
-//                return element.bind_value(identifier.tail(), slot);
-//            }
-//        }
-//
-//        Err(UniformBindingError::NotFound(identifier.root().clone()))
-//    }
-//}
+        if let BindingSlot::FloatSampler2D(binder) = slot {
+            binder.bind(self);
+
+            Ok(())
+        } else {
+            Err(UniformBindingError::TypeMismatch)
+        }
+    }
+}
+
+impl<'a, F> Uniform for &'a [SamplerHandle<Texture2DHandle<F>>] where F: TextureFormat + FloatSamplable + 'static {
+    fn bind_value(&self, identifier: ValueIdentifierTail, slot: &mut BindingSlot) -> Result<(), UniformBindingError> {
+        if !identifier.is_empty() {
+            return Err(UniformBindingError::NotFound)
+        }
+
+        if let BindingSlot::ArrayOfFloatSampler2D(binder) = slot {
+            binder.bind(self);
+
+            Ok(())
+        } else {
+            Err(UniformBindingError::TypeMismatch)
+        }
+    }
+}
+
+impl<T> Uniform for Vec<T> where for<'a> &'a [T]: Uniform {
+    fn bind_value(&self, identifier: ValueIdentifierTail, slot: &mut BindingSlot) -> Result<(), UniformBindingError> {
+        self.deref().bind_value(identifier, slot)
+    }
+}
+
+impl<T> Uniform for Box<T> where T: Uniform {
+    fn bind_value(&self, identifier: ValueIdentifierTail, slot: &mut BindingSlot) -> Result<(), UniformBindingError> {
+        self.deref().bind_value(identifier, slot)
+    }
+}
+
+impl<T> Uniform for Box<[T]> where for<'a> &'a [T]: Uniform {
+    fn bind_value(&self, identifier: ValueIdentifierTail, slot: &mut BindingSlot) -> Result<(), UniformBindingError> {
+        self.deref().bind_value(identifier, slot)
+    }
+}
+
+impl<T> Uniform for Arc<T> where T: Uniform {
+    fn bind_value(&self, identifier: ValueIdentifierTail, slot: &mut BindingSlot) -> Result<(), UniformBindingError> {
+        self.deref().bind_value(identifier, slot)
+    }
+}
+
+impl<T> Uniform for Arc<[T]> where for<'a> &'a [T]: Uniform {
+    fn bind_value(&self, identifier: ValueIdentifierTail, slot: &mut BindingSlot) -> Result<(), UniformBindingError> {
+        self.deref().bind_value(identifier, slot)
+    }
+}
+
+macro_rules! generate_array_impl {
+    ($size:tt) => {
+        impl<T> Uniform for [T;$size] where for<'a> &'a [T]: Uniform {
+            fn bind_value(&self, identifier: ValueIdentifierTail, slot: &mut BindingSlot) -> Result<(), UniformBindingError> {
+                self.bind_value(identifier, slot)
+            }
+        }
+    }
+}
+
+generate_array_impl!(0);
+generate_array_impl!(1);
+generate_array_impl!(2);
+generate_array_impl!(3);
+generate_array_impl!(4);
+generate_array_impl!(5);
+generate_array_impl!(6);
+generate_array_impl!(7);
+generate_array_impl!(8);
+generate_array_impl!(9);
+generate_array_impl!(10);
+generate_array_impl!(11);
+generate_array_impl!(12);
+generate_array_impl!(13);
+generate_array_impl!(14);
+generate_array_impl!(15);
+generate_array_impl!(16);
+generate_array_impl!(17);
+generate_array_impl!(18);
+generate_array_impl!(19);
+generate_array_impl!(20);
+generate_array_impl!(21);
+generate_array_impl!(22);
+generate_array_impl!(23);
+generate_array_impl!(24);
+generate_array_impl!(25);
+generate_array_impl!(26);
+generate_array_impl!(27);
+generate_array_impl!(28);
+generate_array_impl!(29);
+generate_array_impl!(30);
+generate_array_impl!(31);
+generate_array_impl!(32);

@@ -36,10 +36,14 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
 
                     quote!(#mod_path::AttributeFormat::#ident)
                 }
-                None => quote!(<#ty as #mod_path::VertexAttribute>::format()),
+                None => {
+                    let span = ty.span();
+
+                    quote_spanned!(span=> <#ty as #mod_path::VertexAttribute>::format())
+                },
             };
 
-            quote_spanned! {a.span=>
+            quote! {
                 #mod_path::VertexInputAttributeDescriptor {
                     location: #location as u32,
                     format: #format,

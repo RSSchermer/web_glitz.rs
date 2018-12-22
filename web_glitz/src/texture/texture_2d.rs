@@ -21,14 +21,12 @@ use crate::util::JsId;
 use rendering_context::DropObject;
 use rendering_context::Dropper;
 use rendering_context::RefCountedDropper;
-use sampler::AsSampled;
-use sampler::Sampled;
-use sampler::SampledInternal;
 use texture::util::region_2d_sub_image;
 use util::arc_get_mut_unchecked;
+use util::identical;
 
 pub struct Texture2DHandle<F> {
-    data: Arc<Texture2DData>,
+    pub(crate) data: Arc<Texture2DData>,
     _marker: marker::PhantomData<[F]>,
 }
 
@@ -66,6 +64,38 @@ where
         }
     }
 
+    pub(crate) fn bind(&self, connection: &mut Connection) -> u32 {
+        let Connection(gl, state) = connection;
+
+        unsafe {
+            let data = arc_get_mut_unchecked(&self.data);
+            let most_recent_unit = &mut data.most_recent_unit;
+
+            data.id.unwrap().with_value_unchecked(|texture_object| {
+                if most_recent_unit.is_none()
+                    || !identical(
+                    state.texture_units_textures()[most_recent_unit.unwrap() as usize]
+                        .as_ref(),
+                    Some(&texture_object),
+                ) {
+                    state.set_active_texture_lru().apply(gl).unwrap();
+                    state
+                        .set_bound_texture_2d(Some(&texture_object))
+                        .apply(gl)
+                        .unwrap();
+
+                    let unit = state.active_texture();
+
+                    *most_recent_unit = Some(unit);
+
+                    unit
+                } else {
+                    most_recent_unit.unwrap()
+                }
+            })
+        }
+    }
+
     pub fn base_level(&self) -> Texture2DLevel<F> {
         Texture2DLevel {
             texture_data: self.data.clone(),
@@ -87,14 +117,6 @@ where
 
     pub fn height(&self) -> u32 {
         self.data.height
-    }
-}
-
-impl<F> AsSampled for Texture2DHandle<F> {
-    fn as_sampled(&mut self) -> Sampled {
-        Sampled {
-            internal: SampledInternal::Texture2D(&mut self.data),
-        }
     }
 }
 
