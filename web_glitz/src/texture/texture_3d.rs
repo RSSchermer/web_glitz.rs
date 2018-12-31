@@ -37,6 +37,39 @@ pub struct Texture3DHandle<F> {
     _marker: marker::PhantomData<[F]>,
 }
 
+impl<F> Texture3DHandle<F> {
+    pub(crate) fn bind(&self, connection: &mut Connection) -> u32 {
+        let Connection(gl, state) = connection;
+
+        unsafe {
+            let data = arc_get_mut_unchecked(&self.data);
+            let most_recent_unit = &mut data.most_recent_unit;
+
+            data.id.unwrap().with_value_unchecked(|texture_object| {
+                if most_recent_unit.is_none()
+                    || !identical(
+                        state.texture_units_textures()[most_recent_unit.unwrap() as usize].as_ref(),
+                        Some(&texture_object),
+                    ) {
+                    state.set_active_texture_lru().apply(gl).unwrap();
+                    state
+                        .set_bound_texture_3d(Some(&texture_object))
+                        .apply(gl)
+                        .unwrap();
+
+                    let unit = state.active_texture();
+
+                    *most_recent_unit = Some(unit);
+
+                    unit
+                } else {
+                    most_recent_unit.unwrap()
+                }
+            })
+        }
+    }
+}
+
 impl<F> Texture3DHandle<F>
 where
     F: TextureFormat + 'static,
@@ -70,38 +103,6 @@ where
         Texture3DHandle {
             data,
             _marker: marker::PhantomData,
-        }
-    }
-
-    pub(crate) fn bind(&self, connection: &mut Connection) -> u32 {
-        let Connection(gl, state) = connection;
-
-        unsafe {
-            let data = arc_get_mut_unchecked(&self.data);
-            let most_recent_unit = &mut data.most_recent_unit;
-
-            data.id.unwrap().with_value_unchecked(|texture_object| {
-                if most_recent_unit.is_none()
-                    || !identical(
-                    state.texture_units_textures()[most_recent_unit.unwrap() as usize]
-                        .as_ref(),
-                    Some(&texture_object),
-                ) {
-                    state.set_active_texture_lru().apply(gl).unwrap();
-                    state
-                        .set_bound_texture_3d(Some(&texture_object))
-                        .apply(gl)
-                        .unwrap();
-
-                    let unit = state.active_texture();
-
-                    *most_recent_unit = Some(unit);
-
-                    unit
-                } else {
-                    most_recent_unit.unwrap()
-                }
-            })
         }
     }
 

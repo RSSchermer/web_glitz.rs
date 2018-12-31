@@ -4,25 +4,42 @@ use std::borrow::Borrow;
 use std::sync::Arc;
 use task::GpuTask;
 use task::Progress;
-use uniform::UniformValueIdentifier;
+use uniform::UniformIdentifier;
 use util::JsId;
 
 use buffer::BufferData;
+use image_format::FloatSamplable;
+use image_format::IntegerSamplable;
+use image_format::ShadowSamplable;
+use image_format::UnsignedIntegerSamplable;
 use rendering_context::ContextUpdate;
 use rendering_context::DropObject;
 use rendering_context::Dropper;
 use rendering_context::RefCountedDropper;
+use sampler::FloatSampler2DArrayHandle;
+use sampler::FloatSampler2DHandle;
+use sampler::FloatSampler3DHandle;
+use sampler::FloatSamplerCubeHandle;
+use sampler::IntegerSampler2DArrayHandle;
+use sampler::IntegerSampler2DHandle;
+use sampler::IntegerSampler3DHandle;
+use sampler::IntegerSamplerCubeHandle;
+use sampler::Sampler2DArrayShadowHandle;
+use sampler::Sampler2DShadowHandle;
+use sampler::UnsignedIntegerSampler2DArrayHandle;
+use sampler::UnsignedIntegerSampler2DHandle;
+use sampler::UnsignedIntegerSampler3DHandle;
+use sampler::UnsignedIntegerSamplerCubeHandle;
 use std::marker;
 use std::mem;
-use util::arc_get_mut_unchecked;
-use wasm_bindgen::JsCast;
-use web_sys::{WebGl2RenderingContext as Gl, WebGlProgram, WebGlUniformLocation, WebGlActiveInfo};
-use util::slice_make_mut;
 use std::slice;
-use sampler::SamplerHandle;
-use texture::Texture2DHandle;
-use image_format::FloatSamplable;
 use texture::TextureFormat;
+use util::arc_get_mut_unchecked;
+use util::slice_make_mut;
+use wasm_bindgen::JsCast;
+use web_sys::{WebGl2RenderingContext as Gl, WebGlActiveInfo, WebGlProgram, WebGlUniformLocation};
+use sampler::SamplerCubeShadowHandle;
+use uniform::Uniform;
 
 pub struct VertexShaderHandle {
     data: Arc<ShaderData>,
@@ -112,6 +129,16 @@ pub struct ProgramHandle<Fs, Tf> {
     data: Arc<ProgramData<Fs, Tf>>,
 }
 
+impl<Fs, Tf> ProgramHandle<Fs, Tf> {
+    pub(crate) fn bind_uniforms<T>(&mut self, connection: &mut Connection, uniforms: T) where T: Uniform {
+        let mut data = unsafe { arc_get_mut_unchecked(&mut self.data) };
+
+        for (identifier, slot) in data.active_uniforms.iter_mut() {
+            uniforms.bind(identifier.as_tail(), &mut slot.as_bindable(connection));
+        }
+    }
+}
+
 impl ProgramHandle<FragmentShader, ()> {
     pub(crate) fn new<Rc>(
         context: &Rc,
@@ -142,7 +169,7 @@ struct ProgramData<Fs, Tf> {
     dropper: RefCountedDropper,
     vertex_shader: Option<Arc<ShaderData>>,
     fragment_shader: Option<Arc<ShaderData>>,
-    active_uniforms: Vec<(UniformValueIdentifier, UniformInfo)>,
+    active_uniforms: Vec<(UniformIdentifier, UniformSlot)>,
     _fragment_shader_marker: marker::PhantomData<Fs>,
     _transform_feedback_marker: marker::PhantomData<Tf>,
 }
@@ -351,240 +378,770 @@ enum UniformSlot {
     ArrayOfBoolVector4(ArrayOfBoolVector4Slot),
     FloatSampler2D(FloatSampler2DSlot),
     ArrayOfFloatSampler2D(ArrayOfFloatSampler2DSlot),
+    IntegerSampler2D(IntegerSampler2DSlot),
+    ArrayOfIntegerSampler2D(ArrayOfIntegerSampler2DSlot),
+    UnsignedIntegerSampler2D(UnsignedIntegerSampler2DSlot),
+    ArrayOfUnsignedIntegerSampler2D(ArrayOfUnsignedIntegerSampler2DSlot),
+    FloatSampler2DArray(FloatSampler2DArraySlot),
+    ArrayOfFloatSampler2DArray(ArrayOfFloatSampler2DArraySlot),
+    IntegerSampler2DArray(IntegerSampler2DArraySlot),
+    ArrayOfIntegerSampler2DArray(ArrayOfIntegerSampler2DArraySlot),
+    UnsignedIntegerSampler2DArray(UnsignedIntegerSampler2DArraySlot),
+    ArrayOfUnsignedIntegerSampler2DArray(ArrayOfUnsignedIntegerSampler2DArraySlot),
+    FloatSampler3D(FloatSampler3DSlot),
+    ArrayOfFloatSampler3D(ArrayOfFloatSampler3DSlot),
+    IntegerSampler3D(IntegerSampler3DSlot),
+    ArrayOfIntegerSampler3D(ArrayOfIntegerSampler3DSlot),
+    UnsignedIntegerSampler3D(UnsignedIntegerSampler3DSlot),
+    ArrayOfUnsignedIntegerSampler3D(ArrayOfUnsignedIntegerSampler3DSlot),
+    FloatSamplerCube(FloatSamplerCubeSlot),
+    ArrayOfFloatSamplerCube(ArrayOfFloatSamplerCubeSlot),
+    IntegerSamplerCube(IntegerSamplerCubeSlot),
+    ArrayOfIntegerSamplerCube(ArrayOfIntegerSamplerCubeSlot),
+    UnsignedIntegerSamplerCube(UnsignedIntegerSamplerCubeSlot),
+    ArrayOfUnsignedIntegerSamplerCube(ArrayOfUnsignedIntegerSamplerCubeSlot),
+    Sampler2DShadow(Sampler2DShadowSlot),
+    ArrayOfSampler2DShadow(ArrayOfSampler2DShadowSlot),
+    Sampler2DArrayShadow(Sampler2DArrayShadowSlot),
+    ArrayOfSampler2DArrayShadow(ArrayOfSampler2DArrayShadowSlot),
+    SamplerCubeShadow(SamplerCubeShadowSlot),
+    ArrayOfSamplerCubeShadow(ArrayOfSamplerCubeShadowSlot),
+    Block(BlockSlot)
+}
+
+impl UniformSlot {
+    pub fn as_bindable<'a>(&'a mut self, connection: &'a mut Connection) -> BindingSlot<'a> {
+        match self {
+            UniformSlot::Float(slot) => BindingSlot::Float(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfFloat(slot) => BindingSlot::ArrayOfFloat(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::FloatVector2(slot) => BindingSlot::FloatVector2(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfFloatVector2(slot) => BindingSlot::ArrayOfFloatVector2(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::FloatVector3(slot) => BindingSlot::FloatVector3(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfFloatVector3(slot) => BindingSlot::ArrayOfFloatVector3(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::FloatVector4(slot) => BindingSlot::FloatVector4(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfFloatVector4(slot) => BindingSlot::ArrayOfFloatVector4(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::FloatMatrix2x2(slot) => BindingSlot::FloatMatrix2x2(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfFloatMatrix2x2(slot) => BindingSlot::ArrayOfFloatMatrix2x2(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::FloatMatrix2x3(slot) => BindingSlot::FloatMatrix2x3(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfFloatMatrix2x3(slot) => BindingSlot::ArrayOfFloatMatrix2x3(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::FloatMatrix2x4(slot) => BindingSlot::FloatMatrix2x4(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfFloatMatrix2x4(slot) => BindingSlot::ArrayOfFloatMatrix2x4(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::FloatMatrix3x2(slot) => BindingSlot::FloatMatrix3x2(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfFloatMatrix3x2(slot) => BindingSlot::ArrayOfFloatMatrix3x2(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::FloatMatrix3x3(slot) => BindingSlot::FloatMatrix3x3(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfFloatMatrix3x3(slot) => BindingSlot::ArrayOfFloatMatrix3x3(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::FloatMatrix3x4(slot) => BindingSlot::FloatMatrix3x4(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfFloatMatrix3x4(slot) => BindingSlot::ArrayOfFloatMatrix3x4(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::FloatMatrix4x2(slot) => BindingSlot::FloatMatrix4x2(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfFloatMatrix4x2(slot) => BindingSlot::ArrayOfFloatMatrix4x2(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::FloatMatrix4x3(slot) => BindingSlot::FloatMatrix4x3(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfFloatMatrix4x3(slot) => BindingSlot::ArrayOfFloatMatrix4x3(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::FloatMatrix4x4(slot) => BindingSlot::FloatMatrix4x4(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfFloatMatrix4x4(slot) => BindingSlot::ArrayOfFloatMatrix4x4(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::Integer(slot) => BindingSlot::Integer(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfInteger(slot) => BindingSlot::ArrayOfInteger(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::IntegerVector2(slot) => BindingSlot::IntegerVector2(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfIntegerVector2(slot) => BindingSlot::ArrayOfIntegerVector2(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::IntegerVector3(slot) => BindingSlot::IntegerVector3(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfIntegerVector3(slot) => BindingSlot::ArrayOfIntegerVector3(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::IntegerVector4(slot) => BindingSlot::IntegerVector4(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfIntegerVector4(slot) => BindingSlot::ArrayOfIntegerVector4(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::UnsignedInteger(slot) => BindingSlot::UnsignedInteger(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfUnsignedInteger(slot) => BindingSlot::ArrayOfUnsignedInteger(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::UnsignedIntegerVector2(slot) => BindingSlot::UnsignedIntegerVector2(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfUnsignedIntegerVector2(slot) => BindingSlot::ArrayOfUnsignedIntegerVector2(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::UnsignedIntegerVector3(slot) => BindingSlot::UnsignedIntegerVector3(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfUnsignedIntegerVector3(slot) => BindingSlot::ArrayOfUnsignedIntegerVector3(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::UnsignedIntegerVector4(slot) => BindingSlot::UnsignedIntegerVector4(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfUnsignedIntegerVector4(slot) => BindingSlot::ArrayOfUnsignedIntegerVector4(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::Bool(slot) => BindingSlot::Bool(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfBool(slot) => BindingSlot::ArrayOfBool(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::BoolVector2(slot) => BindingSlot::BoolVector2(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfBoolVector2(slot) => BindingSlot::ArrayOfBoolVector2(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::BoolVector3(slot) => BindingSlot::BoolVector3(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfBoolVector3(slot) => BindingSlot::ArrayOfBoolVector3(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::BoolVector4(slot) => BindingSlot::BoolVector4(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfBoolVector4(slot) => BindingSlot::ArrayOfBoolVector4(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::FloatSampler2D(slot) => BindingSlot::FloatSampler2D(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfFloatSampler2D(slot) => BindingSlot::ArrayOfFloatSampler2D(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::IntegerSampler2D(slot) => BindingSlot::IntegerSampler2D(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfIntegerSampler2D(slot) => BindingSlot::ArrayOfIntegerSampler2D(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::UnsignedIntegerSampler2D(slot) => BindingSlot::UnsignedIntegerSampler2D(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfUnsignedIntegerSampler2D(slot) => BindingSlot::ArrayOfUnsignedIntegerSampler2D(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::FloatSampler2DArray(slot) => BindingSlot::FloatSampler2DArray(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfFloatSampler2DArray(slot) => BindingSlot::ArrayOfFloatSampler2DArray(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::IntegerSampler2DArray(slot) => BindingSlot::IntegerSampler2DArray(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfIntegerSampler2DArray(slot) => BindingSlot::ArrayOfIntegerSampler2DArray(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::UnsignedIntegerSampler2DArray(slot) => BindingSlot::UnsignedIntegerSampler2DArray(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfUnsignedIntegerSampler2DArray(slot) => BindingSlot::ArrayOfUnsignedIntegerSampler2DArray(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::FloatSampler3D(slot) => BindingSlot::FloatSampler3D(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfFloatSampler3D(slot) => BindingSlot::ArrayOfFloatSampler3D(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::IntegerSampler3D(slot) => BindingSlot::IntegerSampler3D(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfIntegerSampler3D(slot) => BindingSlot::ArrayOfIntegerSampler3D(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::UnsignedIntegerSampler3D(slot) => BindingSlot::UnsignedIntegerSampler3D(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfUnsignedIntegerSampler3D(slot) => BindingSlot::ArrayOfUnsignedIntegerSampler3D(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::FloatSamplerCube(slot) => BindingSlot::FloatSamplerCube(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfFloatSamplerCube(slot) => BindingSlot::ArrayOfFloatSamplerCube(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::IntegerSamplerCube(slot) => BindingSlot::IntegerSamplerCube(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfIntegerSamplerCube(slot) => BindingSlot::ArrayOfIntegerSamplerCube(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::UnsignedIntegerSamplerCube(slot) => BindingSlot::UnsignedIntegerSamplerCube(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfUnsignedIntegerSamplerCube(slot) => BindingSlot::ArrayOfUnsignedIntegerSamplerCube(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::Sampler2DShadow(slot) => BindingSlot::Sampler2DShadow(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfSampler2DShadow(slot) => BindingSlot::ArrayOfSampler2DShadow(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::Sampler2DArrayShadow(slot) => BindingSlot::Sampler2DArrayShadow(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfSampler2DArrayShadow(slot) => BindingSlot::ArrayOfSampler2DArrayShadow(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::SamplerCubeShadow(slot) => BindingSlot::SamplerCubeShadow(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::ArrayOfSamplerCubeShadow(slot) => BindingSlot::ArrayOfSamplerCubeShadow(Binder {
+                slot,
+                connection
+            }),
+            UniformSlot::Block(slot) => BindingSlot::Block(Binder {
+                slot,
+                connection
+            })
+        }
+    }
 }
 
 pub struct FloatSlot {
     location_id: JsId,
-    current_value: f32
+    current_value: f32,
 }
 
 pub struct ArrayOfFloatSlot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct FloatVector2Slot {
     location_id: JsId,
-    current_value: (f32, f32)
+    current_value: (f32, f32),
 }
 
 pub struct ArrayOfFloatVector2Slot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct FloatVector3Slot {
     location_id: JsId,
-    current_value: (f32, f32, f32)
+    current_value: (f32, f32, f32),
 }
 
 pub struct ArrayOfFloatVector3Slot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct FloatVector4Slot {
     location_id: JsId,
-    current_value: (f32, f32, f32, f32)
+    current_value: (f32, f32, f32, f32),
 }
 
 pub struct ArrayOfFloatVector4Slot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct FloatMatrix2x2Slot {
     location_id: JsId,
-    current_value: ([f32;4], bool)
+    current_value: ([f32; 4], bool),
 }
 
 pub struct ArrayOfFloatMatrix2x2Slot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct FloatMatrix2x3Slot {
     location_id: JsId,
-    current_value: ([f32;6], bool)
+    current_value: ([f32; 6], bool),
 }
 
 pub struct ArrayOfFloatMatrix2x3Slot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct FloatMatrix2x4Slot {
     location_id: JsId,
-    current_value: ([f32;8], bool)
+    current_value: ([f32; 8], bool),
 }
 
 pub struct ArrayOfFloatMatrix2x4Slot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct FloatMatrix3x2Slot {
     location_id: JsId,
-    current_value: ([f32;6], bool)
+    current_value: ([f32; 6], bool),
 }
 
 pub struct ArrayOfFloatMatrix3x2Slot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct FloatMatrix3x3Slot {
     location_id: JsId,
-    current_value: ([f32;9], bool)
+    current_value: ([f32; 9], bool),
 }
 
 pub struct ArrayOfFloatMatrix3x3Slot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct FloatMatrix3x4Slot {
     location_id: JsId,
-    current_value: ([f32;12], bool)
+    current_value: ([f32; 12], bool),
 }
 
 pub struct ArrayOfFloatMatrix3x4Slot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct FloatMatrix4x2Slot {
     location_id: JsId,
-    current_value: ([f32;8], bool)
+    current_value: ([f32; 8], bool),
 }
 
 pub struct ArrayOfFloatMatrix4x2Slot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct FloatMatrix4x3Slot {
     location_id: JsId,
-    current_value: ([f32;12], bool)
+    current_value: ([f32; 12], bool),
 }
 
 pub struct ArrayOfFloatMatrix4x3Slot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct FloatMatrix4x4Slot {
     location_id: JsId,
-    current_value: ([f32;16], bool)
+    current_value: ([f32; 16], bool),
 }
 
 pub struct ArrayOfFloatMatrix4x4Slot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct IntegerSlot {
     location_id: JsId,
-    current_value: i32
+    current_value: i32,
 }
 
 pub struct ArrayOfIntegerSlot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct IntegerVector2Slot {
     location_id: JsId,
-    current_value: (i32, i32)
+    current_value: (i32, i32),
 }
 
 pub struct ArrayOfIntegerVector2Slot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct IntegerVector3Slot {
     location_id: JsId,
-    current_value: (i32, i32, i32)
+    current_value: (i32, i32, i32),
 }
 
 pub struct ArrayOfIntegerVector3Slot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct IntegerVector4Slot {
     location_id: JsId,
-    current_value: (i32, i32, i32, i32)
+    current_value: (i32, i32, i32, i32),
 }
 
 pub struct ArrayOfIntegerVector4Slot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct UnsignedIntegerSlot {
     location_id: JsId,
-    current_value: u32
+    current_value: u32,
 }
 
 pub struct ArrayOfUnsignedIntegerSlot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct UnsignedIntegerVector2Slot {
     location_id: JsId,
-    current_value: (u32, u32)
+    current_value: (u32, u32),
 }
 
 pub struct ArrayOfUnsignedIntegerVector2Slot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct UnsignedIntegerVector3Slot {
     location_id: JsId,
-    current_value: (u32, u32, u32)
+    current_value: (u32, u32, u32),
 }
 
 pub struct ArrayOfUnsignedIntegerVector3Slot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct UnsignedIntegerVector4Slot {
     location_id: JsId,
-    current_value: (u32, u32, u32, u32)
+    current_value: (u32, u32, u32, u32),
 }
 
 pub struct ArrayOfUnsignedIntegerVector4Slot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct BoolSlot {
     location_id: JsId,
-    current_value: u32
+    current_value: u32,
 }
 
 pub struct ArrayOfBoolSlot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct BoolVector2Slot {
     location_id: JsId,
-    current_value: (u32, u32)
+    current_value: (u32, u32),
 }
 
 pub struct ArrayOfBoolVector2Slot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct BoolVector3Slot {
     location_id: JsId,
-    current_value: (u32, u32, u32)
+    current_value: (u32, u32, u32),
 }
 
 pub struct ArrayOfBoolVector3Slot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct BoolVector4Slot {
     location_id: JsId,
-    current_value: (u32, u32, u32, u32)
+    current_value: (u32, u32, u32, u32),
 }
 
 pub struct ArrayOfBoolVector4Slot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
 }
 
 pub struct FloatSampler2DSlot {
     location_id: JsId,
-    current_value: i32
+    current_value: i32,
 }
 
 pub struct ArrayOfFloatSampler2DSlot {
-    location_id: JsId
+    location_id: JsId,
+    size: usize
+}
+
+pub struct IntegerSampler2DSlot {
+    location_id: JsId,
+    current_value: i32,
+}
+
+pub struct ArrayOfIntegerSampler2DSlot {
+    location_id: JsId,
+    size: usize
+}
+
+pub struct UnsignedIntegerSampler2DSlot {
+    location_id: JsId,
+    current_value: i32,
+}
+
+pub struct ArrayOfUnsignedIntegerSampler2DSlot {
+    location_id: JsId,
+    size: usize
+}
+
+pub struct FloatSampler2DArraySlot {
+    location_id: JsId,
+    current_value: i32,
+}
+
+pub struct ArrayOfFloatSampler2DArraySlot {
+    location_id: JsId,
+    size: usize
+}
+
+pub struct IntegerSampler2DArraySlot {
+    location_id: JsId,
+    current_value: i32,
+}
+
+pub struct ArrayOfIntegerSampler2DArraySlot {
+    location_id: JsId,
+    size: usize
+}
+
+pub struct UnsignedIntegerSampler2DArraySlot {
+    location_id: JsId,
+    current_value: i32,
+}
+
+pub struct ArrayOfUnsignedIntegerSampler2DArraySlot {
+    location_id: JsId,
+    size: usize
+}
+
+pub struct FloatSampler3DSlot {
+    location_id: JsId,
+    current_value: i32,
+}
+
+pub struct ArrayOfFloatSampler3DSlot {
+    location_id: JsId,
+    size: usize
+}
+
+pub struct IntegerSampler3DSlot {
+    location_id: JsId,
+    current_value: i32,
+}
+
+pub struct ArrayOfIntegerSampler3DSlot {
+    location_id: JsId,
+    size: usize
+}
+
+pub struct UnsignedIntegerSampler3DSlot {
+    location_id: JsId,
+    current_value: i32,
+}
+
+pub struct ArrayOfUnsignedIntegerSampler3DSlot {
+    location_id: JsId,
+    size: usize
+}
+
+pub struct FloatSamplerCubeSlot {
+    location_id: JsId,
+    current_value: i32,
+}
+
+pub struct ArrayOfFloatSamplerCubeSlot {
+    location_id: JsId,
+    size: usize
+}
+
+pub struct IntegerSamplerCubeSlot {
+    location_id: JsId,
+    current_value: i32,
+}
+
+pub struct ArrayOfIntegerSamplerCubeSlot {
+    location_id: JsId,
+    size: usize
+}
+
+pub struct UnsignedIntegerSamplerCubeSlot {
+    location_id: JsId,
+    current_value: i32,
+}
+
+pub struct ArrayOfUnsignedIntegerSamplerCubeSlot {
+    location_id: JsId,
+    size: usize
+}
+
+pub struct Sampler2DShadowSlot {
+    location_id: JsId,
+    current_value: i32,
+}
+
+pub struct ArrayOfSampler2DShadowSlot {
+    location_id: JsId,
+    size: usize
+}
+
+pub struct Sampler2DArrayShadowSlot {
+    location_id: JsId,
+    current_value: i32,
+}
+
+pub struct ArrayOfSampler2DArrayShadowSlot {
+    location_id: JsId,
+    size: usize
+}
+
+pub struct SamplerCubeShadowSlot {
+    location_id: JsId,
+    current_value: i32,
+}
+
+pub struct ArrayOfSamplerCubeShadowSlot {
+    location_id: JsId,
+    size: usize
+}
+
+pub struct BlockSlot {
+    index: u32
 }
 
 pub enum BindingSlot<'a> {
@@ -640,11 +1197,40 @@ pub enum BindingSlot<'a> {
     ArrayOfBoolVector4(Binder<'a, ArrayOfBoolVector4Slot>),
     FloatSampler2D(Binder<'a, FloatSampler2DSlot>),
     ArrayOfFloatSampler2D(Binder<'a, ArrayOfFloatSampler2DSlot>),
+    IntegerSampler2D(Binder<'a, IntegerSampler2DSlot>),
+    ArrayOfIntegerSampler2D(Binder<'a, ArrayOfIntegerSampler2DSlot>),
+    UnsignedIntegerSampler2D(Binder<'a, UnsignedIntegerSampler2DSlot>),
+    ArrayOfUnsignedIntegerSampler2D(Binder<'a, ArrayOfUnsignedIntegerSampler2DSlot>),
+    FloatSampler2DArray(Binder<'a, FloatSampler2DArraySlot>),
+    ArrayOfFloatSampler2DArray(Binder<'a, ArrayOfFloatSampler2DArraySlot>),
+    IntegerSampler2DArray(Binder<'a, IntegerSampler2DArraySlot>),
+    ArrayOfIntegerSampler2DArray(Binder<'a, ArrayOfIntegerSampler2DArraySlot>),
+    UnsignedIntegerSampler2DArray(Binder<'a, UnsignedIntegerSampler2DArraySlot>),
+    ArrayOfUnsignedIntegerSampler2DArray(Binder<'a, ArrayOfUnsignedIntegerSampler2DArraySlot>),
+    FloatSampler3D(Binder<'a, FloatSampler3DSlot>),
+    ArrayOfFloatSampler3D(Binder<'a, ArrayOfFloatSampler3DSlot>),
+    IntegerSampler3D(Binder<'a, IntegerSampler3DSlot>),
+    ArrayOfIntegerSampler3D(Binder<'a, ArrayOfIntegerSampler3DSlot>),
+    UnsignedIntegerSampler3D(Binder<'a, UnsignedIntegerSampler3DSlot>),
+    ArrayOfUnsignedIntegerSampler3D(Binder<'a, ArrayOfUnsignedIntegerSampler3DSlot>),
+    FloatSamplerCube(Binder<'a, FloatSamplerCubeSlot>),
+    ArrayOfFloatSamplerCube(Binder<'a, ArrayOfFloatSamplerCubeSlot>),
+    IntegerSamplerCube(Binder<'a, IntegerSamplerCubeSlot>),
+    ArrayOfIntegerSamplerCube(Binder<'a, ArrayOfIntegerSamplerCubeSlot>),
+    UnsignedIntegerSamplerCube(Binder<'a, UnsignedIntegerSamplerCubeSlot>),
+    ArrayOfUnsignedIntegerSamplerCube(Binder<'a, ArrayOfUnsignedIntegerSamplerCubeSlot>),
+    Sampler2DShadow(Binder<'a, Sampler2DShadowSlot>),
+    ArrayOfSampler2DShadow(Binder<'a, ArrayOfSampler2DShadowSlot>),
+    Sampler2DArrayShadow(Binder<'a, Sampler2DArrayShadowSlot>),
+    ArrayOfSampler2DArrayShadow(Binder<'a, ArrayOfSampler2DArrayShadowSlot>),
+    SamplerCubeShadow(Binder<'a, SamplerCubeShadowSlot>),
+    ArrayOfSamplerCubeShadow(Binder<'a, ArrayOfSamplerCubeShadowSlot>),
+    Block(Binder<'a, BlockSlot>)
 }
 
 pub struct Binder<'a, T> {
     connection: &'a mut Connection,
-    slot: &'a mut T
+    slot: &'a mut T,
 }
 
 impl<'a> Binder<'a, FloatSlot> {
@@ -772,7 +1358,7 @@ impl<'a> Binder<'a, ArrayOfFloatVector4Slot> {
 }
 
 impl<'a> Binder<'a, FloatMatrix2x2Slot> {
-    pub fn bind(&mut self, mut value: [f32;4], transpose: bool) {
+    pub fn bind(&mut self, mut value: [f32; 4], transpose: bool) {
         let Connection(gl, _) = self.connection;
 
         if self.slot.current_value != (value, transpose) {
@@ -788,7 +1374,7 @@ impl<'a> Binder<'a, FloatMatrix2x2Slot> {
 }
 
 impl<'a> Binder<'a, ArrayOfFloatMatrix2x2Slot> {
-    pub fn bind(&mut self, value: &[[f32;4]], transpose: bool) {
+    pub fn bind(&mut self, value: &[[f32; 4]], transpose: bool) {
         let Connection(gl, _) = self.connection;
         let ptr = value.as_ptr() as *const f32;
         let len = value.len();
@@ -797,14 +1383,18 @@ impl<'a> Binder<'a, ArrayOfFloatMatrix2x2Slot> {
             let value = slice::from_raw_parts(ptr, len * 4);
 
             self.slot.location_id.with_value_unchecked(|location| {
-                gl.uniform_matrix2fv_with_f32_array(Some(&location), transpose, slice_make_mut(value));
+                gl.uniform_matrix2fv_with_f32_array(
+                    Some(&location),
+                    transpose,
+                    slice_make_mut(value),
+                );
             });
         }
     }
 }
 
 impl<'a> Binder<'a, FloatMatrix2x3Slot> {
-    pub fn bind(&mut self, mut value: [f32;6], transpose: bool) {
+    pub fn bind(&mut self, mut value: [f32; 6], transpose: bool) {
         let Connection(gl, _) = self.connection;
 
         if self.slot.current_value != (value, transpose) {
@@ -820,7 +1410,7 @@ impl<'a> Binder<'a, FloatMatrix2x3Slot> {
 }
 
 impl<'a> Binder<'a, ArrayOfFloatMatrix2x3Slot> {
-    pub fn bind(&mut self, value: &[[f32;6]], transpose: bool) {
+    pub fn bind(&mut self, value: &[[f32; 6]], transpose: bool) {
         let Connection(gl, _) = self.connection;
         let ptr = value.as_ptr() as *const f32;
         let len = value.len();
@@ -829,14 +1419,18 @@ impl<'a> Binder<'a, ArrayOfFloatMatrix2x3Slot> {
             let value = slice::from_raw_parts(ptr, len * 6);
 
             self.slot.location_id.with_value_unchecked(|location| {
-                gl.uniform_matrix2x3fv_with_f32_array(Some(&location), transpose, slice_make_mut(value));
+                gl.uniform_matrix2x3fv_with_f32_array(
+                    Some(&location),
+                    transpose,
+                    slice_make_mut(value),
+                );
             });
         }
     }
 }
 
 impl<'a> Binder<'a, FloatMatrix2x4Slot> {
-    pub fn bind(&mut self, mut value: [f32;8], transpose: bool) {
+    pub fn bind(&mut self, mut value: [f32; 8], transpose: bool) {
         let Connection(gl, _) = self.connection;
 
         if self.slot.current_value != (value, transpose) {
@@ -852,7 +1446,7 @@ impl<'a> Binder<'a, FloatMatrix2x4Slot> {
 }
 
 impl<'a> Binder<'a, ArrayOfFloatMatrix2x4Slot> {
-    pub fn bind(&mut self, value: &[[f32;8]], transpose: bool) {
+    pub fn bind(&mut self, value: &[[f32; 8]], transpose: bool) {
         let Connection(gl, _) = self.connection;
         let ptr = value.as_ptr() as *const f32;
         let len = value.len();
@@ -861,14 +1455,18 @@ impl<'a> Binder<'a, ArrayOfFloatMatrix2x4Slot> {
             let value = slice::from_raw_parts(ptr, len * 8);
 
             self.slot.location_id.with_value_unchecked(|location| {
-                gl.uniform_matrix2x4fv_with_f32_array(Some(&location), transpose, slice_make_mut(value));
+                gl.uniform_matrix2x4fv_with_f32_array(
+                    Some(&location),
+                    transpose,
+                    slice_make_mut(value),
+                );
             });
         }
     }
 }
 
 impl<'a> Binder<'a, FloatMatrix3x2Slot> {
-    pub fn bind(&mut self, mut value: [f32;6], transpose: bool) {
+    pub fn bind(&mut self, mut value: [f32; 6], transpose: bool) {
         let Connection(gl, _) = self.connection;
 
         if self.slot.current_value != (value, transpose) {
@@ -884,7 +1482,7 @@ impl<'a> Binder<'a, FloatMatrix3x2Slot> {
 }
 
 impl<'a> Binder<'a, ArrayOfFloatMatrix3x2Slot> {
-    pub fn bind(&mut self, value: &[[f32;6]], transpose: bool) {
+    pub fn bind(&mut self, value: &[[f32; 6]], transpose: bool) {
         let Connection(gl, _) = self.connection;
         let ptr = value.as_ptr() as *const f32;
         let len = value.len();
@@ -893,14 +1491,18 @@ impl<'a> Binder<'a, ArrayOfFloatMatrix3x2Slot> {
             let value = slice::from_raw_parts(ptr, len * 6);
 
             self.slot.location_id.with_value_unchecked(|location| {
-                gl.uniform_matrix3x2fv_with_f32_array(Some(&location), transpose, slice_make_mut(value));
+                gl.uniform_matrix3x2fv_with_f32_array(
+                    Some(&location),
+                    transpose,
+                    slice_make_mut(value),
+                );
             });
         }
     }
 }
 
 impl<'a> Binder<'a, FloatMatrix3x3Slot> {
-    pub fn bind(&mut self, mut value: [f32;9], transpose: bool) {
+    pub fn bind(&mut self, mut value: [f32; 9], transpose: bool) {
         let Connection(gl, _) = self.connection;
 
         if self.slot.current_value != (value, transpose) {
@@ -916,7 +1518,7 @@ impl<'a> Binder<'a, FloatMatrix3x3Slot> {
 }
 
 impl<'a> Binder<'a, ArrayOfFloatMatrix3x3Slot> {
-    pub fn bind(&mut self, value: &[[f32;9]], transpose: bool) {
+    pub fn bind(&mut self, value: &[[f32; 9]], transpose: bool) {
         let Connection(gl, _) = self.connection;
         let ptr = value.as_ptr() as *const f32;
         let len = value.len();
@@ -925,14 +1527,18 @@ impl<'a> Binder<'a, ArrayOfFloatMatrix3x3Slot> {
             let value = slice::from_raw_parts(ptr, len * 9);
 
             self.slot.location_id.with_value_unchecked(|location| {
-                gl.uniform_matrix3fv_with_f32_array(Some(&location), transpose, slice_make_mut(value));
+                gl.uniform_matrix3fv_with_f32_array(
+                    Some(&location),
+                    transpose,
+                    slice_make_mut(value),
+                );
             });
         }
     }
 }
 
 impl<'a> Binder<'a, FloatMatrix3x4Slot> {
-    pub fn bind(&mut self, mut value: [f32;12], transpose: bool) {
+    pub fn bind(&mut self, mut value: [f32; 12], transpose: bool) {
         let Connection(gl, _) = self.connection;
 
         if self.slot.current_value != (value, transpose) {
@@ -948,7 +1554,7 @@ impl<'a> Binder<'a, FloatMatrix3x4Slot> {
 }
 
 impl<'a> Binder<'a, ArrayOfFloatMatrix3x4Slot> {
-    pub fn bind(&mut self, value: &[[f32;12]], transpose: bool) {
+    pub fn bind(&mut self, value: &[[f32; 12]], transpose: bool) {
         let Connection(gl, _) = self.connection;
         let ptr = value.as_ptr() as *const f32;
         let len = value.len();
@@ -957,14 +1563,18 @@ impl<'a> Binder<'a, ArrayOfFloatMatrix3x4Slot> {
             let value = slice::from_raw_parts(ptr, len * 12);
 
             self.slot.location_id.with_value_unchecked(|location| {
-                gl.uniform_matrix3x4fv_with_f32_array(Some(&location), transpose, slice_make_mut(value));
+                gl.uniform_matrix3x4fv_with_f32_array(
+                    Some(&location),
+                    transpose,
+                    slice_make_mut(value),
+                );
             });
         }
     }
 }
 
 impl<'a> Binder<'a, FloatMatrix4x2Slot> {
-    pub fn bind(&mut self, mut value: [f32;8], transpose: bool) {
+    pub fn bind(&mut self, mut value: [f32; 8], transpose: bool) {
         let Connection(gl, _) = self.connection;
 
         if self.slot.current_value != (value, transpose) {
@@ -980,7 +1590,7 @@ impl<'a> Binder<'a, FloatMatrix4x2Slot> {
 }
 
 impl<'a> Binder<'a, ArrayOfFloatMatrix4x2Slot> {
-    pub fn bind(&mut self, value: &[[f32;8]], transpose: bool) {
+    pub fn bind(&mut self, value: &[[f32; 8]], transpose: bool) {
         let Connection(gl, _) = self.connection;
         let ptr = value.as_ptr() as *const f32;
         let len = value.len();
@@ -989,14 +1599,18 @@ impl<'a> Binder<'a, ArrayOfFloatMatrix4x2Slot> {
             let value = slice::from_raw_parts(ptr, len * 8);
 
             self.slot.location_id.with_value_unchecked(|location| {
-                gl.uniform_matrix4x2fv_with_f32_array(Some(&location), transpose, slice_make_mut(value));
+                gl.uniform_matrix4x2fv_with_f32_array(
+                    Some(&location),
+                    transpose,
+                    slice_make_mut(value),
+                );
             });
         }
     }
 }
 
 impl<'a> Binder<'a, FloatMatrix4x3Slot> {
-    pub fn bind(&mut self, mut value: [f32;12], transpose: bool) {
+    pub fn bind(&mut self, mut value: [f32; 12], transpose: bool) {
         let Connection(gl, _) = self.connection;
 
         if self.slot.current_value != (value, transpose) {
@@ -1012,7 +1626,7 @@ impl<'a> Binder<'a, FloatMatrix4x3Slot> {
 }
 
 impl<'a> Binder<'a, ArrayOfFloatMatrix4x3Slot> {
-    pub fn bind(&mut self, value: &[[f32;12]], transpose: bool) {
+    pub fn bind(&mut self, value: &[[f32; 12]], transpose: bool) {
         let Connection(gl, _) = self.connection;
         let ptr = value.as_ptr() as *const f32;
         let len = value.len();
@@ -1021,14 +1635,18 @@ impl<'a> Binder<'a, ArrayOfFloatMatrix4x3Slot> {
             let value = slice::from_raw_parts(ptr, len * 12);
 
             self.slot.location_id.with_value_unchecked(|location| {
-                gl.uniform_matrix4x3fv_with_f32_array(Some(&location), transpose, slice_make_mut(value));
+                gl.uniform_matrix4x3fv_with_f32_array(
+                    Some(&location),
+                    transpose,
+                    slice_make_mut(value),
+                );
             });
         }
     }
 }
 
 impl<'a> Binder<'a, FloatMatrix4x4Slot> {
-    pub fn bind(&mut self, mut value: [f32;16], transpose: bool) {
+    pub fn bind(&mut self, mut value: [f32; 16], transpose: bool) {
         let Connection(gl, _) = self.connection;
 
         if self.slot.current_value != (value, transpose) {
@@ -1044,7 +1662,7 @@ impl<'a> Binder<'a, FloatMatrix4x4Slot> {
 }
 
 impl<'a> Binder<'a, ArrayOfFloatMatrix4x4Slot> {
-    pub fn bind(&mut self, value: &[[f32;16]], transpose: bool) {
+    pub fn bind(&mut self, value: &[[f32; 16]], transpose: bool) {
         let Connection(gl, _) = self.connection;
         let ptr = value.as_ptr() as *const f32;
         let len = value.len();
@@ -1053,7 +1671,11 @@ impl<'a> Binder<'a, ArrayOfFloatMatrix4x4Slot> {
             let value = slice::from_raw_parts(ptr, len * 16);
 
             self.slot.location_id.with_value_unchecked(|location| {
-                gl.uniform_matrix4fv_with_f32_array(Some(&location), transpose, slice_make_mut(value));
+                gl.uniform_matrix4fv_with_f32_array(
+                    Some(&location),
+                    transpose,
+                    slice_make_mut(value),
+                );
             });
         }
     }
@@ -1432,7 +2054,7 @@ impl<'a> Binder<'a, ArrayOfBoolVector4Slot> {
 }
 
 impl<'a> Binder<'a, FloatSampler2DSlot> {
-    pub fn bind<F>(&mut self, value: &SamplerHandle<Texture2DHandle<F>>) where F: TextureFormat + FloatSamplable + 'static {
+    pub fn bind<F>(&mut self, value: &FloatSampler2DHandle<F>) {
         let unit = value.bind(self.connection) as i32;
         let Connection(gl, _) = self.connection;
 
@@ -1449,8 +2071,11 @@ impl<'a> Binder<'a, FloatSampler2DSlot> {
 }
 
 impl<'a> Binder<'a, ArrayOfFloatSampler2DSlot> {
-    pub fn bind<F>(&mut self, value: &[SamplerHandle<Texture2DHandle<F>>]) where F: TextureFormat + FloatSamplable + 'static {
-        let units: Vec<i32> = value.iter().map(|s| s.bind(self.connection) as i32).collect();
+    pub fn bind<F>(&mut self, value: &[FloatSampler2DHandle<F>]) {
+        let units: Vec<i32> = value
+            .iter()
+            .map(|s| s.bind(self.connection) as i32)
+            .collect();
         let Connection(gl, _) = self.connection;
 
         unsafe {
@@ -1461,215 +2086,464 @@ impl<'a> Binder<'a, ArrayOfFloatSampler2DSlot> {
     }
 }
 
-pub(crate) struct UniformInfo {
-    pub(crate) location: JsId,
-    pub(crate) value_type: UniformType,
-    pub(crate) size: usize,
-    pub(crate) current_value: Option<UniformValue>,
-}
+impl<'a> Binder<'a, IntegerSampler2DSlot> {
+    pub fn bind<F>(&mut self, value: &IntegerSampler2DHandle<F>) {
+        let unit = value.bind(self.connection) as i32;
+        let Connection(gl, _) = self.connection;
 
-#[derive(PartialEq)]
-pub enum UniformValue {
-    Float(f32),
-    FloatVector2((f32, f32)),
-    FloatVector3((f32, f32, f32)),
-    FloatVector4((f32, f32, f32, f32)),
-    FloatMatrix2x2([f32; 4]),
-    FloatMatrix2x3([f32; 6]),
-    FloatMatrix2x4([f32; 8]),
-    FloatMatrix3x2([f32; 6]),
-    FloatMatrix3x3([f32; 9]),
-    FloatMatrix3x4([f32; 12]),
-    FloatMatrix4x2([f32; 8]),
-    FloatMatrix4x3([f32; 12]),
-    FloatMatrix4x4([f32; 16]),
-    Integer(i32),
-    IntegerVector2((i32, i32)),
-    IntegerVector3((i32, i32, i32)),
-    IntegerVector4((i32, i32, i32, i32)),
-    UnsignedInteger(u32),
-    UnsignedIntegerVector2((u32, u32)),
-    UnsignedIntegerVector3((u32, u32, u32)),
-    UnsignedIntegerVector4((u32, u32, u32, u32)),
-}
-
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub enum UniformType {
-    Float,
-    FloatVector2,
-    FloatVector3,
-    FloatVector4,
-    FloatMatrix2,
-    FloatMatrix3,
-    FloatMatrix4,
-    FloatMatrix2x3,
-    FloatMatrix2x4,
-    FloatMatrix3x2,
-    FloatMatrix3x4,
-    FloatMatrix4x2,
-    FloatMatrix4x3,
-    Integer,
-    IntegerVector2,
-    IntegerVector3,
-    IntegerVector4,
-    UnsignedInteger,
-    UnsignedIntegerVector2,
-    UnsignedIntegerVector3,
-    UnsignedIntegerVector4,
-    Boolean,
-    BooleanVector2,
-    BooleanVector3,
-    BooleanVector4,
-    Sampler2D,
-    SamplerCUBE,
-    Sampler3D,
-    Sampler2DShadow,
-    Sampler2DArray,
-    Sampler2DArrayShadow,
-    SamplerCubeShadow,
-    IntegerSampler2D,
-    IntegerSampler3D,
-    IntegerSamplerCube,
-    IntegerSampler2DArray,
-    UnsignedIntegerSampler2D,
-    UnsignedIntegerSampler3D,
-    UnsignedIntegerSamplerCube,
-    UnsignedIntegerSampler2DArray,
-    ArrayOfFloat(usize),
-    ArrayOfFloatVector2(usize),
-    ArrayOfFloatVector3(usize),
-    ArrayOfFloatVector4(usize),
-    ArrayOfFloatMatrix2(usize),
-    ArrayOfFloatMatrix3(usize),
-    ArrayOfFloatMatrix4(usize),
-    ArrayOfFloatMatrix2x3(usize),
-    ArrayOfFloatMatrix2x4(usize),
-    ArrayOfFloatMatrix3x2(usize),
-    ArrayOfFloatMatrix3x4(usize),
-    ArrayOfFloatMatrix4x2(usize),
-    ArrayOfFloatMatrix4x3(usize),
-    ArrayOfInteger(usize),
-    ArrayOfIntegerVector2(usize),
-    ArrayOfIntegerVector3(usize),
-    ArrayOfIntegerVector4(usize),
-    ArrayOfUnsignedInteger(usize),
-    ArrayOfUnsignedIntegerVector2(usize),
-    ArrayOfUnsignedIntegerVector3(usize),
-    ArrayOfUnsignedIntegerVector4(usize),
-    ArrayOfBoolean(usize),
-    ArrayOfBooleanVector2(usize),
-    ArrayOfBooleanVector3(usize),
-    ArrayOfBooleanVector4(usize),
-    ArrayOfSampler2D(usize),
-    ArrayOfSamplerCUBE(usize),
-    ArrayOfSampler3D(usize),
-    ArrayOfSampler2DShadow(usize),
-    ArrayOfSampler2DArray(usize),
-    ArrayOfSampler2DArrayShadow(usize),
-    ArrayOfSamplerCubeShadow(usize),
-    ArrayOfIntegerSampler2D(usize),
-    ArrayOfIntegerSampler3D(usize),
-    ArrayOfIntegerSamplerCube(usize),
-    ArrayOfIntegerSampler2DArray(usize),
-    ArrayOfUnsignedIntegerSampler2D(usize),
-    ArrayOfUnsignedIntegerSampler3D(usize),
-    ArrayOfUnsignedIntegerSamplerCube(usize),
-    ArrayOfUnsignedIntegerSampler2DArray(usize),
-}
-
-impl UniformType {
-    fn from_info(info: &WebGlActiveInfo) -> Self {
-        let size = info.size() as usize;
-        let is_array = info.name().ends_with("[0]");
-
-        if is_array {
-            match info.type_() {
-                Gl::FLOAT => UniformType::ArrayOfFloat(size),
-                Gl::FLOAT_VEC2 => UniformType::ArrayOfFloatVector2(size),
-                Gl::FLOAT_VEC3 => UniformType::ArrayOfFloatVector3(size),
-                Gl::FLOAT_VEC4 => UniformType::ArrayOfFloatVector4(size),
-                Gl::FLOAT_MAT2 => UniformType::ArrayOfFloatMatrix2(size),
-                Gl::FLOAT_MAT3 => UniformType::ArrayOfFloatMatrix3(size),
-                Gl::FLOAT_MAT4 => UniformType::ArrayOfFloatMatrix4(size),
-                Gl::FLOAT_MAT2X3 => UniformType::ArrayOfFloatMatrix2x3(size),
-                Gl::FLOAT_MAT2X4 => UniformType::ArrayOfFloatMatrix2x4(size),
-                Gl::FLOAT_MAT3X2 => UniformType::ArrayOfFloatMatrix3x2(size),
-                Gl::FLOAT_MAT3X4 => UniformType::ArrayOfFloatMatrix3x4(size),
-                Gl::FLOAT_MAT4X2 => UniformType::ArrayOfFloatMatrix4x2(size),
-                Gl::FLOAT_MAT4X3 => UniformType::ArrayOfFloatMatrix4x3(size),
-                Gl::INT => UniformType::ArrayOfInteger(size),
-                Gl::INT_VEC2 => UniformType::ArrayOfIntegerVector2(size),
-                Gl::INT_VEC3 => UniformType::ArrayOfIntegerVector3(size),
-                Gl::INT_VEC4 => UniformType::ArrayOfIntegerVector4(size),
-                Gl::BOOL => UniformType::ArrayOfBoolean(size),
-                Gl::BOOL_VEC2 => UniformType::ArrayOfBooleanVector2(size),
-                Gl::BOOL_VEC3 => UniformType::ArrayOfBooleanVector3(size),
-                Gl::BOOL_VEC4 => UniformType::ArrayOfBooleanVector4(size),
-                Gl::UNSIGNED_INT => UniformType::ArrayOfUnsignedInteger(size),
-                Gl::UNSIGNED_INT_VEC2 => UniformType::ArrayOfUnsignedIntegerVector2(size),
-                Gl::UNSIGNED_INT_VEC3 => UniformType::ArrayOfUnsignedIntegerVector3(size),
-                Gl::UNSIGNED_INT_VEC4 => UniformType::ArrayOfUnsignedIntegerVector4(size),
-                Gl::SAMPLER_2D => UniformType::ArrayOfSampler2D(size),
-                Gl::SAMPLER_CUBE => UniformType::ArrayOfSamplerCUBE(size),
-                Gl::SAMPLER_3D => UniformType::ArrayOfSampler3D(size),
-                Gl::SAMPLER_2D_SHADOW => UniformType::ArrayOfSampler2DShadow(size),
-                Gl::SAMPLER_2D_ARRAY => UniformType::ArrayOfSampler2DArray(size),
-                Gl::SAMPLER_2D_ARRAY_SHADOW => UniformType::ArrayOfSampler2DArrayShadow(size),
-                Gl::SAMPLER_CUBE_SHADOW => UniformType::ArrayOfSamplerCubeShadow(size),
-                Gl::INT_SAMPLER_2D => UniformType::ArrayOfIntegerSampler2D(size),
-                Gl::INT_SAMPLER_3D => UniformType::ArrayOfIntegerSampler3D(size),
-                Gl::INT_SAMPLER_CUBE => UniformType::ArrayOfIntegerSamplerCube(size),
-                Gl::INT_SAMPLER_2D_ARRAY => UniformType::ArrayOfIntegerSampler2DArray(size),
-                Gl::UNSIGNED_INT_SAMPLER_2D => UniformType::ArrayOfUnsignedIntegerSampler2D(size),
-                Gl::UNSIGNED_INT_SAMPLER_3D => UniformType::ArrayOfUnsignedIntegerSampler3D(size),
-                Gl::UNSIGNED_INT_SAMPLER_CUBE => UniformType::ArrayOfUnsignedIntegerSamplerCube(size),
-                Gl::UNSIGNED_INT_SAMPLER_2D_ARRAY => UniformType::ArrayOfUnsignedIntegerSampler2DArray(size),
-                _ => panic!("Invalid uniform type ID")
+        if self.slot.current_value != unit {
+            unsafe {
+                self.slot.location_id.with_value_unchecked(|location| {
+                    gl.uniform1i(Some(&location), unit);
+                });
             }
-        } else {
-            match info.type_() {
-                Gl::FLOAT => UniformType::Float,
-                Gl::FLOAT_VEC2 => UniformType::FloatVector2,
-                Gl::FLOAT_VEC3 => UniformType::FloatVector3,
-                Gl::FLOAT_VEC4 => UniformType::FloatVector4,
-                Gl::FLOAT_MAT2 => UniformType::FloatMatrix2,
-                Gl::FLOAT_MAT3 => UniformType::FloatMatrix3,
-                Gl::FLOAT_MAT4 => UniformType::FloatMatrix4,
-                Gl::FLOAT_MAT2X3 => UniformType::FloatMatrix2x3,
-                Gl::FLOAT_MAT2X4 => UniformType::FloatMatrix2x4,
-                Gl::FLOAT_MAT3X2 => UniformType::FloatMatrix3x2,
-                Gl::FLOAT_MAT3X4 => UniformType::FloatMatrix3x4,
-                Gl::FLOAT_MAT4X2 => UniformType::FloatMatrix4x2,
-                Gl::FLOAT_MAT4X3 => UniformType::FloatMatrix4x3,
-                Gl::INT => UniformType::Integer,
-                Gl::INT_VEC2 => UniformType::IntegerVector2,
-                Gl::INT_VEC3 => UniformType::IntegerVector3,
-                Gl::INT_VEC4 => UniformType::IntegerVector4,
-                Gl::BOOL => UniformType::Boolean,
-                Gl::BOOL_VEC2 => UniformType::BooleanVector2,
-                Gl::BOOL_VEC3 => UniformType::BooleanVector3,
-                Gl::BOOL_VEC4 => UniformType::BooleanVector4,
-                Gl::UNSIGNED_INT => UniformType::UnsignedInteger,
-                Gl::UNSIGNED_INT_VEC2 => UniformType::UnsignedIntegerVector2,
-                Gl::UNSIGNED_INT_VEC3 => UniformType::UnsignedIntegerVector3,
-                Gl::UNSIGNED_INT_VEC4 => UniformType::UnsignedIntegerVector4,
-                Gl::SAMPLER_2D => UniformType::Sampler2D,
-                Gl::SAMPLER_CUBE => UniformType::SamplerCUBE,
-                Gl::SAMPLER_3D => UniformType::Sampler3D,
-                Gl::SAMPLER_2D_SHADOW => UniformType::Sampler2DShadow,
-                Gl::SAMPLER_2D_ARRAY => UniformType::Sampler2DArray,
-                Gl::SAMPLER_2D_ARRAY_SHADOW => UniformType::Sampler2DArrayShadow,
-                Gl::SAMPLER_CUBE_SHADOW => UniformType::SamplerCubeShadow,
-                Gl::INT_SAMPLER_2D => UniformType::IntegerSampler2D,
-                Gl::INT_SAMPLER_3D => UniformType::IntegerSampler3D,
-                Gl::INT_SAMPLER_CUBE => UniformType::IntegerSamplerCube,
-                Gl::INT_SAMPLER_2D_ARRAY => UniformType::IntegerSampler2DArray,
-                Gl::UNSIGNED_INT_SAMPLER_2D => UniformType::UnsignedIntegerSampler2D,
-                Gl::UNSIGNED_INT_SAMPLER_3D => UniformType::UnsignedIntegerSampler3D,
-                Gl::UNSIGNED_INT_SAMPLER_CUBE => UniformType::UnsignedIntegerSamplerCube,
-                Gl::UNSIGNED_INT_SAMPLER_2D_ARRAY => UniformType::UnsignedIntegerSampler2DArray,
-                _ => panic!("Invalid uniform type ID")
+
+            self.slot.current_value = unit
+        }
+    }
+}
+
+impl<'a> Binder<'a, ArrayOfIntegerSampler2DSlot> {
+    pub fn bind<F>(&mut self, value: &[IntegerSampler2DHandle<F>]) {
+        let units: Vec<i32> = value
+            .iter()
+            .map(|s| s.bind(self.connection) as i32)
+            .collect();
+        let Connection(gl, _) = self.connection;
+
+        unsafe {
+            self.slot.location_id.with_value_unchecked(|location| {
+                gl.uniform1iv_with_i32_array(Some(&location), slice_make_mut(&units));
+            });
+        }
+    }
+}
+
+impl<'a> Binder<'a, UnsignedIntegerSampler2DSlot> {
+    pub fn bind<F>(&mut self, value: &UnsignedIntegerSampler2DHandle<F>) {
+        let unit = value.bind(self.connection) as i32;
+        let Connection(gl, _) = self.connection;
+
+        if self.slot.current_value != unit {
+            unsafe {
+                self.slot.location_id.with_value_unchecked(|location| {
+                    gl.uniform1i(Some(&location), unit);
+                });
             }
+
+            self.slot.current_value = unit
+        }
+    }
+}
+
+impl<'a> Binder<'a, ArrayOfUnsignedIntegerSampler2DSlot> {
+    pub fn bind<F>(&mut self, value: &[UnsignedIntegerSampler2DHandle<F>]) {
+        let units: Vec<i32> = value
+            .iter()
+            .map(|s| s.bind(self.connection) as i32)
+            .collect();
+        let Connection(gl, _) = self.connection;
+
+        unsafe {
+            self.slot.location_id.with_value_unchecked(|location| {
+                gl.uniform1iv_with_i32_array(Some(&location), slice_make_mut(&units));
+            });
+        }
+    }
+}
+
+impl<'a> Binder<'a, FloatSampler2DArraySlot> {
+    pub fn bind<F>(&mut self, value: &FloatSampler2DArrayHandle<F>) {
+        let unit = value.bind(self.connection) as i32;
+        let Connection(gl, _) = self.connection;
+
+        if self.slot.current_value != unit {
+            unsafe {
+                self.slot.location_id.with_value_unchecked(|location| {
+                    gl.uniform1i(Some(&location), unit);
+                });
+            }
+
+            self.slot.current_value = unit
+        }
+    }
+}
+
+impl<'a> Binder<'a, ArrayOfFloatSampler2DArraySlot> {
+    pub fn bind<F>(&mut self, value: &[FloatSampler2DArrayHandle<F>]) {
+        let units: Vec<i32> = value
+            .iter()
+            .map(|s| s.bind(self.connection) as i32)
+            .collect();
+        let Connection(gl, _) = self.connection;
+
+        unsafe {
+            self.slot.location_id.with_value_unchecked(|location| {
+                gl.uniform1iv_with_i32_array(Some(&location), slice_make_mut(&units));
+            });
+        }
+    }
+}
+
+impl<'a> Binder<'a, IntegerSampler2DArraySlot> {
+    pub fn bind<F>(&mut self, value: &IntegerSampler2DArrayHandle<F>) {
+        let unit = value.bind(self.connection) as i32;
+        let Connection(gl, _) = self.connection;
+
+        if self.slot.current_value != unit {
+            unsafe {
+                self.slot.location_id.with_value_unchecked(|location| {
+                    gl.uniform1i(Some(&location), unit);
+                });
+            }
+
+            self.slot.current_value = unit
+        }
+    }
+}
+
+impl<'a> Binder<'a, ArrayOfIntegerSampler2DArraySlot> {
+    pub fn bind<F>(&mut self, value: &[IntegerSampler2DArrayHandle<F>]) {
+        let units: Vec<i32> = value
+            .iter()
+            .map(|s| s.bind(self.connection) as i32)
+            .collect();
+        let Connection(gl, _) = self.connection;
+
+        unsafe {
+            self.slot.location_id.with_value_unchecked(|location| {
+                gl.uniform1iv_with_i32_array(Some(&location), slice_make_mut(&units));
+            });
+        }
+    }
+}
+
+impl<'a> Binder<'a, UnsignedIntegerSampler2DArraySlot> {
+    pub fn bind<F>(&mut self, value: &UnsignedIntegerSampler2DArrayHandle<F>) {
+        let unit = value.bind(self.connection) as i32;
+        let Connection(gl, _) = self.connection;
+
+        if self.slot.current_value != unit {
+            unsafe {
+                self.slot.location_id.with_value_unchecked(|location| {
+                    gl.uniform1i(Some(&location), unit);
+                });
+            }
+
+            self.slot.current_value = unit
+        }
+    }
+}
+
+impl<'a> Binder<'a, ArrayOfUnsignedIntegerSampler2DArraySlot> {
+    pub fn bind<F>(&mut self, value: &[UnsignedIntegerSampler2DArrayHandle<F>]) {
+        let units: Vec<i32> = value
+            .iter()
+            .map(|s| s.bind(self.connection) as i32)
+            .collect();
+        let Connection(gl, _) = self.connection;
+
+        unsafe {
+            self.slot.location_id.with_value_unchecked(|location| {
+                gl.uniform1iv_with_i32_array(Some(&location), slice_make_mut(&units));
+            });
+        }
+    }
+}
+
+impl<'a> Binder<'a, FloatSampler3DSlot> {
+    pub fn bind<F>(&mut self, value: &FloatSampler3DHandle<F>) {
+        let unit = value.bind(self.connection) as i32;
+        let Connection(gl, _) = self.connection;
+
+        if self.slot.current_value != unit {
+            unsafe {
+                self.slot.location_id.with_value_unchecked(|location| {
+                    gl.uniform1i(Some(&location), unit);
+                });
+            }
+
+            self.slot.current_value = unit
+        }
+    }
+}
+
+impl<'a> Binder<'a, ArrayOfFloatSampler3DSlot> {
+    pub fn bind<F>(&mut self, value: &[FloatSampler3DHandle<F>]) {
+        let units: Vec<i32> = value
+            .iter()
+            .map(|s| s.bind(self.connection) as i32)
+            .collect();
+        let Connection(gl, _) = self.connection;
+
+        unsafe {
+            self.slot.location_id.with_value_unchecked(|location| {
+                gl.uniform1iv_with_i32_array(Some(&location), slice_make_mut(&units));
+            });
+        }
+    }
+}
+
+impl<'a> Binder<'a, IntegerSampler3DSlot> {
+    pub fn bind<F>(&mut self, value: &IntegerSampler3DHandle<F>) {
+        let unit = value.bind(self.connection) as i32;
+        let Connection(gl, _) = self.connection;
+
+        if self.slot.current_value != unit {
+            unsafe {
+                self.slot.location_id.with_value_unchecked(|location| {
+                    gl.uniform1i(Some(&location), unit);
+                });
+            }
+
+            self.slot.current_value = unit
+        }
+    }
+}
+
+impl<'a> Binder<'a, ArrayOfIntegerSampler3DSlot> {
+    pub fn bind<F>(&mut self, value: &[IntegerSampler3DHandle<F>]) {
+        let units: Vec<i32> = value
+            .iter()
+            .map(|s| s.bind(self.connection) as i32)
+            .collect();
+        let Connection(gl, _) = self.connection;
+
+        unsafe {
+            self.slot.location_id.with_value_unchecked(|location| {
+                gl.uniform1iv_with_i32_array(Some(&location), slice_make_mut(&units));
+            });
+        }
+    }
+}
+
+impl<'a> Binder<'a, UnsignedIntegerSampler3DSlot> {
+    pub fn bind<F>(&mut self, value: &UnsignedIntegerSampler3DHandle<F>) {
+        let unit = value.bind(self.connection) as i32;
+        let Connection(gl, _) = self.connection;
+
+        if self.slot.current_value != unit {
+            unsafe {
+                self.slot.location_id.with_value_unchecked(|location| {
+                    gl.uniform1i(Some(&location), unit);
+                });
+            }
+
+            self.slot.current_value = unit
+        }
+    }
+}
+
+impl<'a> Binder<'a, ArrayOfUnsignedIntegerSampler3DSlot> {
+    pub fn bind<F>(&mut self, value: &[UnsignedIntegerSampler3DHandle<F>]) {
+        let units: Vec<i32> = value
+            .iter()
+            .map(|s| s.bind(self.connection) as i32)
+            .collect();
+        let Connection(gl, _) = self.connection;
+
+        unsafe {
+            self.slot.location_id.with_value_unchecked(|location| {
+                gl.uniform1iv_with_i32_array(Some(&location), slice_make_mut(&units));
+            });
+        }
+    }
+}
+
+impl<'a> Binder<'a, FloatSamplerCubeSlot> {
+    pub fn bind<F>(&mut self, value: &FloatSamplerCubeHandle<F>) {
+        let unit = value.bind(self.connection) as i32;
+        let Connection(gl, _) = self.connection;
+
+        if self.slot.current_value != unit {
+            unsafe {
+                self.slot.location_id.with_value_unchecked(|location| {
+                    gl.uniform1i(Some(&location), unit);
+                });
+            }
+
+            self.slot.current_value = unit
+        }
+    }
+}
+
+impl<'a> Binder<'a, ArrayOfFloatSamplerCubeSlot> {
+    pub fn bind<F>(&mut self, value: &[FloatSamplerCubeHandle<F>]) {
+        let units: Vec<i32> = value
+            .iter()
+            .map(|s| s.bind(self.connection) as i32)
+            .collect();
+        let Connection(gl, _) = self.connection;
+
+        unsafe {
+            self.slot.location_id.with_value_unchecked(|location| {
+                gl.uniform1iv_with_i32_array(Some(&location), slice_make_mut(&units));
+            });
+        }
+    }
+}
+
+impl<'a> Binder<'a, IntegerSamplerCubeSlot> {
+    pub fn bind<F>(&mut self, value: &IntegerSamplerCubeHandle<F>) {
+        let unit = value.bind(self.connection) as i32;
+        let Connection(gl, _) = self.connection;
+
+        if self.slot.current_value != unit {
+            unsafe {
+                self.slot.location_id.with_value_unchecked(|location| {
+                    gl.uniform1i(Some(&location), unit);
+                });
+            }
+
+            self.slot.current_value = unit
+        }
+    }
+}
+
+impl<'a> Binder<'a, ArrayOfIntegerSamplerCubeSlot> {
+    pub fn bind<F>(&mut self, value: &[IntegerSamplerCubeHandle<F>]) {
+        let units: Vec<i32> = value
+            .iter()
+            .map(|s| s.bind(self.connection) as i32)
+            .collect();
+        let Connection(gl, _) = self.connection;
+
+        unsafe {
+            self.slot.location_id.with_value_unchecked(|location| {
+                gl.uniform1iv_with_i32_array(Some(&location), slice_make_mut(&units));
+            });
+        }
+    }
+}
+
+impl<'a> Binder<'a, UnsignedIntegerSamplerCubeSlot> {
+    pub fn bind<F>(&mut self, value: &UnsignedIntegerSamplerCubeHandle<F>) {
+        let unit = value.bind(self.connection) as i32;
+        let Connection(gl, _) = self.connection;
+
+        if self.slot.current_value != unit {
+            unsafe {
+                self.slot.location_id.with_value_unchecked(|location| {
+                    gl.uniform1i(Some(&location), unit);
+                });
+            }
+
+            self.slot.current_value = unit
+        }
+    }
+}
+
+impl<'a> Binder<'a, ArrayOfUnsignedIntegerSamplerCubeSlot> {
+    pub fn bind<F>(&mut self, value: &[UnsignedIntegerSamplerCubeHandle<F>]) {
+        let units: Vec<i32> = value
+            .iter()
+            .map(|s| s.bind(self.connection) as i32)
+            .collect();
+        let Connection(gl, _) = self.connection;
+
+        unsafe {
+            self.slot.location_id.with_value_unchecked(|location| {
+                gl.uniform1iv_with_i32_array(Some(&location), slice_make_mut(&units));
+            });
+        }
+    }
+}
+
+impl<'a> Binder<'a, Sampler2DShadowSlot> {
+    pub fn bind<F>(&mut self, value: &Sampler2DShadowHandle<F>) {
+        let unit = value.bind(self.connection) as i32;
+        let Connection(gl, _) = self.connection;
+
+        if self.slot.current_value != unit {
+            unsafe {
+                self.slot.location_id.with_value_unchecked(|location| {
+                    gl.uniform1i(Some(&location), unit);
+                });
+            }
+
+            self.slot.current_value = unit
+        }
+    }
+}
+
+impl<'a> Binder<'a, ArrayOfSampler2DShadowSlot> {
+    pub fn bind<F>(&mut self, value: &[Sampler2DShadowHandle<F>]) {
+        let units: Vec<i32> = value
+            .iter()
+            .map(|s| s.bind(self.connection) as i32)
+            .collect();
+        let Connection(gl, _) = self.connection;
+
+        unsafe {
+            self.slot.location_id.with_value_unchecked(|location| {
+                gl.uniform1iv_with_i32_array(Some(&location), slice_make_mut(&units));
+            });
+        }
+    }
+}
+
+impl<'a> Binder<'a, Sampler2DArrayShadowSlot> {
+    pub fn bind<F>(&mut self, value: &Sampler2DArrayShadowHandle<F>) {
+        let unit = value.bind(self.connection) as i32;
+        let Connection(gl, _) = self.connection;
+
+        if self.slot.current_value != unit {
+            unsafe {
+                self.slot.location_id.with_value_unchecked(|location| {
+                    gl.uniform1i(Some(&location), unit);
+                });
+            }
+
+            self.slot.current_value = unit
+        }
+    }
+}
+
+impl<'a> Binder<'a, ArrayOfSampler2DArrayShadowSlot> {
+    pub fn bind<F>(&mut self, value: &[Sampler2DArrayShadowHandle<F>]) {
+        let units: Vec<i32> = value
+            .iter()
+            .map(|s| s.bind(self.connection) as i32)
+            .collect();
+        let Connection(gl, _) = self.connection;
+
+        unsafe {
+            self.slot.location_id.with_value_unchecked(|location| {
+                gl.uniform1iv_with_i32_array(Some(&location), slice_make_mut(&units));
+            });
+        }
+    }
+}
+
+impl<'a> Binder<'a, SamplerCubeShadowSlot> {
+    pub fn bind<F>(&mut self, value: &SamplerCubeShadowHandle<F>) {
+        let unit = value.bind(self.connection) as i32;
+        let Connection(gl, _) = self.connection;
+
+        if self.slot.current_value != unit {
+            unsafe {
+                self.slot.location_id.with_value_unchecked(|location| {
+                    gl.uniform1i(Some(&location), unit);
+                });
+            }
+
+            self.slot.current_value = unit
+        }
+    }
+}
+
+impl<'a> Binder<'a, ArrayOfSamplerCubeShadowSlot> {
+    pub fn bind<F>(&mut self, value: &[SamplerCubeShadowHandle<F>]) {
+        let units: Vec<i32> = value
+            .iter()
+            .map(|s| s.bind(self.connection) as i32)
+            .collect();
+        let Connection(gl, _) = self.connection;
+
+        unsafe {
+            self.slot.location_id.with_value_unchecked(|location| {
+                gl.uniform1iv_with_i32_array(Some(&location), slice_make_mut(&units));
+            });
         }
     }
 }
@@ -1723,7 +2597,7 @@ impl GpuTask<Connection> for ProgramAllocateTask<FragmentShader, ()> {
 
 // TODO: implement GpuTask for the other 2 combinations once web_sys supports transform_feedback_varyings
 
-fn active_uniforms(gl: &Gl, program: &WebGlProgram) -> Vec<(UniformValueIdentifier, UniformInfo)> {
+fn active_uniforms(gl: &Gl, program: &WebGlProgram) -> Vec<(UniformIdentifier, UniformSlot)> {
     let active_uniform_count = gl
         .get_program_parameter(program, Gl::ACTIVE_UNIFORMS)
         .as_f64()
@@ -1733,16 +2607,342 @@ fn active_uniforms(gl: &Gl, program: &WebGlProgram) -> Vec<(UniformValueIdentifi
     for i in 0..active_uniform_count {
         let info = gl.get_active_uniform(program, i).unwrap();
         let name = info.name();
-        let value_type = UniformType::from_info(&info);
-        let identifier = UniformValueIdentifier::from_string(&name);
-        let location = JsId::from_value(gl.get_uniform_location(&program, &name).unwrap().into());
+        let identifier = UniformIdentifier::from_string(&name);
+        let is_array = name.ends_with("[0]");
+        let size = info.size() as usize;
+        let location_id = JsId::from_value(gl.get_uniform_location(&program, &name).unwrap().into());
 
-        result.push((identifier, UniformInfo {
-            location,
-            value_type,
-            size: info.size() as usize,
-            current_value: None,
-        }));
+        let slot = if is_array {
+            match info.type_() {
+                Gl::FLOAT => UniformSlot::ArrayOfFloat(ArrayOfFloatSlot {
+                    location_id,
+                    size
+                }),
+                Gl::FLOAT_VEC2 => UniformSlot::ArrayOfFloatVector2(ArrayOfFloatVector2Slot {
+                    location_id,
+                    size
+                }),
+                Gl::FLOAT_VEC3 => UniformSlot::ArrayOfFloatVector3(ArrayOfFloatVector3Slot {
+                    location_id,
+                    size
+                }),
+                Gl::FLOAT_VEC4 => UniformSlot::ArrayOfFloatVector4(ArrayOfFloatVector4Slot {
+                    location_id,
+                    size
+                }),
+                Gl::FLOAT_MAT2 => UniformSlot::ArrayOfFloatMatrix2x2(ArrayOfFloatMatrix2x2Slot {
+                    location_id,
+                    size
+                }),
+                Gl::FLOAT_MAT3 => UniformSlot::ArrayOfFloatMatrix3x3(ArrayOfFloatMatrix3x3Slot {
+                    location_id,
+                    size
+                }),
+                Gl::FLOAT_MAT4 => UniformSlot::ArrayOfFloatMatrix4x4(ArrayOfFloatMatrix4x4Slot {
+                    location_id,
+                    size
+                }),
+                Gl::FLOAT_MAT2X3 => UniformSlot::ArrayOfFloatMatrix2x3(ArrayOfFloatMatrix2x3Slot {
+                    location_id,
+                    size
+                }),
+                Gl::FLOAT_MAT2X4 => UniformSlot::ArrayOfFloatMatrix2x4(ArrayOfFloatMatrix2x4Slot {
+                    location_id,
+                    size
+                }),
+                Gl::FLOAT_MAT3X2 => UniformSlot::ArrayOfFloatMatrix3x2(ArrayOfFloatMatrix3x2Slot {
+                    location_id,
+                    size
+                }),
+                Gl::FLOAT_MAT3X4 => UniformSlot::ArrayOfFloatMatrix3x4(ArrayOfFloatMatrix3x4Slot {
+                    location_id,
+                    size
+                }),
+                Gl::FLOAT_MAT4X2 => UniformSlot::ArrayOfFloatMatrix4x2(ArrayOfFloatMatrix4x2Slot {
+                    location_id,
+                    size
+                }),
+                Gl::FLOAT_MAT4X3 => UniformSlot::ArrayOfFloatMatrix4x3(ArrayOfFloatMatrix4x3Slot {
+                    location_id,
+                    size
+                }),
+                Gl::INT => UniformSlot::ArrayOfInteger(ArrayOfIntegerSlot {
+                    location_id,
+                    size
+                }),
+                Gl::INT_VEC2 => UniformSlot::ArrayOfIntegerVector2(ArrayOfIntegerVector2Slot {
+                    location_id,
+                    size
+                }),
+                Gl::INT_VEC3 => UniformSlot::ArrayOfIntegerVector3(ArrayOfIntegerVector3Slot {
+                    location_id,
+                    size
+                }),
+                Gl::INT_VEC4 => UniformSlot::ArrayOfIntegerVector4(ArrayOfIntegerVector4Slot {
+                    location_id,
+                    size
+                }),
+                Gl::BOOL => UniformSlot::ArrayOfBool(ArrayOfBoolSlot {
+                    location_id,
+                    size
+                }),
+                Gl::BOOL_VEC2 => UniformSlot::ArrayOfBoolVector2(ArrayOfBoolVector2Slot {
+                    location_id,
+                    size
+                }),
+                Gl::BOOL_VEC3 => UniformSlot::ArrayOfBoolVector3(ArrayOfBoolVector3Slot {
+                    location_id,
+                    size
+                }),
+                Gl::BOOL_VEC4 => UniformSlot::ArrayOfBoolVector4(ArrayOfBoolVector4Slot {
+                    location_id,
+                    size
+                }),
+                Gl::UNSIGNED_INT => UniformSlot::ArrayOfUnsignedInteger(ArrayOfUnsignedIntegerSlot {
+                    location_id,
+                    size
+                }),
+                Gl::UNSIGNED_INT_VEC2 => UniformSlot::ArrayOfUnsignedIntegerVector2(ArrayOfUnsignedIntegerVector2Slot {
+                    location_id,
+                    size
+                }),
+                Gl::UNSIGNED_INT_VEC3 => UniformSlot::ArrayOfUnsignedIntegerVector3(ArrayOfUnsignedIntegerVector3Slot {
+                    location_id,
+                    size
+                }),
+                Gl::UNSIGNED_INT_VEC4 => UniformSlot::ArrayOfUnsignedIntegerVector4(ArrayOfUnsignedIntegerVector4Slot {
+                    location_id,
+                    size
+                }),
+                Gl::SAMPLER_2D => UniformSlot::ArrayOfFloatSampler2D(ArrayOfFloatSampler2DSlot {
+                    location_id,
+                    size
+                }),
+                Gl::SAMPLER_CUBE => UniformSlot::ArrayOfFloatSamplerCube(ArrayOfFloatSamplerCubeSlot {
+                    location_id,
+                    size
+                }),
+                Gl::SAMPLER_3D => UniformSlot::ArrayOfFloatSampler3D(ArrayOfFloatSampler3DSlot {
+                    location_id,
+                    size
+                }),
+                Gl::SAMPLER_2D_SHADOW => UniformSlot::ArrayOfSampler2DShadow(ArrayOfSampler2DShadowSlot {
+                    location_id,
+                    size
+                }),
+                Gl::SAMPLER_2D_ARRAY => UniformSlot::ArrayOfFloatSampler2DArray(ArrayOfFloatSampler2DArraySlot {
+                    location_id,
+                    size
+                }),
+                Gl::SAMPLER_2D_ARRAY_SHADOW => UniformSlot::ArrayOfSampler2DArrayShadow(ArrayOfSampler2DArrayShadowSlot {
+                    location_id,
+                    size
+                }),
+                Gl::SAMPLER_CUBE_SHADOW => UniformSlot::ArrayOfSamplerCubeShadow(ArrayOfSamplerCubeShadowSlot {
+                    location_id,
+                    size
+                }),
+                Gl::INT_SAMPLER_2D => UniformSlot::ArrayOfIntegerSampler2D(ArrayOfIntegerSampler2DSlot {
+                    location_id,
+                    size
+                }),
+                Gl::INT_SAMPLER_3D => UniformSlot::ArrayOfIntegerSampler3D(ArrayOfIntegerSampler3DSlot {
+                    location_id,
+                    size
+                }),
+                Gl::INT_SAMPLER_CUBE => UniformSlot::ArrayOfIntegerSamplerCube(ArrayOfIntegerSamplerCubeSlot {
+                    location_id,
+                    size
+                }),
+                Gl::INT_SAMPLER_2D_ARRAY => UniformSlot::ArrayOfIntegerSampler2DArray(ArrayOfIntegerSampler2DArraySlot {
+                    location_id,
+                    size
+                }),
+                Gl::UNSIGNED_INT_SAMPLER_2D => UniformSlot::ArrayOfUnsignedIntegerSampler2D(ArrayOfUnsignedIntegerSampler2DSlot {
+                    location_id,
+                    size
+                }),
+                Gl::UNSIGNED_INT_SAMPLER_3D => UniformSlot::ArrayOfUnsignedIntegerSampler3D(ArrayOfUnsignedIntegerSampler3DSlot {
+                    location_id,
+                    size
+                }),
+                Gl::UNSIGNED_INT_SAMPLER_CUBE => UniformSlot::ArrayOfUnsignedIntegerSamplerCube(ArrayOfUnsignedIntegerSamplerCubeSlot {
+                    location_id,
+                    size
+                }),
+                Gl::UNSIGNED_INT_SAMPLER_2D_ARRAY => UniformSlot::ArrayOfUnsignedIntegerSampler2DArray(ArrayOfUnsignedIntegerSampler2DArraySlot {
+                    location_id,
+                    size
+                }),
+                _ => panic!("Invalid uniform type ID"),
+            }
+        } else {
+            match info.type_() {
+                Gl::FLOAT => UniformSlot::Float(FloatSlot {
+                    location_id,
+                    current_value: 0.0
+                }),
+                Gl::FLOAT_VEC2 => UniformSlot::FloatVector2(FloatVector2Slot {
+                    location_id,
+                    current_value: (0.0, 0.0)
+                }),
+                Gl::FLOAT_VEC3 => UniformSlot::FloatVector3(FloatVector3Slot {
+                    location_id,
+                    current_value: (0.0, 0.0, 0.0)
+                }),
+                Gl::FLOAT_VEC4 => UniformSlot::FloatVector4(FloatVector4Slot {
+                    location_id,
+                    current_value: (0.0, 0.0, 0.0, 0.0)
+                }),
+                Gl::FLOAT_MAT2 => UniformSlot::FloatMatrix2x2(FloatMatrix2x2Slot {
+                    location_id,
+                    current_value: ([0.0;4], false)
+                }),
+                Gl::FLOAT_MAT3 => UniformSlot::FloatMatrix3x3(FloatMatrix3x3Slot {
+                    location_id,
+                    current_value: ([0.0;9], false)
+                }),
+                Gl::FLOAT_MAT4 => UniformSlot::FloatMatrix4x4(FloatMatrix4x4Slot {
+                    location_id,
+                    current_value: ([0.0;16], false)
+                }),
+                Gl::FLOAT_MAT2X3 => UniformSlot::FloatMatrix2x3(FloatMatrix2x3Slot {
+                    location_id,
+                    current_value: ([0.0;6], false)
+                }),
+                Gl::FLOAT_MAT2X4 => UniformSlot::FloatMatrix2x4(FloatMatrix2x4Slot {
+                    location_id,
+                    current_value: ([0.0;8], false)
+                }),
+                Gl::FLOAT_MAT3X2 => UniformSlot::FloatMatrix3x2(FloatMatrix3x2Slot {
+                    location_id,
+                    current_value: ([0.0;6], false)
+                }),
+                Gl::FLOAT_MAT3X4 => UniformSlot::FloatMatrix3x4(FloatMatrix3x4Slot {
+                    location_id,
+                    current_value: ([0.0;12], false)
+                }),
+                Gl::FLOAT_MAT4X2 => UniformSlot::FloatMatrix4x2(FloatMatrix4x2Slot {
+                    location_id,
+                    current_value: ([0.0;8], false)
+                }),
+                Gl::FLOAT_MAT4X3 => UniformSlot::FloatMatrix4x3(FloatMatrix4x3Slot {
+                    location_id,
+                    current_value: ([0.0;12], false)
+                }),
+                Gl::INT => UniformSlot::Integer(IntegerSlot {
+                    location_id,
+                    current_value: 0
+                }),
+                Gl::INT_VEC2 => UniformSlot::IntegerVector2(IntegerVector2Slot {
+                    location_id,
+                    current_value: (0, 0)
+                }),
+                Gl::INT_VEC3 => UniformSlot::IntegerVector3(IntegerVector3Slot {
+                    location_id,
+                    current_value: (0, 0, 0)
+                }),
+                Gl::INT_VEC4 => UniformSlot::IntegerVector4(IntegerVector4Slot {
+                    location_id,
+                    current_value: (0, 0, 0, 0)
+                }),
+                Gl::BOOL => UniformSlot::Bool(BoolSlot {
+                    location_id,
+                    current_value: 0
+                }),
+                Gl::BOOL_VEC2 => UniformSlot::BoolVector2(BoolVector2Slot {
+                    location_id,
+                    current_value: (0, 0)
+                }),
+                Gl::BOOL_VEC3 => UniformSlot::BoolVector3(BoolVector3Slot {
+                    location_id,
+                    current_value: (0, 0, 0)
+                }),
+                Gl::BOOL_VEC4 => UniformSlot::BoolVector4(BoolVector4Slot {
+                    location_id,
+                    current_value: (0, 0, 0, 0)
+                }),
+                Gl::UNSIGNED_INT => UniformSlot::UnsignedInteger(UnsignedIntegerSlot {
+                    location_id,
+                    current_value: 0
+                }),
+                Gl::UNSIGNED_INT_VEC2 => UniformSlot::UnsignedIntegerVector2(UnsignedIntegerVector2Slot {
+                    location_id,
+                    current_value: (0, 0)
+                }),
+                Gl::UNSIGNED_INT_VEC3 => UniformSlot::UnsignedIntegerVector3(UnsignedIntegerVector3Slot {
+                    location_id,
+                    current_value: (0, 0, 0)
+                }),
+                Gl::UNSIGNED_INT_VEC4 => UniformSlot::UnsignedIntegerVector4(UnsignedIntegerVector4Slot {
+                    location_id,
+                    current_value: (0, 0, 0, 0)
+                }),
+                Gl::SAMPLER_2D => UniformSlot::FloatSampler2D(FloatSampler2DSlot {
+                    location_id,
+                    current_value: 0
+                }),
+                Gl::SAMPLER_CUBE => UniformSlot::FloatSamplerCube(FloatSamplerCubeSlot {
+                    location_id,
+                    current_value: 0
+                }),
+                Gl::SAMPLER_3D => UniformSlot::FloatSampler3D(FloatSampler3DSlot {
+                    location_id,
+                    current_value: 0
+                }),
+                Gl::SAMPLER_2D_SHADOW => UniformSlot::Sampler2DShadow(Sampler2DShadowSlot {
+                    location_id,
+                    current_value: 0
+                }),
+                Gl::SAMPLER_2D_ARRAY => UniformSlot::FloatSampler2DArray(FloatSampler2DArraySlot {
+                    location_id,
+                    current_value: 0
+                }),
+                Gl::SAMPLER_2D_ARRAY_SHADOW => UniformSlot::Sampler2DArrayShadow(Sampler2DArrayShadowSlot {
+                    location_id,
+                    current_value: 0
+                }),
+                Gl::SAMPLER_CUBE_SHADOW => UniformSlot::SamplerCubeShadow(SamplerCubeShadowSlot {
+                    location_id,
+                    current_value: 0
+                }),
+                Gl::INT_SAMPLER_2D => UniformSlot::IntegerSampler2D(IntegerSampler2DSlot {
+                    location_id,
+                    current_value: 0
+                }),
+                Gl::INT_SAMPLER_3D => UniformSlot::IntegerSampler3D(IntegerSampler3DSlot {
+                    location_id,
+                    current_value: 0
+                }),
+                Gl::INT_SAMPLER_CUBE => UniformSlot::IntegerSamplerCube(IntegerSamplerCubeSlot {
+                    location_id,
+                    current_value: 0
+                }),
+                Gl::INT_SAMPLER_2D_ARRAY => UniformSlot::IntegerSampler2DArray(IntegerSampler2DArraySlot {
+                    location_id,
+                    current_value: 0
+                }),
+                Gl::UNSIGNED_INT_SAMPLER_2D => UniformSlot::UnsignedIntegerSampler2D(UnsignedIntegerSampler2DSlot {
+                    location_id,
+                    current_value: 0
+                }),
+                Gl::UNSIGNED_INT_SAMPLER_3D =>  UniformSlot::UnsignedIntegerSampler3D(UnsignedIntegerSampler3DSlot {
+                    location_id,
+                    current_value: 0
+                }),
+                Gl::UNSIGNED_INT_SAMPLER_CUBE =>  UniformSlot::UnsignedIntegerSamplerCube(UnsignedIntegerSamplerCubeSlot {
+                    location_id,
+                    current_value: 0
+                }),
+                Gl::UNSIGNED_INT_SAMPLER_2D_ARRAY =>  UniformSlot::UnsignedIntegerSampler2DArray(UnsignedIntegerSampler2DArraySlot {
+                    location_id,
+                    current_value: 0
+                }),
+                _ => panic!("Invalid uniform type ID"),
+            }
+        };
+
+        result.push((identifier, slot));
     }
 
     result

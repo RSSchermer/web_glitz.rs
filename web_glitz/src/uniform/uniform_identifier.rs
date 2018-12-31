@@ -6,11 +6,11 @@ use std::ops::Deref;
 use fnv::FnvHasher;
 
 #[derive(Clone, PartialEq)]
-pub struct UniformValueIdentifier {
-    segments: Vec<ValueIdentifierSegment>,
+pub struct UniformIdentifier {
+    segments: Vec<IdentifierSegment>,
 }
 
-impl UniformValueIdentifier {
+impl UniformIdentifier {
     pub fn from_string(string: &str) -> Self {
         let mut segments = Vec::new();
 
@@ -18,18 +18,16 @@ impl UniformValueIdentifier {
             let parts = s.split("[").collect::<Vec<_>>();
             let name = parts[0].to_string();
 
-            segments.push(ValueIdentifierSegment::Name(NameSegment::new(name)));
+            segments.push(IdentifierSegment::Name(NameSegment::new(name)));
 
             if parts.len() == 2 {
                 let index = parts[1].trim_right_matches("]").parse::<usize>().unwrap();
 
-                segments.push(ValueIdentifierSegment::ArrayIndex(index));
+                segments.push(IdentifierSegment::ArrayIndex(index));
             }
         }
 
-        UniformValueIdentifier {
-            segments
-        }
+        UniformIdentifier { segments }
     }
 
     pub fn is_array_identifier(&self) -> bool {
@@ -40,27 +38,34 @@ impl UniformValueIdentifier {
         }
     }
 
-    pub fn head(&self) -> Option<&ValueIdentifierSegment> {
+    pub fn head(&self) -> Option<&IdentifierSegment> {
         self.segments.get(0)
     }
 
-    pub fn tail(&self) -> ValueIdentifierTail {
-        ValueIdentifierTail {
+    pub fn tail(&self) -> IdentifierTail {
+        IdentifierTail {
             identifier: self,
-            head_index: 1
+            head_index: 1,
+        }
+    }
+
+    pub fn as_tail(&self) -> IdentifierTail {
+        IdentifierTail {
+            identifier: self,
+            head_index: 0
         }
     }
 }
 
-impl Deref for UniformValueIdentifier {
-    type Target = [ValueIdentifierSegment];
+impl Deref for UniformIdentifier {
+    type Target = [IdentifierSegment];
 
     fn deref(&self) -> &Self::Target {
         &self.segments
     }
 }
 
-impl Display for UniformValueIdentifier {
+impl Display for UniformIdentifier {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut segments_iter = self.segments.iter();
 
@@ -70,10 +75,10 @@ impl Display for UniformValueIdentifier {
 
         while let Some(segment) = segments_iter.next() {
             match segment {
-                ValueIdentifierSegment::Name(segment) => {
+                IdentifierSegment::Name(segment) => {
                     write!(f, ".{}", segment.name())?;
-                },
-                ValueIdentifierSegment::ArrayIndex(index) => {
+                }
+                IdentifierSegment::ArrayIndex(index) => {
                     write!(f, "[{}]", index)?;
                 }
             }
@@ -84,14 +89,14 @@ impl Display for UniformValueIdentifier {
 }
 
 #[derive(Clone, PartialEq)]
-pub enum ValueIdentifierSegment {
+pub enum IdentifierSegment {
     Name(NameSegment),
     ArrayIndex(usize),
 }
 
-impl ValueIdentifierSegment {
+impl IdentifierSegment {
     pub fn is_array_index(&self) -> bool {
-        if let ValueIdentifierSegment::ArrayIndex(_) = self {
+        if let IdentifierSegment::ArrayIndex(_) = self {
             true
         } else {
             false
@@ -99,49 +104,52 @@ impl ValueIdentifierSegment {
     }
 }
 
-impl Into<UniformValueIdentifier> for ValueIdentifierSegment {
-    fn into(self) -> UniformValueIdentifier {
-        UniformValueIdentifier {
+impl Into<UniformIdentifier> for IdentifierSegment {
+    fn into(self) -> UniformIdentifier {
+        UniformIdentifier {
             segments: vec![self],
         }
     }
 }
 
-impl Display for ValueIdentifierSegment {
+impl Display for IdentifierSegment {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ValueIdentifierSegment::Name(segment) => write!(f, "{}", segment.name),
-            ValueIdentifierSegment::ArrayIndex(index) => write!(f, "[{}]", index)
-
+            IdentifierSegment::Name(segment) => write!(f, "{}", segment.name),
+            IdentifierSegment::ArrayIndex(index) => write!(f, "[{}]", index),
         }
     }
 }
 
 #[derive(Clone)]
-pub struct ValueIdentifierTail<'a> {
-    identifier: &'a UniformValueIdentifier,
-    head_index: usize
+pub struct IdentifierTail<'a> {
+    identifier: &'a UniformIdentifier,
+    head_index: usize,
 }
 
-impl<'a> ValueIdentifierTail<'a> {
-    pub fn root(&self) -> &UniformValueIdentifier {
+impl<'a> IdentifierTail<'a> {
+    pub fn root(&self) -> &UniformIdentifier {
         self.identifier
     }
 
-    pub fn head(&self) -> Option<&ValueIdentifierSegment> {
+    pub fn head(&self) -> Option<&IdentifierSegment> {
         self.identifier.segments.get(self.head_index)
     }
 
-    pub fn tail(&self) -> ValueIdentifierTail {
-        ValueIdentifierTail {
+    pub fn tail(&self) -> IdentifierTail {
+        IdentifierTail {
             identifier: self.identifier,
-            head_index: self.head_index + 1
+            head_index: self.head_index + 1,
         }
+    }
+
+    pub fn is_array_terminus(&self) -> bool {
+        self.head() == Some(&IdentifierSegment::ArrayIndex(0)) && self.tail().is_empty()
     }
 }
 
-impl<'a> Deref for ValueIdentifierTail<'a> {
-    type Target = [ValueIdentifierSegment];
+impl<'a> Deref for IdentifierTail<'a> {
+    type Target = [IdentifierSegment];
 
     fn deref(&self) -> &Self::Target {
         let head_index = self.head_index;
@@ -158,7 +166,7 @@ impl<'a> Deref for ValueIdentifierTail<'a> {
 #[derive(Clone)]
 pub struct NameSegment {
     name: String,
-    name_hash_fnv64: u64
+    name_hash_fnv64: u64,
 }
 
 impl NameSegment {
@@ -171,7 +179,7 @@ impl NameSegment {
 
         NameSegment {
             name,
-            name_hash_fnv64
+            name_hash_fnv64,
         }
     }
 
@@ -185,40 +193,6 @@ impl NameSegment {
 }
 
 impl PartialEq for NameSegment {
-    fn eq(&self, other: &Self) -> bool {
-        self.name_hash_fnv64 == other.name_hash_fnv64
-    }
-}
-
-pub struct UniformBlockIdentifier {
-    name: String,
-    name_hash_fnv64: u64
-}
-
-impl UniformBlockIdentifier {
-    fn new(name: String) -> Self {
-        let mut hasher = FnvHasher::default();
-
-        name.hash(&mut hasher);
-
-        let name_hash_fnv64 = hasher.finish();
-
-        UniformBlockIdentifier {
-            name,
-            name_hash_fnv64
-        }
-    }
-
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn name_hash_fnv64(&self) -> u64 {
-        self.name_hash_fnv64
-    }
-}
-
-impl PartialEq for UniformBlockIdentifier {
     fn eq(&self, other: &Self) -> bool {
         self.name_hash_fnv64 == other.name_hash_fnv64
     }

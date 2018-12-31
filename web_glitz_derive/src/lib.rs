@@ -12,9 +12,9 @@ use proc_macro_hack::proc_macro_hack;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
+mod uniforms_impl;
 mod util;
 mod vertex;
-mod uniforms_impl;
 
 #[proc_macro_derive(Vertex, attributes(vertex_attribute))]
 pub fn derive_vertex(input: TokenStream) -> TokenStream {

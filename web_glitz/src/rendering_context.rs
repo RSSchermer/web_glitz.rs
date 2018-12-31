@@ -1527,11 +1527,13 @@ impl DynamicState {
                     .unwrap() as usize
             ],
             active_uniform_buffer_index: 0,
-            uniform_buffer_index_lru: IndexLRU::new(context
-                .get_parameter(GL::MAX_UNIFORM_BUFFER_BINDINGS)
-                .unwrap()
-                .as_f64()
-                .unwrap() as usize),
+            uniform_buffer_index_lru: IndexLRU::new(
+                context
+                    .get_parameter(GL::MAX_UNIFORM_BUFFER_BINDINGS)
+                    .unwrap()
+                    .as_f64()
+                    .unwrap() as usize,
+            ),
             bound_draw_framebuffer: None,
             bound_read_framebuffer: None,
             bound_renderbuffer: None,

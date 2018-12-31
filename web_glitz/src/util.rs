@@ -58,5 +58,5 @@ where
 }
 
 pub(crate) unsafe fn slice_make_mut<T>(slice: &[T]) -> &mut [T] {
-    &mut *(slice as * const _ as *mut _)
+    &mut *(slice as *const _ as *mut _)
 }

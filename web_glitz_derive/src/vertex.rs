@@ -40,7 +40,7 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
                     let span = ty.span();
 
                     quote_spanned!(span=> <#ty as #mod_path::VertexAttribute>::format())
-                },
+                }
             };
 
             quote! {
