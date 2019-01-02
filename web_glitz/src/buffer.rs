@@ -70,6 +70,15 @@ where
     pub fn usage_hint(&self) -> BufferUsage {
         self.data.usage_hint
     }
+
+    pub fn as_view(&self) -> BufferView<T> {
+        BufferView {
+            data: self.data.clone(),
+            offset_in_bytes: 0,
+            len: self.data.len,
+            _marker: marker::PhantomData,
+        }
+    }
 }
 
 impl<T> BufferHandle<T> {
@@ -84,8 +93,8 @@ impl<T> BufferHandle<T> {
         let data = Arc::new(BufferData {
             id: None,
             dropper,
-            len: 1,
             usage_hint,
+            len: 1,
             size_in_bytes: mem::size_of::<T>(),
             recent_uniform_binding: None,
         });
@@ -98,36 +107,6 @@ impl<T> BufferHandle<T> {
         }
     }
 
-    pub(crate) fn bind_uniform(&self, connection: &mut Connection) -> u32 {
-        let Connection(gl, state) = connection;
-
-        unsafe {
-            let data = arc_get_mut_unchecked(&self.data);
-            let most_recent_binding = &mut data.recent_uniform_binding;
-
-            data.id.unwrap().with_value_unchecked(|buffer_object| {
-                if most_recent_binding.is_none()
-                    || state.bound_uniform_buffer_range(most_recent_binding.unwrap())
-                        != BufferRange::Full(buffer_object)
-                {
-                    state.set_active_uniform_buffer_binding_lru();
-                    state
-                        .set_bound_uniform_buffer_range(BufferRange::Full(&buffer_object))
-                        .apply(gl)
-                        .unwrap();
-
-                    let binding = state.active_uniform_buffer_binding();
-
-                    *most_recent_binding = Some(binding);
-
-                    binding
-                } else {
-                    most_recent_binding.unwrap()
-                }
-            })
-        }
-    }
-
     pub fn upload_task<D>(&self, data: D) -> BufferUploadTask<T, D>
     where
         D: Borrow<T> + Send + Sync + 'static,
@@ -135,7 +114,7 @@ impl<T> BufferHandle<T> {
         BufferUploadTask {
             buffer_data: self.data.clone(),
             data,
-            offset: 0,
+            offset_in_bytes: 0,
             len: 1,
             _marker: marker::PhantomData,
         }
@@ -145,7 +124,7 @@ impl<T> BufferHandle<T> {
         BufferDownloadTask {
             data: self.data.clone(),
             state: BufferDownloadState::Initial,
-            offset: 0,
+            offset_in_bytes: 0,
             len: 1,
             _marker: marker::PhantomData,
         }
@@ -165,9 +144,9 @@ impl<T> BufferHandle<[T]> {
         let data = Arc::new(BufferData {
             id: None,
             dropper,
-            len,
             usage_hint,
-            size_in_bytes: mem::size_of::<T>(),
+            len,
+            size_in_bytes: len * mem::size_of::<T>(),
             recent_uniform_binding: None,
         });
 
@@ -183,6 +162,28 @@ impl<T> BufferHandle<[T]> {
         self.data.len
     }
 
+    pub fn get(&self, index: usize) -> Option<BufferView<T>> {
+        if index < self.data.len {
+            Some(BufferView {
+                data: self.data.clone(),
+                offset_in_bytes: index * mem::size_of::<T>(),
+                len: 1,
+                _marker: marker::PhantomData,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub unsafe fn get_unchecked(&self, index: usize) -> BufferView<T> {
+        BufferView {
+            data: self.data.clone(),
+            offset_in_bytes: index * mem::size_of::<T>(),
+            len: 1,
+            _marker: marker::PhantomData,
+        }
+    }
+
     pub fn upload_task<D>(&self, data: D) -> BufferUploadTask<[T], D>
     where
         D: Borrow<[T]> + Send + Sync + 'static,
@@ -190,7 +191,7 @@ impl<T> BufferHandle<[T]> {
         BufferUploadTask {
             buffer_data: self.data.clone(),
             data,
-            offset: 0,
+            offset_in_bytes: 0,
             len: self.data.len,
             _marker: marker::PhantomData,
         }
@@ -200,17 +201,17 @@ impl<T> BufferHandle<[T]> {
         BufferDownloadTask {
             data: self.data.clone(),
             state: BufferDownloadState::Initial,
-            offset: 0,
+            offset_in_bytes: 0,
             len: self.data.len,
             _marker: marker::PhantomData,
         }
     }
 
-    pub fn slice<R>(&self, range: R) -> BufferSlice<T>
+    pub fn slice<R>(&self, range: R) -> BufferView<[T]>
     where
         R: RangeBounds<usize>,
     {
-        let len = self.data.len;
+        let len = self.len();
         let (start, end) = slice_bounds(range, len);
 
         if end - start < 1 || end > len {
@@ -220,10 +221,10 @@ impl<T> BufferHandle<[T]> {
             );
         }
 
-        BufferSlice {
+        BufferView {
             data: self.data.clone(),
-            offset: start,
-            len: end - start,
+            offset_in_bytes: start * mem::size_of::<T>(),
+            len: (end - start),
             _marker: marker::PhantomData,
         }
     }
@@ -238,20 +239,105 @@ impl Drop for BufferData {
 }
 
 #[derive(Clone)]
-pub struct BufferSlice<T> {
+pub struct BufferView<T> where T: ?Sized {
     data: Arc<BufferData>,
-    offset: usize,
+    offset_in_bytes: usize,
     len: usize,
-    _marker: marker::PhantomData<[T]>,
+    _marker: marker::PhantomData<T>,
 }
 
-impl<T> BufferSlice<T> {
+impl<T> BufferView<T>
+    where
+        T: ?Sized,
+{
     pub fn usage_hint(&self) -> BufferUsage {
         self.data.usage_hint
     }
+}
 
+impl<T> BufferView<T> {
+    pub(crate) fn bind_uniform(&self, connection: &mut Connection) -> u32 {
+        let Connection(gl, state) = connection;
+
+        unsafe {
+            let data = arc_get_mut_unchecked(&self.data);
+            let most_recent_binding = &mut data.recent_uniform_binding;
+            let size_in_bytes = self.len * mem::size_of::<T>();
+
+            data.id.unwrap().with_value_unchecked(|buffer_object| {
+                let buffer_range = BufferRange::OffsetSize(buffer_object, self.offset_in_bytes as u32, size_in_bytes as u32);
+
+                if most_recent_binding.is_none()
+                    || state.bound_uniform_buffer_range(most_recent_binding.unwrap())
+                    != buffer_range
+                    {
+                        state.set_active_uniform_buffer_binding_lru();
+                        state
+                            .set_bound_uniform_buffer_range(buffer_range)
+                            .apply(gl)
+                            .unwrap();
+
+                        let binding = state.active_uniform_buffer_binding();
+
+                        *most_recent_binding = Some(binding);
+
+                        binding
+                    } else {
+                    most_recent_binding.unwrap()
+                }
+            })
+        }
+    }
+
+    pub fn upload_task<D>(&self, data: D) -> BufferUploadTask<T, D>
+        where
+            D: Borrow<T> + Send + Sync + 'static,
+    {
+        BufferUploadTask {
+            buffer_data: self.data.clone(),
+            data,
+            offset_in_bytes: self.offset_in_bytes,
+            len: 1,
+            _marker: marker::PhantomData,
+        }
+    }
+
+    pub fn download_task(&self) -> BufferDownloadTask<T> {
+        BufferDownloadTask {
+            data: self.data.clone(),
+            state: BufferDownloadState::Initial,
+            offset_in_bytes: self.offset_in_bytes,
+            len: 1,
+            _marker: marker::PhantomData,
+        }
+    }
+}
+
+impl<T> BufferView<[T]> {
     pub fn len(&self) -> usize {
         self.len
+    }
+
+    pub fn get(&self, index: usize) -> Option<BufferView<T>> {
+        if index < self.len {
+            Some(BufferView {
+                data: self.data.clone(),
+                offset_in_bytes: self.offset_in_bytes + index * mem::size_of::<T>(),
+                len: 1,
+                _marker: marker::PhantomData,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub unsafe fn get_unchecked(&self, index: usize) -> BufferView<T> {
+        BufferView {
+            data: self.data.clone(),
+            offset_in_bytes: self.offset_in_bytes + index * mem::size_of::<T>(),
+            len: 1,
+            _marker: marker::PhantomData,
+        }
     }
 
     pub fn upload_task<D>(&self, data: D) -> BufferUploadTask<[T], D>
@@ -261,7 +347,7 @@ impl<T> BufferSlice<T> {
         BufferUploadTask {
             buffer_data: self.data.clone(),
             data,
-            offset: self.offset,
+            offset_in_bytes: self.offset_in_bytes,
             len: self.len,
             _marker: marker::PhantomData,
         }
@@ -271,40 +357,41 @@ impl<T> BufferSlice<T> {
         BufferDownloadTask {
             data: self.data.clone(),
             state: BufferDownloadState::Initial,
-            offset: self.offset,
+            offset_in_bytes: self.offset_in_bytes,
             len: self.len,
             _marker: marker::PhantomData,
         }
     }
 
-    pub fn slice<R>(&self, range: R) -> BufferSlice<T>
+    pub fn slice<R>(&self, range: R) -> BufferView<[T]>
     where
         R: RangeBounds<usize>,
     {
-        let (start, end) = slice_bounds(range, self.len);
+        let len = self.len();
+        let (start, end) = slice_bounds(range, len);
 
-        if end - start < 1 || end > self.len {
+        if end - start < 1 || end > len {
             panic!(
                 "Range must be a positive non-zero range that fits 0..{}",
-                self.len
+                len
             );
         }
 
-        BufferSlice {
+        BufferView {
             data: self.data.clone(),
-            offset: self.offset + start,
+            offset_in_bytes: self.offset_in_bytes + start * mem::size_of::<T>(),
             len: end - start,
             _marker: marker::PhantomData,
         }
     }
 }
 
-impl<T> Into<BufferSlice<T>> for BufferHandle<[T]> {
-    fn into(self) -> BufferSlice<T> {
-        BufferSlice {
-            data: self.data.clone(),
-            offset: 0,
+impl<T> Into<BufferView<T>> for BufferHandle<T> where T: ?Sized {
+    fn into(self) -> BufferView<T> {
+        BufferView {
             len: self.data.len,
+            data: self.data,
+            offset_in_bytes: 0,
             _marker: marker::PhantomData,
         }
     }
@@ -346,7 +433,7 @@ where
 {
     buffer_data: Arc<BufferData>,
     data: D,
-    offset: usize,
+    offset_in_bytes: usize,
     len: usize,
     _marker: marker::PhantomData<T>,
 }
@@ -380,7 +467,7 @@ where
 
             gl.buffer_sub_data_with_i32_and_u8_array(
                 GL::COPY_WRITE_BUFFER,
-                0,
+                self.offset_in_bytes as i32,
                 &mut *(data as *const _ as *mut _),
             );
         };
@@ -411,24 +498,22 @@ where
         }
 
         let data = self.data.borrow();
-        let element_size = mem::size_of::<T>();
-        let len = data.len();
-        let max_len = element_size * self.len;
-        let offset = element_size * self.offset;
+        let size = data.len() * mem::size_of::<T>();
+        let max_size = self.len * mem::size_of::<T>();
 
         unsafe {
             let mut data = slice::from_raw_parts(
                 self.data.borrow() as *const _ as *const u8,
-                element_size * len,
+                size,
             );
 
-            if max_len > len {
-                data = &data[0..max_len];
+            if max_size < size {
+                data = &data[0..max_size];
             }
 
             gl.buffer_sub_data_with_i32_and_u8_array(
                 GL::COPY_WRITE_BUFFER,
-                offset as i32,
+                self.offset_in_bytes as i32,
                 &mut *(data as *const _ as *mut _),
             );
         };
@@ -443,7 +528,7 @@ where
 {
     data: Arc<BufferData>,
     state: BufferDownloadState,
-    offset: usize,
+    offset_in_bytes: usize,
     len: usize,
     _marker: marker::PhantomData<T>,
 }
@@ -461,7 +546,7 @@ impl<T> GpuTask<Connection> for BufferDownloadTask<T> {
             BufferDownloadState::Initial => {
                 let Connection(gl, state) = connection;
                 let read_buffer = gl.create_buffer().unwrap();
-                let size_in_bytes = self.data.size_in_bytes;
+                let size_in_bytes = mem::size_of::<T>();
 
                 state
                     .set_bound_copy_write_buffer(Some(&read_buffer))
@@ -486,7 +571,7 @@ impl<T> GpuTask<Connection> for BufferDownloadTask<T> {
                 gl.copy_buffer_sub_data_with_i32_and_i32_and_i32(
                     GL::COPY_READ_BUFFER,
                     GL::COPY_WRITE_BUFFER,
-                    0,
+                    self.offset_in_bytes as i32,
                     0,
                     size_in_bytes as i32,
                 );
@@ -509,7 +594,8 @@ impl<T> GpuTask<Connection> for BufferDownloadTask<T> {
                     .apply(gl)
                     .unwrap();
 
-                let mut data = vec![0; self.data.size_in_bytes];
+                let size_in_bytes = self.len * mem::size_of::<T>();
+                let mut data = vec![0; size_in_bytes];
 
                 gl.get_buffer_sub_data_with_i32_and_u8_array(GL::COPY_READ_BUFFER, 0, &mut data);
 
@@ -533,15 +619,14 @@ impl<T> GpuTask<Connection> for BufferDownloadTask<[T]> {
             BufferDownloadState::Initial => {
                 let Connection(gl, state) = connection;
                 let read_buffer = gl.create_buffer().unwrap();
-                let element_size = mem::size_of::<T>();
-                let size = element_size * self.len;
+                let size_in_bytes = self.len * mem::size_of::<T>();
 
                 state
                     .set_bound_copy_write_buffer(Some(&read_buffer))
                     .apply(gl)
                     .unwrap();
 
-                gl.buffer_data_with_i32(GL::COPY_WRITE_BUFFER, size as i32, GL::STREAM_READ);
+                gl.buffer_data_with_i32(GL::COPY_WRITE_BUFFER, size_in_bytes as i32, GL::STREAM_READ);
 
                 unsafe {
                     self.data.id.unwrap().with_value_unchecked(|buffer_object| {
@@ -555,9 +640,9 @@ impl<T> GpuTask<Connection> for BufferDownloadTask<[T]> {
                 gl.copy_buffer_sub_data_with_i32_and_i32_and_i32(
                     GL::COPY_READ_BUFFER,
                     GL::COPY_WRITE_BUFFER,
-                    (self.offset * element_size) as i32,
+                    self.offset_in_bytes as i32,
                     0,
-                    size as i32,
+                    size_in_bytes as i32,
                 );
 
                 mem::replace(
@@ -578,16 +663,16 @@ impl<T> GpuTask<Connection> for BufferDownloadTask<[T]> {
                     .apply(gl)
                     .unwrap();
 
-                let mut data = vec![0; self.len * mem::size_of::<T>()];
+                let size_in_bytes = self.len * mem::size_of::<T>();
+                let mut data = vec![0; size_in_bytes];
 
                 gl.get_buffer_sub_data_with_i32_and_u8_array(GL::COPY_READ_BUFFER, 0, &mut data);
 
                 gl.delete_buffer(Some(&read_buffer));
 
                 unsafe {
-                    let len = self.len;
                     let ptr = mem::transmute(data.as_mut_ptr());
-                    let slice = slice::from_raw_parts_mut(ptr, len);
+                    let slice = slice::from_raw_parts_mut(ptr, self.len);
                     let boxed = Box::from_raw(slice);
 
                     mem::forget(data);

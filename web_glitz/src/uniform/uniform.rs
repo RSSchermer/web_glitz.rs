@@ -24,6 +24,7 @@ use crate::std_140::Std140;
 
 use super::{UniformIdentifier, IdentifierTail, IdentifierSegment};
 use super::binding::BindingSlot;
+use buffer::BufferView;
 
 pub trait Uniform {
     fn bind(&self, identifier: IdentifierTail, slot: &mut BindingSlot) -> Result<(), BindingError>;
@@ -1313,6 +1314,25 @@ impl<'a, F> Uniform for &'a [SamplerCubeShadowHandle<F>] {
 impl<T> Uniform for BufferHandle<T>
 where
     T: Std140,
+{
+    fn bind(&self, identifier: IdentifierTail, slot: &mut BindingSlot) -> Result<(), BindingError> {
+        if !identifier.is_empty() {
+            return Err(BindingError::NotFound);
+        }
+
+        if let BindingSlot::Block(binder) = slot {
+            binder.bind(&self.as_view());
+
+            Ok(())
+        } else {
+            Err(BindingError::TypeMismatch)
+        }
+    }
+}
+
+impl<T> Uniform for BufferView<T>
+    where
+        T: Std140,
 {
     fn bind(&self, identifier: IdentifierTail, slot: &mut BindingSlot) -> Result<(), BindingError> {
         if !identifier.is_empty() {

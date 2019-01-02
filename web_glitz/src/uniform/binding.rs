@@ -23,6 +23,7 @@ use crate::sampler::{
 };
 use crate::std_140::Std140;
 use crate::util::{JsId, slice_make_mut};
+use buffer::BufferView;
 
 pub enum UniformSlot {
     Float(FloatSlot),
@@ -2773,7 +2774,7 @@ impl<'a> Binder<'a, ArrayOfSamplerCubeShadowSlot> {
 }
 
 impl<'a> Binder<'a, BlockSlot> {
-    pub fn bind<T>(&mut self, value: &BufferHandle<T>)
+    pub fn bind<T>(&mut self, value: &BufferView<T>)
         where
             T: Std140,
     {
