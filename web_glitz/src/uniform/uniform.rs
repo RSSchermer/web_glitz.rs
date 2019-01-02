@@ -1,29 +1,29 @@
-use super::UniformIdentifier;
-use image_format::FloatSamplable;
-use image_format::IntegerSamplable;
-use program::BindingSlot;
-use sampler::FloatSampler2DArrayHandle;
-use sampler::FloatSampler2DHandle;
-use sampler::FloatSampler3DHandle;
-use sampler::FloatSamplerCubeHandle;
-use sampler::IntegerSampler2DArrayHandle;
-use sampler::IntegerSampler2DHandle;
-use sampler::IntegerSampler3DHandle;
-use sampler::IntegerSamplerCubeHandle;
-use sampler::Sampler2DArrayShadowHandle;
-use sampler::Sampler2DShadowHandle;
-use sampler::UnsignedIntegerSampler2DArrayHandle;
-use sampler::UnsignedIntegerSampler2DHandle;
-use sampler::UnsignedIntegerSampler3DHandle;
-use sampler::UnsignedIntegerSamplerCubeHandle;
 use std::borrow::Borrow;
 use std::ops::Deref;
 use std::sync::Arc;
-use texture::Texture2DHandle;
-use texture::TextureFormat;
-use uniform::uniform_identifier::IdentifierTail;
-use uniform::IdentifierSegment;
-use sampler::SamplerCubeShadowHandle;
+
+use crate::buffer::BufferHandle;
+use crate::sampler::{
+    FloatSampler2DArrayHandle,
+    FloatSampler2DHandle,
+    FloatSampler3DHandle,
+    FloatSamplerCubeHandle,
+    IntegerSampler2DArrayHandle,
+    IntegerSampler2DHandle,
+    IntegerSampler3DHandle,
+    IntegerSamplerCubeHandle,
+    Sampler2DArrayShadowHandle,
+    Sampler2DShadowHandle,
+    SamplerCubeShadowHandle,
+    UnsignedIntegerSampler2DArrayHandle,
+    UnsignedIntegerSampler2DHandle,
+    UnsignedIntegerSampler3DHandle,
+    UnsignedIntegerSamplerCubeHandle,
+};
+use crate::std_140::Std140;
+
+use super::{UniformIdentifier, IdentifierTail, IdentifierSegment};
+use super::binding::BindingSlot;
 
 pub trait Uniform {
     fn bind(&self, identifier: IdentifierTail, slot: &mut BindingSlot) -> Result<(), BindingError>;
@@ -249,10 +249,10 @@ impl Uniform for [(f32, f32, f32, f32)] {
     }
 }
 
-impl Uniform for [[f32;4]] {
+impl Uniform for [[f32; 4]] {
     fn bind(&self, identifier: IdentifierTail, slot: &mut BindingSlot) -> Result<(), BindingError> {
         if !identifier.is_array_terminus() {
-            return Err(BindingError::NotFound)
+            return Err(BindingError::NotFound);
         }
 
         if let BindingSlot::ArrayOfFloatMatrix2x2(binder) = slot {
@@ -265,10 +265,10 @@ impl Uniform for [[f32;4]] {
     }
 }
 
-impl Uniform for [[f32;6]] {
+impl Uniform for [[f32; 6]] {
     fn bind(&self, identifier: IdentifierTail, slot: &mut BindingSlot) -> Result<(), BindingError> {
         if !identifier.is_array_terminus() {
-            return Err(BindingError::NotFound)
+            return Err(BindingError::NotFound);
         }
 
         match slot {
@@ -276,21 +276,21 @@ impl Uniform for [[f32;6]] {
                 binder.bind(self, false);
 
                 Ok(())
-            },
+            }
             BindingSlot::ArrayOfFloatMatrix3x2(binder) => {
                 binder.bind(self, false);
 
                 Ok(())
-            },
-            _ => Err(BindingError::TypeMismatch)
+            }
+            _ => Err(BindingError::TypeMismatch),
         }
     }
 }
 
-impl Uniform for [[f32;8]] {
+impl Uniform for [[f32; 8]] {
     fn bind(&self, identifier: IdentifierTail, slot: &mut BindingSlot) -> Result<(), BindingError> {
         if !identifier.is_array_terminus() {
-            return Err(BindingError::NotFound)
+            return Err(BindingError::NotFound);
         }
 
         match slot {
@@ -298,21 +298,21 @@ impl Uniform for [[f32;8]] {
                 binder.bind(self, false);
 
                 Ok(())
-            },
+            }
             BindingSlot::ArrayOfFloatMatrix4x2(binder) => {
                 binder.bind(self, false);
 
                 Ok(())
-            },
-            _ => Err(BindingError::TypeMismatch)
+            }
+            _ => Err(BindingError::TypeMismatch),
         }
     }
 }
 
-impl Uniform for [[f32;9]] {
+impl Uniform for [[f32; 9]] {
     fn bind(&self, identifier: IdentifierTail, slot: &mut BindingSlot) -> Result<(), BindingError> {
         if !identifier.is_array_terminus() {
-            return Err(BindingError::NotFound)
+            return Err(BindingError::NotFound);
         }
 
         if let BindingSlot::ArrayOfFloatMatrix3x3(binder) = slot {
@@ -325,10 +325,10 @@ impl Uniform for [[f32;9]] {
     }
 }
 
-impl Uniform for [[f32;12]] {
+impl Uniform for [[f32; 12]] {
     fn bind(&self, identifier: IdentifierTail, slot: &mut BindingSlot) -> Result<(), BindingError> {
         if !identifier.is_array_terminus() {
-            return Err(BindingError::NotFound)
+            return Err(BindingError::NotFound);
         }
 
         match slot {
@@ -336,21 +336,21 @@ impl Uniform for [[f32;12]] {
                 binder.bind(self, false);
 
                 Ok(())
-            },
+            }
             BindingSlot::ArrayOfFloatMatrix4x3(binder) => {
                 binder.bind(self, false);
 
                 Ok(())
-            },
-            _ => Err(BindingError::TypeMismatch)
+            }
+            _ => Err(BindingError::TypeMismatch),
         }
     }
 }
 
-impl Uniform for [[f32;16]] {
+impl Uniform for [[f32; 16]] {
     fn bind(&self, identifier: IdentifierTail, slot: &mut BindingSlot) -> Result<(), BindingError> {
         if !identifier.is_array_terminus() {
-            return Err(BindingError::NotFound)
+            return Err(BindingError::NotFound);
         }
 
         if let BindingSlot::ArrayOfFloatMatrix4x4(binder) = slot {
@@ -1301,6 +1301,25 @@ impl<'a, F> Uniform for &'a [SamplerCubeShadowHandle<F>] {
         }
 
         if let BindingSlot::ArrayOfSamplerCubeShadow(binder) = slot {
+            binder.bind(self);
+
+            Ok(())
+        } else {
+            Err(BindingError::TypeMismatch)
+        }
+    }
+}
+
+impl<T> Uniform for BufferHandle<T>
+where
+    T: Std140,
+{
+    fn bind(&self, identifier: IdentifierTail, slot: &mut BindingSlot) -> Result<(), BindingError> {
+        if !identifier.is_empty() {
+            return Err(BindingError::NotFound);
+        }
+
+        if let BindingSlot::Block(binder) = slot {
             binder.bind(self);
 
             Ok(())

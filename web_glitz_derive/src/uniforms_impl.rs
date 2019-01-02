@@ -100,7 +100,7 @@ pub fn expand_uniforms(tokens: TokenStream) -> TokenStream {
             fn bind(
                 &self,
                 identifier: #mod_path::IdentifierTail,
-                slot: &mut _web_glitz::program::BindingSlot
+                slot: &mut _web_glitz::uniform::BindingSlot
             ) -> Result<(), #mod_path::BindingError> {
                 if let Some(#mod_path::IdentifierSegment::Name(segment)) = identifier.head() {
                     let tail = identifier.tail();

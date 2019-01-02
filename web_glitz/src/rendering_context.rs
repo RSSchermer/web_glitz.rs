@@ -875,7 +875,7 @@ impl DynamicState {
         }
     }
 
-    pub fn active_uniform_buffer_index(&self) -> u32 {
+    pub fn active_uniform_buffer_binding(&self) -> u32 {
         self.active_uniform_buffer_index
     }
 
@@ -884,7 +884,7 @@ impl DynamicState {
         self.active_uniform_buffer_index = index;
     }
 
-    pub fn set_active_uniform_buffer_index_lru(&mut self) {
+    pub fn set_active_uniform_buffer_binding_lru(&mut self) {
         self.active_uniform_buffer_index = self.uniform_buffer_index_lru.use_lru_index() as u32;
     }
 

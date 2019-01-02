@@ -256,7 +256,6 @@ impl<F> SamplerCubeShadowHandle<F> {
     }
 }
 
-
 pub(crate) struct SamplerData<T> {
     pub(crate) id: Option<JsId>,
     dropper: RefCountedDropper,

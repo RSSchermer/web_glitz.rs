@@ -52,7 +52,7 @@ impl UniformIdentifier {
     pub fn as_tail(&self) -> IdentifierTail {
         IdentifierTail {
             identifier: self,
-            head_index: 0
+            head_index: 0,
         }
     }
 }

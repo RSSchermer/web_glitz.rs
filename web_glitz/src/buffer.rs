@@ -10,6 +10,7 @@ use web_sys::{WebGl2RenderingContext as GL, WebGlBuffer};
 use super::rendering_context::{Connection, ContextUpdate, RenderingContext};
 use super::task::{GpuTask, Progress};
 use super::util::JsId;
+use rendering_context::BufferRange;
 use rendering_context::DropObject;
 use rendering_context::Dropper;
 use rendering_context::RefCountedDropper;
@@ -59,6 +60,7 @@ pub(crate) struct BufferData {
     len: usize,
     size_in_bytes: usize,
     usage_hint: BufferUsage,
+    recent_uniform_binding: Option<u32>,
 }
 
 impl<T> BufferHandle<T>
@@ -85,6 +87,7 @@ impl<T> BufferHandle<T> {
             len: 1,
             usage_hint,
             size_in_bytes: mem::size_of::<T>(),
+            recent_uniform_binding: None,
         });
 
         context.submit(BufferAllocateTask { data: data.clone() });
@@ -92,6 +95,36 @@ impl<T> BufferHandle<T> {
         BufferHandle {
             data,
             _marker: marker::PhantomData,
+        }
+    }
+
+    pub(crate) fn bind_uniform(&self, connection: &mut Connection) -> u32 {
+        let Connection(gl, state) = connection;
+
+        unsafe {
+            let data = arc_get_mut_unchecked(&self.data);
+            let most_recent_binding = &mut data.recent_uniform_binding;
+
+            data.id.unwrap().with_value_unchecked(|buffer_object| {
+                if most_recent_binding.is_none()
+                    || state.bound_uniform_buffer_range(most_recent_binding.unwrap())
+                        != BufferRange::Full(buffer_object)
+                {
+                    state.set_active_uniform_buffer_binding_lru();
+                    state
+                        .set_bound_uniform_buffer_range(BufferRange::Full(&buffer_object))
+                        .apply(gl)
+                        .unwrap();
+
+                    let binding = state.active_uniform_buffer_binding();
+
+                    *most_recent_binding = Some(binding);
+
+                    binding
+                } else {
+                    most_recent_binding.unwrap()
+                }
+            })
         }
     }
 
@@ -135,6 +168,7 @@ impl<T> BufferHandle<[T]> {
             len,
             usage_hint,
             size_in_bytes: mem::size_of::<T>(),
+            recent_uniform_binding: None,
         });
 
         context.submit(BufferAllocateTask { data: data.clone() });

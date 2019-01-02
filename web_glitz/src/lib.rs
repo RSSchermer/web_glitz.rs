@@ -32,6 +32,7 @@ pub mod program;
 pub mod renderbuffer;
 pub mod rendering_context;
 pub mod sampler;
+pub mod std_140;
 pub mod task;
 pub mod texture;
 //pub mod texture_old;
