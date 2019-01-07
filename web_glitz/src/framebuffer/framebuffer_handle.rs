@@ -4,18 +4,16 @@ use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::framebuffer::FramebufferDescriptor;
 use crate::renderbuffer::{RenderbufferData, RenderbufferHandle};
-use crate::rendering_context::{Connection, ContextUpdate, RenderingContext};
+use crate::runtime::{Connection, RenderingContext};
+use crate::runtime::dropper::{DropObject, Dropper, RefCountedDropper};
+use crate::runtime::dynamic_state::ContextUpdate;
 use crate::task::{GpuTask, Progress};
-use crate::util::JsId;
-use rendering_context::DropObject;
-use rendering_context::Dropper;
-use rendering_context::RefCountedDropper;
-use texture::texture_2d::Texture2DData;
-use texture::texture_2d_array::Texture2DArrayData;
-use texture::texture_3d::Texture3DData;
-use texture::texture_cube::TextureCubeData;
-use texture::CubeFace;
-use util::arc_get_mut_unchecked;
+use crate::texture::texture_2d::Texture2DData;
+use crate::texture::texture_2d_array::Texture2DArrayData;
+use crate::texture::texture_3d::Texture3DData;
+use crate::texture::texture_cube::TextureCubeData;
+use crate::texture::CubeFace;
+use crate::util::{JsId, arc_get_mut_unchecked};
 
 const COLOR_ATTACHMENT_IDS: [u32; 16] = [
     Gl::COLOR_ATTACHMENT0,

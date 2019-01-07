@@ -1,623 +1,13 @@
 use std::borrow::Borrow;
-use std::cell::RefCell;
-use std::collections::VecDeque;
-use std::rc::Rc;
 
-use futures::future::Future;
-use futures::sync::oneshot::{channel, Canceled, Receiver, Sender};
-use futures::{Async, Poll};
-use wasm_bindgen::closure::Closure;
-use wasm_bindgen::{JsCast, JsValue};
+use wasm_bindgen::JsValue;
 use web_sys::{
-    window, WebGl2RenderingContext as GL, WebGlBuffer, WebGlFramebuffer, WebGlProgram,
-    WebGlRenderbuffer, WebGlSampler, WebGlSync, WebGlTexture, WebGlVertexArrayObject,
+    WebGl2RenderingContext as Gl, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlRenderbuffer,
+    WebGlSampler, WebGlSync, WebGlTexture, WebGlVertexArrayObject,
 };
 
-use super::buffer::{BufferHandle, BufferUsage};
-use super::task::{GpuTask, Progress};
-use framebuffer::FramebufferDescriptor;
-use framebuffer::FramebufferHandle;
-use renderbuffer::RenderbufferFormat;
-use renderbuffer::RenderbufferHandle;
-use std::sync::Arc;
-use texture::Texture2DArrayHandle;
-use texture::Texture2DHandle;
-use texture::Texture3DHandle;
-use texture::TextureCubeHandle;
-use texture::TextureFormat;
-use util::identical;
-use util::JsId;
-
-const TEXTURE_UNIT_CONSTANTS: [u32; 32] = [
-    GL::TEXTURE0,
-    GL::TEXTURE1,
-    GL::TEXTURE2,
-    GL::TEXTURE3,
-    GL::TEXTURE4,
-    GL::TEXTURE5,
-    GL::TEXTURE6,
-    GL::TEXTURE7,
-    GL::TEXTURE8,
-    GL::TEXTURE9,
-    GL::TEXTURE10,
-    GL::TEXTURE11,
-    GL::TEXTURE12,
-    GL::TEXTURE13,
-    GL::TEXTURE14,
-    GL::TEXTURE15,
-    GL::TEXTURE16,
-    GL::TEXTURE17,
-    GL::TEXTURE18,
-    GL::TEXTURE19,
-    GL::TEXTURE20,
-    GL::TEXTURE21,
-    GL::TEXTURE22,
-    GL::TEXTURE23,
-    GL::TEXTURE24,
-    GL::TEXTURE25,
-    GL::TEXTURE26,
-    GL::TEXTURE27,
-    GL::TEXTURE28,
-    GL::TEXTURE29,
-    GL::TEXTURE30,
-    GL::TEXTURE31,
-];
-
-pub trait Submitter {
-    fn accept<T>(&self, task: T) -> Execution<T::Output>
-    where
-        T: GpuTask<Connection> + 'static;
-}
-
-pub(crate) enum DropObject {
-    Buffer(JsId),
-    Framebuffer(JsId),
-    Program(JsId),
-    Renderbuffer(JsId),
-    Texture(JsId),
-    Shader(JsId),
-    VertexArray(JsId),
-}
-
-struct DropTask {
-    object: DropObject,
-}
-
-impl GpuTask<Connection> for DropTask {
-    type Output = ();
-
-    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        let Connection(gl, _) = connection;
-
-        match self.object {
-            DropObject::Buffer(id) => unsafe {
-                gl.delete_buffer(Some(&JsId::into_value(id).unchecked_into()));
-            },
-            DropObject::Framebuffer(id) => unsafe {
-                gl.delete_framebuffer(Some(&JsId::into_value(id).unchecked_into()));
-            },
-            DropObject::Program(id) => unsafe {
-                gl.delete_program(Some(&JsId::into_value(id).unchecked_into()));
-            },
-            DropObject::Renderbuffer(id) => unsafe {
-                gl.delete_renderbuffer(Some(&JsId::into_value(id).unchecked_into()));
-            },
-            DropObject::Texture(id) => unsafe {
-                gl.delete_texture(Some(&JsId::into_value(id).unchecked_into()));
-            },
-            DropObject::Shader(id) => unsafe {
-                gl.delete_shader(Some(&JsId::into_value(id).unchecked_into()));
-            },
-            DropObject::VertexArray(id) => unsafe {
-                gl.delete_vertex_array(Some(&JsId::into_value(id).unchecked_into()));
-            },
-        }
-
-        Progress::Finished(())
-    }
-}
-
-pub(crate) trait Dropper {
-    fn drop_gl_object(&self, object: DropObject);
-}
-
-pub(crate) enum RefCountedDropper {
-    Rc(Rc<Dropper>),
-    Arc(Arc<Dropper>),
-}
-
-impl Dropper for RefCountedDropper {
-    fn drop_gl_object(&self, object: DropObject) {
-        match self {
-            RefCountedDropper::Rc(dropper) => dropper.drop_gl_object(object),
-            RefCountedDropper::Arc(dropper) => dropper.drop_gl_object(object),
-        }
-    }
-}
-
-pub enum Execution<O> {
-    Ready(Option<O>),
-    Pending(Receiver<O>),
-}
-
-impl<O> Future for Execution<O> {
-    type Item = O;
-
-    type Error = SubmitError;
-
-    fn poll(&mut self) -> Poll<O, SubmitError> {
-        match self {
-            Execution::Ready(ref mut output) => {
-                let output = output
-                    .take()
-                    .expect("Cannot poll Execution more than once after its ready");
-
-                Ok(Async::Ready(output))
-            }
-            Execution::Pending(ref mut recv) => match recv.poll() {
-                Ok(Async::Ready(output)) => Ok(Async::Ready(output)),
-                Ok(Async::NotReady) => Ok(Async::NotReady),
-                Err(Canceled) => Err(SubmitError::Cancelled),
-            },
-        }
-    }
-}
-
-impl<T> From<T> for Execution<T> {
-    fn from(value: T) -> Self {
-        Execution::Ready(Some(value))
-    }
-}
-
-impl<T> From<Receiver<T>> for Execution<T> {
-    fn from(recv: Receiver<T>) -> Self {
-        Execution::Pending(recv)
-    }
-}
-
-trait ExecutorJob {
-    fn progress(&mut self, connection: &mut Connection) -> JobState;
-}
-
-#[derive(PartialEq)]
-enum JobState {
-    Finished,
-    ContinueFenced,
-}
-
-struct Job<T>
-where
-    T: GpuTask<Connection>,
-{
-    task: T,
-    result_tx: Option<Sender<T::Output>>,
-}
-
-impl<T> ExecutorJob for Job<T>
-where
-    T: GpuTask<Connection>,
-{
-    fn progress(&mut self, connection: &mut Connection) -> JobState {
-        match self.task.progress(connection) {
-            Progress::Finished(res) => {
-                self.result_tx
-                    .take()
-                    .expect("Cannot progress a Job after it finished")
-                    .send(res)
-                    .map_err(|_| SendFailed)
-                    .unwrap();
-
-                JobState::Finished
-            }
-            Progress::ContinueFenced => JobState::ContinueFenced,
-        }
-    }
-}
-
-#[derive(Debug)]
-struct SendFailed;
-
-fn job<T>(task: T) -> (Job<T>, Execution<T::Output>)
-where
-    T: GpuTask<Connection>,
-{
-    let (tx, rx) = channel();
-    let job = Job {
-        task,
-        result_tx: Some(tx),
-    };
-
-    (job, Execution::Pending(rx))
-}
-
-#[derive(Clone)]
-pub struct SingleThreadedSubmitter {
-    executor: Rc<RefCell<SingleThreadedExecutor>>,
-}
-
-impl Dropper for RefCell<SingleThreadedExecutor> {
-    fn drop_gl_object(&self, object: DropObject) {
-        self.borrow_mut().accept(DropTask { object });
-    }
-}
-
-impl SingleThreadedSubmitter {
-    pub fn new(connection: Connection) -> Self {
-        SingleThreadedSubmitter {
-            executor: RefCell::new(SingleThreadedExecutor::new(connection)).into(),
-        }
-    }
-}
-
-impl Submitter for SingleThreadedSubmitter {
-    fn accept<T>(&self, task: T) -> Execution<T::Output>
-    where
-        T: GpuTask<Connection> + 'static,
-    {
-        self.executor.borrow_mut().accept(task)
-    }
-}
-
-#[derive(Clone)]
-struct Loop {
-    queue: Rc<RefCell<FencedTaskQueue>>,
-    connection: Rc<RefCell<Connection>>,
-}
-
-impl Loop {
-    fn init(queue: Rc<RefCell<FencedTaskQueue>>, connection: Rc<RefCell<Connection>>) {
-        let as_closure = Closure::wrap(Box::new(Loop { queue, connection }) as Box<FnMut()>);
-
-        window()
-            .unwrap()
-            .request_animation_frame(as_closure.as_ref().unchecked_ref())
-            .unwrap();
-    }
-}
-
-impl FnOnce<()> for Loop {
-    type Output = ();
-
-    extern "rust-call" fn call_once(mut self, _: ()) -> () {
-        self.call_mut(())
-    }
-}
-
-impl FnMut<()> for Loop {
-    extern "rust-call" fn call_mut(&mut self, _: ()) -> () {
-        self.queue
-            .borrow_mut()
-            .run(&mut self.connection.borrow_mut());
-
-        let as_closure = Closure::wrap(Box::new(self.clone()) as Box<FnMut()>);
-
-        window()
-            .unwrap()
-            .request_animation_frame(as_closure.as_ref().unchecked_ref())
-            .unwrap();
-    }
-}
-
-#[derive(Clone)]
-struct FrameCounter {
-    count: usize,
-}
-
-impl FrameCounter {
-    fn init() {
-        let as_closure = Closure::wrap(Box::new(FrameCounter { count: 0 }) as Box<FnMut()>);
-
-        window()
-            .unwrap()
-            .request_animation_frame(as_closure.as_ref().unchecked_ref())
-            .unwrap();
-    }
-}
-
-impl FnOnce<()> for FrameCounter {
-    type Output = ();
-
-    extern "rust-call" fn call_once(mut self, _: ()) -> () {
-        self.call_mut(())
-    }
-}
-
-impl FnMut<()> for FrameCounter {
-    extern "rust-call" fn call_mut(&mut self, _: ()) -> () {
-        self.count += 1;
-
-        let as_closure = Closure::wrap(Box::new(self.clone()) as Box<FnMut()>);
-
-        window()
-            .unwrap()
-            .request_animation_frame(as_closure.as_ref().unchecked_ref())
-            .unwrap();
-    }
-}
-
-struct SingleThreadedExecutor {
-    connection: Rc<RefCell<Connection>>,
-    fenced_task_queue: Rc<RefCell<FencedTaskQueue>>,
-    //animation_frame_handle: i32,
-}
-
-impl SingleThreadedExecutor {
-    fn new(connection: Connection) -> Self {
-        let connection = Rc::new(RefCell::new(connection));
-        let fenced_task_queue = Rc::new(RefCell::new(FencedTaskQueue::new()));
-
-        let animation_frame_handle = Loop::init(fenced_task_queue.clone(), connection.clone());
-
-        SingleThreadedExecutor {
-            connection,
-            fenced_task_queue,
-            //animation_frame_handle,
-        }
-    }
-
-    fn accept<T>(&mut self, mut task: T) -> Execution<T::Output>
-    where
-        T: GpuTask<Connection> + 'static,
-    {
-        match task.progress(&mut self.connection.borrow_mut()) {
-            Progress::Finished(res) => res.into(),
-            Progress::ContinueFenced => {
-                let (job, execution) = job(task);
-
-                self.fenced_task_queue
-                    .borrow_mut()
-                    .push(job, &mut self.connection.borrow_mut());
-
-                execution
-            }
-        }
-    }
-}
-
-//impl Drop for SingleThreadedExecutor {
-//    fn drop(&mut self) {
-//        window()
-//            .unwrap()
-//            .cancel_animation_frame(self.animation_frame_handle)
-//            .unwrap();
-//    }
-//}
-
-struct FencedTaskQueue {
-    queue: VecDeque<(WebGlSync, Box<ExecutorJob>)>,
-}
-
-impl FencedTaskQueue {
-    fn new() -> Self {
-        FencedTaskQueue {
-            queue: VecDeque::new(),
-        }
-    }
-
-    fn push<T>(&mut self, job: T, connection: &mut Connection)
-    where
-        T: ExecutorJob + 'static,
-    {
-        let fence = connection
-            .0
-            .fence_sync(GL::SYNC_GPU_COMMANDS_COMPLETE, 0)
-            .unwrap();
-
-        self.queue.push_back((fence, Box::new(job)));
-    }
-
-    fn run(&mut self, connection: &mut Connection) {
-        let Connection(gl, _) = connection;
-
-        for _ in 0..self.queue.len() {
-            if gl
-                .get_sync_parameter(&self.queue[0].0, GL::SYNC_STATUS)
-                .as_f64()
-                .unwrap() as u32
-                == GL::SIGNALED
-            {
-                let (_, job) = self.queue.pop_front().unwrap();
-
-                let fence = gl.fence_sync(GL::SYNC_GPU_COMMANDS_COMPLETE, 0).unwrap();
-
-                self.queue.push_back((fence, job));
-            } else {
-                break;
-            }
-        }
-    }
-}
-
-pub struct Connection(pub GL, pub DynamicState);
-
-pub trait RenderingContext: Clone {
-    fn create_value_buffer<T>(&self, usage_hint: BufferUsage) -> BufferHandle<T>;
-
-    fn create_array_buffer<T>(&self, len: usize, usage_hint: BufferUsage) -> BufferHandle<[T]>;
-
-    fn create_framebuffer<D>(&self, descriptor: &D) -> FramebufferHandle
-    where
-        D: FramebufferDescriptor;
-
-    fn create_renderbuffer<F>(&self, width: u32, height: u32) -> RenderbufferHandle<F>
-    where
-        F: RenderbufferFormat + 'static;
-
-    fn create_texture_2d<F>(&self, width: u32, height: u32, levels: usize) -> Texture2DHandle<F>
-    where
-        F: TextureFormat + 'static;
-
-    fn create_texture_2d_array<F>(
-        &self,
-        width: u32,
-        height: u32,
-        depth: u32,
-        levels: usize,
-    ) -> Texture2DArrayHandle<F>
-    where
-        F: TextureFormat + 'static;
-
-    fn create_texture_3d<F>(
-        &self,
-        width: u32,
-        height: u32,
-        depth: u32,
-        levels: usize,
-    ) -> Texture3DHandle<F>
-    where
-        F: TextureFormat + 'static;
-
-    fn create_texture_cube<F>(
-        &self,
-        width: u32,
-        height: u32,
-        levels: usize,
-    ) -> TextureCubeHandle<F>
-    where
-        F: TextureFormat + 'static;
-
-    fn submit<T>(&self, task: T) -> Execution<T::Output>
-    where
-        T: GpuTask<Connection> + 'static;
-}
-
-#[derive(Clone)]
-pub struct SingleThreadedContext {
-    submitter: SingleThreadedSubmitter,
-}
-
-impl RenderingContext for SingleThreadedContext {
-    fn create_value_buffer<T>(&self, usage_hint: BufferUsage) -> BufferHandle<T> {
-        BufferHandle::value(
-            self,
-            RefCountedDropper::Rc(self.submitter.executor.clone()),
-            usage_hint,
-        )
-    }
-
-    fn create_array_buffer<T>(&self, len: usize, usage_hint: BufferUsage) -> BufferHandle<[T]> {
-        BufferHandle::array(
-            self,
-            RefCountedDropper::Rc(self.submitter.executor.clone()),
-            len,
-            usage_hint,
-        )
-    }
-
-    fn create_framebuffer<D>(&self, descriptor: &D) -> FramebufferHandle
-    where
-        D: FramebufferDescriptor,
-    {
-        FramebufferHandle::new(
-            self,
-            RefCountedDropper::Rc(self.submitter.executor.clone()),
-            descriptor,
-        )
-    }
-
-    fn create_renderbuffer<F>(&self, width: u32, height: u32) -> RenderbufferHandle<F>
-    where
-        F: RenderbufferFormat + 'static,
-    {
-        RenderbufferHandle::new(
-            self,
-            RefCountedDropper::Rc(self.submitter.executor.clone()),
-            width,
-            height,
-        )
-    }
-
-    fn create_texture_2d<F>(&self, width: u32, height: u32, levels: usize) -> Texture2DHandle<F>
-    where
-        F: TextureFormat + 'static,
-    {
-        Texture2DHandle::new(
-            self,
-            RefCountedDropper::Rc(self.submitter.executor.clone()),
-            width,
-            height,
-            levels,
-        )
-    }
-
-    fn create_texture_2d_array<F>(
-        &self,
-        width: u32,
-        height: u32,
-        depth: u32,
-        levels: usize,
-    ) -> Texture2DArrayHandle<F>
-    where
-        F: TextureFormat + 'static,
-    {
-        Texture2DArrayHandle::new(
-            self,
-            RefCountedDropper::Rc(self.submitter.executor.clone()),
-            width,
-            height,
-            depth,
-            levels,
-        )
-    }
-
-    fn create_texture_3d<F>(
-        &self,
-        width: u32,
-        height: u32,
-        depth: u32,
-        levels: usize,
-    ) -> Texture3DHandle<F>
-    where
-        F: TextureFormat + 'static,
-    {
-        Texture3DHandle::new(
-            self,
-            RefCountedDropper::Rc(self.submitter.executor.clone()),
-            width,
-            height,
-            depth,
-            levels,
-        )
-    }
-
-    fn create_texture_cube<F>(&self, width: u32, height: u32, levels: usize) -> TextureCubeHandle<F>
-    where
-        F: TextureFormat + 'static,
-    {
-        TextureCubeHandle::new(
-            self,
-            RefCountedDropper::Rc(self.submitter.executor.clone()),
-            width,
-            height,
-            levels,
-        )
-    }
-
-    fn submit<T>(&self, task: T) -> Execution<T::Output>
-    where
-        T: GpuTask<Connection> + 'static,
-    {
-        self.submitter.accept(task)
-    }
-}
-
-impl SingleThreadedContext {
-    pub fn from_webgl2_context(gl: GL, state: DynamicState) -> Self {
-        SingleThreadedContext {
-            submitter: SingleThreadedSubmitter::new(Connection(gl, state)),
-        }
-    }
-}
-
-pub enum SubmitError {
-    Cancelled,
-}
-
-impl From<Canceled> for SubmitError {
-    fn from(_: Canceled) -> Self {
-        SubmitError::Cancelled
-    }
-}
+use crate::runtime::index_lru::IndexLRU;
+use crate::util::identical;
 
 pub struct DynamicState {
     active_program: Option<WebGlProgram>,
@@ -702,7 +92,7 @@ impl DynamicState {
         if !identical(program, self.active_program.as_ref()) {
             self.active_program = program.map(|p| p.clone());
 
-            Some(move |context: &GL| {
+            Some(move |context: &Gl| {
                 context.use_program(program);
 
                 Ok(())
@@ -723,8 +113,8 @@ impl DynamicState {
         if !identical(buffer, self.bound_array_buffer.as_ref()) {
             self.bound_array_buffer = buffer.map(|b| b.clone());
 
-            Some(move |context: &GL| {
-                context.bind_buffer(GL::ARRAY_BUFFER, buffer);
+            Some(move |context: &Gl| {
+                context.bind_buffer(Gl::ARRAY_BUFFER, buffer);
 
                 Ok(())
             })
@@ -744,8 +134,8 @@ impl DynamicState {
         if !identical(buffer, self.bound_element_array_buffer.as_ref()) {
             self.bound_element_array_buffer = buffer.map(|b| b.clone());
 
-            Some(move |context: &GL| {
-                context.bind_buffer(GL::ELEMENT_ARRAY_BUFFER, buffer);
+            Some(move |context: &Gl| {
+                context.bind_buffer(Gl::ELEMENT_ARRAY_BUFFER, buffer);
 
                 Ok(())
             })
@@ -765,8 +155,8 @@ impl DynamicState {
         if !identical(buffer, self.bound_copy_read_buffer.as_ref()) {
             self.bound_copy_read_buffer = buffer.map(|b| b.clone());
 
-            Some(move |context: &GL| {
-                context.bind_buffer(GL::COPY_READ_BUFFER, buffer);
+            Some(move |context: &Gl| {
+                context.bind_buffer(Gl::COPY_READ_BUFFER, buffer);
 
                 Ok(())
             })
@@ -786,8 +176,8 @@ impl DynamicState {
         if !identical(buffer, self.bound_copy_write_buffer.as_ref()) {
             self.bound_copy_write_buffer = buffer.map(|b| b.clone());
 
-            Some(move |context: &GL| {
-                context.bind_buffer(GL::COPY_WRITE_BUFFER, buffer);
+            Some(move |context: &Gl| {
+                context.bind_buffer(Gl::COPY_WRITE_BUFFER, buffer);
 
                 Ok(())
             })
@@ -807,8 +197,8 @@ impl DynamicState {
         if !identical(buffer, self.bound_pixel_pack_buffer.as_ref()) {
             self.bound_pixel_pack_buffer = buffer.map(|b| b.clone());
 
-            Some(move |context: &GL| {
-                context.bind_buffer(GL::PIXEL_PACK_BUFFER, buffer);
+            Some(move |context: &Gl| {
+                context.bind_buffer(Gl::PIXEL_PACK_BUFFER, buffer);
 
                 Ok(())
             })
@@ -828,8 +218,8 @@ impl DynamicState {
         if !identical(buffer, self.bound_pixel_unpack_buffer.as_ref()) {
             self.bound_pixel_unpack_buffer = buffer.map(|b| b.clone());
 
-            Some(move |context: &GL| {
-                context.bind_buffer(GL::PIXEL_UNPACK_BUFFER, buffer);
+            Some(move |context: &Gl| {
+                context.bind_buffer(Gl::PIXEL_UNPACK_BUFFER, buffer);
 
                 Ok(())
             })
@@ -850,17 +240,17 @@ impl DynamicState {
         if buffer_range != self.bound_transform_feedback_buffers[index as usize].as_ref() {
             self.bound_transform_feedback_buffers[index as usize] = buffer_range.to_owned_buffer();
 
-            Some(move |context: &GL| {
+            Some(move |context: &Gl| {
                 match buffer_range {
                     BufferRange::None => {
-                        context.bind_buffer_base(GL::TRANSFORM_FEEDBACK_BUFFER, index, None)
+                        context.bind_buffer_base(Gl::TRANSFORM_FEEDBACK_BUFFER, index, None)
                     }
                     BufferRange::Full(buffer) => {
-                        context.bind_buffer_base(GL::TRANSFORM_FEEDBACK_BUFFER, index, Some(buffer))
+                        context.bind_buffer_base(Gl::TRANSFORM_FEEDBACK_BUFFER, index, Some(buffer))
                     }
                     BufferRange::OffsetSize(buffer, offset, size) => context
                         .bind_buffer_range_with_i32_and_i32(
-                            GL::TRANSFORM_FEEDBACK_BUFFER,
+                            Gl::TRANSFORM_FEEDBACK_BUFFER,
                             index,
                             Some(buffer),
                             offset as i32,
@@ -901,15 +291,15 @@ impl DynamicState {
         if buffer_range != self.bound_uniform_buffers[index as usize].as_ref() {
             self.bound_uniform_buffers[index as usize] = buffer_range.to_owned_buffer();
 
-            Some(move |context: &GL| {
+            Some(move |context: &Gl| {
                 match buffer_range {
-                    BufferRange::None => context.bind_buffer_base(GL::UNIFORM_BUFFER, index, None),
+                    BufferRange::None => context.bind_buffer_base(Gl::UNIFORM_BUFFER, index, None),
                     BufferRange::Full(buffer) => {
-                        context.bind_buffer_base(GL::UNIFORM_BUFFER, index, Some(buffer))
+                        context.bind_buffer_base(Gl::UNIFORM_BUFFER, index, Some(buffer))
                     }
                     BufferRange::OffsetSize(buffer, offset, size) => context
                         .bind_buffer_range_with_i32_and_i32(
-                            GL::UNIFORM_BUFFER,
+                            Gl::UNIFORM_BUFFER,
                             index,
                             Some(buffer),
                             offset as i32,
@@ -935,8 +325,8 @@ impl DynamicState {
         if !identical(framebuffer, self.bound_draw_framebuffer.as_ref()) {
             self.bound_draw_framebuffer = framebuffer.map(|f| f.clone());
 
-            Some(move |context: &GL| {
-                context.bind_framebuffer(GL::DRAW_FRAMEBUFFER, framebuffer);
+            Some(move |context: &Gl| {
+                context.bind_framebuffer(Gl::DRAW_FRAMEBUFFER, framebuffer);
 
                 Ok(())
             })
@@ -956,8 +346,8 @@ impl DynamicState {
         if !identical(framebuffer, self.bound_read_framebuffer.as_ref()) {
             self.bound_read_framebuffer = framebuffer.map(|f| f.clone());
 
-            Some(move |context: &GL| {
-                context.bind_framebuffer(GL::READ_FRAMEBUFFER, framebuffer);
+            Some(move |context: &Gl| {
+                context.bind_framebuffer(Gl::READ_FRAMEBUFFER, framebuffer);
 
                 Ok(())
             })
@@ -977,8 +367,8 @@ impl DynamicState {
         if !identical(renderbuffer, self.bound_renderbuffer.as_ref()) {
             self.bound_renderbuffer = renderbuffer.map(|r| r.clone());
 
-            Some(move |context: &GL| {
-                context.bind_renderbuffer(GL::RENDERBUFFER, renderbuffer);
+            Some(move |context: &Gl| {
+                context.bind_renderbuffer(Gl::RENDERBUFFER, renderbuffer);
 
                 Ok(())
             })
@@ -1003,8 +393,8 @@ impl DynamicState {
             self.bound_texture_2d = texture.map(|t| t.clone());
             *active_unit_texture = texture.map(|t| t.clone());
 
-            Some(move |context: &GL| {
-                context.bind_texture(GL::TEXTURE_2D, texture);
+            Some(move |context: &Gl| {
+                context.bind_texture(Gl::TEXTURE_2D, texture);
 
                 Ok(())
             })
@@ -1029,8 +419,8 @@ impl DynamicState {
             self.bound_texture_2d_array = texture.map(|t| t.clone());
             *active_unit_texture = texture.map(|t| t.clone());
 
-            Some(move |context: &GL| {
-                context.bind_texture(GL::TEXTURE_2D_ARRAY, texture);
+            Some(move |context: &Gl| {
+                context.bind_texture(Gl::TEXTURE_2D_ARRAY, texture);
 
                 Ok(())
             })
@@ -1055,8 +445,8 @@ impl DynamicState {
             self.bound_texture_3d = texture.map(|t| t.clone());
             *active_unit_texture = texture.map(|t| t.clone());
 
-            Some(move |context: &GL| {
-                context.bind_texture(GL::TEXTURE_3D, texture);
+            Some(move |context: &Gl| {
+                context.bind_texture(Gl::TEXTURE_3D, texture);
 
                 Ok(())
             })
@@ -1081,8 +471,8 @@ impl DynamicState {
             self.bound_texture_cube_map = texture.map(|t| t.clone());
             *active_unit_texture = texture.map(|t| t.clone());
 
-            Some(move |context: &GL| {
-                context.bind_texture(GL::TEXTURE_CUBE_MAP, texture);
+            Some(move |context: &Gl| {
+                context.bind_texture(Gl::TEXTURE_CUBE_MAP, texture);
 
                 Ok(())
             })
@@ -1111,7 +501,7 @@ impl DynamicState {
         if !identical(sampler, self.bound_samplers[texture_unit as usize].as_ref()) {
             self.bound_samplers[texture_unit as usize] = sampler.map(|v| v.clone());
 
-            Some(move |context: &GL| {
+            Some(move |context: &Gl| {
                 context.bind_sampler(texture_unit, sampler);
 
                 Ok(())
@@ -1132,7 +522,7 @@ impl DynamicState {
         if !identical(vertex_array, self.bound_vertex_array.as_ref()) {
             self.bound_vertex_array = vertex_array.map(|v| v.clone());
 
-            Some(move |context: &GL| {
+            Some(move |context: &Gl| {
                 context.bind_vertex_array(vertex_array);
 
                 Ok(())
@@ -1151,8 +541,8 @@ impl DynamicState {
             self.active_texture = texture_unit;
             self.texture_units_lru.use_index(texture_unit as usize);
 
-            Some(move |context: &GL| {
-                context.active_texture(TEXTURE_UNIT_CONSTANTS[texture_unit as usize]);
+            Some(move |context: &Gl| {
+                context.active_texture(Gl::TEXTURE0 + texture_unit);
 
                 Ok(())
             })
@@ -1165,8 +555,8 @@ impl DynamicState {
         let texture_unit = self.texture_units_lru.use_lru_index();
         self.active_texture = texture_unit as u32;
 
-        Some(move |context: &GL| {
-            context.active_texture(TEXTURE_UNIT_CONSTANTS[texture_unit]);
+        Some(move |context: &Gl| {
+            context.active_texture(Gl::TEXTURE0 + texture_unit as u32);
 
             Ok(())
         })
@@ -1180,7 +570,7 @@ impl DynamicState {
         if color != self.clear_color {
             self.clear_color = color;
 
-            Some(move |context: &GL| {
+            Some(move |context: &Gl| {
                 context.clear_color(color[0], color[1], color[2], color[3]);
 
                 Ok(())
@@ -1198,7 +588,7 @@ impl DynamicState {
         if depth != self.clear_depth {
             self.clear_depth = depth;
 
-            Some(move |context: &GL| {
+            Some(move |context: &Gl| {
                 context.clear_depth(depth);
 
                 Ok(())
@@ -1216,7 +606,7 @@ impl DynamicState {
         if stencil != self.clear_stencil {
             self.clear_stencil = stencil;
 
-            Some(move |context: &GL| {
+            Some(move |context: &Gl| {
                 context.clear_stencil(stencil);
 
                 Ok(())
@@ -1237,8 +627,8 @@ impl DynamicState {
         if pixel_unpack_alignment != self.pixel_unpack_alignment {
             self.pixel_unpack_alignment = pixel_unpack_alignment;
 
-            Some(move |context: &GL| {
-                context.pixel_storei(GL::UNPACK_ALIGNMENT, pixel_unpack_alignment);
+            Some(move |context: &Gl| {
+                context.pixel_storei(Gl::UNPACK_ALIGNMENT, pixel_unpack_alignment);
 
                 Ok(())
             })
@@ -1258,8 +648,8 @@ impl DynamicState {
         if pixel_unpack_row_length != self.pixel_unpack_row_length {
             self.pixel_unpack_row_length = pixel_unpack_row_length;
 
-            Some(move |context: &GL| {
-                context.pixel_storei(GL::UNPACK_ROW_LENGTH, pixel_unpack_row_length);
+            Some(move |context: &Gl| {
+                context.pixel_storei(Gl::UNPACK_ROW_LENGTH, pixel_unpack_row_length);
 
                 Ok(())
             })
@@ -1279,8 +669,8 @@ impl DynamicState {
         if pixel_unpack_image_height != self.pixel_unpack_image_height {
             self.pixel_unpack_image_height = pixel_unpack_image_height;
 
-            Some(move |context: &GL| {
-                context.pixel_storei(GL::UNPACK_IMAGE_HEIGHT, pixel_unpack_image_height);
+            Some(move |context: &Gl| {
+                context.pixel_storei(Gl::UNPACK_IMAGE_HEIGHT, pixel_unpack_image_height);
 
                 Ok(())
             })
@@ -1300,8 +690,8 @@ impl DynamicState {
         if depth_test_enabled != self.depth_test_enabled {
             self.depth_test_enabled = depth_test_enabled;
 
-            Some(move |context: &GL| {
-                context.enable(GL::DEPTH_TEST);
+            Some(move |context: &Gl| {
+                context.enable(Gl::DEPTH_TEST);
 
                 Ok(())
             })
@@ -1321,8 +711,8 @@ impl DynamicState {
         if stencil_test_enabled != self.stencil_test_enabled {
             self.stencil_test_enabled = stencil_test_enabled;
 
-            Some(move |context: &GL| {
-                context.enable(GL::STENCIL_TEST);
+            Some(move |context: &Gl| {
+                context.enable(Gl::STENCIL_TEST);
 
                 Ok(())
             })
@@ -1342,8 +732,8 @@ impl DynamicState {
         if scissor_test_enabled != self.scissor_test_enabled {
             self.scissor_test_enabled = scissor_test_enabled;
 
-            Some(move |context: &GL| {
-                context.enable(GL::SCISSOR_TEST);
+            Some(move |context: &Gl| {
+                context.enable(Gl::SCISSOR_TEST);
 
                 Ok(())
             })
@@ -1360,8 +750,8 @@ impl DynamicState {
         if blend_enabled != self.blend_enabled {
             self.blend_enabled = blend_enabled;
 
-            Some(move |context: &GL| {
-                context.enable(GL::BLEND);
+            Some(move |context: &Gl| {
+                context.enable(Gl::BLEND);
 
                 Ok(())
             })
@@ -1381,8 +771,8 @@ impl DynamicState {
         if cull_face_enabled != self.cull_face_enabled {
             self.cull_face_enabled = cull_face_enabled;
 
-            Some(move |context: &GL| {
-                context.enable(GL::CULL_FACE);
+            Some(move |context: &Gl| {
+                context.enable(Gl::CULL_FACE);
 
                 Ok(())
             })
@@ -1399,8 +789,8 @@ impl DynamicState {
         if dither_enabled != self.dither_enabled {
             self.dither_enabled = dither_enabled;
 
-            Some(move |context: &GL| {
-                context.enable(GL::DITHER);
+            Some(move |context: &Gl| {
+                context.enable(Gl::DITHER);
 
                 Ok(())
             })
@@ -1420,8 +810,8 @@ impl DynamicState {
         if polygon_offset_fill_enabled != self.polygon_offset_fill_enabled {
             self.polygon_offset_fill_enabled = polygon_offset_fill_enabled;
 
-            Some(move |context: &GL| {
-                context.enable(GL::POLYGON_OFFSET_FILL);
+            Some(move |context: &Gl| {
+                context.enable(Gl::POLYGON_OFFSET_FILL);
 
                 Ok(())
             })
@@ -1441,8 +831,8 @@ impl DynamicState {
         if sample_aplha_to_coverage_enabled != self.sample_aplha_to_coverage_enabled {
             self.sample_aplha_to_coverage_enabled = sample_aplha_to_coverage_enabled;
 
-            Some(move |context: &GL| {
-                context.enable(GL::SAMPLE_ALPHA_TO_COVERAGE);
+            Some(move |context: &Gl| {
+                context.enable(Gl::SAMPLE_ALPHA_TO_COVERAGE);
 
                 Ok(())
             })
@@ -1462,8 +852,8 @@ impl DynamicState {
         if sample_coverage_enabled != self.sample_coverage_enabled {
             self.sample_coverage_enabled = sample_coverage_enabled;
 
-            Some(move |context: &GL| {
-                context.enable(GL::SAMPLE_COVERAGE);
+            Some(move |context: &Gl| {
+                context.enable(Gl::SAMPLE_COVERAGE);
 
                 Ok(())
             })
@@ -1483,8 +873,8 @@ impl DynamicState {
         if rasterizer_discard_enabled != self.rasterizer_discard_enabled {
             self.rasterizer_discard_enabled = rasterizer_discard_enabled;
 
-            Some(move |context: &GL| {
-                context.enable(GL::RASTERIZER_DISCARD);
+            Some(move |context: &Gl| {
+                context.enable(Gl::RASTERIZER_DISCARD);
 
                 Ok(())
             })
@@ -1495,9 +885,9 @@ impl DynamicState {
 }
 
 impl DynamicState {
-    pub fn initial(context: &GL) -> Self {
+    pub fn initial(context: &Gl) -> Self {
         let max_combined_texture_image_units = context
-            .get_parameter(GL::MAX_COMBINED_TEXTURE_IMAGE_UNITS)
+            .get_parameter(Gl::MAX_COMBINED_TEXTURE_IMAGE_UNITS)
             .unwrap()
             .as_f64()
             .unwrap() as usize;
@@ -1513,7 +903,7 @@ impl DynamicState {
             bound_transform_feedback_buffers: vec![
                 BufferRange::None;
                 context
-                    .get_parameter(GL::MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS)
+                    .get_parameter(Gl::MAX_TRANSFORM_FEEDBACK_SEPARATE_ATTRIBS)
                     .unwrap()
                     .as_f64()
                     .unwrap() as usize
@@ -1521,7 +911,7 @@ impl DynamicState {
             bound_uniform_buffers: vec![
                 BufferRange::None;
                 context
-                    .get_parameter(GL::MAX_UNIFORM_BUFFER_BINDINGS)
+                    .get_parameter(Gl::MAX_UNIFORM_BUFFER_BINDINGS)
                     .unwrap()
                     .as_f64()
                     .unwrap() as usize
@@ -1529,7 +919,7 @@ impl DynamicState {
             active_uniform_buffer_index: 0,
             uniform_buffer_index_lru: IndexLRU::new(
                 context
-                    .get_parameter(GL::MAX_UNIFORM_BUFFER_BINDINGS)
+                    .get_parameter(Gl::MAX_UNIFORM_BUFFER_BINDINGS)
                     .unwrap()
                     .as_f64()
                     .unwrap() as usize,
@@ -1567,14 +957,14 @@ impl DynamicState {
 }
 
 pub trait ContextUpdate<'a, E> {
-    fn apply(self, context: &GL) -> Result<(), E>;
+    fn apply(self, context: &Gl) -> Result<(), E>;
 }
 
 impl<'a, F, E> ContextUpdate<'a, E> for Option<F>
 where
-    F: FnOnce(&GL) -> Result<(), E> + 'a,
+    F: FnOnce(&Gl) -> Result<(), E> + 'a,
 {
-    fn apply(self, context: &GL) -> Result<(), E> {
+    fn apply(self, context: &Gl) -> Result<(), E> {
         self.map(|f| f(context)).unwrap_or(Ok(()))
     }
 }
@@ -1630,88 +1020,5 @@ where
             }
             _ => false,
         }
-    }
-}
-
-struct IndexLRU {
-    linkage: Vec<(usize, usize)>,
-    lru_index: usize,
-    mru_index: usize,
-}
-
-impl IndexLRU {
-    fn new(max_index: usize) -> Self {
-        let mut linkage = Vec::with_capacity(max_index);
-        let texture_units = max_index as i32;
-
-        for i in 0..texture_units {
-            linkage.push((
-                ((i - 1) % texture_units) as usize,
-                ((i + 1) % texture_units) as usize,
-            ));
-        }
-
-        IndexLRU {
-            linkage,
-            lru_index: 0,
-            mru_index: (texture_units - 1) as usize,
-        }
-    }
-
-    fn use_index(&mut self, index: usize) {
-        if index != self.mru_index {
-            if index == self.lru_index {
-                self.use_lru_index();
-            } else {
-                let (previous, next) = self.linkage[index];
-
-                self.linkage[previous].1 = next;
-                self.linkage[next].0 = previous;
-                self.linkage[self.lru_index].0 = index;
-                self.linkage[self.mru_index].1 = index;
-                self.linkage[index].0 = self.mru_index;
-                self.linkage[index].1 = self.lru_index;
-                self.mru_index = index;
-            }
-        }
-    }
-
-    fn use_lru_index(&mut self) -> usize {
-        let old_lru_index = self.lru_index;
-
-        self.lru_index = self.linkage[old_lru_index].1;
-        self.mru_index = old_lru_index;
-
-        old_lru_index
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_index_lru() {
-        let mut lru = IndexLRU::new(4);
-
-        assert_eq!(lru.use_lru_index(), 0);
-        assert_eq!(lru.use_lru_index(), 1);
-        assert_eq!(lru.use_lru_index(), 2);
-        assert_eq!(lru.use_lru_index(), 3);
-        assert_eq!(lru.use_lru_index(), 0);
-
-        lru.use_index(0);
-
-        assert_eq!(lru.use_lru_index(), 1);
-
-        lru.use_index(3);
-
-        assert_eq!(lru.use_lru_index(), 2);
-        assert_eq!(lru.use_lru_index(), 0);
-        assert_eq!(lru.use_lru_index(), 1);
-        assert_eq!(lru.use_lru_index(), 3);
-        assert_eq!(lru.use_lru_index(), 2);
-        assert_eq!(lru.use_lru_index(), 0);
-        assert_eq!(lru.use_lru_index(), 1);
     }
 }

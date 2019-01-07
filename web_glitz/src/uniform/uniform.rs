@@ -4,26 +4,16 @@ use std::sync::Arc;
 
 use crate::buffer::BufferHandle;
 use crate::sampler::{
-    FloatSampler2DArrayHandle,
-    FloatSampler2DHandle,
-    FloatSampler3DHandle,
-    FloatSamplerCubeHandle,
-    IntegerSampler2DArrayHandle,
-    IntegerSampler2DHandle,
-    IntegerSampler3DHandle,
-    IntegerSamplerCubeHandle,
-    Sampler2DArrayShadowHandle,
-    Sampler2DShadowHandle,
-    SamplerCubeShadowHandle,
-    UnsignedIntegerSampler2DArrayHandle,
-    UnsignedIntegerSampler2DHandle,
-    UnsignedIntegerSampler3DHandle,
-    UnsignedIntegerSamplerCubeHandle,
+    FloatSampler2DArrayHandle, FloatSampler2DHandle, FloatSampler3DHandle, FloatSamplerCubeHandle,
+    IntegerSampler2DArrayHandle, IntegerSampler2DHandle, IntegerSampler3DHandle,
+    IntegerSamplerCubeHandle, Sampler2DArrayShadowHandle, Sampler2DShadowHandle,
+    SamplerCubeShadowHandle, UnsignedIntegerSampler2DArrayHandle, UnsignedIntegerSampler2DHandle,
+    UnsignedIntegerSampler3DHandle, UnsignedIntegerSamplerCubeHandle,
 };
 use crate::std_140::Std140;
 
-use super::{UniformIdentifier, IdentifierTail, IdentifierSegment};
 use super::binding::BindingSlot;
+use super::{IdentifierSegment, IdentifierTail, UniformIdentifier};
 use buffer::BufferView;
 
 pub trait Uniform {
@@ -1331,8 +1321,8 @@ where
 }
 
 impl<T> Uniform for BufferView<T>
-    where
-        T: Std140,
+where
+    T: Std140,
 {
     fn bind(&self, identifier: IdentifierTail, slot: &mut BindingSlot) -> Result<(), BindingError> {
         if !identifier.is_empty() {

@@ -9,21 +9,16 @@ use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::framebuffer::framebuffer_handle::FramebufferAttachmentInternal;
 use crate::framebuffer::{AsFramebufferAttachment, FramebufferAttachment};
-use crate::image_format::ClientFormat;
+use crate::image_format::{ClientFormat, Filterable};
 use crate::image_region::Region2D;
-use crate::rendering_context::{Connection, ContextUpdate, RenderingContext};
+use crate::runtime::{Connection, RenderingContext};
+use crate::runtime::dropper::{DropObject, Dropper, RefCountedDropper};
+use crate::runtime::dynamic_state::ContextUpdate;
 use crate::task::{GpuTask, Progress};
-use crate::texture::image_source::Image2DSourceInternal;
-use crate::texture::util::mipmap_size;
-use crate::texture::util::{region_2d_overlap_height, region_2d_overlap_width};
 use crate::texture::{Image2DSource, TextureFormat};
-use crate::util::JsId;
-use rendering_context::DropObject;
-use rendering_context::Dropper;
-use rendering_context::RefCountedDropper;
-use texture::util::region_2d_sub_image;
-use util::arc_get_mut_unchecked;
-use util::identical;
+use crate::texture::image_source::Image2DSourceInternal;
+use crate::texture::util::{mipmap_size, region_2d_sub_image, region_2d_overlap_height, region_2d_overlap_width};
+use crate::util::{JsId, arc_get_mut_unchecked, identical};
 
 pub struct Texture2DHandle<F> {
     pub(crate) data: Arc<Texture2DData>,
@@ -67,7 +62,52 @@ impl<F> Texture2DHandle<F>
 where
     F: TextureFormat + 'static,
 {
-    pub(crate) fn new<Rc>(
+    pub(crate) fn new<Rc>(context: &Rc, dropper: RefCountedDropper, width: u32, height: u32) -> Self
+    where
+        Rc: RenderingContext,
+    {
+        let data = Arc::new(Texture2DData {
+            id: None,
+            dropper,
+            width,
+            height,
+            levels: 1,
+            most_recent_unit: None,
+        });
+
+        context.submit(Texture2DAllocateTask::<F> {
+            data: data.clone(),
+            _marker: marker::PhantomData,
+        });
+
+        Texture2DHandle {
+            data,
+            _marker: marker::PhantomData,
+        }
+    }
+
+    pub fn base_level(&self) -> Texture2DLevel<F> {
+        Texture2DLevel {
+            texture_data: self.data.clone(),
+            level: 0,
+            _marker: marker::PhantomData,
+        }
+    }
+
+    pub fn width(&self) -> u32 {
+        self.data.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.data.height
+    }
+}
+
+impl<F> Texture2DHandle<F>
+where
+    F: TextureFormat + Filterable + 'static,
+{
+    pub(crate) fn new_mipmapped<Rc>(
         context: &Rc,
         dropper: RefCountedDropper,
         width: u32,
@@ -97,14 +137,6 @@ where
         }
     }
 
-    pub fn base_level(&self) -> Texture2DLevel<F> {
-        Texture2DLevel {
-            texture_data: self.data.clone(),
-            level: 0,
-            _marker: marker::PhantomData,
-        }
-    }
-
     pub fn levels(&self) -> Texture2DLevels<F> {
         Texture2DLevels {
             texture_data: self.data.clone(),
@@ -112,12 +144,10 @@ where
         }
     }
 
-    pub fn width(&self) -> u32 {
-        self.data.width
-    }
-
-    pub fn height(&self) -> u32 {
-        self.data.height
+    pub fn generate_mipmap_task(&self) -> Texture2DGenerateMipmapTask {
+        Texture2DGenerateMipmapTask {
+            texture_data: self.data.clone(),
+        }
     }
 }
 
@@ -471,6 +501,31 @@ where
                 }
             }
         }
+
+        Progress::Finished(())
+    }
+}
+
+pub struct Texture2DGenerateMipmapTask {
+    texture_data: Arc<Texture2DData>,
+}
+
+impl GpuTask<Connection> for Texture2DGenerateMipmapTask {
+    type Output = ();
+
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
+        let Connection(gl, state) = connection;
+
+        unsafe {
+            self.texture_data
+                .id
+                .unwrap()
+                .with_value_unchecked(|texture_object| {
+                    state.set_bound_texture_2d(Some(texture_object));
+                });
+        }
+
+        gl.generate_mipmap(Gl::TEXTURE_2D);
 
         Progress::Finished(())
     }

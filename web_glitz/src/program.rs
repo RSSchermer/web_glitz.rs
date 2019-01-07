@@ -1,28 +1,19 @@
-use rendering_context::Connection;
-use rendering_context::RenderingContext;
 use std::borrow::Borrow;
-use std::sync::Arc;
-use task::GpuTask;
-use task::Progress;
-use uniform::UniformIdentifier;
-use util::JsId;
-
-use rendering_context::ContextUpdate;
-use rendering_context::DropObject;
-use rendering_context::Dropper;
-use rendering_context::RefCountedDropper;
-
 use std::marker;
 use std::mem;
 use std::slice;
-use uniform::Uniform;
-use util::arc_get_mut_unchecked;
-use util::slice_make_mut;
+use std::sync::Arc;
+
 use wasm_bindgen::JsCast;
 use web_sys::{WebGl2RenderingContext as Gl, WebGlActiveInfo, WebGlProgram, WebGlUniformLocation};
 
+use crate::runtime::{Connection, RenderingContext};
+use crate::runtime::dropper::{DropObject, Dropper, RefCountedDropper};
+use crate::runtime::dynamic_state::ContextUpdate;
+use crate::task::{GpuTask, Progress};
+use crate::uniform::{Uniform, BindingError, UniformIdentifier};
 use crate::uniform::binding::UniformSlot;
-use uniform::BindingError;
+use crate::util::{JsId, arc_get_mut_unchecked, slice_make_mut};
 
 pub struct VertexShaderHandle {
     data: Arc<ShaderData>,
@@ -113,7 +104,11 @@ pub struct ProgramHandle<Fs, Tf> {
 }
 
 impl<Fs, Tf> ProgramHandle<Fs, Tf> {
-    pub(crate) fn bind_uniforms<T>(&mut self, connection: &mut Connection, uniforms: T) -> Result<(), BindingError>
+    pub(crate) fn bind_uniforms<T>(
+        &mut self,
+        connection: &mut Connection,
+        uniforms: T,
+    ) -> Result<(), BindingError>
     where
         T: Uniform,
     {

@@ -9,22 +9,16 @@ use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::framebuffer::framebuffer_handle::FramebufferAttachmentInternal;
 use crate::framebuffer::{AsFramebufferAttachment, FramebufferAttachment};
-use crate::image_format::ClientFormat;
+use crate::image_format::{ClientFormat, Filterable};
 use crate::image_region::Region2D;
-use crate::rendering_context::{Connection, ContextUpdate, RenderingContext};
+use crate::runtime::{Connection, RenderingContext};
+use crate::runtime::dropper::{DropObject, Dropper, RefCountedDropper};
+use crate::runtime::dynamic_state::ContextUpdate;
 use crate::task::{GpuTask, Progress};
-use crate::texture::image_source::Image2DSourceInternal;
 use crate::texture::{Image2DSource, TextureFormat};
-use crate::util::JsId;
-use rendering_context::DropObject;
-use rendering_context::Dropper;
-use rendering_context::RefCountedDropper;
-use texture::util::mipmap_size;
-use texture::util::region_2d_overlap_height;
-use texture::util::region_2d_overlap_width;
-use texture::util::region_2d_sub_image;
-use util::arc_get_mut_unchecked;
-use util::identical;
+use crate::texture::image_source::Image2DSourceInternal;
+use crate::texture::util::{mipmap_size, region_2d_sub_image, region_2d_overlap_height, region_2d_overlap_width};
+use crate::util::{JsId, arc_get_mut_unchecked, identical};
 
 #[derive(Clone)]
 pub struct TextureCubeHandle<F> {
@@ -337,7 +331,7 @@ pub enum CubeFace {
 }
 
 impl CubeFace {
-    fn id(&self) -> u32 {
+    pub(crate) fn id(&self) -> u32 {
         match self {
             CubeFace::PositiveX => Gl::TEXTURE_CUBE_MAP_POSITIVE_X,
             CubeFace::NegativeX => Gl::TEXTURE_CUBE_MAP_NEGATIVE_X,

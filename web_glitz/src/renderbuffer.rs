@@ -1,19 +1,15 @@
-use image_format::InternalFormat;
-use rendering_context::Connection;
-use rendering_context::ContextUpdate;
-use rendering_context::DropObject;
-use rendering_context::Dropper;
-use rendering_context::RefCountedDropper;
-use rendering_context::RenderingContext;
-use rendering_context::Submitter;
 use std::marker;
 use std::sync::Arc;
-use task::GpuTask;
-use task::Progress;
-use util::arc_get_mut_unchecked;
-use util::JsId;
+
 use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
+
+use crate::image_format::InternalFormat;
+use crate::runtime::{Connection, RenderingContext};
+use crate::runtime::dropper::{DropObject, Dropper, RefCountedDropper};
+use crate::runtime::dynamic_state::ContextUpdate;
+use crate::task::{GpuTask, Progress};
+use crate::util::{JsId, arc_get_mut_unchecked};
 
 pub unsafe trait RenderbufferFormat: InternalFormat {}
 

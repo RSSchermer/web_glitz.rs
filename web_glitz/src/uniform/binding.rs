@@ -2,28 +2,17 @@ use std::slice;
 
 use web_sys::{WebGl2RenderingContext as Gl, WebGlProgram, WebGlUniformLocation};
 
-use crate::buffer::BufferHandle;
-use crate::rendering_context::Connection;
+use crate::buffer::{BufferHandle, BufferView};
+use crate::runtime::Connection;
 use crate::sampler::{
-    FloatSampler2DArrayHandle,
-    FloatSampler2DHandle,
-    FloatSampler3DHandle,
-    FloatSamplerCubeHandle,
-    IntegerSampler2DArrayHandle,
-    IntegerSampler2DHandle,
-    IntegerSampler3DHandle,
-    IntegerSamplerCubeHandle,
-    Sampler2DArrayShadowHandle,
-    Sampler2DShadowHandle,
-    SamplerCubeShadowHandle,
-    UnsignedIntegerSampler2DArrayHandle,
-    UnsignedIntegerSampler2DHandle,
-    UnsignedIntegerSampler3DHandle,
-    UnsignedIntegerSamplerCubeHandle,
+    FloatSampler2DArrayHandle, FloatSampler2DHandle, FloatSampler3DHandle, FloatSamplerCubeHandle,
+    IntegerSampler2DArrayHandle, IntegerSampler2DHandle, IntegerSampler3DHandle,
+    IntegerSamplerCubeHandle, Sampler2DArrayShadowHandle, Sampler2DShadowHandle,
+    SamplerCubeShadowHandle, UnsignedIntegerSampler2DArrayHandle, UnsignedIntegerSampler2DHandle,
+    UnsignedIntegerSampler3DHandle, UnsignedIntegerSamplerCubeHandle,
 };
 use crate::std_140::Std140;
-use crate::util::{JsId, slice_make_mut};
-use buffer::BufferView;
+use crate::util::{slice_make_mut, JsId};
 
 pub enum UniformSlot {
     Float(FloatSlot),
@@ -110,7 +99,12 @@ pub enum UniformSlot {
 }
 
 impl UniformSlot {
-    pub(crate) fn new_value(name: String, type_id: u32, size: usize, location: WebGlUniformLocation) -> Self {
+    pub(crate) fn new_value(
+        name: String,
+        type_id: u32,
+        size: usize,
+        location: WebGlUniformLocation,
+    ) -> Self {
         let location_id = JsId::from_value(location.into());
         let is_array = name.ends_with("[0]");
 
@@ -2775,8 +2769,8 @@ impl<'a> Binder<'a, ArrayOfSamplerCubeShadowSlot> {
 
 impl<'a> Binder<'a, BlockSlot> {
     pub fn bind<T>(&mut self, value: &BufferView<T>)
-        where
-            T: Std140,
+    where
+        T: Std140,
     {
         let binding = value.bind_uniform(self.connection);
         let Connection(gl, _) = self.connection;

@@ -2,7 +2,8 @@ use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
 use crate::framebuffer::framebuffer_handle::FramebufferData;
-use crate::rendering_context::{Connection, ContextUpdate};
+use crate::runtime::Connection;
+use crate::runtime::dynamic_state::ContextUpdate;
 use crate::task::{GpuTask, Progress};
 
 #[derive(Clone, Copy, PartialEq, Debug)]

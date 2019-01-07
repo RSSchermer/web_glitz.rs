@@ -7,14 +7,11 @@ use std::sync::Arc;
 
 use web_sys::{WebGl2RenderingContext as GL, WebGlBuffer};
 
-use super::rendering_context::{Connection, ContextUpdate, RenderingContext};
-use super::task::{GpuTask, Progress};
-use super::util::JsId;
-use rendering_context::BufferRange;
-use rendering_context::DropObject;
-use rendering_context::Dropper;
-use rendering_context::RefCountedDropper;
-use util::arc_get_mut_unchecked;
+use crate::runtime::dropper::{DropObject, Dropper, RefCountedDropper};
+use crate::runtime::dynamic_state::{BufferRange, ContextUpdate, DynamicState};
+use crate::runtime::{Connection, RenderingContext};
+use crate::task::{GpuTask, Progress};
+use crate::util::{arc_get_mut_unchecked, JsId};
 
 #[derive(Clone, Copy, Debug)]
 pub enum BufferUsage {
@@ -239,7 +236,10 @@ impl Drop for BufferData {
 }
 
 #[derive(Clone)]
-pub struct BufferView<T> where T: ?Sized {
+pub struct BufferView<T>
+where
+    T: ?Sized,
+{
     data: Arc<BufferData>,
     offset_in_bytes: usize,
     len: usize,
@@ -247,8 +247,8 @@ pub struct BufferView<T> where T: ?Sized {
 }
 
 impl<T> BufferView<T>
-    where
-        T: ?Sized,
+where
+    T: ?Sized,
 {
     pub fn usage_hint(&self) -> BufferUsage {
         self.data.usage_hint
@@ -265,24 +265,28 @@ impl<T> BufferView<T> {
             let size_in_bytes = self.len * mem::size_of::<T>();
 
             data.id.unwrap().with_value_unchecked(|buffer_object| {
-                let buffer_range = BufferRange::OffsetSize(buffer_object, self.offset_in_bytes as u32, size_in_bytes as u32);
+                let buffer_range = BufferRange::OffsetSize(
+                    buffer_object,
+                    self.offset_in_bytes as u32,
+                    size_in_bytes as u32,
+                );
 
                 if most_recent_binding.is_none()
                     || state.bound_uniform_buffer_range(most_recent_binding.unwrap())
-                    != buffer_range
-                    {
-                        state.set_active_uniform_buffer_binding_lru();
-                        state
-                            .set_bound_uniform_buffer_range(buffer_range)
-                            .apply(gl)
-                            .unwrap();
+                        != buffer_range
+                {
+                    state.set_active_uniform_buffer_binding_lru();
+                    state
+                        .set_bound_uniform_buffer_range(buffer_range)
+                        .apply(gl)
+                        .unwrap();
 
-                        let binding = state.active_uniform_buffer_binding();
+                    let binding = state.active_uniform_buffer_binding();
 
-                        *most_recent_binding = Some(binding);
+                    *most_recent_binding = Some(binding);
 
-                        binding
-                    } else {
+                    binding
+                } else {
                     most_recent_binding.unwrap()
                 }
             })
@@ -290,8 +294,8 @@ impl<T> BufferView<T> {
     }
 
     pub fn upload_task<D>(&self, data: D) -> BufferUploadTask<T, D>
-        where
-            D: Borrow<T> + Send + Sync + 'static,
+    where
+        D: Borrow<T> + Send + Sync + 'static,
     {
         BufferUploadTask {
             buffer_data: self.data.clone(),
@@ -386,7 +390,10 @@ impl<T> BufferView<[T]> {
     }
 }
 
-impl<T> Into<BufferView<T>> for BufferHandle<T> where T: ?Sized {
+impl<T> Into<BufferView<T>> for BufferHandle<T>
+where
+    T: ?Sized,
+{
     fn into(self) -> BufferView<T> {
         BufferView {
             len: self.data.len,
@@ -502,10 +509,7 @@ where
         let max_size = self.len * mem::size_of::<T>();
 
         unsafe {
-            let mut data = slice::from_raw_parts(
-                self.data.borrow() as *const _ as *const u8,
-                size,
-            );
+            let mut data = slice::from_raw_parts(self.data.borrow() as *const _ as *const u8, size);
 
             if max_size < size {
                 data = &data[0..max_size];
@@ -626,7 +630,11 @@ impl<T> GpuTask<Connection> for BufferDownloadTask<[T]> {
                     .apply(gl)
                     .unwrap();
 
-                gl.buffer_data_with_i32(GL::COPY_WRITE_BUFFER, size_in_bytes as i32, GL::STREAM_READ);
+                gl.buffer_data_with_i32(
+                    GL::COPY_WRITE_BUFFER,
+                    size_in_bytes as i32,
+                    GL::STREAM_READ,
+                );
 
                 unsafe {
                     self.data.id.unwrap().with_value_unchecked(|buffer_object| {

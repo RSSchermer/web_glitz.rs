@@ -1,20 +1,15 @@
-use image_format::DepthRenderable;
-use image_format::FloatSamplable;
-use image_format::IntegerSamplable;
-use image_format::ShadowSamplable;
-use image_format::UnsignedIntegerSamplable;
-use rendering_context::Connection;
-use rendering_context::ContextUpdate;
-use rendering_context::RefCountedDropper;
 use std::sync::Arc;
-use texture::texture_2d::Texture2DHandle;
-use texture::texture_2d_array::Texture2DArrayHandle;
-use texture::texture_3d::Texture3DHandle;
-use texture::texture_cube::TextureCubeHandle;
-use texture::TextureFormat;
-use util::arc_get_mut_unchecked;
-use util::identical;
-use util::JsId;
+
+use crate::image_format::{FloatSamplable, IntegerSamplable, UnsignedIntegerSamplable, ShadowSamplable};
+use crate::runtime::{Connection, RenderingContext};
+use crate::runtime::dropper::{DropObject, Dropper, RefCountedDropper};
+use crate::runtime::dynamic_state::ContextUpdate;
+use crate::texture::texture_2d::Texture2DHandle;
+use crate::texture::texture_2d_array::Texture2DArrayHandle;
+use crate::texture::texture_3d::Texture3DHandle;
+use crate::texture::texture_cube::TextureCubeHandle;
+use crate::texture::TextureFormat;
+use crate::util::{JsId, identical, arc_get_mut_unchecked};
 
 pub struct FloatSampler2DHandle<F> {
     data: Arc<SamplerData<Texture2DHandle<F>>>,
