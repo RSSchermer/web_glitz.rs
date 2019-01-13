@@ -8,8 +8,11 @@ use web_sys::{
 
 use crate::runtime::index_lru::IndexLRU;
 use crate::util::identical;
+use runtime::framebuffer_cache::FramebufferCache;
 
 pub struct DynamicState {
+    framebuffer_cache: FramebufferCache,
+    max_draw_buffers: usize,
     active_program: Option<WebGlProgram>,
     bound_array_buffer: Option<WebGlBuffer>,
     bound_element_array_buffer: Option<WebGlBuffer>,
@@ -43,7 +46,7 @@ pub struct DynamicState {
     cull_face_enabled: bool,
     dither_enabled: bool,
     polygon_offset_fill_enabled: bool,
-    sample_aplha_to_coverage_enabled: bool,
+    sample_alpha_to_coverage_enabled: bool,
     sample_coverage_enabled: bool,
     rasterizer_discard_enabled: bool,
     //    read_buffer: ReadBuffer,
@@ -81,6 +84,18 @@ pub struct DynamicState {
 }
 
 impl DynamicState {
+    pub(crate) fn framebuffer_cache(&self) -> &FramebufferCache {
+        &self.framebuffer_cache
+    }
+
+    pub(crate) fn framebuffer_cache_mut(&mut self) -> &mut FramebufferCache {
+        &mut self.framebuffer_cache
+    }
+
+    pub fn max_draw_buffers(&self) -> usize {
+        self.max_draw_buffers
+    }
+
     pub fn active_program(&self) -> Option<&WebGlProgram> {
         self.active_program.as_ref()
     }
@@ -821,15 +836,15 @@ impl DynamicState {
     }
 
     pub fn sample_aplha_to_coverage_enabled(&self) -> bool {
-        self.sample_aplha_to_coverage_enabled
+        self.sample_alpha_to_coverage_enabled
     }
 
     pub fn set_sample_aplha_to_coverage_enabled(
         &mut self,
         sample_aplha_to_coverage_enabled: bool,
     ) -> impl ContextUpdate<'static, ()> {
-        if sample_aplha_to_coverage_enabled != self.sample_aplha_to_coverage_enabled {
-            self.sample_aplha_to_coverage_enabled = sample_aplha_to_coverage_enabled;
+        if sample_aplha_to_coverage_enabled != self.sample_alpha_to_coverage_enabled {
+            self.sample_alpha_to_coverage_enabled = sample_aplha_to_coverage_enabled;
 
             Some(move |context: &Gl| {
                 context.enable(Gl::SAMPLE_ALPHA_TO_COVERAGE);
@@ -893,6 +908,12 @@ impl DynamicState {
             .unwrap() as usize;
 
         DynamicState {
+            framebuffer_cache: FramebufferCache::new(),
+            max_draw_buffers: context
+                .get_parameter(Gl::MAX_DRAW_BUFFERS)
+                .unwrap()
+                .as_f64()
+                .unwrap() as usize,
             active_program: None,
             bound_array_buffer: None,
             bound_element_array_buffer: None,
@@ -949,7 +970,7 @@ impl DynamicState {
             cull_face_enabled: false,
             dither_enabled: true,
             polygon_offset_fill_enabled: false,
-            sample_aplha_to_coverage_enabled: false,
+            sample_alpha_to_coverage_enabled: false,
             sample_coverage_enabled: false,
             rasterizer_discard_enabled: false,
         }

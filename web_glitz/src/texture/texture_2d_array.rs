@@ -12,23 +12,18 @@ use crate::framebuffer::framebuffer_handle::FramebufferAttachmentInternal;
 use crate::framebuffer::{AsFramebufferAttachment, FramebufferAttachment};
 use crate::image_format::ClientFormat;
 use crate::image_region::{Region2D, Region3D};
-use crate::runtime::{Connection, RenderingContext};
 use crate::runtime::dropper::{DropObject, Dropper, RefCountedDropper};
 use crate::runtime::dynamic_state::ContextUpdate;
+use crate::runtime::{Connection, RenderingContext};
 use crate::task::{GpuTask, Progress};
 use crate::texture::image_source::{Image2DSourceInternal, Image3DSourceInternal};
-use crate::texture::{Image2DSource, Image3DSource, TextureFormat};
 use crate::texture::util::{
-    mipmap_size,
-    region_2d_overlap_height,
-    region_2d_overlap_width,
-    region_2d_sub_image,
-    region_3d_overlap_depth,
-    region_3d_overlap_height,
-    region_3d_overlap_width,
+    mipmap_size, region_2d_overlap_height, region_2d_overlap_width, region_2d_sub_image,
+    region_3d_overlap_depth, region_3d_overlap_height, region_3d_overlap_width,
     region_3d_sub_image,
 };
-use crate::util::{JsId, arc_get_mut_unchecked, identical};
+use crate::texture::{Image2DSource, Image3DSource, TextureFormat};
+use crate::util::{arc_get_mut_unchecked, identical, JsId};
 
 #[derive(Clone)]
 pub struct Texture2DArrayHandle<F> {

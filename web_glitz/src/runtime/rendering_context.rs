@@ -12,11 +12,11 @@ use crate::task::GpuTask;
 use crate::texture::{
     Texture2DArrayHandle, Texture2DHandle, Texture3DHandle, TextureCubeHandle, TextureFormat,
 };
+use std::borrow::Borrow;
+use buffer::IntoBuffer;
 
-pub trait RenderingContext: Clone {
-    fn create_value_buffer<T>(&self, usage_hint: BufferUsage) -> BufferHandle<T>;
-
-    fn create_array_buffer<T>(&self, len: usize, usage_hint: BufferUsage) -> BufferHandle<[T]>;
+pub trait RenderingContext {
+    fn create_buffer<D, T>(&self, data: D, usage_hint: BufferUsage) -> BufferHandle<T> where D: IntoBuffer<T>;
 
     fn create_framebuffer<D>(&self, descriptor: &D) -> FramebufferHandle
     where

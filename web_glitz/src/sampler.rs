@@ -1,15 +1,17 @@
 use std::sync::Arc;
 
-use crate::image_format::{FloatSamplable, IntegerSamplable, UnsignedIntegerSamplable, ShadowSamplable};
-use crate::runtime::{Connection, RenderingContext};
+use crate::image_format::{
+    FloatSamplable, IntegerSamplable, ShadowSamplable, UnsignedIntegerSamplable,
+};
 use crate::runtime::dropper::{DropObject, Dropper, RefCountedDropper};
 use crate::runtime::dynamic_state::ContextUpdate;
+use crate::runtime::{Connection, RenderingContext};
 use crate::texture::texture_2d::Texture2DHandle;
 use crate::texture::texture_2d_array::Texture2DArrayHandle;
 use crate::texture::texture_3d::Texture3DHandle;
 use crate::texture::texture_cube::TextureCubeHandle;
 use crate::texture::TextureFormat;
-use crate::util::{JsId, identical, arc_get_mut_unchecked};
+use crate::util::{arc_get_mut_unchecked, identical, JsId};
 
 pub struct FloatSampler2DHandle<F> {
     data: Arc<SamplerData<Texture2DHandle<F>>>,

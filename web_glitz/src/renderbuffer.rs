@@ -5,11 +5,11 @@ use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::image_format::InternalFormat;
-use crate::runtime::{Connection, RenderingContext};
 use crate::runtime::dropper::{DropObject, Dropper, RefCountedDropper};
 use crate::runtime::dynamic_state::ContextUpdate;
+use crate::runtime::{Connection, RenderingContext};
 use crate::task::{GpuTask, Progress};
-use crate::util::{JsId, arc_get_mut_unchecked};
+use crate::util::{arc_get_mut_unchecked, JsId};
 
 pub unsafe trait RenderbufferFormat: InternalFormat {}
 

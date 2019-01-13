@@ -36,7 +36,8 @@ impl FencedTaskQueue {
         let gl = gl.clone();
 
         while let Some((fence, _)) = self.queue.front() {
-            let sync_status = gl.clone()
+            let sync_status = gl
+                .clone()
                 .get_sync_parameter(fence, Gl::SYNC_STATUS)
                 .as_f64()
                 .unwrap() as u32;
@@ -82,7 +83,9 @@ impl JsTimeoutFencedTaskRunner {
     where
         T: ExecutorJob + 'static,
     {
-        self.queue.borrow_mut().push(job, &mut self.connection.borrow_mut());
+        self.queue
+            .borrow_mut()
+            .push(job, &mut self.connection.borrow_mut());
 
         let loop_running = if let Some(handle) = &self.loop_handle {
             !handle.cancelled()
@@ -105,7 +108,7 @@ struct JsTimeoutFencedTaskLoop {
     connection: Rc<RefCell<Connection>>,
     closure: Weak<Option<Closure<dyn FnMut()>>>,
     handle: Rc<Cell<i32>>,
-    cancelled: Rc<Cell<bool>>
+    cancelled: Rc<Cell<bool>>,
 }
 
 impl JsTimeoutFencedTaskLoop {
@@ -127,7 +130,7 @@ impl JsTimeoutFencedTaskLoop {
             connection,
             closure: Rc::downgrade(&closure_container),
             handle: handle.clone(),
-            cancelled: cancelled.clone()
+            cancelled: cancelled.clone(),
         }) as Box<FnMut()>);
 
         let handle_id = window()
@@ -181,7 +184,8 @@ impl FnMut<()> for JsTimeoutFencedTaskLoop {
                     self.handle.set(handle_id);
                 }
             }
-        } {
+        }
+        {
             self.cancelled.set(true);
         }
     }

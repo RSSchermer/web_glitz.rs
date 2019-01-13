@@ -8,5 +8,6 @@ pub mod dynamic_state;
 
 pub(crate) mod dropper;
 pub(crate) mod executor_job;
+pub(crate) mod framebuffer_cache;
 pub(crate) mod fenced;
 pub(crate) mod index_lru;

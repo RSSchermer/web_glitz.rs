@@ -7,7 +7,7 @@ use crate::buffer::{BufferHandle, BufferUsage};
 use crate::framebuffer::{FramebufferDescriptor, FramebufferHandle};
 use crate::image_format::Filterable;
 use crate::renderbuffer::{RenderbufferFormat, RenderbufferHandle};
-use crate::runtime::dropper::{DropObject, Dropper, RefCountedDropper, DropTask};
+use crate::runtime::dropper::{DropObject, DropTask, Dropper, RefCountedDropper};
 use crate::runtime::dynamic_state::DynamicState;
 use crate::runtime::executor_job::job;
 use crate::runtime::fenced::JsTimeoutFencedTaskRunner;
@@ -16,6 +16,8 @@ use crate::task::{GpuTask, Progress};
 use crate::texture::{
     Texture2DArrayHandle, Texture2DHandle, Texture3DHandle, TextureCubeHandle, TextureFormat,
 };
+use std::borrow::Borrow;
+use buffer::IntoBuffer;
 
 #[derive(Clone)]
 pub struct SingleThreadedContext {
@@ -23,21 +25,8 @@ pub struct SingleThreadedContext {
 }
 
 impl RenderingContext for SingleThreadedContext {
-    fn create_value_buffer<T>(&self, usage_hint: BufferUsage) -> BufferHandle<T> {
-        BufferHandle::value(
-            self,
-            RefCountedDropper::Rc(self.executor.clone()),
-            usage_hint,
-        )
-    }
-
-    fn create_array_buffer<T>(&self, len: usize, usage_hint: BufferUsage) -> BufferHandle<[T]> {
-        BufferHandle::array(
-            self,
-            RefCountedDropper::Rc(self.executor.clone()),
-            len,
-            usage_hint,
-        )
+    fn create_buffer<D, T>(&self, data: D, usage_hint: BufferUsage) -> BufferHandle<T> where D: IntoBuffer<T> {
+        data.into_buffer(self, usage_hint)
     }
 
     fn create_framebuffer<D>(&self, descriptor: &D) -> FramebufferHandle

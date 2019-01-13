@@ -41,9 +41,7 @@ pub(crate) struct DropTask {
 
 impl DropTask {
     pub(crate) fn new(object: DropObject) -> Self {
-        DropTask {
-            object
-        }
+        DropTask { object }
     }
 }
 
