@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 use std::marker;
 use std::mem;
-use std::ops::{Bound, RangeBounds};
+use std::ops::{Range, RangeFull, RangeFrom, RangeInclusive, RangeTo, RangeToInclusive};
 use std::slice;
 use std::sync::Arc;
 
@@ -12,14 +12,8 @@ use crate::runtime::dropper::{DropObject, Dropper, RefCountedDropper};
 use crate::runtime::dynamic_state::{BufferRange, ContextUpdate, DynamicState};
 use crate::runtime::{Connection, RenderingContext};
 use crate::task::{GpuTask, Progress};
-use crate::util::{arc_get_mut_unchecked, JsId};
-use util::slice_make_mut;
-use std::ops::RangeFull;
-use std::ops::RangeFrom;
-use std::ops::Range;
-use std::ops::RangeInclusive;
-use std::ops::RangeTo;
-use std::ops::RangeToInclusive;
+use crate::util::{arc_get_mut_unchecked, slice_make_mut, JsId};
+
 
 #[derive(Clone, Copy, Debug)]
 pub enum BufferUsage {
@@ -950,23 +944,4 @@ impl<T> GpuTask<Connection> for BufferDownloadTask<[T]> {
             }
         }
     }
-}
-
-fn slice_bounds<R>(range: R, len: usize) -> (usize, usize)
-where
-    R: RangeBounds<usize>,
-{
-    let start = match range.start_bound() {
-        Bound::Unbounded => 0,
-        Bound::Excluded(b) => b + 1,
-        Bound::Included(b) => *b,
-    };
-
-    let end = match range.end_bound() {
-        Bound::Unbounded => len,
-        Bound::Excluded(b) => *b,
-        Bound::Included(b) => b - 1,
-    };
-
-    (start, end)
 }
