@@ -14,7 +14,6 @@ use crate::runtime::{Connection, RenderingContext};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, slice_make_mut, JsId};
 
-
 #[derive(Clone, Copy, Debug)]
 pub enum BufferUsage {
     StaticDraw,
@@ -41,16 +40,6 @@ impl BufferUsage {
             BufferUsage::DynamicCopy => GL::DYNAMIC_COPY,
             BufferUsage::StreamCopy => GL::STREAM_COPY,
         }
-    }
-}
-
-trait BufferDropper {
-    fn drop_task(&self, task: BufferDropTask);
-}
-
-impl<T> BufferDropper for T where T: RenderingContext {
-    fn drop_task(&self, task: BufferDropTask) {
-        self.submit(task);
     }
 }
 
@@ -99,9 +88,19 @@ impl<D, T> IntoBuffer<[T]> for D where D: Borrow<[T]> + 'static, T: 'static {
     }
 }
 
+trait BufferObjectDropper {
+    fn drop_buffer_object(&self, id: JsId);
+}
+
+impl<T> BufferObjectDropper for T where T: RenderingContext {
+    fn drop_buffer_object(&self, id: JsId) {
+        self.submit(BufferDropTask { id });
+    }
+}
+
 pub(crate) struct BufferData {
     id: Option<JsId>,
-    dropper: Box<BufferDropper>,
+    dropper: Box<BufferObjectDropper>,
     len: usize,
     size_in_bytes: usize,
     usage_hint: BufferUsage,
@@ -111,7 +110,7 @@ pub(crate) struct BufferData {
 impl Drop for BufferData {
     fn drop(&mut self) {
         if let Some(id) = self.id {
-            self.dropper.drop_task(BufferDropTask { id });
+            self.dropper.drop_buffer_object(id);
         }
     }
 }
