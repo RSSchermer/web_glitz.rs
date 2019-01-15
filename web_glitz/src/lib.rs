@@ -26,7 +26,6 @@ pub use web_glitz_derive::uniforms;
 pub use web_glitz_derive::*;
 
 pub mod buffer;
-//pub mod framebuffer;
 pub mod image_format;
 pub mod image_region;
 pub mod program;
