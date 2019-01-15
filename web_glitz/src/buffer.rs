@@ -779,7 +779,7 @@ where
             gl.buffer_sub_data_with_i32_and_u8_array(
                 GL::COPY_WRITE_BUFFER,
                 self.offset_in_bytes as i32,
-                &mut *(data as *const _ as *mut _),
+                slice_make_mut(data),
             );
         };
 
@@ -822,7 +822,7 @@ where
             gl.buffer_sub_data_with_i32_and_u8_array(
                 GL::COPY_WRITE_BUFFER,
                 self.offset_in_bytes as i32,
-                &mut *(data as *const _ as *mut _),
+                slice_make_mut(data),
             );
         };
 
