@@ -4,7 +4,6 @@ use futures::{Async, Poll};
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::buffer::{BufferHandle, BufferUsage};
-use crate::framebuffer::{FramebufferDescriptor, FramebufferHandle};
 use crate::image_format::Filterable;
 use crate::renderbuffer::{RenderbufferFormat, RenderbufferHandle};
 use crate::runtime::dynamic_state::DynamicState;
@@ -17,10 +16,6 @@ use buffer::IntoBuffer;
 
 pub trait RenderingContext {
     fn create_buffer<D, T>(&self, data: D, usage_hint: BufferUsage) -> BufferHandle<T> where D: IntoBuffer<T>;
-
-    fn create_framebuffer<D>(&self, descriptor: &D) -> FramebufferHandle
-    where
-        D: FramebufferDescriptor;
 
     fn create_renderbuffer<F>(&self, width: u32, height: u32) -> RenderbufferHandle<F>
     where

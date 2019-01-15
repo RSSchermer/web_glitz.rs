@@ -1,17 +1,21 @@
 use std::borrow::Borrow;
+use std::hash::{Hash, Hasher};
 
+use js_sys::Uint32Array;
 use wasm_bindgen::JsValue;
 use web_sys::{
     WebGl2RenderingContext as Gl, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlRenderbuffer,
     WebGlSampler, WebGlSync, WebGlTexture, WebGlVertexArrayObject,
 };
 
+use crate::render_pass::AttachableImageDescriptor;
 use crate::runtime::index_lru::IndexLRU;
 use crate::util::identical;
-use runtime::framebuffer_cache::FramebufferCache;
+use fnv::{FnvHashMap, FnvHasher};
+use util::JsId;
 
 pub struct DynamicState {
-    framebuffer_cache: FramebufferCache,
+    pub(crate) framebuffer_cache: FnvHashMap<u64, (Framebuffer, [Option<JsId>; 17])>,
     max_draw_buffers: usize,
     active_program: Option<WebGlProgram>,
     bound_array_buffer: Option<WebGlBuffer>,
@@ -84,12 +88,10 @@ pub struct DynamicState {
 }
 
 impl DynamicState {
-    pub(crate) fn framebuffer_cache(&self) -> &FramebufferCache {
-        &self.framebuffer_cache
-    }
-
-    pub(crate) fn framebuffer_cache_mut(&mut self) -> &mut FramebufferCache {
-        &mut self.framebuffer_cache
+    pub(crate) fn framebuffer_cache_mut(&mut self) -> FramebufferCache {
+        FramebufferCache {
+            state: self
+        }
     }
 
     pub fn max_draw_buffers(&self) -> usize {
@@ -908,7 +910,7 @@ impl DynamicState {
             .unwrap() as usize;
 
         DynamicState {
-            framebuffer_cache: FramebufferCache::new(),
+            framebuffer_cache: FnvHashMap::default(),
             max_draw_buffers: context
                 .get_parameter(Gl::MAX_DRAW_BUFFERS)
                 .unwrap()
@@ -1042,4 +1044,213 @@ where
             _ => false,
         }
     }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum DrawBuffer {
+    Color0 = 0,
+    Color1 = 1,
+    Color2 = 2,
+    Color3 = 3,
+    Color4 = 4,
+    Color5 = 5,
+    Color6 = 6,
+    Color7 = 7,
+    Color8 = 8,
+    Color9 = 9,
+    Color10 = 10,
+    Color11 = 11,
+    Color12 = 12,
+    Color13 = 13,
+    Color14 = 14,
+    Color15 = 15,
+    None = 16,
+}
+
+impl DrawBuffer {
+    fn id(&self) -> u32 {
+        match self {
+            DrawBuffer::None => Gl::NONE,
+            _ => Gl::COLOR_ATTACHMENT0 + *self as u32
+        }
+    }
+}
+
+pub(crate) struct Framebuffer {
+    fbo: WebGlFramebuffer,
+    draw_buffers: [DrawBuffer; 16],
+}
+
+pub(crate) struct CachedFramebuffer<'a> {
+    framebuffer: &'a mut Framebuffer,
+    max_draw_buffers: usize,
+    gl: &'a Gl
+}
+
+impl<'a> CachedFramebuffer<'a> {
+    pub(crate) fn set_draw_buffers<I, B>(&mut self, draw_buffers: I)
+        where
+            I: IntoIterator<Item = B>,
+            B: Borrow<DrawBuffer>
+    {
+        let framebuffer = &mut self.framebuffer;
+
+        let mut needs_update = false;
+        let mut buffer_count = 0;
+
+        for buffer in draw_buffers {
+            if buffer_count >= self.max_draw_buffers {
+                panic!("Cannot bind more than {} draw buffers", self.max_draw_buffers);
+            }
+
+            let buffer = *buffer.borrow();
+
+            if buffer != framebuffer.draw_buffers[buffer_count] {
+                framebuffer.draw_buffers[buffer_count] = buffer;
+
+                needs_update = true;
+            }
+
+            buffer_count += 1;
+        }
+
+        for i in buffer_count..self.max_draw_buffers {
+            if DrawBuffer::None != framebuffer.draw_buffers[i] {
+                framebuffer.draw_buffers[i] = DrawBuffer::None;
+
+                needs_update = true;
+            }
+        }
+
+        if needs_update {
+            let mut buffer_ids = [0; 16];
+
+            for (i, buffer) in framebuffer.draw_buffers[0..self.max_draw_buffers]
+                .iter()
+                .enumerate()
+                {
+                    buffer_ids[i] = buffer.id();
+                }
+
+            let array = unsafe { Uint32Array::view(&buffer_ids[0..self.max_draw_buffers]) };
+
+            self.gl.draw_buffers(array.as_ref());
+        }
+    }
+}
+
+pub(crate) struct FramebufferCache<'a> {
+    state: &'a mut DynamicState
+}
+
+impl<'a> FramebufferCache<'a> {
+    pub(crate) fn get_or_create<'b: 'a, A>(
+        &'b mut self,
+        attachment_set: &A,
+        gl: &'b Gl
+    ) -> CachedFramebuffer<'b>
+        where
+            A: AttachmentSet,
+    {
+        let mut hasher = FnvHasher::default();
+
+        attachment_set.hash(&mut hasher);
+
+        let key = hasher.finish();
+        let max_draw_buffers = self.state.max_draw_buffers;
+        let DynamicState{ framebuffer_cache, bound_draw_framebuffer, .. } = &mut self.state;
+
+        let (framebuffer, _) = framebuffer_cache.entry(key).or_insert_with(|| {
+            let fbo = gl.create_framebuffer().unwrap();
+            let target = Gl::DRAW_FRAMEBUFFER;
+
+            gl.bind_framebuffer(target, Some(&fbo));
+
+            *bound_draw_framebuffer = Some(fbo.clone());
+
+            let mut attachment_ids = [None; 17];
+
+            for (i, attachment) in attachment_set.color_attachments().iter().enumerate() {
+                attachment.attach(gl, target, Gl::COLOR_ATTACHMENT0 + i as u32);
+
+                attachment_ids[i] = Some(attachment.id());
+            }
+
+            if let Some((slot, image)) = match attachment_set.depth_stencil_attachment() {
+                DepthStencilAttachmentDescriptor::Depth(image) => Some((Gl::DEPTH_ATTACHMENT, image)),
+                DepthStencilAttachmentDescriptor::Stencil(image) => {
+                    Some((Gl::STENCIL_ATTACHMENT, image))
+                }
+                DepthStencilAttachmentDescriptor::DepthStencil(image) => {
+                    Some((Gl::DEPTH_STENCIL_ATTACHMENT, image))
+                }
+                DepthStencilAttachmentDescriptor::None => None,
+            } {
+                image.attach(gl, target, slot);
+
+                attachment_ids[16] = Some(image.id());
+            }
+
+            let framebuffer = Framebuffer {
+                fbo,
+                draw_buffers: [
+                    DrawBuffer::Color0,
+                    DrawBuffer::None,
+                    DrawBuffer::None,
+                    DrawBuffer::None,
+                    DrawBuffer::None,
+                    DrawBuffer::None,
+                    DrawBuffer::None,
+                    DrawBuffer::None,
+                    DrawBuffer::None,
+                    DrawBuffer::None,
+                    DrawBuffer::None,
+                    DrawBuffer::None,
+                    DrawBuffer::None,
+                    DrawBuffer::None,
+                    DrawBuffer::None,
+                    DrawBuffer::None,
+                ],
+            };
+
+            (framebuffer, attachment_ids)
+        });
+
+        CachedFramebuffer {
+            framebuffer,
+            max_draw_buffers,
+            gl
+        }
+    }
+
+    pub(crate) fn remove_attachment_dependents(
+        &mut self,
+        attachment_id: JsId,
+        gl: &Gl
+    ) {
+        self.state.framebuffer_cache
+            .retain(|_, (framebuffer, attachment_ids)| {
+                let is_dependent = attachment_ids.iter().all(|id| id != &Some(attachment_id));
+
+                if is_dependent {
+                    gl.delete_framebuffer(Some(&framebuffer.fbo));
+                }
+
+                is_dependent
+            })
+    }
+}
+
+pub(crate) trait AttachmentSet: Hash {
+    fn color_attachments(&self) -> &[AttachableImageDescriptor];
+
+    fn depth_stencil_attachment(&self) -> &DepthStencilAttachmentDescriptor;
+}
+
+#[derive(PartialEq, Hash)]
+pub(crate) enum DepthStencilAttachmentDescriptor {
+    Depth(AttachableImageDescriptor),
+    Stencil(AttachableImageDescriptor),
+    DepthStencil(AttachableImageDescriptor),
+    None
 }

@@ -4,7 +4,6 @@ use std::rc::Rc;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::buffer::{BufferHandle, BufferUsage};
-use crate::framebuffer::{FramebufferDescriptor, FramebufferHandle};
 use crate::image_format::Filterable;
 use crate::renderbuffer::{RenderbufferFormat, RenderbufferHandle};
 use crate::runtime::dropper::{DropObject, DropTask, Dropper, RefCountedDropper};
@@ -27,17 +26,6 @@ pub struct SingleThreadedContext {
 impl RenderingContext for SingleThreadedContext {
     fn create_buffer<D, T>(&self, data: D, usage_hint: BufferUsage) -> BufferHandle<T> where D: IntoBuffer<T> {
         data.into_buffer(self, usage_hint)
-    }
-
-    fn create_framebuffer<D>(&self, descriptor: &D) -> FramebufferHandle
-    where
-        D: FramebufferDescriptor,
-    {
-        FramebufferHandle::new(
-            self,
-            RefCountedDropper::Rc(self.executor.clone()),
-            descriptor,
-        )
     }
 
     fn create_renderbuffer<F>(&self, width: u32, height: u32) -> RenderbufferHandle<F>

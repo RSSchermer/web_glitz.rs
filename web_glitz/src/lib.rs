@@ -11,6 +11,7 @@
 //extern crate phf;
 extern crate fnv;
 extern crate futures;
+extern crate js_sys;
 #[macro_use]
 extern crate proc_macro_hack;
 extern crate wasm_bindgen;
@@ -25,11 +26,11 @@ pub use web_glitz_derive::uniforms;
 pub use web_glitz_derive::*;
 
 pub mod buffer;
-pub mod framebuffer;
+//pub mod framebuffer;
 pub mod image_format;
 pub mod image_region;
 pub mod program;
-//pub mod render_pass;
+pub mod render_pass;
 pub mod renderbuffer;
 pub mod runtime;
 pub mod sampler;

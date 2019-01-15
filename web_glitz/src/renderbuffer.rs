@@ -44,6 +44,10 @@ where
         }
     }
 
+    pub(crate) fn id(&self) -> Option<JsId> {
+        self.data.id
+    }
+
     fn width(&self) -> u32 {
         self.data.width
     }

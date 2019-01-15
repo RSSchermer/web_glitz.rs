@@ -8,8 +8,6 @@ use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::framebuffer::framebuffer_handle::FramebufferAttachmentInternal;
-use crate::framebuffer::{AsFramebufferAttachment, FramebufferAttachment};
 use crate::image_format::ClientFormat;
 use crate::image_region::{Region2D, Region3D};
 use crate::runtime::dropper::{DropObject, Dropper, RefCountedDropper};
@@ -466,18 +464,6 @@ where
             layer: self.layer,
             region: Region2D::Fill,
             _marker: marker::PhantomData,
-        }
-    }
-}
-
-impl<F> AsFramebufferAttachment for Texture2DArrayLevelLayer<F> {
-    fn as_framebuffer_attachment(&self) -> FramebufferAttachment {
-        FramebufferAttachment {
-            internal: FramebufferAttachmentInternal::Texture2DArrayLevelLayer(
-                self.texture_data.clone(),
-                self.level,
-                self.layer,
-            ),
         }
     }
 }
