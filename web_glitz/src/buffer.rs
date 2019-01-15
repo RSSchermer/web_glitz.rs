@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 use std::marker;
 use std::mem;
-use std::ops::{Range, RangeFull, RangeFrom, RangeInclusive, RangeTo, RangeToInclusive};
+use std::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 use std::slice;
 use std::sync::Arc;
 
@@ -43,12 +43,24 @@ impl BufferUsage {
     }
 }
 
-pub trait IntoBuffer<T> where T: ?Sized {
-    fn into_buffer<Rc>(self, context: &Rc, usage_hint: BufferUsage) -> BufferHandle<T> where Rc: RenderingContext + Clone + 'static;
+pub trait IntoBuffer<T>
+where
+    T: ?Sized,
+{
+    fn into_buffer<Rc>(self, context: &Rc, usage_hint: BufferUsage) -> BufferHandle<T>
+    where
+        Rc: RenderingContext + Clone + 'static;
 }
 
-impl<D, T> IntoBuffer<T> for D where D: Borrow<T> + 'static, T: 'static {
-    fn into_buffer<Rc>(self, context: &Rc, usage_hint: BufferUsage) -> BufferHandle<T> where Rc: RenderingContext + Clone + 'static {
+impl<D, T> IntoBuffer<T> for D
+where
+    D: Borrow<T> + 'static,
+    T: 'static,
+{
+    fn into_buffer<Rc>(self, context: &Rc, usage_hint: BufferUsage) -> BufferHandle<T>
+    where
+        Rc: RenderingContext + Clone + 'static,
+    {
         let data = Arc::new(BufferData {
             id: None,
             dropper: Box::new(context.clone()),
@@ -58,7 +70,11 @@ impl<D, T> IntoBuffer<T> for D where D: Borrow<T> + 'static, T: 'static {
             recent_uniform_binding: None,
         });
 
-        context.submit(BufferAllocateTask { data: data.clone(), initial: self, _marker: marker::PhantomData });
+        context.submit(BufferAllocateTask {
+            data: data.clone(),
+            initial: self,
+            _marker: marker::PhantomData,
+        });
 
         BufferHandle {
             data,
@@ -67,8 +83,15 @@ impl<D, T> IntoBuffer<T> for D where D: Borrow<T> + 'static, T: 'static {
     }
 }
 
-impl<D, T> IntoBuffer<[T]> for D where D: Borrow<[T]> + 'static, T: 'static {
-    fn into_buffer<Rc>(self, context: &Rc, usage_hint: BufferUsage) -> BufferHandle<[T]> where Rc: RenderingContext + Clone  + 'static {
+impl<D, T> IntoBuffer<[T]> for D
+where
+    D: Borrow<[T]> + 'static,
+    T: 'static,
+{
+    fn into_buffer<Rc>(self, context: &Rc, usage_hint: BufferUsage) -> BufferHandle<[T]>
+    where
+        Rc: RenderingContext + Clone + 'static,
+    {
         let len = self.borrow().len();
         let data = Arc::new(BufferData {
             id: None,
@@ -79,7 +102,11 @@ impl<D, T> IntoBuffer<[T]> for D where D: Borrow<[T]> + 'static, T: 'static {
             recent_uniform_binding: None,
         });
 
-        context.submit(BufferAllocateTask::<D, [T]> { data: data.clone(), initial: self, _marker: marker::PhantomData });
+        context.submit(BufferAllocateTask::<D, [T]> {
+            data: data.clone(),
+            initial: self,
+            _marker: marker::PhantomData,
+        });
 
         BufferHandle {
             data,
@@ -92,7 +119,10 @@ trait BufferObjectDropper {
     fn drop_buffer_object(&self, id: JsId);
 }
 
-impl<T> BufferObjectDropper for T where T: RenderingContext {
+impl<T> BufferObjectDropper for T
+where
+    T: RenderingContext,
+{
     fn drop_buffer_object(&self, id: JsId) {
         self.submit(BufferDropTask { id });
     }
@@ -171,11 +201,17 @@ impl<T> BufferHandle<[T]> {
         self.data.len
     }
 
-    pub fn get<I>(&self, index: I) -> Option<I::Output> where I: BufferIndex<BufferHandle<[T]>> {
+    pub fn get<I>(&self, index: I) -> Option<I::Output>
+    where
+        I: BufferIndex<BufferHandle<[T]>>,
+    {
         index.get(self)
     }
 
-    pub unsafe fn get_unchecked<I>(&self, index: I) -> I::Output where I: BufferIndex<BufferHandle<[T]>> {
+    pub unsafe fn get_unchecked<I>(&self, index: I) -> I::Output
+    where
+        I: BufferIndex<BufferHandle<[T]>>,
+    {
         index.get_unchecked(self)
     }
 
@@ -289,11 +325,17 @@ impl<T> BufferView<[T]> {
         self.len
     }
 
-    pub fn get<I>(&self, index: I) -> Option<I::Output> where I: BufferIndex<BufferView<[T]>> {
+    pub fn get<I>(&self, index: I) -> Option<I::Output>
+    where
+        I: BufferIndex<BufferView<[T]>>,
+    {
         index.get(self)
     }
 
-    pub unsafe fn get_unchecked<I>(&self, index: I) -> I::Output where I: BufferIndex<BufferView<[T]>> {
+    pub unsafe fn get_unchecked<I>(&self, index: I) -> I::Output
+    where
+        I: BufferIndex<BufferView<[T]>>,
+    {
         index.get_unchecked(self)
     }
 
@@ -443,7 +485,7 @@ impl<T> BufferIndex<BufferHandle<[T]>> for Range<usize> {
     type Output = BufferView<[T]>;
 
     fn get(self, buffer: &BufferHandle<[T]>) -> Option<Self::Output> {
-        let Range {start, end } = self;
+        let Range { start, end } = self;
 
         if start > end || end > buffer.data.len {
             None
@@ -471,7 +513,7 @@ impl<T> BufferIndex<BufferView<[T]>> for Range<usize> {
     type Output = BufferView<[T]>;
 
     fn get(self, buffer: &BufferView<[T]>) -> Option<Self::Output> {
-        let Range {start, end } = self;
+        let Range { start, end } = self;
 
         if start > end || end > buffer.len {
             None
@@ -599,13 +641,19 @@ impl<T> BufferIndex<BufferView<[T]>> for RangeToInclusive<usize> {
     }
 }
 
-struct BufferAllocateTask<D, T> where T: ?Sized {
+struct BufferAllocateTask<D, T>
+where
+    T: ?Sized,
+{
     data: Arc<BufferData>,
     initial: D,
     _marker: marker::PhantomData<T>,
 }
 
-impl<D, T> GpuTask<Connection> for BufferAllocateTask<D, T> where D: Borrow<T> {
+impl<D, T> GpuTask<Connection> for BufferAllocateTask<D, T>
+where
+    D: Borrow<T>,
+{
     type Output = ();
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
@@ -638,7 +686,10 @@ impl<D, T> GpuTask<Connection> for BufferAllocateTask<D, T> where D: Borrow<T> {
     }
 }
 
-impl<D, T> GpuTask<Connection> for BufferAllocateTask<D, [T]> where D: Borrow<[T]> {
+impl<D, T> GpuTask<Connection> for BufferAllocateTask<D, [T]>
+where
+    D: Borrow<[T]>,
+{
     type Output = ();
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
@@ -671,7 +722,7 @@ impl<D, T> GpuTask<Connection> for BufferAllocateTask<D, [T]> where D: Borrow<[T
 }
 
 struct BufferDropTask {
-    id: JsId
+    id: JsId,
 }
 
 impl GpuTask<Connection> for BufferDropTask {

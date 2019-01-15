@@ -89,9 +89,7 @@ pub struct DynamicState {
 
 impl DynamicState {
     pub(crate) fn framebuffer_cache_mut(&mut self) -> FramebufferCache {
-        FramebufferCache {
-            state: self
-        }
+        FramebufferCache { state: self }
     }
 
     pub fn max_draw_buffers(&self) -> usize {
@@ -1071,7 +1069,7 @@ impl DrawBuffer {
     fn id(&self) -> u32 {
         match self {
             DrawBuffer::None => Gl::NONE,
-            _ => Gl::COLOR_ATTACHMENT0 + *self as u32
+            _ => Gl::COLOR_ATTACHMENT0 + *self as u32,
         }
     }
 }
@@ -1084,14 +1082,14 @@ pub(crate) struct Framebuffer {
 pub(crate) struct CachedFramebuffer<'a> {
     framebuffer: &'a mut Framebuffer,
     max_draw_buffers: usize,
-    gl: &'a Gl
+    gl: &'a Gl,
 }
 
 impl<'a> CachedFramebuffer<'a> {
     pub(crate) fn set_draw_buffers<I, B>(&mut self, draw_buffers: I)
-        where
-            I: IntoIterator<Item = B>,
-            B: Borrow<DrawBuffer>
+    where
+        I: IntoIterator<Item = B>,
+        B: Borrow<DrawBuffer>,
     {
         let framebuffer = &mut self.framebuffer;
 
@@ -1100,7 +1098,10 @@ impl<'a> CachedFramebuffer<'a> {
 
         for buffer in draw_buffers {
             if buffer_count >= self.max_draw_buffers {
-                panic!("Cannot bind more than {} draw buffers", self.max_draw_buffers);
+                panic!(
+                    "Cannot bind more than {} draw buffers",
+                    self.max_draw_buffers
+                );
             }
 
             let buffer = *buffer.borrow();
@@ -1128,9 +1129,9 @@ impl<'a> CachedFramebuffer<'a> {
             for (i, buffer) in framebuffer.draw_buffers[0..self.max_draw_buffers]
                 .iter()
                 .enumerate()
-                {
-                    buffer_ids[i] = buffer.id();
-                }
+            {
+                buffer_ids[i] = buffer.id();
+            }
 
             let array = unsafe { Uint32Array::view(&buffer_ids[0..self.max_draw_buffers]) };
 
@@ -1140,17 +1141,17 @@ impl<'a> CachedFramebuffer<'a> {
 }
 
 pub(crate) struct FramebufferCache<'a> {
-    state: &'a mut DynamicState
+    state: &'a mut DynamicState,
 }
 
 impl<'a> FramebufferCache<'a> {
     pub(crate) fn get_or_create<'b: 'a, A>(
         &'b mut self,
         attachment_set: &A,
-        gl: &'b Gl
+        gl: &'b Gl,
     ) -> CachedFramebuffer<'b>
-        where
-            A: AttachmentSet,
+    where
+        A: AttachmentSet,
     {
         let mut hasher = FnvHasher::default();
 
@@ -1158,7 +1159,11 @@ impl<'a> FramebufferCache<'a> {
 
         let key = hasher.finish();
         let max_draw_buffers = self.state.max_draw_buffers;
-        let DynamicState{ framebuffer_cache, bound_draw_framebuffer, .. } = &mut self.state;
+        let DynamicState {
+            framebuffer_cache,
+            bound_draw_framebuffer,
+            ..
+        } = &mut self.state;
 
         let (framebuffer, _) = framebuffer_cache.entry(key).or_insert_with(|| {
             let fbo = gl.create_framebuffer().unwrap();
@@ -1177,7 +1182,9 @@ impl<'a> FramebufferCache<'a> {
             }
 
             if let Some((slot, image)) = match attachment_set.depth_stencil_attachment() {
-                DepthStencilAttachmentDescriptor::Depth(image) => Some((Gl::DEPTH_ATTACHMENT, image)),
+                DepthStencilAttachmentDescriptor::Depth(image) => {
+                    Some((Gl::DEPTH_ATTACHMENT, image))
+                }
                 DepthStencilAttachmentDescriptor::Stencil(image) => {
                     Some((Gl::STENCIL_ATTACHMENT, image))
                 }
@@ -1219,16 +1226,13 @@ impl<'a> FramebufferCache<'a> {
         CachedFramebuffer {
             framebuffer,
             max_draw_buffers,
-            gl
+            gl,
         }
     }
 
-    pub(crate) fn remove_attachment_dependents(
-        &mut self,
-        attachment_id: JsId,
-        gl: &Gl
-    ) {
-        self.state.framebuffer_cache
+    pub(crate) fn remove_attachment_dependents(&mut self, attachment_id: JsId, gl: &Gl) {
+        self.state
+            .framebuffer_cache
             .retain(|_, (framebuffer, attachment_ids)| {
                 let is_dependent = attachment_ids.iter().all(|id| id != &Some(attachment_id));
 
@@ -1252,5 +1256,5 @@ pub(crate) enum DepthStencilAttachmentDescriptor {
     Depth(AttachableImageDescriptor),
     Stencil(AttachableImageDescriptor),
     DepthStencil(AttachableImageDescriptor),
-    None
+    None,
 }

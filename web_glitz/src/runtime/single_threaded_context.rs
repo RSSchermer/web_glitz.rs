@@ -3,6 +3,7 @@ use std::rc::Rc;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
+use buffer::IntoBuffer;
 use crate::buffer::{BufferHandle, BufferUsage};
 use crate::image_format::Filterable;
 use crate::renderbuffer::{RenderbufferFormat, RenderbufferHandle};
@@ -16,7 +17,6 @@ use crate::texture::{
     Texture2DArrayHandle, Texture2DHandle, Texture3DHandle, TextureCubeHandle, TextureFormat,
 };
 use std::borrow::Borrow;
-use buffer::IntoBuffer;
 
 #[derive(Clone)]
 pub struct SingleThreadedContext {
@@ -24,7 +24,10 @@ pub struct SingleThreadedContext {
 }
 
 impl RenderingContext for SingleThreadedContext {
-    fn create_buffer<D, T>(&self, data: D, usage_hint: BufferUsage) -> BufferHandle<T> where D: IntoBuffer<T> {
+    fn create_buffer<D, T>(&self, data: D, usage_hint: BufferUsage) -> BufferHandle<T>
+    where
+        D: IntoBuffer<T>,
+    {
         data.into_buffer(self, usage_hint)
     }
 
