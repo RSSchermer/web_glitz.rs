@@ -43,7 +43,7 @@ where
 
         state
             .framebuffer_cache_mut()
-            .get_or_create(&self.render_target_encoding, gl)
+            .bind_or_create(&self.render_target_encoding, gl)
             .set_draw_buffers(self.render_target_encoding.draw_buffers());
 
         let RenderTargetEncoding { framebuffer, data } = &mut self.render_target_encoding;
@@ -378,17 +378,22 @@ pub enum StoreOp {
     DontCare,
 }
 
+pub trait Buffer {}
+
 pub struct ColorFloatBuffer {}
 
 impl ColorFloatBuffer {
     fn clear_task(&mut self, value: [f32; 4]) {}
 }
 
+impl Buffer for ColorFloatBuffer {}
+
 pub struct ColorIntegerBuffer {}
 
 impl ColorIntegerBuffer {
     fn clear_task(&mut self, value: [i32; 4]) {}
 }
+impl Buffer for ColorIntegerBuffer {}
 
 pub struct ColorUnsignedIntegerBuffer {}
 
@@ -396,17 +401,7 @@ impl ColorUnsignedIntegerBuffer {
     fn clear_task(&mut self, value: [u32; 4]) {}
 }
 
-pub struct DepthBuffer {}
-
-impl DepthBuffer {
-    fn clear_task(&mut self, value: f32) {}
-}
-
-pub struct StencilBuffer {}
-
-impl StencilBuffer {
-    fn clear_task(&mut self, value: u8) {}
-}
+impl Buffer for ColorUnsignedIntegerBuffer {}
 
 pub struct DepthStencilBuffer {}
 
@@ -417,6 +412,24 @@ impl DepthBuffer {
 
     fn clear_stencil_task(&mut self, stencil: u8) {}
 }
+
+impl Buffer for DepthStencilBuffer {}
+
+pub struct DepthBuffer {}
+
+impl DepthBuffer {
+    fn clear_task(&mut self, value: f32) {}
+}
+
+impl Buffer for DepthBuffer {}
+
+pub struct StencilBuffer {}
+
+impl StencilBuffer {
+    fn clear_task(&mut self, value: u8) {}
+}
+
+impl Buffer for StencilBuffer {}
 
 pub struct RenderTarget<C, Ds> {
     color: C,
@@ -463,7 +476,7 @@ where
 }
 
 macro_rules! impl_render_target_descriptor {
-    (($($location:tt),*) <$($C:ident),*>) => {
+    ($($location:tt: $C:ident),*) => {
         impl<$($C),*> RenderTargetDescriptor for RenderTarget<($($C),*), ()> where $($C: ColorAttachable),* {
             type Framebuffer = Framebuffer<($($C::Buffer),*), ()>;
 
@@ -496,80 +509,129 @@ macro_rules! impl_render_target_descriptor {
     }
 }
 
-impl_render_target_descriptor!{
-    (0, 1)
-    <C0, C1>
-}
-
-//impl_render_target_descriptor!{
-//    (0, 1, 2)
-//    <C0, C1, C2>
-//}
-//
-//impl_render_target_descriptor!{
-//    (0, 1, 2, 3)
-//    <C0, C1, C2, C3>
-//}
-//
-//impl_render_target_descriptor!{
-//    (0, 1, 2, 3, 4)
-//    <C0, C1, C2, C3, C4>
-//}
-//
-//impl_render_target_descriptor!{
-//    (0, 1, 2, 3, 4, 5)
-//    <C0, C1, C2, C3, C4, C5>
-//}
-//
-//impl_render_target_descriptor!{
-//    (0, 1, 2, 3, 4, 5, 6)
-//    <C0, C1, C2, C3, C4, C5, C6>
-//}
-//
-//impl_render_target_descriptor!{
-//    (0, 1, 2, 3, 4, 5, 6, 7)
-//    <C0, C1, C2, C3, C4, C5, C6, C7>
-//}
-//
-//impl_render_target_descriptor!{
-//    (0, 1, 2, 3, 4, 5, 6, 7, 8)
-//    <C0, C1, C2, C3, C4, C5, C6, C7, C8>
-//}
-//
-//impl_render_target_descriptor!{
-//    (0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
-//    <C0, C1, C2, C3, C4, C5, C6, C7, C8, C9>
-//}
-//
-//impl_render_target_descriptor!{
-//    (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
-//    <C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10>
-//}
-//
-//impl_render_target_descriptor!{
-//    (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
-//    <C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11>
-//}
-//
-//impl_render_target_descriptor!{
-//    (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
-//    <C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12>
-//}
-//
-//impl_render_target_descriptor!{
-//    (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13)
-//    <C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13>
-//}
-//
-//impl_render_target_descriptor!{
-//    (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14)
-//    <C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14>
-//}
-//
-//impl_render_target_descriptor!{
-//    (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15)
-//    <C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15>
-//}
+impl_render_target_descriptor!(0: C0, 1: C1);
+impl_render_target_descriptor!(0: C0, 1: C1, 2: C2);
+impl_render_target_descriptor!(0: C0, 1: C1, 2: C2, 3: C3);
+impl_render_target_descriptor!(0: C0, 1: C1, 2: C2, 3: C3, 4: C4);
+impl_render_target_descriptor!(0: C0, 1: C1, 2: C2, 3: C3, 4: C4, 5: C5);
+impl_render_target_descriptor!(0: C0, 1: C1, 2: C2, 3: C3, 4: C4, 5: C5, 6: C6);
+impl_render_target_descriptor!(0: C0, 1: C1, 2: C2, 3: C3, 4: C4, 5: C5, 6: C6, 7: C7);
+impl_render_target_descriptor!(
+    0: C0,
+    1: C1,
+    2: C2,
+    3: C3,
+    4: C4,
+    5: C5,
+    6: C6,
+    7: C7,
+    8: C8
+);
+impl_render_target_descriptor!(
+    0: C0,
+    1: C1,
+    2: C2,
+    3: C3,
+    4: C4,
+    5: C5,
+    6: C6,
+    7: C7,
+    8: C8,
+    9: C9
+);
+impl_render_target_descriptor!(
+    0: C0,
+    1: C1,
+    2: C2,
+    3: C3,
+    4: C4,
+    5: C5,
+    6: C6,
+    7: C7,
+    8: C8,
+    9: C9,
+    10: C10
+);
+impl_render_target_descriptor!(
+    0: C0,
+    1: C1,
+    2: C2,
+    3: C3,
+    4: C4,
+    5: C5,
+    6: C6,
+    7: C7,
+    8: C8,
+    9: C9,
+    10: C10,
+    11: C11
+);
+impl_render_target_descriptor!(
+    0: C0,
+    1: C1,
+    2: C2,
+    3: C3,
+    4: C4,
+    5: C5,
+    6: C6,
+    7: C7,
+    8: C8,
+    9: C9,
+    10: C10,
+    11: C11,
+    12: C12
+);
+impl_render_target_descriptor!(
+    0: C0,
+    1: C1,
+    2: C2,
+    3: C3,
+    4: C4,
+    5: C5,
+    6: C6,
+    7: C7,
+    8: C8,
+    9: C9,
+    10: C10,
+    11: C11,
+    12: C12,
+    13: C13
+);
+impl_render_target_descriptor!(
+    0: C0,
+    1: C1,
+    2: C2,
+    3: C3,
+    4: C4,
+    5: C5,
+    6: C6,
+    7: C7,
+    8: C8,
+    9: C9,
+    10: C10,
+    11: C11,
+    12: C12,
+    13: C13,
+    14: C14
+);
+impl_render_target_descriptor!(
+    0: C0,
+    1: C1,
+    2: C2,
+    3: C3,
+    4: C4,
+    5: C5,
+    6: C6,
+    7: C7,
+    8: C8,
+    9: C9,
+    10: C10,
+    11: C11,
+    12: C12,
+    13: C13,
+    14: C14,
+    15: C15
+);
 
 pub trait ColorAttachable {
     type Buffer: Buffer;
@@ -577,7 +639,7 @@ pub trait ColorAttachable {
     fn attach<C, Ds>(
         &self,
         render_target_encoder: RenderTargetEncoder<C, Ds>,
-    ) -> Result<RenderTargetEncoder<(C, Self::Buffer), Ds>, MaxColorAttachmentsExceeded>;
+    ) -> Result<RenderTargetEncoder<(Self::Buffer, C), Ds>, MaxColorAttachmentsExceeded>;
 }
 
 impl<'a, I> ColorAttachable for FloatAttachment<'a, I>
@@ -590,7 +652,7 @@ where
     fn attach<C, Ds>(
         &self,
         render_target_encoder: RenderTargetEncoder<C, Ds>,
-    ) -> Result<RenderTargetEncoder<(C, Self::Buffer), Ds>, MaxColorAttachmentsExceeded> {
+    ) -> Result<RenderTargetEncoder<(Self::Buffer, C), Ds>, MaxColorAttachmentsExceeded> {
         render_target_encoder.add_color_float_buffer(self)
     }
 }
@@ -605,7 +667,7 @@ where
     fn attach<C, Ds>(
         &self,
         render_target_encoder: RenderTargetEncoder<C, Ds>,
-    ) -> Result<RenderTargetEncoder<(C, Self::Buffer), Ds>, MaxColorAttachmentsExceeded> {
+    ) -> Result<RenderTargetEncoder<(Self::Buffer, C), Ds>, MaxColorAttachmentsExceeded> {
         render_target_encoder.add_color_integer_buffer(self)
     }
 }
@@ -620,7 +682,7 @@ where
     fn attach<C, Ds>(
         &self,
         render_target_encoder: RenderTargetEncoder<C, Ds>,
-    ) -> Result<RenderTargetEncoder<(C, Self::Buffer), Ds>, MaxColorAttachmentsExceeded> {
+    ) -> Result<RenderTargetEncoder<(Self::Buffer, C), Ds>, MaxColorAttachmentsExceeded> {
         render_target_encoder.add_color_unsigned_integer_buffer(self)
     }
 }
@@ -716,7 +778,7 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
     pub fn add_color_float_buffer<I>(
         mut self,
         attachment: &FloatAttachment<I>,
-    ) -> Result<RenderTargetEncoder<(C, ColorFloatBuffer), Ds>, MaxColorAttachmentsExceeded>
+    ) -> Result<RenderTargetEncoder<(ColorFloatBuffer, C), Ds>, MaxColorAttachmentsExceeded>
     where
         I: AttachableImage,
         I::Format: ColorFloatRenderable,
@@ -732,7 +794,7 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
             self.data.color_count += 1;
 
             Ok(RenderTargetEncoder {
-                color: (self.color, ColorFloatBuffer {}),
+                color: (ColorFloatBuffer {}, self.color),
                 depth_stencil: self.depth_stencil,
                 data: self.data,
             })
@@ -742,7 +804,7 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
     pub fn add_color_integer_buffer<I>(
         mut self,
         attachment: &IntegerAttachment<I>,
-    ) -> Result<RenderTargetEncoder<(C, ColorIntegerBuffer), Ds>, MaxColorAttachmentsExceeded>
+    ) -> Result<RenderTargetEncoder<(ColorIntegerBuffer, C), Ds>, MaxColorAttachmentsExceeded>
     where
         I: AttachableImage,
         I::Format: ColorIntegerRenderable,
@@ -758,7 +820,7 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
             self.data.color_count += 1;
 
             Ok(RenderTargetEncoder {
-                color: (self.color, ColorIntegerBuffer {}),
+                color: (ColorIntegerBuffer {}, self.color),
                 depth_stencil: self.depth_stencil,
                 data: self.data,
             })
@@ -768,7 +830,7 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
     pub fn add_color_unsigned_integer_buffer<I>(
         mut self,
         attachment: &UnsignedIntegerAttachment<I>,
-    ) -> Result<RenderTargetEncoder<(C, ColorUnsignedIntegerBuffer), Ds>, MaxColorAttachmentsExceeded>
+    ) -> Result<RenderTargetEncoder<(ColorUnsignedIntegerBuffer, C), Ds>, MaxColorAttachmentsExceeded>
     where
         I: AttachableImage,
         I::Format: ColorUnsignedIntegerRenderable,
@@ -784,7 +846,7 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
             self.data.color_count += 1;
 
             Ok(RenderTargetEncoder {
-                color: (self.color, ColorUnsignedIntegerBuffer {}),
+                color: (ColorUnsignedIntegerBuffer {}, self.color),
                 depth_stencil: self.depth_stencil,
                 data: self.data,
             })
@@ -853,86 +915,76 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
     }
 }
 
-pub trait Buffer {}
+macro_rules! nest_pairs {
+    ($head:tt) => ($head);
+    ($head:tt, $($tail:tt),*) => (($head, nest_pairs!($($tail),*)));
+}
 
-impl Buffer for ColorFloatBuffer {}
-impl Buffer for ColorIntegerBuffer {}
-impl Buffer for ColorUnsignedIntegerBuffer {}
-impl Buffer for DepthStencilBuffer {}
-impl Buffer for DepthBuffer {}
-impl Buffer for StencilBuffer {}
+macro_rules! nest_pairs_reverse {
+    ([$head:tt] $($reverse:tt)*) => (nest_pairs!($head, $($reverse),*));
+    ([$head:tt, $($tail:tt),*] $($reverse:tt)*) => {
+        nest_pairs_reverse!([$($tail),*] $head $($reverse)*)
+    }
+}
 
-impl<C0> RenderTargetEncoder<((), C0), ()>
-where
-    C0: Buffer,
-{
-    pub fn finish(self) -> RenderTargetEncoding<Framebuffer<(C0), ()>> {
-        RenderTargetEncoding {
-            framebuffer: Framebuffer {
-                color: (self.color.1),
-                depth_stencil: (),
-                _private: (),
-            },
-            data: self.data,
+macro_rules! generate_encoder_finish {
+    ($($C:ident),*) => {
+        impl<$($C),*> RenderTargetEncoder<nest_pairs_reverse!([(), $($C),*]), ()>
+            where $($C: Buffer),*
+        {
+            pub fn finish(self) -> RenderTargetEncoding<Framebuffer<($($C),*), ()>> {
+                #[allow(non_snake_case)]
+                let nest_pairs_reverse!([_, $($C),*]) = self.color;
+
+                RenderTargetEncoding {
+                    framebuffer: Framebuffer {
+                        color: ($($C),*),
+                        depth_stencil: (),
+                        _private: (),
+                    },
+                    data: self.data,
+                }
+            }
+        }
+
+        impl<$($C),*, Ds> RenderTargetEncoder<nest_pairs_reverse!([(), $($C),*]), Ds>
+        where
+            $($C: Buffer),*,
+            Ds: Buffer
+        {
+            pub fn finish(self) -> RenderTargetEncoding<Framebuffer<($($C),*), Ds>> {
+                #[allow(non_snake_case)]
+                let nest_pairs_reverse!([_, $($C),*]) = self.color;
+
+                RenderTargetEncoding {
+                    framebuffer: Framebuffer {
+                        color: ($($C),*),
+                        depth_stencil: self.depth_stencil,
+                        _private: (),
+                    },
+                    data: self.data,
+                }
+            }
         }
     }
 }
 
-impl<C0, Ds> RenderTargetEncoder<((), C0), Ds>
-where
-    C0: Buffer,
-    Ds: Buffer,
-{
-    pub fn finish(self) -> RenderTargetEncoding<Framebuffer<(C0), Ds>> {
-        RenderTargetEncoding {
-            framebuffer: Framebuffer {
-                color: (self.color.1),
-                depth_stencil: self.depth_stencil,
-                _private: (),
-            },
-            data: self.data,
-        }
-    }
-}
-
-impl<C0, C1> RenderTargetEncoder<(((), C0), C1), ()>
-where
-    C0: Buffer,
-    C1: Buffer,
-{
-    pub fn finish(self) -> RenderTargetEncoding<Framebuffer<(C0, C1), ()>> {
-        let ((_, c0), c1) = self.color;
-
-        RenderTargetEncoding {
-            framebuffer: Framebuffer {
-                color: (c0, c1),
-                depth_stencil: (),
-                _private: (),
-            },
-            data: self.data,
-        }
-    }
-}
-
-impl<C0, C1, Ds> RenderTargetEncoder<(((), C0), C1), Ds>
-where
-    C0: Buffer,
-    C1: Buffer,
-    Ds: Buffer,
-{
-    pub fn finish(self) -> RenderTargetEncoding<Framebuffer<(C0, C1), Ds>> {
-        let ((_, c0), c1) = self.color;
-
-        RenderTargetEncoding {
-            framebuffer: Framebuffer {
-                color: (c0, c1),
-                depth_stencil: self.depth_stencil,
-                _private: (),
-            },
-            data: self.data,
-        }
-    }
-}
+generate_encoder_finish!(C0);
+generate_encoder_finish!(C0, C1);
+generate_encoder_finish!(C0, C1, C2);
+generate_encoder_finish!(C0, C1, C2, C3);
+generate_encoder_finish!(C0, C1, C2, C3, C4);
+generate_encoder_finish!(C0, C1, C2, C3, C4, C5);
+generate_encoder_finish!(C0, C1, C2, C3, C4, C5, C6);
+generate_encoder_finish!(C0, C1, C2, C3, C4, C5, C6, C7);
+generate_encoder_finish!(C0, C1, C2, C3, C4, C5, C6, C7, C8);
+generate_encoder_finish!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9);
+generate_encoder_finish!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
+generate_encoder_finish!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11);
+generate_encoder_finish!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12);
+generate_encoder_finish!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13);
+generate_encoder_finish!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14);
+generate_encoder_finish!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15);
 
 pub struct RenderTargetEncoding<F> {
     framebuffer: F,

@@ -6,6 +6,8 @@
 #![feature(unboxed_closures)]
 #![feature(fn_traits)]
 #![feature(specialization)]
+#![feature(log_syntax)]
+#![feature(trace_macros)]
 //#![plugin(phf_macros)]
 
 //extern crate phf;

@@ -1145,7 +1145,7 @@ pub(crate) struct FramebufferCache<'a> {
 }
 
 impl<'a> FramebufferCache<'a> {
-    pub(crate) fn get_or_create<'b: 'a, A>(
+    pub(crate) fn bind_or_create<'b: 'a, A>(
         &'b mut self,
         attachment_set: &A,
         gl: &'b Gl,
@@ -1164,64 +1164,73 @@ impl<'a> FramebufferCache<'a> {
             bound_draw_framebuffer,
             ..
         } = &mut self.state;
+        let target = Gl::DRAW_FRAMEBUFFER;
 
-        let (framebuffer, _) = framebuffer_cache.entry(key).or_insert_with(|| {
-            let fbo = gl.create_framebuffer().unwrap();
-            let target = Gl::DRAW_FRAMEBUFFER;
+        let (framebuffer, _) = framebuffer_cache
+            .entry(key)
+            .and_modify(|(framebuffer, _)| {
+                if !identical(Some(&framebuffer.fbo), bound_draw_framebuffer.as_ref()) {
+                    gl.bind_framebuffer(target, Some(&framebuffer.fbo));
 
-            gl.bind_framebuffer(target, Some(&fbo));
-
-            *bound_draw_framebuffer = Some(fbo.clone());
-
-            let mut attachment_ids = [None; 17];
-
-            for (i, attachment) in attachment_set.color_attachments().iter().enumerate() {
-                attachment.attach(gl, target, Gl::COLOR_ATTACHMENT0 + i as u32);
-
-                attachment_ids[i] = Some(attachment.id());
-            }
-
-            if let Some((slot, image)) = match attachment_set.depth_stencil_attachment() {
-                DepthStencilAttachmentDescriptor::Depth(image) => {
-                    Some((Gl::DEPTH_ATTACHMENT, image))
+                    *bound_draw_framebuffer = Some(framebuffer.fbo.clone());
                 }
-                DepthStencilAttachmentDescriptor::Stencil(image) => {
-                    Some((Gl::STENCIL_ATTACHMENT, image))
+            })
+            .or_insert_with(|| {
+                let fbo = gl.create_framebuffer().unwrap();
+
+                gl.bind_framebuffer(target, Some(&fbo));
+
+                *bound_draw_framebuffer = Some(fbo.clone());
+
+                let mut attachment_ids = [None; 17];
+
+                for (i, attachment) in attachment_set.color_attachments().iter().enumerate() {
+                    attachment.attach(gl, target, Gl::COLOR_ATTACHMENT0 + i as u32);
+
+                    attachment_ids[i] = Some(attachment.id());
                 }
-                DepthStencilAttachmentDescriptor::DepthStencil(image) => {
-                    Some((Gl::DEPTH_STENCIL_ATTACHMENT, image))
+
+                if let Some((slot, image)) = match attachment_set.depth_stencil_attachment() {
+                    DepthStencilAttachmentDescriptor::Depth(image) => {
+                        Some((Gl::DEPTH_ATTACHMENT, image))
+                    }
+                    DepthStencilAttachmentDescriptor::Stencil(image) => {
+                        Some((Gl::STENCIL_ATTACHMENT, image))
+                    }
+                    DepthStencilAttachmentDescriptor::DepthStencil(image) => {
+                        Some((Gl::DEPTH_STENCIL_ATTACHMENT, image))
+                    }
+                    DepthStencilAttachmentDescriptor::None => None,
+                } {
+                    image.attach(gl, target, slot);
+
+                    attachment_ids[16] = Some(image.id());
                 }
-                DepthStencilAttachmentDescriptor::None => None,
-            } {
-                image.attach(gl, target, slot);
 
-                attachment_ids[16] = Some(image.id());
-            }
+                let framebuffer = Framebuffer {
+                    fbo,
+                    draw_buffers: [
+                        DrawBuffer::Color0,
+                        DrawBuffer::None,
+                        DrawBuffer::None,
+                        DrawBuffer::None,
+                        DrawBuffer::None,
+                        DrawBuffer::None,
+                        DrawBuffer::None,
+                        DrawBuffer::None,
+                        DrawBuffer::None,
+                        DrawBuffer::None,
+                        DrawBuffer::None,
+                        DrawBuffer::None,
+                        DrawBuffer::None,
+                        DrawBuffer::None,
+                        DrawBuffer::None,
+                        DrawBuffer::None,
+                    ],
+                };
 
-            let framebuffer = Framebuffer {
-                fbo,
-                draw_buffers: [
-                    DrawBuffer::Color0,
-                    DrawBuffer::None,
-                    DrawBuffer::None,
-                    DrawBuffer::None,
-                    DrawBuffer::None,
-                    DrawBuffer::None,
-                    DrawBuffer::None,
-                    DrawBuffer::None,
-                    DrawBuffer::None,
-                    DrawBuffer::None,
-                    DrawBuffer::None,
-                    DrawBuffer::None,
-                    DrawBuffer::None,
-                    DrawBuffer::None,
-                    DrawBuffer::None,
-                    DrawBuffer::None,
-                ],
-            };
-
-            (framebuffer, attachment_ids)
-        });
+                (framebuffer, attachment_ids)
+            });
 
         CachedFramebuffer {
             framebuffer,
@@ -1234,7 +1243,7 @@ impl<'a> FramebufferCache<'a> {
         self.state
             .framebuffer_cache
             .retain(|_, (framebuffer, attachment_ids)| {
-                let is_dependent = attachment_ids.iter().all(|id| id != &Some(attachment_id));
+                let is_dependent = attachment_ids.iter().any(|id| id == &Some(attachment_id));
 
                 if is_dependent {
                     gl.delete_framebuffer(Some(&framebuffer.fbo));
