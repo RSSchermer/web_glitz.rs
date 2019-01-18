@@ -18,9 +18,15 @@ use util::JsId;
 use js_sys::Uint32Array;
 use renderbuffer::RenderbufferFormat;
 use runtime::dynamic_state::DrawBuffer;
+use runtime::dynamic_state::DynamicState;
 use std::hash::Hash;
 use std::hash::Hasher;
 use web_sys::WebGl2RenderingContext as Gl;
+
+use crate::render_pass::framebuffer::{
+    Buffer, ColorFloatBuffer, ColorIntegerBuffer, ColorUnsignedIntegerBuffer, DepthBuffer,
+    DepthStencilBuffer, Framebuffer, StencilBuffer,
+};
 
 pub struct RenderPass<Fb, F> {
     render_target_encoding: RenderTargetEncoding<Fb>,
@@ -29,6 +35,14 @@ pub struct RenderPass<Fb, F> {
 
 pub struct RenderPassContext<'a> {
     connection: &'a mut Connection,
+}
+
+impl<'a> RenderPassContext<'a> {
+    pub unsafe fn unpack(&mut self) -> (&mut Gl, &mut DynamicState) {
+        let Connection(gl, state) = self.connection;
+
+        (gl, state)
+    }
 }
 
 impl<Fb, F, T> GpuTask<Connection> for RenderPass<Fb, F>
@@ -377,59 +391,6 @@ pub enum StoreOp {
     Store,
     DontCare,
 }
-
-pub trait Buffer {}
-
-pub struct ColorFloatBuffer {}
-
-impl ColorFloatBuffer {
-    fn clear_task(&mut self, value: [f32; 4]) {}
-}
-
-impl Buffer for ColorFloatBuffer {}
-
-pub struct ColorIntegerBuffer {}
-
-impl ColorIntegerBuffer {
-    fn clear_task(&mut self, value: [i32; 4]) {}
-}
-impl Buffer for ColorIntegerBuffer {}
-
-pub struct ColorUnsignedIntegerBuffer {}
-
-impl ColorUnsignedIntegerBuffer {
-    fn clear_task(&mut self, value: [u32; 4]) {}
-}
-
-impl Buffer for ColorUnsignedIntegerBuffer {}
-
-pub struct DepthStencilBuffer {}
-
-impl DepthBuffer {
-    fn clear_both_task(&mut self, depth: f32, stencil: u8) {}
-
-    fn clear_depth_task(&mut self, depth: f32) {}
-
-    fn clear_stencil_task(&mut self, stencil: u8) {}
-}
-
-impl Buffer for DepthStencilBuffer {}
-
-pub struct DepthBuffer {}
-
-impl DepthBuffer {
-    fn clear_task(&mut self, value: f32) {}
-}
-
-impl Buffer for DepthBuffer {}
-
-pub struct StencilBuffer {}
-
-impl StencilBuffer {
-    fn clear_task(&mut self, value: u8) {}
-}
-
-impl Buffer for StencilBuffer {}
 
 pub struct RenderTarget<C, Ds> {
     color: C,
@@ -794,7 +755,7 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
             self.data.color_count += 1;
 
             Ok(RenderTargetEncoder {
-                color: (ColorFloatBuffer {}, self.color),
+                color: (ColorFloatBuffer::new(c as i32), self.color),
                 depth_stencil: self.depth_stencil,
                 data: self.data,
             })
@@ -820,7 +781,7 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
             self.data.color_count += 1;
 
             Ok(RenderTargetEncoder {
-                color: (ColorIntegerBuffer {}, self.color),
+                color: (ColorIntegerBuffer::new(c as i32), self.color),
                 depth_stencil: self.depth_stencil,
                 data: self.data,
             })
@@ -846,7 +807,7 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
             self.data.color_count += 1;
 
             Ok(RenderTargetEncoder {
-                color: (ColorUnsignedIntegerBuffer {}, self.color),
+                color: (ColorUnsignedIntegerBuffer::new(c as i32), self.color),
                 depth_stencil: self.depth_stencil,
                 data: self.data,
             })
@@ -1034,10 +995,4 @@ impl<F> AttachmentSet for RenderTargetEncoding<F> {
     fn depth_stencil_attachment(&self) -> &DepthStencilAttachmentDescriptor {
         &self.data.depth_stencil_attachment
     }
-}
-
-pub struct Framebuffer<C, Ds> {
-    pub color: C,
-    pub depth_stencil: Ds,
-    _private: (), // Should make it impossible to instantiate Framebuffer outside of this module
 }

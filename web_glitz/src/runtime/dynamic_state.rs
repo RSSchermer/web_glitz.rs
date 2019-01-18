@@ -77,7 +77,7 @@ pub struct DynamicState {
     //    pixel_unpack_skip_rows: u32,
     //    pixel_unpack_skip_images: u32,
     //    sample_coverage: SampleCoverage,
-    //    scissor: Region,
+    scissor: (i32, i32, u32, u32),
     //    viewport: Region,
     //    stencil_func_rgb: StencilFunc,
     //    stencil_func_alpha: StencilFunc,
@@ -897,6 +897,25 @@ impl DynamicState {
             None
         }
     }
+
+    pub fn set_scissor_rect(
+        &mut self,
+        value: (i32, i32, u32, u32),
+    ) -> impl ContextUpdate<'static, ()> {
+        if self.scissor != value {
+            self.scissor = value;
+
+            Some(move |context: &Gl| {
+                let (x, y, width, height) = value;
+
+                context.scissor(x, y, width as i32, height as i32);
+
+                Ok(())
+            })
+        } else {
+            None
+        }
+    }
 }
 
 impl DynamicState {
@@ -973,6 +992,7 @@ impl DynamicState {
             sample_alpha_to_coverage_enabled: false,
             sample_coverage_enabled: false,
             rasterizer_discard_enabled: false,
+            scissor: (0, 0, 0, 0),
         }
     }
 }
