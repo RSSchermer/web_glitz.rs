@@ -111,7 +111,7 @@ where
 pub trait AttachableImage {
     type Format: InternalFormat;
 
-    fn as_attachment_descriptor(&self) -> AttachableImageDescriptor;
+    fn descriptor(&self) -> AttachableImageDescriptor;
 }
 
 impl<F> AttachableImage for RenderbufferHandle<F>
@@ -120,7 +120,7 @@ where
 {
     type Format = F;
 
-    fn as_attachment_descriptor(&self) -> AttachableImageDescriptor {
+    fn descriptor(&self) -> AttachableImageDescriptor {
         AttachableImageDescriptor {
             internal: AttachableImageDescriptorInternal::Renderbuffer {
                 id: self.id().unwrap(),
@@ -608,7 +608,7 @@ where
     I: AttachableImage,
     I::Format: ColorFloatRenderable,
 {
-    type Buffer = ColorFloatBuffer;
+    type Buffer = ColorFloatBuffer<I::Format>;
 
     fn attach<C, Ds>(
         &self,
@@ -623,7 +623,7 @@ where
     I: AttachableImage,
     I::Format: ColorIntegerRenderable,
 {
-    type Buffer = ColorIntegerBuffer;
+    type Buffer = ColorIntegerBuffer<I::Format>;
 
     fn attach<C, Ds>(
         &self,
@@ -638,7 +638,7 @@ where
     I: AttachableImage,
     I::Format: ColorUnsignedIntegerRenderable,
 {
-    type Buffer = ColorUnsignedIntegerBuffer;
+    type Buffer = ColorUnsignedIntegerBuffer<I::Format>;
 
     fn attach<C, Ds>(
         &self,
@@ -662,7 +662,7 @@ where
     I: AttachableImage,
     I::Format: DepthStencilRenderable,
 {
-    type Buffer = DepthStencilBuffer;
+    type Buffer = DepthStencilBuffer<I::Format>;
 
     fn attach<C, Ds>(
         &self,
@@ -677,7 +677,7 @@ where
     I: AttachableImage,
     I::Format: DepthRenderable,
 {
-    type Buffer = DepthBuffer;
+    type Buffer = DepthBuffer<I::Format>;
 
     fn attach<C, Ds>(
         &self,
@@ -692,7 +692,7 @@ where
     I: AttachableImage,
     I::Format: StencilRenderable,
 {
-    type Buffer = StencilBuffer;
+    type Buffer = StencilBuffer<I::Format>;
 
     fn attach<C, Ds>(
         &self,
@@ -739,7 +739,7 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
     pub fn add_color_float_buffer<I>(
         mut self,
         attachment: &FloatAttachment<I>,
-    ) -> Result<RenderTargetEncoder<(ColorFloatBuffer, C), Ds>, MaxColorAttachmentsExceeded>
+    ) -> Result<RenderTargetEncoder<(ColorFloatBuffer<I::Format>, C), Ds>, MaxColorAttachmentsExceeded>
     where
         I: AttachableImage,
         I::Format: ColorFloatRenderable,
@@ -749,7 +749,7 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
         if c > 15 {
             Err(MaxColorAttachmentsExceeded)
         } else {
-            self.data.color_attachments[c] = attachment.image.as_attachment_descriptor();
+            self.data.color_attachments[c] = attachment.image.descriptor();
             self.data.load_ops[c] = attachment.load_op.as_instance(c as i32);
             self.data.store_ops[c] = attachment.store_op;
             self.data.color_count += 1;
@@ -765,7 +765,7 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
     pub fn add_color_integer_buffer<I>(
         mut self,
         attachment: &IntegerAttachment<I>,
-    ) -> Result<RenderTargetEncoder<(ColorIntegerBuffer, C), Ds>, MaxColorAttachmentsExceeded>
+    ) -> Result<RenderTargetEncoder<(ColorIntegerBuffer<I::Format>, C), Ds>, MaxColorAttachmentsExceeded>
     where
         I: AttachableImage,
         I::Format: ColorIntegerRenderable,
@@ -775,7 +775,7 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
         if c > 15 {
             Err(MaxColorAttachmentsExceeded)
         } else {
-            self.data.color_attachments[c] = attachment.image.as_attachment_descriptor();
+            self.data.color_attachments[c] = attachment.image.descriptor();
             self.data.load_ops[c] = attachment.load_op.as_instance(c as i32);
             self.data.store_ops[c] = attachment.store_op;
             self.data.color_count += 1;
@@ -791,7 +791,7 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
     pub fn add_color_unsigned_integer_buffer<I>(
         mut self,
         attachment: &UnsignedIntegerAttachment<I>,
-    ) -> Result<RenderTargetEncoder<(ColorUnsignedIntegerBuffer, C), Ds>, MaxColorAttachmentsExceeded>
+    ) -> Result<RenderTargetEncoder<(ColorUnsignedIntegerBuffer<I::Format>, C), Ds>, MaxColorAttachmentsExceeded>
     where
         I: AttachableImage,
         I::Format: ColorUnsignedIntegerRenderable,
@@ -801,7 +801,7 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
         if c > 15 {
             Err(MaxColorAttachmentsExceeded)
         } else {
-            self.data.color_attachments[c] = attachment.image.as_attachment_descriptor();
+            self.data.color_attachments[c] = attachment.image.descriptor();
             self.data.load_ops[c] = attachment.load_op.as_instance(c as i32);
             self.data.store_ops[c] = attachment.store_op;
             self.data.color_count += 1;
@@ -817,7 +817,7 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
     pub fn set_depth_stencil_buffer<I>(
         mut self,
         attachment: &DepthStencilAttachment<I>,
-    ) -> RenderTargetEncoder<C, DepthStencilBuffer>
+    ) -> RenderTargetEncoder<C, DepthStencilBuffer<I::Format>>
     where
         I: AttachableImage,
         I::Format: DepthStencilRenderable,
@@ -825,12 +825,12 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
         self.data.load_ops[16] = attachment.load_op.as_instance();
         self.data.store_ops[16] = attachment.store_op;
         self.data.depth_stencil_attachment = DepthStencilAttachmentDescriptor::DepthStencil(
-            attachment.image.as_attachment_descriptor(),
+            attachment.image.descriptor(),
         );
 
         RenderTargetEncoder {
             color: self.color,
-            depth_stencil: DepthStencilBuffer {},
+            depth_stencil: DepthStencilBuffer::new(),
             data: self.data,
         }
     }
@@ -838,7 +838,7 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
     pub fn set_depth_stencil_depth_buffer<I>(
         mut self,
         attachment: &DepthAttachment<I>,
-    ) -> RenderTargetEncoder<C, DepthBuffer>
+    ) -> RenderTargetEncoder<C, DepthBuffer<I::Format>>
     where
         I: AttachableImage,
         I::Format: DepthRenderable,
@@ -846,11 +846,11 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
         self.data.load_ops[16] = attachment.load_op.as_instance();
         self.data.store_ops[16] = attachment.store_op;
         self.data.depth_stencil_attachment =
-            DepthStencilAttachmentDescriptor::Depth(attachment.image.as_attachment_descriptor());
+            DepthStencilAttachmentDescriptor::Depth(attachment.image.descriptor());
 
         RenderTargetEncoder {
             color: self.color,
-            depth_stencil: DepthBuffer {},
+            depth_stencil: DepthBuffer::new(),
             data: self.data,
         }
     }
@@ -858,7 +858,7 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
     pub fn set_depth_stencil_stencil_buffer<I>(
         mut self,
         attachment: &StencilAttachment<I>,
-    ) -> RenderTargetEncoder<C, StencilBuffer>
+    ) -> RenderTargetEncoder<C, StencilBuffer<I::Format>>
     where
         I: AttachableImage,
         I::Format: StencilRenderable,
@@ -866,11 +866,11 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
         self.data.load_ops[16] = attachment.load_op.as_instance();
         self.data.store_ops[16] = attachment.store_op;
         self.data.depth_stencil_attachment =
-            DepthStencilAttachmentDescriptor::Stencil(attachment.image.as_attachment_descriptor());
+            DepthStencilAttachmentDescriptor::Stencil(attachment.image.descriptor());
 
         RenderTargetEncoder {
             color: self.color,
-            depth_stencil: StencilBuffer {},
+            depth_stencil: StencilBuffer::new(),
             data: self.data,
         }
     }

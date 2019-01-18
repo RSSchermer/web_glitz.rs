@@ -15,7 +15,8 @@ use fnv::{FnvHashMap, FnvHasher};
 use util::JsId;
 
 pub struct DynamicState {
-    pub(crate) framebuffer_cache: FnvHashMap<u64, (Framebuffer, [Option<JsId>; 17])>,
+    framebuffer_cache: FnvHashMap<u64, (Framebuffer, [Option<JsId>; 17])>,
+    read_framebuffer: WebGlFramebuffer,
     max_draw_buffers: usize,
     active_program: Option<WebGlProgram>,
     bound_array_buffer: Option<WebGlBuffer>,
@@ -90,6 +91,14 @@ pub struct DynamicState {
 impl DynamicState {
     pub(crate) fn framebuffer_cache_mut(&mut self) -> FramebufferCache {
         FramebufferCache { state: self }
+    }
+
+    pub(crate) fn bind_read_framebuffer(&mut self, gl: &Gl) {
+        if !identical(self.bound_read_framebuffer.as_ref(), Some(&self.read_framebuffer)) {
+            gl.bind_framebuffer(Gl::READ_FRAMEBUFFER, Some(&self.read_framebuffer));
+
+            self.bound_read_framebuffer = Some(self.read_framebuffer.clone());
+        }
     }
 
     pub fn max_draw_buffers(&self) -> usize {
@@ -928,6 +937,7 @@ impl DynamicState {
 
         DynamicState {
             framebuffer_cache: FnvHashMap::default(),
+            read_framebuffer: context.create_framebuffer().unwrap(),
             max_draw_buffers: context
                 .get_parameter(Gl::MAX_DRAW_BUFFERS)
                 .unwrap()

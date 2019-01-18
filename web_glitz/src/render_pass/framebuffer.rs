@@ -11,6 +11,12 @@ use image_format::ColorFloatRenderable;
 use image_format::ColorIntegerRenderable;
 use image_format::ColorUnsignedIntegerRenderable;
 use render_pass::AttachableImage;
+use image_format::DepthStencilRenderable;
+use image_format::DepthRenderable;
+use image_format::StencilRenderable;
+use std::marker;
+use image_format::InternalFormat;
+use render_pass::AttachableImageDescriptor;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum BlitFilter {
@@ -21,35 +27,53 @@ pub enum BlitFilter {
 pub struct Framebuffer<C, Ds> {
     pub color: C,
     pub depth_stencil: Ds,
-    pub(crate) _private: (), // Should make it impossible to instantiate Framebuffer outside of this crate
+    pub(crate) _private: ()
 }
 
 impl<C, Ds> Framebuffer<C, Ds> {
-    pub fn blit_color_task<I>(&mut self, source_image: I, filter: BlitFilter) -> BlitColorTask
+    pub fn blit_color_task<I>(&mut self, region: Region2D, source_image: &I, filter: BlitFilter) -> BlitColorTask
     where
         I: BlitColorCompatible<C>,
     {
         unimplemented!()
     }
+
+    pub fn blit_depth_task<I>(&mut self, region: Region2D, source_image: &I) -> BlitDepthTask
+    where
+        Ds: Buffer,
+        I: BlitSource<Format=Ds::Format> {
+        unimplemented!()
+    }
 }
 
-pub unsafe trait BlitColorCompatible<C>: AttachableImage {}
+pub trait BlitSource {
+    type Format: InternalFormat;
 
-unsafe impl<T> BlitColorCompatible<ColorFloatBuffer> for T
+    fn descriptor(&self) -> BlitSourceDescriptor;
+}
+
+pub struct BlitSourceDescriptor {
+    image_descriptor: AttachableImageDescriptor,
+    region: ((u32, u32), u32, u32)
+}
+
+pub unsafe trait BlitColorCompatible<C>: BlitSource {}
+
+unsafe impl<T> BlitColorCompatible<ColorFloatBuffer<T::Format>> for T
 where
-    T: AttachableImage,
+    T: BlitSource,
     T::Format: ColorFloatRenderable,
 {
 }
-unsafe impl<T> BlitColorCompatible<ColorIntegerBuffer> for T
+unsafe impl<T> BlitColorCompatible<ColorIntegerBuffer<T::Format>> for T
 where
-    T: AttachableImage,
+    T: BlitSource,
     T::Format: ColorIntegerRenderable,
 {
 }
-unsafe impl<T> BlitColorCompatible<ColorUnsignedIntegerBuffer> for T
+unsafe impl<T> BlitColorCompatible<ColorUnsignedIntegerBuffer<T::Format>> for T
 where
-    T: AttachableImage,
+    T: BlitSource,
     T::Format: ColorUnsignedIntegerRenderable,
 {
 }
@@ -79,15 +103,58 @@ impl_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C1
 
 pub struct BlitColorTask {}
 
-pub trait Buffer {}
-
-pub struct ColorFloatBuffer {
-    index: i32,
+pub struct BlitDepthTask {
+    region: ((u32, u32), u32, u32),
+    source: BlitSourceDescriptor
 }
 
-impl ColorFloatBuffer {
+impl<'a> GpuTask<RenderPassContext<'a>> for BlitDepthTask {
+    type Output = ();
+
+    fn progress(&mut self, context: &mut RenderPassContext) -> Progress<Self::Output> {
+        let (gl, state) = unsafe { context.unpack() };
+
+        state.bind_read_framebuffer(gl);
+
+        self.source.image_descriptor.attach(gl,Gl::READ_FRAMEBUFFER, Gl::DEPTH_ATTACHMENT);
+
+        let ((src_x0, src_y0), src_width, src_height) = self.source.region;
+        let src_x1 = src_x0 + src_width;
+        let src_y1 = src_y0 + src_height;
+
+        let ((dst_x0, dst_y0), dst_width, dst_height) = self.region;
+        let dst_x1 = dst_x0 + dst_width;
+        let dst_y1 = dst_y0 + dst_height;
+
+        gl.blit_framebuffer(
+            src_x0 as i32,
+            src_y0 as i32,
+            src_x1 as i32,
+            src_y1 as i32,
+            dst_x0 as i32,
+            dst_y0 as i32,
+            dst_x1 as i32,
+            dst_y1 as i32,
+            Gl::DEPTH_BUFFER_BIT,
+            Gl::NEAREST
+        );
+
+        Progress::Finished(())
+    }
+}
+
+pub trait Buffer {
+    type Format: InternalFormat;
+}
+
+pub struct ColorFloatBuffer<F> where F: ColorFloatRenderable {
+    index: i32,
+    _marker: marker::PhantomData<Box<F>>
+}
+
+impl<F> ColorFloatBuffer<F> where F: ColorFloatRenderable {
     pub(crate) fn new(index: i32) -> Self {
-        ColorFloatBuffer { index }
+        ColorFloatBuffer { index, _marker: marker::PhantomData }
     }
 
     pub fn clear_task(&mut self, clear_value: [f32; 4], region: Region2D) -> ClearColorFloatTask {
@@ -99,15 +166,18 @@ impl ColorFloatBuffer {
     }
 }
 
-impl Buffer for ColorFloatBuffer {}
-
-pub struct ColorIntegerBuffer {
-    index: i32,
+impl<F> Buffer for ColorFloatBuffer<F> where F: ColorFloatRenderable {
+    type Format = F;
 }
 
-impl ColorIntegerBuffer {
+pub struct ColorIntegerBuffer<F> where F: ColorIntegerRenderable {
+    index: i32,
+    _marker: marker::PhantomData<Box<F>>
+}
+
+impl<F> ColorIntegerBuffer<F> where F: ColorIntegerRenderable {
     pub(crate) fn new(index: i32) -> Self {
-        ColorIntegerBuffer { index }
+        ColorIntegerBuffer { index, _marker: marker::PhantomData }
     }
 
     pub fn clear_task(&mut self, clear_value: [i32; 4], region: Region2D) -> ClearColorIntegerTask {
@@ -118,15 +188,18 @@ impl ColorIntegerBuffer {
         }
     }
 }
-impl Buffer for ColorIntegerBuffer {}
-
-pub struct ColorUnsignedIntegerBuffer {
-    index: i32,
+impl<F> Buffer for ColorIntegerBuffer<F> where F: ColorIntegerRenderable {
+    type Format = F;
 }
 
-impl ColorUnsignedIntegerBuffer {
+pub struct ColorUnsignedIntegerBuffer<F> where F: ColorUnsignedIntegerRenderable {
+    index: i32,
+    _marker: marker::PhantomData<Box<F>>
+}
+
+impl<F> ColorUnsignedIntegerBuffer<F> where F: ColorUnsignedIntegerRenderable {
     pub(crate) fn new(index: i32) -> Self {
-        ColorUnsignedIntegerBuffer { index }
+        ColorUnsignedIntegerBuffer { index, _marker: marker::PhantomData }
     }
 
     pub fn clear_task(
@@ -142,11 +215,21 @@ impl ColorUnsignedIntegerBuffer {
     }
 }
 
-impl Buffer for ColorUnsignedIntegerBuffer {}
+impl<F> Buffer for ColorUnsignedIntegerBuffer<F> where F: ColorUnsignedIntegerRenderable {
+    type Format = F;
+}
 
-pub struct DepthStencilBuffer {}
+pub struct DepthStencilBuffer<F> where F: DepthStencilRenderable {
+    _marker: marker::PhantomData<Box<F>>
+}
 
-impl DepthStencilBuffer {
+impl<F> DepthStencilBuffer<F> where F: DepthStencilRenderable {
+    pub(crate) fn new() -> Self {
+        DepthStencilBuffer {
+            _marker: marker::PhantomData
+        }
+    }
+
     pub fn clear_both_task(
         &mut self,
         depth: f32,
@@ -169,27 +252,49 @@ impl DepthStencilBuffer {
     }
 }
 
-impl Buffer for DepthStencilBuffer {}
+impl<F> Buffer for DepthStencilBuffer<F> where F: DepthStencilRenderable {
+    type Format = F;
+}
 
-pub struct DepthBuffer {}
+pub struct DepthBuffer<F> where F: DepthRenderable {
+    _marker: marker::PhantomData<Box<F>>
+}
 
-impl DepthBuffer {
+impl<F> DepthBuffer<F> where F: DepthRenderable {
+    pub(crate) fn new() -> Self {
+        DepthBuffer {
+            _marker: marker::PhantomData
+        }
+    }
+
     pub fn clear_task(&mut self, depth: f32, region: Region2D) -> ClearDepthTask {
         ClearDepthTask { depth, region }
     }
 }
 
-impl Buffer for DepthBuffer {}
+impl<F> Buffer for DepthBuffer<F> where F: DepthRenderable {
+    type Format = F;
+}
 
-pub struct StencilBuffer {}
+pub struct StencilBuffer<F> where F: StencilRenderable {
+    _marker: marker::PhantomData<Box<F>>
+}
 
-impl StencilBuffer {
+impl<F> StencilBuffer<F> where F: StencilRenderable {
+    pub(crate) fn new() -> Self {
+        StencilBuffer {
+            _marker: marker::PhantomData
+        }
+    }
+
     pub fn clear_task(&mut self, stencil: i32, region: Region2D) -> ClearStencilTask {
         ClearStencilTask { stencil, region }
     }
 }
 
-impl Buffer for StencilBuffer {}
+impl<F> Buffer for StencilBuffer<F> where F: StencilRenderable {
+    type Format = F;
+}
 
 pub struct ClearColorFloatTask {
     buffer_index: i32,
