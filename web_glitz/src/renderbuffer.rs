@@ -48,11 +48,11 @@ where
         self.data.id
     }
 
-    fn width(&self) -> u32 {
+    pub fn width(&self) -> u32 {
         self.data.width
     }
 
-    fn height(&self) -> u32 {
+    pub fn height(&self) -> u32 {
         self.data.height
     }
 }

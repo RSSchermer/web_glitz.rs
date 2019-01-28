@@ -17,6 +17,8 @@ use image_format::StencilRenderable;
 use std::marker;
 use image_format::InternalFormat;
 use render_pass::AttachableImageDescriptor;
+use renderbuffer::RenderbufferHandle;
+use renderbuffer::RenderbufferFormat;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum BlitFilter {
@@ -55,6 +57,17 @@ pub trait BlitSource {
 pub struct BlitSourceDescriptor {
     image_descriptor: AttachableImageDescriptor,
     region: ((u32, u32), u32, u32)
+}
+
+impl<F> BlitSource for RenderbufferHandle<F> where F: RenderbufferFormat + 'static {
+    type Format = F;
+
+    fn descriptor(&self) -> BlitSourceDescriptor {
+        BlitSourceDescriptor {
+            image_descriptor: AttachableImage::descriptor(self),
+            region: ((0, 0), self.width(), self.height())
+        }
+    }
 }
 
 pub unsafe trait BlitColorCompatible<C>: BlitSource {}

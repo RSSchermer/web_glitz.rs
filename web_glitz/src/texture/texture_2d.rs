@@ -330,7 +330,7 @@ where
     }
 
     pub fn height(&self) -> u32 {
-        region_2d_overlap_width(self.texture_data.height, self.level, &self.region)
+        region_2d_overlap_height(self.texture_data.height, self.level, &self.region)
     }
 
     pub fn sub_image(&self, region: Region2D) -> Texture2DLevelSubImage<F> {
