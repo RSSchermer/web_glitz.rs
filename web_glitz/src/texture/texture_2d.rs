@@ -88,9 +88,8 @@ where
 
     pub fn base_level(&self) -> Texture2DLevel<F> {
         Texture2DLevel {
-            texture_data: self.data.clone(),
+            handle: self,
             level: 0,
-            _marker: marker::PhantomData,
         }
     }
 
@@ -139,8 +138,7 @@ where
 
     pub fn levels(&self) -> Texture2DLevels<F> {
         Texture2DLevels {
-            texture_data: self.data.clone(),
-            _marker: marker::PhantomData,
+            handle: self
         }
     }
 
@@ -168,27 +166,25 @@ impl Drop for Texture2DData {
     }
 }
 
-pub struct Texture2DLevels<F> {
-    texture_data: Arc<Texture2DData>,
-    _marker: marker::PhantomData<[F]>,
+pub struct Texture2DLevels<'a, F> {
+    handle: &'a Texture2DHandle<F>
 }
 
-impl<F> Texture2DLevels<F>
+impl<'a, F> Texture2DLevels<'a, F>
 where
     F: TextureFormat,
 {
     pub fn len(&self) -> usize {
-        self.texture_data.levels
+        self.handle.data.levels
     }
 
     pub fn get(&self, level: usize) -> Option<Texture2DLevel<F>> {
-        let texture_data = &self.texture_data;
+        let texture_data = &self.handle.data;
 
         if level < texture_data.levels {
             Some(Texture2DLevel {
-                texture_data: texture_data.clone(),
+                handle: &self.handle,
                 level,
-                _marker: marker::PhantomData,
             })
         } else {
             None
@@ -197,52 +193,48 @@ where
 
     pub unsafe fn get_unchecked(&self, level: usize) -> Texture2DLevel<F> {
         Texture2DLevel {
-            texture_data: self.texture_data.clone(),
+            handle: &self.handle,
             level,
-            _marker: marker::PhantomData,
         }
     }
 
     pub fn iter(&self) -> Texture2DLevelsIter<F> {
         Texture2DLevelsIter {
-            texture_data: self.texture_data.clone(),
+            handle: &self.handle,
             current_level: 0,
-            end_level: self.texture_data.levels,
-            _marker: marker::PhantomData,
+            end_level: self.handle.data.levels,
         }
     }
 }
 
-impl<F> IntoIterator for Texture2DLevels<F>
+impl<'a, F> IntoIterator for Texture2DLevels<'a, F>
 where
     F: TextureFormat,
 {
-    type Item = Texture2DLevel<F>;
+    type Item = Texture2DLevel<'a, F>;
 
-    type IntoIter = Texture2DLevelsIter<F>;
+    type IntoIter = Texture2DLevelsIter<'a, F>;
 
     fn into_iter(self) -> Self::IntoIter {
         Texture2DLevelsIter {
+            handle: &self.handle,
             current_level: 0,
-            end_level: self.texture_data.levels,
-            texture_data: self.texture_data,
-            _marker: marker::PhantomData,
+            end_level: self.handle.data.levels
         }
     }
 }
 
-pub struct Texture2DLevelsIter<F> {
-    texture_data: Arc<Texture2DData>,
+pub struct Texture2DLevelsIter<'a, F> {
+    handle: &'a Texture2DHandle<F>,
     current_level: usize,
     end_level: usize,
-    _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> Iterator for Texture2DLevelsIter<F>
+impl<'a, F> Iterator for Texture2DLevelsIter<'a, F>
 where
     F: TextureFormat,
 {
-    type Item = Texture2DLevel<F>;
+    type Item = Texture2DLevel<'a, F>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let level = self.current_level;
@@ -251,9 +243,8 @@ where
             self.current_level += 1;
 
             Some(Texture2DLevel {
-                texture_data: self.texture_data.clone(),
+                handle: &self.handle,
                 level,
-                _marker: marker::PhantomData,
             })
         } else {
             None
@@ -261,13 +252,12 @@ where
     }
 }
 
-pub struct Texture2DLevel<F> {
-    texture_data: Arc<Texture2DData>,
+pub struct Texture2DLevel<'a, F> {
+    handle: &'a Texture2DHandle<F>,
     level: usize,
-    _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> Texture2DLevel<F>
+impl<'a, F> Texture2DLevel<'a, F>
 where
     F: TextureFormat,
 {
@@ -276,19 +266,18 @@ where
     }
 
     pub fn width(&self) -> u32 {
-        mipmap_size(self.texture_data.width, self.level)
+        mipmap_size(self.handle.data.width, self.level)
     }
 
     pub fn height(&self) -> u32 {
-        mipmap_size(self.texture_data.height, self.level)
+        mipmap_size(self.handle.data.height, self.level)
     }
 
     pub fn sub_image(&self, region: Region2D) -> Texture2DLevelSubImage<F> {
         Texture2DLevelSubImage {
-            texture_data: self.texture_data.clone(),
+            handle: &self.handle,
             level: self.level,
             region,
-            _marker: marker::PhantomData,
         }
     }
 
@@ -298,7 +287,7 @@ where
     {
         Texture2DUploadTask {
             data,
-            texture_data: self.texture_data.clone(),
+            texture_data: self.handle.data.clone(),
             level: self.level,
             region: Region2D::Fill,
             _marker: marker::PhantomData,
@@ -306,14 +295,13 @@ where
     }
 }
 
-pub struct Texture2DLevelSubImage<F> {
-    texture_data: Arc<Texture2DData>,
+pub struct Texture2DLevelSubImage<'a, F> {
+    handle: &'a Texture2DHandle<F>,
     level: usize,
     region: Region2D,
-    _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> Texture2DLevelSubImage<F>
+impl<'a, F> Texture2DLevelSubImage<'a, F>
 where
     F: TextureFormat,
 {
@@ -326,19 +314,18 @@ where
     }
 
     pub fn width(&self) -> u32 {
-        region_2d_overlap_width(self.texture_data.width, self.level, &self.region)
+        region_2d_overlap_width(self.handle.data.width, self.level, &self.region)
     }
 
     pub fn height(&self) -> u32 {
-        region_2d_overlap_height(self.texture_data.height, self.level, &self.region)
+        region_2d_overlap_height(self.handle.data.height, self.level, &self.region)
     }
 
     pub fn sub_image(&self, region: Region2D) -> Texture2DLevelSubImage<F> {
         Texture2DLevelSubImage {
-            texture_data: self.texture_data.clone(),
+            handle: &self.handle,
             level: self.level,
             region: region_2d_sub_image(self.region, region),
-            _marker: marker::PhantomData,
         }
     }
 
@@ -348,9 +335,167 @@ where
     {
         Texture2DUploadTask {
             data,
-            texture_data: self.texture_data.clone(),
+            texture_data: self.handle.data.clone(),
             level: self.level,
             region: self.region,
+            _marker: marker::PhantomData,
+        }
+    }
+}
+
+pub struct Texture2DLevelsMut<'a, F> {
+    handle: &'a mut Texture2DHandle<F>
+}
+
+impl<'a, F> Texture2DLevelsMut<'a, F>
+    where
+        F: TextureFormat,
+{
+    pub fn len(&self) -> usize {
+        self.handle.data.levels
+    }
+
+    pub fn get(&self, level: usize) -> Option<Texture2DLevel<F>> {
+        if level < self.handle.data.levels {
+            Some(Texture2DLevel {
+                handle: &self.handle,
+                level,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn get_mut(&mut self, level: usize) -> Option<Texture2DLevelMut<F>> {
+        if level < self.handle.data.levels {
+            Some(Texture2DLevelMut {
+                handle: &mut self.handle,
+                level,
+            })
+        } else {
+            None
+        }
+    }
+
+    pub unsafe fn get_unchecked(&self, level: usize) -> Texture2DLevel<F> {
+        Texture2DLevel {
+            handle: &self.handle,
+            level,
+        }
+    }
+
+    pub unsafe fn get_mut_unchecked(&mut self, level: usize) -> Texture2DLevelMut<F> {
+        Texture2DLevelMut {
+            handle: &mut self.handle,
+            level,
+        }
+    }
+
+    pub fn iter(&self) -> Texture2DLevelsIter<F> {
+        Texture2DLevelsIter {
+            handle: &self.handle,
+            current_level: 0,
+            end_level: self.handle.data.levels,
+        }
+    }
+
+    pub fn iter_mut(&mut self) -> Texture2DLevelsMutIter<F> {
+        Texture2DLevelsMutIter {
+            current_level: 0,
+            end_level: self.handle.data.levels,
+            handle: &mut self.handle,
+        }
+    }
+}
+
+impl<'a, F> IntoIterator for Texture2DLevelsMut<'a, F>
+    where
+        F: TextureFormat,
+{
+    type Item = Texture2DLevelMut<'a, F>;
+
+    type IntoIter = Texture2DLevelsMutIter<'a, F>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Texture2DLevelsMutIter {
+            current_level: 0,
+            end_level: self.handle.data.levels,
+            handle: self.handle,
+        }
+    }
+}
+
+pub struct Texture2DLevelsMutIter<'a, F> {
+    handle: &'a mut Texture2DHandle<F>,
+    current_level: usize,
+    end_level: usize,
+}
+
+impl<'a, F> Iterator for Texture2DLevelsMutIter<'a, F>
+    where
+        F: TextureFormat,
+{
+    type Item = Texture2DLevelMut<'a, F>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let level = self.current_level;
+
+        if level < self.end_level {
+            self.current_level += 1;
+
+            // Extending the lifetime here is safe, because the implementation guarantees that it
+            // will never hand out a reference to the same level twice, and having concurrent mut
+            // references to different levels is safe and arguably desirable (e.g. it is perfectly
+            // fine to attach 2 different levels of a texture to a framebuffer).
+
+            Some(Texture2DLevelMut {
+                handle: unsafe { mem::transmute(&mut self.handle) },
+                level,
+            })
+        } else {
+            None
+        }
+    }
+}
+
+pub struct Texture2DLevelMut<'a, F> {
+    handle: &'a mut Texture2DHandle<F>,
+    level: usize,
+}
+
+impl<'a, F> Texture2DLevelMut<'a, F>
+    where
+        F: TextureFormat,
+{
+    pub fn level(&self) -> usize {
+        self.level
+    }
+
+    pub fn width(&self) -> u32 {
+        mipmap_size(self.handle.data.width, self.level)
+    }
+
+    pub fn height(&self) -> u32 {
+        mipmap_size(self.handle.data.height, self.level)
+    }
+
+    pub fn sub_image(&self, region: Region2D) -> Texture2DLevelSubImage<F> {
+        Texture2DLevelSubImage {
+            handle: &self.handle,
+            level: self.level,
+            region,
+        }
+    }
+
+    pub fn upload_task<D, T>(&self, data: Image2DSource<D, T>) -> Texture2DUploadTask<D, T, F>
+        where
+            T: ClientFormat<F>,
+    {
+        Texture2DUploadTask {
+            data,
+            texture_data: self.handle.data.clone(),
+            level: self.level,
+            region: Region2D::Fill,
             _marker: marker::PhantomData,
         }
     }
