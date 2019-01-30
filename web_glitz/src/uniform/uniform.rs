@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 use std::ops::Deref;
 use std::sync::Arc;
 
-use crate::buffer::BufferHandle;
+use crate::buffer::Buffer;
 use crate::sampler::{
     FloatSampler2DArrayHandle, FloatSampler2DHandle, FloatSampler3DHandle, FloatSamplerCubeHandle,
     IntegerSampler2DArrayHandle, IntegerSampler2DHandle, IntegerSampler3DHandle,
@@ -1301,7 +1301,7 @@ impl<'a, F> Uniform for &'a [SamplerCubeShadowHandle<F>] {
     }
 }
 
-impl<T> Uniform for BufferHandle<T>
+impl<T> Uniform for Buffer<T>
 where
     T: Std140,
 {
@@ -1311,7 +1311,7 @@ where
         }
 
         if let BindingSlot::Block(binder) = slot {
-            binder.bind(&self.as_view());
+            binder.bind(&self.view());
 
             Ok(())
         } else {

@@ -10,7 +10,6 @@ use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::image_format::ClientFormat;
 use crate::image_region::{Region2D, Region3D};
-use crate::runtime::dropper::{DropObject, Dropper, RefCountedDropper};
 use crate::runtime::dynamic_state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
 use crate::task::{GpuTask, Progress};
@@ -22,16 +21,17 @@ use crate::texture::util::{
 };
 use crate::texture::{Image2DSource, Image3DSource, TextureFormat};
 use crate::util::{arc_get_mut_unchecked, identical, JsId};
+use texture::texture_object_dropper::TextureObjectDropper;
+use runtime::ContextMismatch;
 
-#[derive(Clone)]
-pub struct Texture3DHandle<F> {
+pub struct Texture3D<F> {
     data: Arc<Texture3DData>,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> Texture3DHandle<F> {
+impl<F> Texture3D<F> {
     pub(crate) fn bind(&self, connection: &mut Connection) -> u32 {
-        let Connection(gl, state) = connection;
+        let (gl, state) = unsafe { connection.unpack_mut() };
 
         unsafe {
             let data = arc_get_mut_unchecked(&self.data);
@@ -62,24 +62,24 @@ impl<F> Texture3DHandle<F> {
     }
 }
 
-impl<F> Texture3DHandle<F>
+impl<F> Texture3D<F>
 where
     F: TextureFormat + 'static,
 {
     pub(crate) fn new<Rc>(
         context: &Rc,
-        dropper: RefCountedDropper,
         width: u32,
         height: u32,
         depth: u32,
         levels: usize,
     ) -> Self
     where
-        Rc: RenderingContext,
+        Rc: RenderingContext + Clone + 'static,
     {
         let data = Arc::new(Texture3DData {
             id: None,
-            dropper,
+            context_id: context.id(),
+            dropper: Box::new(context.clone()),
             width,
             height,
             depth,
@@ -92,7 +92,7 @@ where
             _marker: marker::PhantomData,
         });
 
-        Texture3DHandle {
+        Texture3D {
             data,
             _marker: marker::PhantomData,
         }
@@ -126,20 +126,21 @@ where
     }
 }
 
-pub(crate) struct Texture3DData {
-    pub(crate) id: Option<JsId>,
-    dropper: RefCountedDropper,
+struct Texture3DData {
+    id: Option<JsId>,
+    context_id: usize,
+    dropper: Box<TextureObjectDropper>,
     width: u32,
     height: u32,
     depth: u32,
     levels: usize,
-    pub(crate) most_recent_unit: Option<u32>,
+    most_recent_unit: Option<u32>,
 }
 
 impl Drop for Texture3DData {
     fn drop(&mut self) {
         if let Some(id) = self.id {
-            self.dropper.drop_gl_object(DropObject::Texture(id));
+            self.dropper.drop_texture_object(id);
         }
     }
 }
@@ -249,8 +250,8 @@ impl<F> Texture3DLevel<F>
 where
     F: TextureFormat,
 {
-    pub fn texture(&self) -> Texture3DHandle<F> {
-        Texture3DHandle {
+    pub fn texture(&self) -> Texture3D<F> {
+        Texture3D {
             data: self.texture_data.clone(),
             _marker: marker::PhantomData,
         }
@@ -414,8 +415,8 @@ impl<F> Texture3DLevelLayer<F>
 where
     F: TextureFormat,
 {
-    pub fn texture(&self) -> Texture3DHandle<F> {
-        Texture3DHandle {
+    pub fn texture(&self) -> Texture3D<F> {
+        Texture3D {
             data: self.texture_data.clone(),
             _marker: marker::PhantomData,
         }
@@ -477,8 +478,8 @@ impl<F> Texture3DLevelSubImage<F>
 where
     F: TextureFormat,
 {
-    pub fn texture(&self) -> Texture3DHandle<F> {
-        Texture3DHandle {
+    pub fn texture(&self) -> Texture3D<F> {
+        Texture3D {
             data: self.texture_data.clone(),
             _marker: marker::PhantomData,
         }
@@ -667,8 +668,8 @@ impl<F> Texture3DLevelLayerSubImage<F>
 where
     F: TextureFormat,
 {
-    pub fn texture(&self) -> Texture3DHandle<F> {
-        Texture3DHandle {
+    pub fn texture(&self) -> Texture3D<F> {
+        Texture3D {
             data: self.texture_data.clone(),
             _marker: marker::PhantomData,
         }
@@ -734,7 +735,7 @@ where
     type Output = ();
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        let Connection(gl, state) = connection;
+        let (gl, state) = unsafe { connection.unpack_mut() };
         let mut data = unsafe { arc_get_mut_unchecked(&mut self.data) };
 
         let texture_object = gl.create_texture().unwrap();
@@ -774,19 +775,23 @@ where
     T: ClientFormat<F>,
     F: TextureFormat,
 {
-    type Output = ();
+    type Output = Result<(), ContextMismatch>;
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
+        if self.texture_data.context_id != connection.context_id() {
+            return Progress::Finished(Err(ContextMismatch));
+        }
+
         let mut width = region_3d_overlap_width(self.texture_data.width, self.level, &self.region);
         let mut height =
             region_3d_overlap_height(self.texture_data.height, self.level, &self.region);
         let depth = region_3d_overlap_depth(self.texture_data.height, &self.region);
 
         if width == 0 || height == 0 || depth == 0 {
-            return Progress::Finished(());
+            return Progress::Finished(Ok(()));
         }
 
-        let Connection(gl, state) = connection;
+        let (gl, state) = unsafe { connection.unpack_mut() };
 
         match &self.data.internal {
             Image3DSourceInternal::PixelData {
@@ -873,7 +878,7 @@ where
             }
         }
 
-        Progress::Finished(())
+        Progress::Finished(Ok(()))
     }
 }
 
@@ -892,17 +897,21 @@ where
     T: ClientFormat<F>,
     F: TextureFormat,
 {
-    type Output = ();
+    type Output = Result<(), ContextMismatch>;
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
+        if self.texture_data.context_id != connection.context_id() {
+            return Progress::Finished(Err(ContextMismatch));
+        }
+
         let mut width = region_2d_overlap_width(self.texture_data.width, self.level, &self.region);
         let height = region_2d_overlap_height(self.texture_data.height, self.level, &self.region);
 
         if width == 0 || height == 0 {
-            return Progress::Finished(());
+            return Progress::Finished(Ok(()));
         }
 
-        let Connection(gl, state) = connection;
+        let (gl, state) = unsafe { connection.unpack_mut() };
 
         match &self.data.internal {
             Image2DSourceInternal::PixelData {
@@ -977,6 +986,6 @@ where
             }
         }
 
-        Progress::Finished(())
+        Progress::Finished(Ok(()))
     }
 }

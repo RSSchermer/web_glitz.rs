@@ -3,18 +3,17 @@ use std::sync::Arc;
 use crate::image_format::{
     FloatSamplable, IntegerSamplable, ShadowSamplable, UnsignedIntegerSamplable,
 };
-use crate::runtime::dropper::{DropObject, Dropper, RefCountedDropper};
 use crate::runtime::dynamic_state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
-use crate::texture::texture_2d::Texture2DHandle;
-use crate::texture::texture_2d_array::Texture2DArrayHandle;
-use crate::texture::texture_3d::Texture3DHandle;
+use crate::texture::texture_2d::Texture2D;
+use crate::texture::texture_2d_array::Texture2DArray;
+use crate::texture::texture_3d::Texture3D;
 use crate::texture::texture_cube::TextureCubeHandle;
 use crate::texture::TextureFormat;
 use crate::util::{arc_get_mut_unchecked, identical, JsId};
 
 pub struct FloatSampler2DHandle<F> {
-    data: Arc<SamplerData<Texture2DHandle<F>>>,
+    data: Arc<SamplerData<Texture2D<F>>>,
 }
 
 impl<F> FloatSampler2DHandle<F> {
@@ -30,7 +29,7 @@ impl<F> FloatSampler2DHandle<F> {
 }
 
 pub struct IntegerSampler2DHandle<F> {
-    data: Arc<SamplerData<Texture2DHandle<F>>>,
+    data: Arc<SamplerData<Texture2D<F>>>,
 }
 
 impl<F> IntegerSampler2DHandle<F> {
@@ -46,7 +45,7 @@ impl<F> IntegerSampler2DHandle<F> {
 }
 
 pub struct UnsignedIntegerSampler2DHandle<F> {
-    data: Arc<SamplerData<Texture2DHandle<F>>>,
+    data: Arc<SamplerData<Texture2D<F>>>,
 }
 
 impl<F> UnsignedIntegerSampler2DHandle<F> {
@@ -62,7 +61,7 @@ impl<F> UnsignedIntegerSampler2DHandle<F> {
 }
 
 pub struct FloatSampler2DArrayHandle<F> {
-    data: Arc<SamplerData<Texture2DArrayHandle<F>>>,
+    data: Arc<SamplerData<Texture2DArray<F>>>,
 }
 
 impl<F> FloatSampler2DArrayHandle<F> {
@@ -78,7 +77,7 @@ impl<F> FloatSampler2DArrayHandle<F> {
 }
 
 pub struct IntegerSampler2DArrayHandle<F> {
-    data: Arc<SamplerData<Texture2DArrayHandle<F>>>,
+    data: Arc<SamplerData<Texture2DArray<F>>>,
 }
 
 impl<F> IntegerSampler2DArrayHandle<F> {
@@ -94,7 +93,7 @@ impl<F> IntegerSampler2DArrayHandle<F> {
 }
 
 pub struct UnsignedIntegerSampler2DArrayHandle<F> {
-    data: Arc<SamplerData<Texture2DArrayHandle<F>>>,
+    data: Arc<SamplerData<Texture2DArray<F>>>,
 }
 
 impl<F> UnsignedIntegerSampler2DArrayHandle<F> {
@@ -110,7 +109,7 @@ impl<F> UnsignedIntegerSampler2DArrayHandle<F> {
 }
 
 pub struct FloatSampler3DHandle<F> {
-    data: Arc<SamplerData<Texture3DHandle<F>>>,
+    data: Arc<SamplerData<Texture3D<F>>>,
 }
 
 impl<F> FloatSampler3DHandle<F> {
@@ -126,7 +125,7 @@ impl<F> FloatSampler3DHandle<F> {
 }
 
 pub struct IntegerSampler3DHandle<F> {
-    data: Arc<SamplerData<Texture3DHandle<F>>>,
+    data: Arc<SamplerData<Texture3D<F>>>,
 }
 
 impl<F> IntegerSampler3DHandle<F> {
@@ -142,7 +141,7 @@ impl<F> IntegerSampler3DHandle<F> {
 }
 
 pub struct UnsignedIntegerSampler3DHandle<F> {
-    data: Arc<SamplerData<Texture3DHandle<F>>>,
+    data: Arc<SamplerData<Texture3D<F>>>,
 }
 
 impl<F> UnsignedIntegerSampler3DHandle<F> {
@@ -206,7 +205,7 @@ impl<F> UnsignedIntegerSamplerCubeHandle<F> {
 }
 
 pub struct Sampler2DShadowHandle<F> {
-    data: Arc<SamplerData<Texture2DHandle<F>>>,
+    data: Arc<SamplerData<Texture2D<F>>>,
 }
 
 impl<F> Sampler2DShadowHandle<F> {
@@ -222,7 +221,7 @@ impl<F> Sampler2DShadowHandle<F> {
 }
 
 pub struct Sampler2DArrayShadowHandle<F> {
-    data: Arc<SamplerData<Texture2DArrayHandle<F>>>,
+    data: Arc<SamplerData<Texture2DArray<F>>>,
 }
 
 impl<F> Sampler2DArrayShadowHandle<F> {
@@ -255,13 +254,12 @@ impl<F> SamplerCubeShadowHandle<F> {
 
 pub(crate) struct SamplerData<T> {
     pub(crate) id: Option<JsId>,
-    dropper: RefCountedDropper,
     pub(crate) texture: T,
 }
 
 impl<T> SamplerData<T> {
     fn bind_to_unit(&mut self, connection: &mut Connection, unit: u32) {
-        let Connection(gl, state) = connection;
+        let (gl, state) = unsafe { connection.unpack_mut() };
 
         unsafe {
             self.id.unwrap().with_value_unchecked(|sampler_object| {

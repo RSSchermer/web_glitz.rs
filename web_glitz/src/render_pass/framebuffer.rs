@@ -19,6 +19,7 @@ use image_format::InternalFormat;
 use render_pass::AttachableImageDescriptor;
 use renderbuffer::RenderbufferHandle;
 use renderbuffer::RenderbufferFormat;
+use render_pass::RenderPassMismatch;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum BlitFilter {
@@ -30,22 +31,6 @@ pub struct Framebuffer<C, Ds> {
     pub color: C,
     pub depth_stencil: Ds,
     pub(crate) _private: ()
-}
-
-impl<C, Ds> Framebuffer<C, Ds> {
-    pub fn blit_color_task<I>(&mut self, region: Region2D, source_image: &I, filter: BlitFilter) -> BlitColorTask
-    where
-        I: BlitColorCompatible<C>,
-    {
-        unimplemented!()
-    }
-
-    pub fn blit_depth_task<I>(&mut self, region: Region2D, source_image: &I) -> BlitDepthTask
-    where
-        Ds: Buffer,
-        I: BlitSource<Format=Ds::Format> {
-        unimplemented!()
-    }
 }
 
 pub trait BlitSource {
@@ -114,18 +99,18 @@ impl_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C1
 impl_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14);
 impl_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15);
 
-pub struct BlitColorTask {}
+pub struct BlitColorCommand {}
 
-pub struct BlitDepthTask {
+pub struct BlitDepthCommand {
     region: ((u32, u32), u32, u32),
     source: BlitSourceDescriptor
 }
 
-impl<'a> GpuTask<RenderPassContext<'a>> for BlitDepthTask {
+impl<'a> GpuTask<RenderPassContext<'a>> for BlitDepthCommand {
     type Output = ();
 
     fn progress(&mut self, context: &mut RenderPassContext) -> Progress<Self::Output> {
-        let (gl, state) = unsafe { context.unpack() };
+        let (gl, state) = unsafe { context.unpack_mut() };
 
         state.bind_read_framebuffer(gl);
 
@@ -161,17 +146,22 @@ pub trait Buffer {
 }
 
 pub struct ColorFloatBuffer<F> where F: ColorFloatRenderable {
+    render_pass_id: usize,
     index: i32,
+    width: u32,
+    height: u32,
     _marker: marker::PhantomData<Box<F>>
 }
 
 impl<F> ColorFloatBuffer<F> where F: ColorFloatRenderable {
-    pub(crate) fn new(index: i32) -> Self {
-        ColorFloatBuffer { index, _marker: marker::PhantomData }
+    pub(crate) fn new(render_pass_id: usize, index: i32, width: u32, height: u32) -> Self {
+        ColorFloatBuffer { render_pass_id, index,  width,
+            height, _marker: marker::PhantomData }
     }
 
-    pub fn clear_task(&mut self, clear_value: [f32; 4], region: Region2D) -> ClearColorFloatTask {
-        ClearColorFloatTask {
+    pub fn clear_command(&mut self, clear_value: [f32; 4], region: Region2D) -> ClearColorFloatCommand {
+        ClearColorFloatCommand {
+            render_pass_id: self.render_pass_id,
             buffer_index: self.index,
             clear_value,
             region,
@@ -184,17 +174,22 @@ impl<F> Buffer for ColorFloatBuffer<F> where F: ColorFloatRenderable {
 }
 
 pub struct ColorIntegerBuffer<F> where F: ColorIntegerRenderable {
+    render_pass_id: usize,
     index: i32,
+    width: u32,
+    height: u32,
     _marker: marker::PhantomData<Box<F>>
 }
 
 impl<F> ColorIntegerBuffer<F> where F: ColorIntegerRenderable {
-    pub(crate) fn new(index: i32) -> Self {
-        ColorIntegerBuffer { index, _marker: marker::PhantomData }
+    pub(crate) fn new(render_pass_id: usize, index: i32, width: u32, height: u32) -> Self {
+        ColorIntegerBuffer { render_pass_id, index, width,
+            height, _marker: marker::PhantomData }
     }
 
-    pub fn clear_task(&mut self, clear_value: [i32; 4], region: Region2D) -> ClearColorIntegerTask {
-        ClearColorIntegerTask {
+    pub fn clear_command(&mut self, clear_value: [i32; 4], region: Region2D) -> ClearColorIntegerCommand {
+        ClearColorIntegerCommand {
+            render_pass_id: self.render_pass_id,
             buffer_index: self.index,
             clear_value,
             region,
@@ -206,21 +201,26 @@ impl<F> Buffer for ColorIntegerBuffer<F> where F: ColorIntegerRenderable {
 }
 
 pub struct ColorUnsignedIntegerBuffer<F> where F: ColorUnsignedIntegerRenderable {
+    render_pass_id: usize,
     index: i32,
+    width: u32,
+    height: u32,
     _marker: marker::PhantomData<Box<F>>
 }
 
 impl<F> ColorUnsignedIntegerBuffer<F> where F: ColorUnsignedIntegerRenderable {
-    pub(crate) fn new(index: i32) -> Self {
-        ColorUnsignedIntegerBuffer { index, _marker: marker::PhantomData }
+    pub(crate) fn new(render_pass_id: usize, index: i32, width: u32, height: u32) -> Self {
+        ColorUnsignedIntegerBuffer { render_pass_id, index, width,
+            height, _marker: marker::PhantomData }
     }
 
-    pub fn clear_task(
+    pub fn clear_command(
         &mut self,
         clear_value: [u32; 4],
         region: Region2D,
-    ) -> ClearColorUnsignedIntegerTask {
-        ClearColorUnsignedIntegerTask {
+    ) -> ClearColorUnsignedIntegerCommand {
+        ClearColorUnsignedIntegerCommand {
+            render_pass_id: self.render_pass_id,
             buffer_index: self.index,
             clear_value,
             region,
@@ -233,35 +233,42 @@ impl<F> Buffer for ColorUnsignedIntegerBuffer<F> where F: ColorUnsignedIntegerRe
 }
 
 pub struct DepthStencilBuffer<F> where F: DepthStencilRenderable {
+    render_pass_id: usize,
+    width: u32,
+    height: u32,
     _marker: marker::PhantomData<Box<F>>
 }
 
 impl<F> DepthStencilBuffer<F> where F: DepthStencilRenderable {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(render_pass_id: usize, width: u32, height: u32) -> Self {
         DepthStencilBuffer {
+            render_pass_id,
+            width,
+            height,
             _marker: marker::PhantomData
         }
     }
 
-    pub fn clear_both_task(
+    pub fn clear_command(
         &mut self,
         depth: f32,
         stencil: i32,
         region: Region2D,
-    ) -> ClearDepthStencilTask {
-        ClearDepthStencilTask {
+    ) -> ClearDepthStencilCommand {
+        ClearDepthStencilCommand {
+            render_pass_id: self.render_pass_id,
             depth,
             stencil,
             region,
         }
     }
 
-    pub fn clear_depth_task(&mut self, depth: f32, region: Region2D) -> ClearDepthTask {
-        ClearDepthTask { depth, region }
+    pub fn clear_depth_command(&mut self, depth: f32, region: Region2D) -> ClearDepthCommand {
+        ClearDepthCommand { render_pass_id: self.render_pass_id,depth, region }
     }
 
-    pub fn clear_stencil_task(&mut self, stencil: i32, region: Region2D) -> ClearStencilTask {
-        ClearStencilTask { stencil, region }
+    pub fn clear_stencil_command(&mut self, stencil: i32, region: Region2D) -> ClearStencilCommand {
+        ClearStencilCommand { render_pass_id: self.render_pass_id,stencil, region }
     }
 }
 
@@ -270,18 +277,24 @@ impl<F> Buffer for DepthStencilBuffer<F> where F: DepthStencilRenderable {
 }
 
 pub struct DepthBuffer<F> where F: DepthRenderable {
+    render_pass_id: usize,
+    width: u32,
+    height: u32,
     _marker: marker::PhantomData<Box<F>>
 }
 
 impl<F> DepthBuffer<F> where F: DepthRenderable {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(render_pass_id: usize, width: u32, height: u32) -> Self {
         DepthBuffer {
+            render_pass_id,
+            width,
+            height,
             _marker: marker::PhantomData
         }
     }
 
-    pub fn clear_task(&mut self, depth: f32, region: Region2D) -> ClearDepthTask {
-        ClearDepthTask { depth, region }
+    pub fn clear_command(&mut self, depth: f32, region: Region2D) -> ClearDepthCommand {
+        ClearDepthCommand { render_pass_id: self.render_pass_id, depth, region }
     }
 }
 
@@ -290,18 +303,24 @@ impl<F> Buffer for DepthBuffer<F> where F: DepthRenderable {
 }
 
 pub struct StencilBuffer<F> where F: StencilRenderable {
+    render_pass_id: usize,
+    width: u32,
+    height: u32,
     _marker: marker::PhantomData<Box<F>>
 }
 
 impl<F> StencilBuffer<F> where F: StencilRenderable {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(render_pass_id: usize, width: u32, height: u32) -> Self {
         StencilBuffer {
+            render_pass_id,
+            width,
+            height,
             _marker: marker::PhantomData
         }
     }
 
-    pub fn clear_task(&mut self, stencil: i32, region: Region2D) -> ClearStencilTask {
-        ClearStencilTask { stencil, region }
+    pub fn clear_command(&mut self, stencil: i32, region: Region2D) -> ClearStencilCommand {
+        ClearStencilCommand { render_pass_id: self.render_pass_id, stencil, region }
     }
 }
 
@@ -309,17 +328,22 @@ impl<F> Buffer for StencilBuffer<F> where F: StencilRenderable {
     type Format = F;
 }
 
-pub struct ClearColorFloatTask {
+pub struct ClearColorFloatCommand {
+    render_pass_id: usize,
     buffer_index: i32,
     clear_value: [f32; 4],
     region: Region2D,
 }
 
-impl<'a> GpuTask<RenderPassContext<'a>> for ClearColorFloatTask {
-    type Output = ();
+impl<'a> GpuTask<RenderPassContext<'a>> for ClearColorFloatCommand {
+    type Output = Result<(), RenderPassMismatch>;
 
     fn progress(&mut self, context: &mut RenderPassContext) -> Progress<Self::Output> {
-        let (gl, state) = unsafe { context.unpack() };
+        if self.render_pass_id != context.render_pass_id() {
+            return Progress::Finished(Err(RenderPassMismatch));
+        }
+
+        let (gl, state) = unsafe { context.unpack_mut() };
 
         match self.region {
             Region2D::Fill => state.set_scissor_test_enabled(false).apply(gl).unwrap(),
@@ -336,21 +360,26 @@ impl<'a> GpuTask<RenderPassContext<'a>> for ClearColorFloatTask {
             slice_make_mut(&self.clear_value)
         });
 
-        Progress::Finished(())
+        Progress::Finished(Ok(()))
     }
 }
 
-pub struct ClearColorIntegerTask {
+pub struct ClearColorIntegerCommand {
+    render_pass_id: usize,
     buffer_index: i32,
     clear_value: [i32; 4],
     region: Region2D,
 }
 
-impl<'a> GpuTask<RenderPassContext<'a>> for ClearColorIntegerTask {
-    type Output = ();
+impl<'a> GpuTask<RenderPassContext<'a>> for ClearColorIntegerCommand {
+    type Output = Result<(), RenderPassMismatch>;
 
     fn progress(&mut self, context: &mut RenderPassContext) -> Progress<Self::Output> {
-        let (gl, state) = unsafe { context.unpack() };
+        if self.render_pass_id != context.render_pass_id() {
+            return Progress::Finished(Err(RenderPassMismatch));
+        }
+
+        let (gl, state) = unsafe { context.unpack_mut() };
 
         match self.region {
             Region2D::Fill => state.set_scissor_test_enabled(false).apply(gl).unwrap(),
@@ -367,21 +396,26 @@ impl<'a> GpuTask<RenderPassContext<'a>> for ClearColorIntegerTask {
             slice_make_mut(&self.clear_value)
         });
 
-        Progress::Finished(())
+        Progress::Finished(Ok(()))
     }
 }
 
-pub struct ClearColorUnsignedIntegerTask {
+pub struct ClearColorUnsignedIntegerCommand {
+    render_pass_id: usize,
     buffer_index: i32,
     clear_value: [u32; 4],
     region: Region2D,
 }
 
-impl<'a> GpuTask<RenderPassContext<'a>> for ClearColorUnsignedIntegerTask {
-    type Output = ();
+impl<'a> GpuTask<RenderPassContext<'a>> for ClearColorUnsignedIntegerCommand {
+    type Output = Result<(), RenderPassMismatch>;
 
     fn progress(&mut self, context: &mut RenderPassContext) -> Progress<Self::Output> {
-        let (gl, state) = unsafe { context.unpack() };
+        if self.render_pass_id != context.render_pass_id() {
+            return Progress::Finished(Err(RenderPassMismatch));
+        }
+
+        let (gl, state) = unsafe { context.unpack_mut() };
 
         match self.region {
             Region2D::Fill => state.set_scissor_test_enabled(false).apply(gl).unwrap(),
@@ -398,21 +432,26 @@ impl<'a> GpuTask<RenderPassContext<'a>> for ClearColorUnsignedIntegerTask {
             slice_make_mut(&self.clear_value)
         });
 
-        Progress::Finished(())
+        Progress::Finished(Ok(()))
     }
 }
 
-pub struct ClearDepthStencilTask {
+pub struct ClearDepthStencilCommand {
+    render_pass_id: usize,
     depth: f32,
     stencil: i32,
     region: Region2D,
 }
 
-impl<'a> GpuTask<RenderPassContext<'a>> for ClearDepthStencilTask {
-    type Output = ();
+impl<'a> GpuTask<RenderPassContext<'a>> for ClearDepthStencilCommand {
+    type Output = Result<(), RenderPassMismatch>;
 
     fn progress(&mut self, context: &mut RenderPassContext) -> Progress<Self::Output> {
-        let (gl, state) = unsafe { context.unpack() };
+        if self.render_pass_id != context.render_pass_id() {
+            return Progress::Finished(Err(RenderPassMismatch));
+        }
+
+        let (gl, state) = unsafe { context.unpack_mut() };
 
         match self.region {
             Region2D::Fill => state.set_scissor_test_enabled(false).apply(gl).unwrap(),
@@ -427,20 +466,25 @@ impl<'a> GpuTask<RenderPassContext<'a>> for ClearDepthStencilTask {
 
         gl.clear_bufferfi(Gl::DEPTH_STENCIL, 0, self.depth, self.stencil);
 
-        Progress::Finished(())
+        Progress::Finished(Ok(()))
     }
 }
 
-pub struct ClearDepthTask {
+pub struct ClearDepthCommand {
+    render_pass_id: usize,
     depth: f32,
     region: Region2D,
 }
 
-impl<'a> GpuTask<RenderPassContext<'a>> for ClearDepthTask {
-    type Output = ();
+impl<'a> GpuTask<RenderPassContext<'a>> for ClearDepthCommand {
+    type Output = Result<(), RenderPassMismatch>;
 
     fn progress(&mut self, context: &mut RenderPassContext) -> Progress<Self::Output> {
-        let (gl, state) = unsafe { context.unpack() };
+        if self.render_pass_id != context.render_pass_id() {
+            return Progress::Finished(Err(RenderPassMismatch));
+        }
+
+        let (gl, state) = unsafe { context.unpack_mut() };
 
         match self.region {
             Region2D::Fill => state.set_scissor_test_enabled(false).apply(gl).unwrap(),
@@ -455,20 +499,25 @@ impl<'a> GpuTask<RenderPassContext<'a>> for ClearDepthTask {
 
         gl.clear_bufferfv_with_f32_array(Gl::DEPTH, 0, unsafe { slice_make_mut(&[self.depth]) });
 
-        Progress::Finished(())
+        Progress::Finished(Ok(()))
     }
 }
 
-pub struct ClearStencilTask {
+pub struct ClearStencilCommand {
+    render_pass_id: usize,
     stencil: i32,
     region: Region2D,
 }
 
-impl<'a> GpuTask<RenderPassContext<'a>> for ClearStencilTask {
-    type Output = ();
+impl<'a> GpuTask<RenderPassContext<'a>> for ClearStencilCommand {
+    type Output = Result<(), RenderPassMismatch>;
 
     fn progress(&mut self, context: &mut RenderPassContext) -> Progress<Self::Output> {
-        let (gl, state) = unsafe { context.unpack() };
+        if self.render_pass_id != context.render_pass_id() {
+            return Progress::Finished(Err(RenderPassMismatch));
+        }
+
+        let (gl, state) = unsafe { context.unpack_mut() };
 
         match self.region {
             Region2D::Fill => state.set_scissor_test_enabled(false).apply(gl).unwrap(),
@@ -485,6 +534,6 @@ impl<'a> GpuTask<RenderPassContext<'a>> for ClearStencilTask {
             slice_make_mut(&[self.stencil])
         });
 
-        Progress::Finished(())
+        Progress::Finished(Ok(()))
     }
 }

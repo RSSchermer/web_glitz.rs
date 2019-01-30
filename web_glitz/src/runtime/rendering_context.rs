@@ -4,18 +4,20 @@ use futures::{Async, Poll};
 use web_sys::WebGl2RenderingContext as Gl;
 
 use buffer::IntoBuffer;
-use crate::buffer::{BufferHandle, BufferUsage};
+use crate::buffer::{Buffer, BufferUsage};
 use crate::image_format::Filterable;
 use crate::renderbuffer::{RenderbufferFormat, RenderbufferHandle};
 use crate::runtime::dynamic_state::DynamicState;
 use crate::task::GpuTask;
 use crate::texture::{
-    Texture2DArrayHandle, Texture2DHandle, Texture3DHandle, TextureCubeHandle, TextureFormat,
+    Texture2DArray, Texture2D, Texture3D, TextureCubeHandle, TextureFormat,
 };
 use std::borrow::Borrow;
 
 pub trait RenderingContext {
-    fn create_buffer<D, T>(&self, data: D, usage_hint: BufferUsage) -> BufferHandle<T>
+    fn id(&self) -> usize;
+
+    fn create_buffer<D, T>(&self, data: D, usage_hint: BufferUsage) -> Buffer<T>
     where
         D: IntoBuffer<T>;
 
@@ -23,7 +25,7 @@ pub trait RenderingContext {
     where
         F: RenderbufferFormat + 'static;
 
-    fn create_texture_2d<F>(&self, width: u32, height: u32) -> Texture2DHandle<F>
+    fn create_texture_2d<F>(&self, width: u32, height: u32) -> Texture2D<F>
     where
         F: TextureFormat + 'static;
 
@@ -32,7 +34,7 @@ pub trait RenderingContext {
         width: u32,
         height: u32,
         levels: usize,
-    ) -> Texture2DHandle<F>
+    ) -> Texture2D<F>
     where
         F: TextureFormat + Filterable + 'static;
 
@@ -42,7 +44,7 @@ pub trait RenderingContext {
         height: u32,
         depth: u32,
         levels: usize,
-    ) -> Texture2DArrayHandle<F>
+    ) -> Texture2DArray<F>
     where
         F: TextureFormat + 'static;
 
@@ -52,7 +54,7 @@ pub trait RenderingContext {
         height: u32,
         depth: u32,
         levels: usize,
-    ) -> Texture3DHandle<F>
+    ) -> Texture3D<F>
     where
         F: TextureFormat + 'static;
 
@@ -120,4 +122,32 @@ impl<T> From<Receiver<T>> for Execution<T> {
     }
 }
 
-pub struct Connection(pub Gl, pub DynamicState);
+pub struct Connection {
+    context_id: usize,
+    gl: Gl,
+    state: DynamicState,
+}
+
+impl Connection {
+    pub fn new(context_id: usize, gl: Gl, state: DynamicState) -> Self {
+        Connection {
+            context_id,
+            gl,
+            state
+        }
+    }
+
+    pub fn context_id(&self) -> usize {
+        self.context_id
+    }
+
+    pub unsafe fn unpack(&self) -> (&Gl, &DynamicState) {
+        (&self.gl, &self.state)
+    }
+
+    pub unsafe fn unpack_mut(&mut self) -> (&mut Gl, &mut DynamicState) {
+        (&mut self.gl, &mut self.state)
+    }
+}
+
+pub struct ContextMismatch;

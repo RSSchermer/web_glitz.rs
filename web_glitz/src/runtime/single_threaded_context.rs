@@ -1,30 +1,56 @@
-use std::cell::RefCell;
+use std::borrow::Borrow;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
 use buffer::IntoBuffer;
-use crate::buffer::{BufferHandle, BufferUsage};
+use crate::buffer::{Buffer, BufferUsage};
 use crate::image_format::Filterable;
 use crate::renderbuffer::{RenderbufferFormat, RenderbufferHandle};
-use crate::runtime::dropper::{DropObject, DropTask, Dropper, RefCountedDropper};
 use crate::runtime::dynamic_state::DynamicState;
 use crate::runtime::executor_job::job;
 use crate::runtime::fenced::JsTimeoutFencedTaskRunner;
 use crate::runtime::{Connection, Execution, RenderingContext};
 use crate::task::{GpuTask, Progress};
 use crate::texture::{
-    Texture2DArrayHandle, Texture2DHandle, Texture3DHandle, TextureCubeHandle, TextureFormat,
+    Texture2DArray, Texture2D, Texture3D, TextureCubeHandle, TextureFormat,
 };
-use std::borrow::Borrow;
+
+thread_local!(static ID_GEN: IdGen = IdGen::new());
+
+struct IdGen {
+    next: Cell<usize>
+}
+
+impl IdGen {
+    const fn new() -> Self {
+        IdGen {
+            next: Cell::new(0)
+        }
+    }
+
+    fn next(&self) -> usize {
+        let next = self.next.get();
+
+        self.next.set(next + 1);
+
+        next
+    }
+}
 
 #[derive(Clone)]
 pub struct SingleThreadedContext {
     executor: Rc<RefCell<SingleThreadedExecutor>>,
+    id: usize
 }
 
 impl RenderingContext for SingleThreadedContext {
-    fn create_buffer<D, T>(&self, data: D, usage_hint: BufferUsage) -> BufferHandle<T>
+    fn id(&self) -> usize {
+        self.id
+    }
+
+    fn create_buffer<D, T>(&self, data: D, usage_hint: BufferUsage) -> Buffer<T>
     where
         D: IntoBuffer<T>,
     {
@@ -37,19 +63,17 @@ impl RenderingContext for SingleThreadedContext {
     {
         RenderbufferHandle::new(
             self,
-            RefCountedDropper::Rc(self.executor.clone()),
             width,
             height,
         )
     }
 
-    fn create_texture_2d<F>(&self, width: u32, height: u32) -> Texture2DHandle<F>
+    fn create_texture_2d<F>(&self, width: u32, height: u32) -> Texture2D<F>
     where
         F: TextureFormat + 'static,
     {
-        Texture2DHandle::new(
+        Texture2D::new(
             self,
-            RefCountedDropper::Rc(self.executor.clone()),
             width,
             height,
         )
@@ -60,13 +84,12 @@ impl RenderingContext for SingleThreadedContext {
         width: u32,
         height: u32,
         levels: usize,
-    ) -> Texture2DHandle<F>
+    ) -> Texture2D<F>
     where
         F: TextureFormat + Filterable + 'static,
     {
-        Texture2DHandle::new_mipmapped(
+        Texture2D::new_mipmapped(
             self,
-            RefCountedDropper::Rc(self.executor.clone()),
             width,
             height,
             levels,
@@ -79,13 +102,12 @@ impl RenderingContext for SingleThreadedContext {
         height: u32,
         depth: u32,
         levels: usize,
-    ) -> Texture2DArrayHandle<F>
+    ) -> Texture2DArray<F>
     where
         F: TextureFormat + 'static,
     {
-        Texture2DArrayHandle::new(
+        Texture2DArray::new(
             self,
-            RefCountedDropper::Rc(self.executor.clone()),
             width,
             height,
             depth,
@@ -99,13 +121,12 @@ impl RenderingContext for SingleThreadedContext {
         height: u32,
         depth: u32,
         levels: usize,
-    ) -> Texture3DHandle<F>
+    ) -> Texture3D<F>
     where
         F: TextureFormat + 'static,
     {
-        Texture3DHandle::new(
+        Texture3D::new(
             self,
-            RefCountedDropper::Rc(self.executor.clone()),
             width,
             height,
             depth,
@@ -119,7 +140,6 @@ impl RenderingContext for SingleThreadedContext {
     {
         TextureCubeHandle::new(
             self,
-            RefCountedDropper::Rc(self.executor.clone()),
             width,
             height,
             levels,
@@ -136,8 +156,11 @@ impl RenderingContext for SingleThreadedContext {
 
 impl SingleThreadedContext {
     pub fn from_webgl2_context(gl: Gl, state: DynamicState) -> Self {
+        let id = ID_GEN.with(|id_gen| id_gen.next());
+
         SingleThreadedContext {
-            executor: RefCell::new(SingleThreadedExecutor::new(Connection(gl, state))).into(),
+            executor: RefCell::new(SingleThreadedExecutor::new(Connection::new(id, gl, state))).into(),
+            id
         }
     }
 }
@@ -172,11 +195,5 @@ impl SingleThreadedExecutor {
                 execution
             }
         }
-    }
-}
-
-impl Dropper for RefCell<SingleThreadedExecutor> {
-    fn drop_gl_object(&self, object: DropObject) {
-        self.borrow_mut().accept(DropTask::new(object));
     }
 }

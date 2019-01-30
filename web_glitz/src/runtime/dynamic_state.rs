@@ -1215,9 +1215,11 @@ impl<'a> FramebufferCache<'a> {
                 let mut attachment_ids = [None; 17];
 
                 for (i, attachment) in attachment_set.color_attachments().iter().enumerate() {
-                    attachment.attach(gl, target, Gl::COLOR_ATTACHMENT0 + i as u32);
+                    if let Some(attachment) = attachment {
+                        attachment.attach(gl, target, Gl::COLOR_ATTACHMENT0 + i as u32);
 
-                    attachment_ids[i] = Some(attachment.id());
+                        attachment_ids[i] = Some(attachment.id());
+                    }
                 }
 
                 if let Some((slot, image)) = match attachment_set.depth_stencil_attachment() {
@@ -1285,7 +1287,7 @@ impl<'a> FramebufferCache<'a> {
 }
 
 pub(crate) trait AttachmentSet: Hash {
-    fn color_attachments(&self) -> &[AttachableImageDescriptor];
+    fn color_attachments(&self) -> &[Option<AttachableImageDescriptor>];
 
     fn depth_stencil_attachment(&self) -> &DepthStencilAttachmentDescriptor;
 }

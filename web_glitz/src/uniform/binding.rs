@@ -2,7 +2,7 @@ use std::slice;
 
 use web_sys::{WebGl2RenderingContext as Gl, WebGlProgram, WebGlUniformLocation};
 
-use crate::buffer::{BufferHandle, BufferView};
+use crate::buffer::{Buffer, BufferView};
 use crate::runtime::Connection;
 use crate::sampler::{
     FloatSampler2DArrayHandle, FloatSampler2DHandle, FloatSampler3DHandle, FloatSamplerCubeHandle,
@@ -1454,7 +1454,7 @@ impl<'a, T> Binder<'a, T> {
 
 impl<'a> Binder<'a, FloatSlot> {
     pub fn bind(&mut self, value: f32) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != value {
             unsafe {
@@ -1470,7 +1470,7 @@ impl<'a> Binder<'a, FloatSlot> {
 
 impl<'a> Binder<'a, ArrayOfFloatSlot> {
     pub fn bind(&mut self, value: &[f32]) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         unsafe {
             self.slot.location_id.with_value_unchecked(|location| {
@@ -1482,7 +1482,7 @@ impl<'a> Binder<'a, ArrayOfFloatSlot> {
 
 impl<'a> Binder<'a, FloatVector2Slot> {
     pub fn bind(&mut self, value: (f32, f32)) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != value {
             unsafe {
@@ -1498,7 +1498,7 @@ impl<'a> Binder<'a, FloatVector2Slot> {
 
 impl<'a> Binder<'a, ArrayOfFloatVector2Slot> {
     pub fn bind(&mut self, value: &[(f32, f32)]) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
         let ptr = value.as_ptr() as *const f32;
         let len = value.len();
 
@@ -1514,7 +1514,7 @@ impl<'a> Binder<'a, ArrayOfFloatVector2Slot> {
 
 impl<'a> Binder<'a, FloatVector3Slot> {
     pub fn bind(&mut self, value: (f32, f32, f32)) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != value {
             unsafe {
@@ -1530,7 +1530,7 @@ impl<'a> Binder<'a, FloatVector3Slot> {
 
 impl<'a> Binder<'a, ArrayOfFloatVector3Slot> {
     pub fn bind(&mut self, value: &[(f32, f32, f32)]) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
         let ptr = value.as_ptr() as *const f32;
         let len = value.len();
 
@@ -1546,7 +1546,7 @@ impl<'a> Binder<'a, ArrayOfFloatVector3Slot> {
 
 impl<'a> Binder<'a, FloatVector4Slot> {
     pub fn bind(&mut self, value: (f32, f32, f32, f32)) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != value {
             unsafe {
@@ -1562,7 +1562,7 @@ impl<'a> Binder<'a, FloatVector4Slot> {
 
 impl<'a> Binder<'a, ArrayOfFloatVector4Slot> {
     pub fn bind(&mut self, value: &[(f32, f32, f32, f32)]) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
         let ptr = value.as_ptr() as *const f32;
         let len = value.len();
 
@@ -1578,7 +1578,7 @@ impl<'a> Binder<'a, ArrayOfFloatVector4Slot> {
 
 impl<'a> Binder<'a, FloatMatrix2x2Slot> {
     pub fn bind(&mut self, mut value: [f32; 4], transpose: bool) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != (value, transpose) {
             unsafe {
@@ -1594,7 +1594,7 @@ impl<'a> Binder<'a, FloatMatrix2x2Slot> {
 
 impl<'a> Binder<'a, ArrayOfFloatMatrix2x2Slot> {
     pub fn bind(&mut self, value: &[[f32; 4]], transpose: bool) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
         let ptr = value.as_ptr() as *const f32;
         let len = value.len();
 
@@ -1614,7 +1614,7 @@ impl<'a> Binder<'a, ArrayOfFloatMatrix2x2Slot> {
 
 impl<'a> Binder<'a, FloatMatrix2x3Slot> {
     pub fn bind(&mut self, mut value: [f32; 6], transpose: bool) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != (value, transpose) {
             unsafe {
@@ -1630,7 +1630,7 @@ impl<'a> Binder<'a, FloatMatrix2x3Slot> {
 
 impl<'a> Binder<'a, ArrayOfFloatMatrix2x3Slot> {
     pub fn bind(&mut self, value: &[[f32; 6]], transpose: bool) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
         let ptr = value.as_ptr() as *const f32;
         let len = value.len();
 
@@ -1650,7 +1650,7 @@ impl<'a> Binder<'a, ArrayOfFloatMatrix2x3Slot> {
 
 impl<'a> Binder<'a, FloatMatrix2x4Slot> {
     pub fn bind(&mut self, mut value: [f32; 8], transpose: bool) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != (value, transpose) {
             unsafe {
@@ -1666,7 +1666,7 @@ impl<'a> Binder<'a, FloatMatrix2x4Slot> {
 
 impl<'a> Binder<'a, ArrayOfFloatMatrix2x4Slot> {
     pub fn bind(&mut self, value: &[[f32; 8]], transpose: bool) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
         let ptr = value.as_ptr() as *const f32;
         let len = value.len();
 
@@ -1686,7 +1686,7 @@ impl<'a> Binder<'a, ArrayOfFloatMatrix2x4Slot> {
 
 impl<'a> Binder<'a, FloatMatrix3x2Slot> {
     pub fn bind(&mut self, mut value: [f32; 6], transpose: bool) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != (value, transpose) {
             unsafe {
@@ -1702,7 +1702,7 @@ impl<'a> Binder<'a, FloatMatrix3x2Slot> {
 
 impl<'a> Binder<'a, ArrayOfFloatMatrix3x2Slot> {
     pub fn bind(&mut self, value: &[[f32; 6]], transpose: bool) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
         let ptr = value.as_ptr() as *const f32;
         let len = value.len();
 
@@ -1722,7 +1722,7 @@ impl<'a> Binder<'a, ArrayOfFloatMatrix3x2Slot> {
 
 impl<'a> Binder<'a, FloatMatrix3x3Slot> {
     pub fn bind(&mut self, mut value: [f32; 9], transpose: bool) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != (value, transpose) {
             unsafe {
@@ -1738,7 +1738,7 @@ impl<'a> Binder<'a, FloatMatrix3x3Slot> {
 
 impl<'a> Binder<'a, ArrayOfFloatMatrix3x3Slot> {
     pub fn bind(&mut self, value: &[[f32; 9]], transpose: bool) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
         let ptr = value.as_ptr() as *const f32;
         let len = value.len();
 
@@ -1758,7 +1758,7 @@ impl<'a> Binder<'a, ArrayOfFloatMatrix3x3Slot> {
 
 impl<'a> Binder<'a, FloatMatrix3x4Slot> {
     pub fn bind(&mut self, mut value: [f32; 12], transpose: bool) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != (value, transpose) {
             unsafe {
@@ -1774,7 +1774,7 @@ impl<'a> Binder<'a, FloatMatrix3x4Slot> {
 
 impl<'a> Binder<'a, ArrayOfFloatMatrix3x4Slot> {
     pub fn bind(&mut self, value: &[[f32; 12]], transpose: bool) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
         let ptr = value.as_ptr() as *const f32;
         let len = value.len();
 
@@ -1794,7 +1794,7 @@ impl<'a> Binder<'a, ArrayOfFloatMatrix3x4Slot> {
 
 impl<'a> Binder<'a, FloatMatrix4x2Slot> {
     pub fn bind(&mut self, mut value: [f32; 8], transpose: bool) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != (value, transpose) {
             unsafe {
@@ -1810,7 +1810,7 @@ impl<'a> Binder<'a, FloatMatrix4x2Slot> {
 
 impl<'a> Binder<'a, ArrayOfFloatMatrix4x2Slot> {
     pub fn bind(&mut self, value: &[[f32; 8]], transpose: bool) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
         let ptr = value.as_ptr() as *const f32;
         let len = value.len();
 
@@ -1830,7 +1830,7 @@ impl<'a> Binder<'a, ArrayOfFloatMatrix4x2Slot> {
 
 impl<'a> Binder<'a, FloatMatrix4x3Slot> {
     pub fn bind(&mut self, mut value: [f32; 12], transpose: bool) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != (value, transpose) {
             unsafe {
@@ -1846,7 +1846,7 @@ impl<'a> Binder<'a, FloatMatrix4x3Slot> {
 
 impl<'a> Binder<'a, ArrayOfFloatMatrix4x3Slot> {
     pub fn bind(&mut self, value: &[[f32; 12]], transpose: bool) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
         let ptr = value.as_ptr() as *const f32;
         let len = value.len();
 
@@ -1866,7 +1866,7 @@ impl<'a> Binder<'a, ArrayOfFloatMatrix4x3Slot> {
 
 impl<'a> Binder<'a, FloatMatrix4x4Slot> {
     pub fn bind(&mut self, mut value: [f32; 16], transpose: bool) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != (value, transpose) {
             unsafe {
@@ -1882,7 +1882,7 @@ impl<'a> Binder<'a, FloatMatrix4x4Slot> {
 
 impl<'a> Binder<'a, ArrayOfFloatMatrix4x4Slot> {
     pub fn bind(&mut self, value: &[[f32; 16]], transpose: bool) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
         let ptr = value.as_ptr() as *const f32;
         let len = value.len();
 
@@ -1902,7 +1902,7 @@ impl<'a> Binder<'a, ArrayOfFloatMatrix4x4Slot> {
 
 impl<'a> Binder<'a, IntegerSlot> {
     pub fn bind(&mut self, value: i32) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != value {
             unsafe {
@@ -1918,7 +1918,7 @@ impl<'a> Binder<'a, IntegerSlot> {
 
 impl<'a> Binder<'a, ArrayOfIntegerSlot> {
     pub fn bind(&mut self, value: &[i32]) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         unsafe {
             self.slot.location_id.with_value_unchecked(|location| {
@@ -1930,7 +1930,7 @@ impl<'a> Binder<'a, ArrayOfIntegerSlot> {
 
 impl<'a> Binder<'a, IntegerVector2Slot> {
     pub fn bind(&mut self, value: (i32, i32)) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != value {
             unsafe {
@@ -1946,7 +1946,7 @@ impl<'a> Binder<'a, IntegerVector2Slot> {
 
 impl<'a> Binder<'a, ArrayOfIntegerVector2Slot> {
     pub fn bind(&mut self, value: &[(i32, i32)]) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
         let ptr = value.as_ptr() as *const i32;
         let len = value.len();
 
@@ -1962,7 +1962,7 @@ impl<'a> Binder<'a, ArrayOfIntegerVector2Slot> {
 
 impl<'a> Binder<'a, IntegerVector3Slot> {
     pub fn bind(&mut self, value: (i32, i32, i32)) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != value {
             unsafe {
@@ -1978,7 +1978,7 @@ impl<'a> Binder<'a, IntegerVector3Slot> {
 
 impl<'a> Binder<'a, ArrayOfIntegerVector3Slot> {
     pub fn bind(&mut self, value: &[(i32, i32, i32)]) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
         let ptr = value.as_ptr() as *const i32;
         let len = value.len();
 
@@ -1994,7 +1994,7 @@ impl<'a> Binder<'a, ArrayOfIntegerVector3Slot> {
 
 impl<'a> Binder<'a, IntegerVector4Slot> {
     pub fn bind(&mut self, value: (i32, i32, i32, i32)) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != value {
             unsafe {
@@ -2010,7 +2010,7 @@ impl<'a> Binder<'a, IntegerVector4Slot> {
 
 impl<'a> Binder<'a, ArrayOfIntegerVector4Slot> {
     pub fn bind(&mut self, value: &[(i32, i32, i32, i32)]) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
         let ptr = value.as_ptr() as *const i32;
         let len = value.len();
 
@@ -2026,7 +2026,7 @@ impl<'a> Binder<'a, ArrayOfIntegerVector4Slot> {
 
 impl<'a> Binder<'a, UnsignedIntegerSlot> {
     pub fn bind(&mut self, value: u32) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != value {
             unsafe {
@@ -2042,7 +2042,7 @@ impl<'a> Binder<'a, UnsignedIntegerSlot> {
 
 impl<'a> Binder<'a, ArrayOfUnsignedIntegerSlot> {
     pub fn bind(&mut self, value: &[u32]) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         unsafe {
             self.slot.location_id.with_value_unchecked(|location| {
@@ -2054,7 +2054,7 @@ impl<'a> Binder<'a, ArrayOfUnsignedIntegerSlot> {
 
 impl<'a> Binder<'a, UnsignedIntegerVector2Slot> {
     pub fn bind(&mut self, value: (u32, u32)) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != value {
             unsafe {
@@ -2070,7 +2070,7 @@ impl<'a> Binder<'a, UnsignedIntegerVector2Slot> {
 
 impl<'a> Binder<'a, ArrayOfUnsignedIntegerVector2Slot> {
     pub fn bind(&mut self, value: &[(u32, u32)]) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
         let ptr = value.as_ptr() as *const u32;
         let len = value.len();
 
@@ -2086,7 +2086,7 @@ impl<'a> Binder<'a, ArrayOfUnsignedIntegerVector2Slot> {
 
 impl<'a> Binder<'a, UnsignedIntegerVector3Slot> {
     pub fn bind(&mut self, value: (u32, u32, u32)) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != value {
             unsafe {
@@ -2102,7 +2102,7 @@ impl<'a> Binder<'a, UnsignedIntegerVector3Slot> {
 
 impl<'a> Binder<'a, ArrayOfUnsignedIntegerVector3Slot> {
     pub fn bind(&mut self, value: &[(u32, u32, u32)]) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
         let ptr = value.as_ptr() as *const u32;
         let len = value.len();
 
@@ -2118,7 +2118,7 @@ impl<'a> Binder<'a, ArrayOfUnsignedIntegerVector3Slot> {
 
 impl<'a> Binder<'a, UnsignedIntegerVector4Slot> {
     pub fn bind(&mut self, value: (u32, u32, u32, u32)) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != value {
             unsafe {
@@ -2134,7 +2134,7 @@ impl<'a> Binder<'a, UnsignedIntegerVector4Slot> {
 
 impl<'a> Binder<'a, ArrayOfUnsignedIntegerVector4Slot> {
     pub fn bind(&mut self, value: &[(u32, u32, u32, u32)]) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
         let ptr = value.as_ptr() as *const u32;
         let len = value.len();
 
@@ -2150,7 +2150,7 @@ impl<'a> Binder<'a, ArrayOfUnsignedIntegerVector4Slot> {
 
 impl<'a> Binder<'a, BoolSlot> {
     pub fn bind(&mut self, value: u32) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != value {
             unsafe {
@@ -2166,7 +2166,7 @@ impl<'a> Binder<'a, BoolSlot> {
 
 impl<'a> Binder<'a, ArrayOfBoolSlot> {
     pub fn bind(&mut self, value: &[u32]) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         unsafe {
             self.slot.location_id.with_value_unchecked(|location| {
@@ -2178,7 +2178,7 @@ impl<'a> Binder<'a, ArrayOfBoolSlot> {
 
 impl<'a> Binder<'a, BoolVector2Slot> {
     pub fn bind(&mut self, value: (u32, u32)) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != value {
             unsafe {
@@ -2194,7 +2194,7 @@ impl<'a> Binder<'a, BoolVector2Slot> {
 
 impl<'a> Binder<'a, ArrayOfBoolVector2Slot> {
     pub fn bind(&mut self, value: &[(u32, u32)]) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
         let ptr = value.as_ptr() as *const u32;
         let len = value.len();
 
@@ -2210,7 +2210,7 @@ impl<'a> Binder<'a, ArrayOfBoolVector2Slot> {
 
 impl<'a> Binder<'a, BoolVector3Slot> {
     pub fn bind(&mut self, value: (u32, u32, u32)) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != value {
             unsafe {
@@ -2226,7 +2226,7 @@ impl<'a> Binder<'a, BoolVector3Slot> {
 
 impl<'a> Binder<'a, ArrayOfBoolVector3Slot> {
     pub fn bind(&mut self, value: &[(u32, u32, u32)]) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
         let ptr = value.as_ptr() as *const u32;
         let len = value.len();
 
@@ -2242,7 +2242,7 @@ impl<'a> Binder<'a, ArrayOfBoolVector3Slot> {
 
 impl<'a> Binder<'a, BoolVector4Slot> {
     pub fn bind(&mut self, value: (u32, u32, u32, u32)) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != value {
             unsafe {
@@ -2258,7 +2258,7 @@ impl<'a> Binder<'a, BoolVector4Slot> {
 
 impl<'a> Binder<'a, ArrayOfBoolVector4Slot> {
     pub fn bind(&mut self, value: &[(u32, u32, u32, u32)]) {
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
         let ptr = value.as_ptr() as *const u32;
         let len = value.len();
 
@@ -2275,7 +2275,7 @@ impl<'a> Binder<'a, ArrayOfBoolVector4Slot> {
 impl<'a> Binder<'a, FloatSampler2DSlot> {
     pub fn bind<F>(&mut self, value: &FloatSampler2DHandle<F>) {
         let unit = value.bind(self.connection) as i32;
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != unit {
             unsafe {
@@ -2295,7 +2295,7 @@ impl<'a> Binder<'a, ArrayOfFloatSampler2DSlot> {
             .iter()
             .map(|s| s.bind(self.connection) as i32)
             .collect();
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         unsafe {
             self.slot.location_id.with_value_unchecked(|location| {
@@ -2308,7 +2308,7 @@ impl<'a> Binder<'a, ArrayOfFloatSampler2DSlot> {
 impl<'a> Binder<'a, IntegerSampler2DSlot> {
     pub fn bind<F>(&mut self, value: &IntegerSampler2DHandle<F>) {
         let unit = value.bind(self.connection) as i32;
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != unit {
             unsafe {
@@ -2328,7 +2328,7 @@ impl<'a> Binder<'a, ArrayOfIntegerSampler2DSlot> {
             .iter()
             .map(|s| s.bind(self.connection) as i32)
             .collect();
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         unsafe {
             self.slot.location_id.with_value_unchecked(|location| {
@@ -2341,7 +2341,7 @@ impl<'a> Binder<'a, ArrayOfIntegerSampler2DSlot> {
 impl<'a> Binder<'a, UnsignedIntegerSampler2DSlot> {
     pub fn bind<F>(&mut self, value: &UnsignedIntegerSampler2DHandle<F>) {
         let unit = value.bind(self.connection) as i32;
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != unit {
             unsafe {
@@ -2361,7 +2361,7 @@ impl<'a> Binder<'a, ArrayOfUnsignedIntegerSampler2DSlot> {
             .iter()
             .map(|s| s.bind(self.connection) as i32)
             .collect();
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         unsafe {
             self.slot.location_id.with_value_unchecked(|location| {
@@ -2374,7 +2374,7 @@ impl<'a> Binder<'a, ArrayOfUnsignedIntegerSampler2DSlot> {
 impl<'a> Binder<'a, FloatSampler2DArraySlot> {
     pub fn bind<F>(&mut self, value: &FloatSampler2DArrayHandle<F>) {
         let unit = value.bind(self.connection) as i32;
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != unit {
             unsafe {
@@ -2394,7 +2394,7 @@ impl<'a> Binder<'a, ArrayOfFloatSampler2DArraySlot> {
             .iter()
             .map(|s| s.bind(self.connection) as i32)
             .collect();
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         unsafe {
             self.slot.location_id.with_value_unchecked(|location| {
@@ -2407,7 +2407,7 @@ impl<'a> Binder<'a, ArrayOfFloatSampler2DArraySlot> {
 impl<'a> Binder<'a, IntegerSampler2DArraySlot> {
     pub fn bind<F>(&mut self, value: &IntegerSampler2DArrayHandle<F>) {
         let unit = value.bind(self.connection) as i32;
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != unit {
             unsafe {
@@ -2427,7 +2427,7 @@ impl<'a> Binder<'a, ArrayOfIntegerSampler2DArraySlot> {
             .iter()
             .map(|s| s.bind(self.connection) as i32)
             .collect();
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         unsafe {
             self.slot.location_id.with_value_unchecked(|location| {
@@ -2440,7 +2440,7 @@ impl<'a> Binder<'a, ArrayOfIntegerSampler2DArraySlot> {
 impl<'a> Binder<'a, UnsignedIntegerSampler2DArraySlot> {
     pub fn bind<F>(&mut self, value: &UnsignedIntegerSampler2DArrayHandle<F>) {
         let unit = value.bind(self.connection) as i32;
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != unit {
             unsafe {
@@ -2460,7 +2460,7 @@ impl<'a> Binder<'a, ArrayOfUnsignedIntegerSampler2DArraySlot> {
             .iter()
             .map(|s| s.bind(self.connection) as i32)
             .collect();
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         unsafe {
             self.slot.location_id.with_value_unchecked(|location| {
@@ -2473,7 +2473,7 @@ impl<'a> Binder<'a, ArrayOfUnsignedIntegerSampler2DArraySlot> {
 impl<'a> Binder<'a, FloatSampler3DSlot> {
     pub fn bind<F>(&mut self, value: &FloatSampler3DHandle<F>) {
         let unit = value.bind(self.connection) as i32;
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != unit {
             unsafe {
@@ -2493,7 +2493,7 @@ impl<'a> Binder<'a, ArrayOfFloatSampler3DSlot> {
             .iter()
             .map(|s| s.bind(self.connection) as i32)
             .collect();
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         unsafe {
             self.slot.location_id.with_value_unchecked(|location| {
@@ -2506,7 +2506,7 @@ impl<'a> Binder<'a, ArrayOfFloatSampler3DSlot> {
 impl<'a> Binder<'a, IntegerSampler3DSlot> {
     pub fn bind<F>(&mut self, value: &IntegerSampler3DHandle<F>) {
         let unit = value.bind(self.connection) as i32;
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != unit {
             unsafe {
@@ -2526,7 +2526,7 @@ impl<'a> Binder<'a, ArrayOfIntegerSampler3DSlot> {
             .iter()
             .map(|s| s.bind(self.connection) as i32)
             .collect();
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         unsafe {
             self.slot.location_id.with_value_unchecked(|location| {
@@ -2539,7 +2539,7 @@ impl<'a> Binder<'a, ArrayOfIntegerSampler3DSlot> {
 impl<'a> Binder<'a, UnsignedIntegerSampler3DSlot> {
     pub fn bind<F>(&mut self, value: &UnsignedIntegerSampler3DHandle<F>) {
         let unit = value.bind(self.connection) as i32;
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != unit {
             unsafe {
@@ -2559,7 +2559,7 @@ impl<'a> Binder<'a, ArrayOfUnsignedIntegerSampler3DSlot> {
             .iter()
             .map(|s| s.bind(self.connection) as i32)
             .collect();
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         unsafe {
             self.slot.location_id.with_value_unchecked(|location| {
@@ -2572,7 +2572,7 @@ impl<'a> Binder<'a, ArrayOfUnsignedIntegerSampler3DSlot> {
 impl<'a> Binder<'a, FloatSamplerCubeSlot> {
     pub fn bind<F>(&mut self, value: &FloatSamplerCubeHandle<F>) {
         let unit = value.bind(self.connection) as i32;
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != unit {
             unsafe {
@@ -2592,7 +2592,7 @@ impl<'a> Binder<'a, ArrayOfFloatSamplerCubeSlot> {
             .iter()
             .map(|s| s.bind(self.connection) as i32)
             .collect();
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         unsafe {
             self.slot.location_id.with_value_unchecked(|location| {
@@ -2605,7 +2605,7 @@ impl<'a> Binder<'a, ArrayOfFloatSamplerCubeSlot> {
 impl<'a> Binder<'a, IntegerSamplerCubeSlot> {
     pub fn bind<F>(&mut self, value: &IntegerSamplerCubeHandle<F>) {
         let unit = value.bind(self.connection) as i32;
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != unit {
             unsafe {
@@ -2625,7 +2625,7 @@ impl<'a> Binder<'a, ArrayOfIntegerSamplerCubeSlot> {
             .iter()
             .map(|s| s.bind(self.connection) as i32)
             .collect();
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         unsafe {
             self.slot.location_id.with_value_unchecked(|location| {
@@ -2638,7 +2638,7 @@ impl<'a> Binder<'a, ArrayOfIntegerSamplerCubeSlot> {
 impl<'a> Binder<'a, UnsignedIntegerSamplerCubeSlot> {
     pub fn bind<F>(&mut self, value: &UnsignedIntegerSamplerCubeHandle<F>) {
         let unit = value.bind(self.connection) as i32;
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != unit {
             unsafe {
@@ -2658,7 +2658,7 @@ impl<'a> Binder<'a, ArrayOfUnsignedIntegerSamplerCubeSlot> {
             .iter()
             .map(|s| s.bind(self.connection) as i32)
             .collect();
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         unsafe {
             self.slot.location_id.with_value_unchecked(|location| {
@@ -2671,7 +2671,7 @@ impl<'a> Binder<'a, ArrayOfUnsignedIntegerSamplerCubeSlot> {
 impl<'a> Binder<'a, Sampler2DShadowSlot> {
     pub fn bind<F>(&mut self, value: &Sampler2DShadowHandle<F>) {
         let unit = value.bind(self.connection) as i32;
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != unit {
             unsafe {
@@ -2691,7 +2691,7 @@ impl<'a> Binder<'a, ArrayOfSampler2DShadowSlot> {
             .iter()
             .map(|s| s.bind(self.connection) as i32)
             .collect();
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         unsafe {
             self.slot.location_id.with_value_unchecked(|location| {
@@ -2704,7 +2704,7 @@ impl<'a> Binder<'a, ArrayOfSampler2DShadowSlot> {
 impl<'a> Binder<'a, Sampler2DArrayShadowSlot> {
     pub fn bind<F>(&mut self, value: &Sampler2DArrayShadowHandle<F>) {
         let unit = value.bind(self.connection) as i32;
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != unit {
             unsafe {
@@ -2724,7 +2724,7 @@ impl<'a> Binder<'a, ArrayOfSampler2DArrayShadowSlot> {
             .iter()
             .map(|s| s.bind(self.connection) as i32)
             .collect();
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         unsafe {
             self.slot.location_id.with_value_unchecked(|location| {
@@ -2737,7 +2737,7 @@ impl<'a> Binder<'a, ArrayOfSampler2DArrayShadowSlot> {
 impl<'a> Binder<'a, SamplerCubeShadowSlot> {
     pub fn bind<F>(&mut self, value: &SamplerCubeShadowHandle<F>) {
         let unit = value.bind(self.connection) as i32;
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         if self.slot.current_value != unit {
             unsafe {
@@ -2757,7 +2757,7 @@ impl<'a> Binder<'a, ArrayOfSamplerCubeShadowSlot> {
             .iter()
             .map(|s| s.bind(self.connection) as i32)
             .collect();
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
 
         unsafe {
             self.slot.location_id.with_value_unchecked(|location| {
@@ -2773,7 +2773,7 @@ impl<'a> Binder<'a, BlockSlot> {
         T: Std140,
     {
         let binding = value.bind_uniform(self.connection);
-        let Connection(gl, _) = self.connection;
+        let (gl, _) = unsafe { self.connection.unpack() };
         let BlockSlot {
             program_id,
             index,

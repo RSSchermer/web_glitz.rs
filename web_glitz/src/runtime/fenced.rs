@@ -25,14 +25,14 @@ impl FencedTaskQueue {
     where
         T: ExecutorJob + 'static,
     {
-        let Connection(gl, _) = connection;
+        let (gl, _) = unsafe { connection.unpack() };
         let fence = gl.fence_sync(Gl::SYNC_GPU_COMMANDS_COMPLETE, 0).unwrap();
 
         self.queue.push_back((fence, Box::new(job)));
     }
 
     pub(crate) fn run(&mut self, connection: &mut Connection) -> bool {
-        let Connection(gl, _) = connection;
+        let (gl, _) = unsafe { connection.unpack() };
         let gl = gl.clone();
 
         while let Some((fence, _)) = self.queue.front() {

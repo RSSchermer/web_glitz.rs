@@ -8,9 +8,8 @@ use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use web_sys::{WebGl2RenderingContext as GL, WebGlBuffer};
 
-use crate::runtime::dropper::{DropObject, Dropper, RefCountedDropper};
-use crate::runtime::dynamic_state::{BufferRange, ContextUpdate, DynamicState};
-use crate::runtime::{Connection, RenderingContext};
+use crate::runtime::dynamic_state::{BufferRange, ContextUpdate};
+use crate::runtime::{Connection, RenderingContext, ContextMismatch};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, slice_make_mut, JsId};
 
@@ -47,7 +46,7 @@ pub trait IntoBuffer<T>
 where
     T: ?Sized,
 {
-    fn into_buffer<Rc>(self, context: &Rc, usage_hint: BufferUsage) -> BufferHandle<T>
+    fn into_buffer<Rc>(self, context: &Rc, usage_hint: BufferUsage) -> Buffer<T>
     where
         Rc: RenderingContext + Clone + 'static;
 }
@@ -57,12 +56,13 @@ where
     D: Borrow<T> + 'static,
     T: 'static,
 {
-    fn into_buffer<Rc>(self, context: &Rc, usage_hint: BufferUsage) -> BufferHandle<T>
+    fn into_buffer<Rc>(self, context: &Rc, usage_hint: BufferUsage) -> Buffer<T>
     where
         Rc: RenderingContext + Clone + 'static,
     {
         let data = Arc::new(BufferData {
             id: None,
+            context_id: context.id(),
             dropper: Box::new(context.clone()),
             usage_hint,
             len: 1,
@@ -70,13 +70,13 @@ where
             recent_uniform_binding: None,
         });
 
-        context.submit(BufferAllocateTask {
+        context.submit(BufferAllocateCommand {
             data: data.clone(),
             initial: self,
             _marker: marker::PhantomData,
         });
 
-        BufferHandle {
+        Buffer {
             data,
             _marker: marker::PhantomData,
         }
@@ -88,13 +88,14 @@ where
     D: Borrow<[T]> + 'static,
     T: 'static,
 {
-    fn into_buffer<Rc>(self, context: &Rc, usage_hint: BufferUsage) -> BufferHandle<[T]>
+    fn into_buffer<Rc>(self, context: &Rc, usage_hint: BufferUsage) -> Buffer<[T]>
     where
         Rc: RenderingContext + Clone + 'static,
     {
         let len = self.borrow().len();
         let data = Arc::new(BufferData {
             id: None,
+            context_id: context.id(),
             dropper: Box::new(context.clone()),
             usage_hint,
             len,
@@ -102,13 +103,13 @@ where
             recent_uniform_binding: None,
         });
 
-        context.submit(BufferAllocateTask::<D, [T]> {
+        context.submit(BufferAllocateCommand::<D, [T]> {
             data: data.clone(),
             initial: self,
             _marker: marker::PhantomData,
         });
 
-        BufferHandle {
+        Buffer {
             data,
             _marker: marker::PhantomData,
         }
@@ -124,12 +125,12 @@ where
     T: RenderingContext,
 {
     fn drop_buffer_object(&self, id: JsId) {
-        self.submit(BufferDropTask { id });
+        self.submit(BufferDropCommand { id });
     }
 }
-
-pub(crate) struct BufferData {
+struct BufferData {
     id: Option<JsId>,
+    context_id: usize,
     dropper: Box<BufferObjectDropper>,
     len: usize,
     size_in_bytes: usize,
@@ -145,7 +146,7 @@ impl Drop for BufferData {
     }
 }
 
-pub struct BufferHandle<T>
+pub struct Buffer<T>
 where
     T: ?Sized,
 {
@@ -153,7 +154,7 @@ where
     _marker: marker::PhantomData<Box<T>>,
 }
 
-impl<T> BufferHandle<T>
+impl<T> Buffer<T>
 where
     T: ?Sized,
 {
@@ -161,7 +162,7 @@ where
         self.data.usage_hint
     }
 
-    pub fn as_view(&self) -> BufferView<T> {
+    pub fn view(&self) -> BufferView<T> {
         BufferView {
             data: self.data.clone(),
             offset_in_bytes: 0,
@@ -171,12 +172,12 @@ where
     }
 }
 
-impl<T> BufferHandle<T> {
-    pub fn upload_task<D>(&self, data: D) -> BufferUploadTask<T, D>
+impl<T> Buffer<T> {
+    pub fn upload_command<D>(&self, data: D) -> BufferUploadCommand<T, D>
     where
         D: Borrow<T> + Send + Sync + 'static,
     {
-        BufferUploadTask {
+        BufferUploadCommand {
             buffer_data: self.data.clone(),
             data,
             offset_in_bytes: 0,
@@ -185,8 +186,8 @@ impl<T> BufferHandle<T> {
         }
     }
 
-    pub fn download_task(&self) -> BufferDownloadTask<T> {
-        BufferDownloadTask {
+    pub fn download_command(&self) -> BufferDownloadCommand<T> {
+        BufferDownloadCommand {
             data: self.data.clone(),
             state: BufferDownloadState::Initial,
             offset_in_bytes: 0,
@@ -196,30 +197,30 @@ impl<T> BufferHandle<T> {
     }
 }
 
-impl<T> BufferHandle<[T]> {
+impl<T> Buffer<[T]> {
     pub fn len(&self) -> usize {
         self.data.len
     }
 
     pub fn get<I>(&self, index: I) -> Option<I::Output>
     where
-        I: BufferIndex<BufferHandle<[T]>>,
+        I: BufferIndex<Buffer<[T]>>,
     {
         index.get(self)
     }
 
     pub unsafe fn get_unchecked<I>(&self, index: I) -> I::Output
     where
-        I: BufferIndex<BufferHandle<[T]>>,
+        I: BufferIndex<Buffer<[T]>>,
     {
         index.get_unchecked(self)
     }
 
-    pub fn upload_task<D>(&self, data: D) -> BufferUploadTask<[T], D>
+    pub fn upload_command<D>(&self, data: D) -> BufferUploadCommand<[T], D>
     where
         D: Borrow<[T]> + Send + Sync + 'static,
     {
-        BufferUploadTask {
+        BufferUploadCommand {
             buffer_data: self.data.clone(),
             data,
             offset_in_bytes: 0,
@@ -228,8 +229,8 @@ impl<T> BufferHandle<[T]> {
         }
     }
 
-    pub fn download_task(&self) -> BufferDownloadTask<[T]> {
-        BufferDownloadTask {
+    pub fn download_command(&self) -> BufferDownloadCommand<[T]> {
+        BufferDownloadCommand {
             data: self.data.clone(),
             state: BufferDownloadState::Initial,
             offset_in_bytes: 0,
@@ -260,7 +261,7 @@ where
 
 impl<T> BufferView<T> {
     pub(crate) fn bind_uniform(&self, connection: &mut Connection) -> u32 {
-        let Connection(gl, state) = connection;
+        let (gl, state) = unsafe { connection.unpack_mut() };
 
         unsafe {
             let data = arc_get_mut_unchecked(&self.data);
@@ -296,11 +297,11 @@ impl<T> BufferView<T> {
         }
     }
 
-    pub fn upload_task<D>(&self, data: D) -> BufferUploadTask<T, D>
+    pub fn upload_task<D>(&self, data: D) -> BufferUploadCommand<T, D>
     where
         D: Borrow<T> + Send + Sync + 'static,
     {
-        BufferUploadTask {
+        BufferUploadCommand {
             buffer_data: self.data.clone(),
             data,
             offset_in_bytes: self.offset_in_bytes,
@@ -309,8 +310,8 @@ impl<T> BufferView<T> {
         }
     }
 
-    pub fn download_task(&self) -> BufferDownloadTask<T> {
-        BufferDownloadTask {
+    pub fn download_task(&self) -> BufferDownloadCommand<T> {
+        BufferDownloadCommand {
             data: self.data.clone(),
             state: BufferDownloadState::Initial,
             offset_in_bytes: self.offset_in_bytes,
@@ -339,11 +340,11 @@ impl<T> BufferView<[T]> {
         index.get_unchecked(self)
     }
 
-    pub fn upload_task<D>(&self, data: D) -> BufferUploadTask<[T], D>
+    pub fn upload_task<D>(&self, data: D) -> BufferUploadCommand<[T], D>
     where
         D: Borrow<[T]> + Send + Sync + 'static,
     {
-        BufferUploadTask {
+        BufferUploadCommand {
             buffer_data: self.data.clone(),
             data,
             offset_in_bytes: self.offset_in_bytes,
@@ -352,8 +353,8 @@ impl<T> BufferView<[T]> {
         }
     }
 
-    pub fn download_task(&self) -> BufferDownloadTask<[T]> {
-        BufferDownloadTask {
+    pub fn download_task(&self) -> BufferDownloadCommand<[T]> {
+        BufferDownloadCommand {
             data: self.data.clone(),
             state: BufferDownloadState::Initial,
             offset_in_bytes: self.offset_in_bytes,
@@ -363,7 +364,7 @@ impl<T> BufferView<[T]> {
     }
 }
 
-impl<T> Into<BufferView<T>> for BufferHandle<T>
+impl<T> Into<BufferView<T>> for Buffer<T>
 where
     T: ?Sized,
 {
@@ -385,10 +386,10 @@ pub trait BufferIndex<T> {
     unsafe fn get_unchecked(self, buffer: &T) -> Self::Output;
 }
 
-impl<T> BufferIndex<BufferHandle<[T]>> for usize {
+impl<T> BufferIndex<Buffer<[T]>> for usize {
     type Output = BufferView<T>;
 
-    fn get(self, buffer: &BufferHandle<[T]>) -> Option<Self::Output> {
+    fn get(self, buffer: &Buffer<[T]>) -> Option<Self::Output> {
         if self < buffer.data.len {
             Some(BufferView {
                 data: buffer.data.clone(),
@@ -401,7 +402,7 @@ impl<T> BufferIndex<BufferHandle<[T]>> for usize {
         }
     }
 
-    unsafe fn get_unchecked(self, buffer: &BufferHandle<[T]>) -> Self::Output {
+    unsafe fn get_unchecked(self, buffer: &Buffer<[T]>) -> Self::Output {
         BufferView {
             data: buffer.data.clone(),
             offset_in_bytes: self * mem::size_of::<T>(),
@@ -437,10 +438,10 @@ impl<T> BufferIndex<BufferView<[T]>> for usize {
     }
 }
 
-impl<T> BufferIndex<BufferHandle<[T]>> for RangeFull {
+impl<T> BufferIndex<Buffer<[T]>> for RangeFull {
     type Output = BufferView<[T]>;
 
-    fn get(self, buffer: &BufferHandle<[T]>) -> Option<Self::Output> {
+    fn get(self, buffer: &Buffer<[T]>) -> Option<Self::Output> {
         Some(BufferView {
             data: buffer.data.clone(),
             offset_in_bytes: 0,
@@ -449,7 +450,7 @@ impl<T> BufferIndex<BufferHandle<[T]>> for RangeFull {
         })
     }
 
-    unsafe fn get_unchecked(self, buffer: &BufferHandle<[T]>) -> Self::Output {
+    unsafe fn get_unchecked(self, buffer: &Buffer<[T]>) -> Self::Output {
         BufferView {
             data: buffer.data.clone(),
             offset_in_bytes: 0,
@@ -481,10 +482,10 @@ impl<T> BufferIndex<BufferView<[T]>> for RangeFull {
     }
 }
 
-impl<T> BufferIndex<BufferHandle<[T]>> for Range<usize> {
+impl<T> BufferIndex<Buffer<[T]>> for Range<usize> {
     type Output = BufferView<[T]>;
 
-    fn get(self, buffer: &BufferHandle<[T]>) -> Option<Self::Output> {
+    fn get(self, buffer: &Buffer<[T]>) -> Option<Self::Output> {
         let Range { start, end } = self;
 
         if start > end || end > buffer.data.len {
@@ -499,7 +500,7 @@ impl<T> BufferIndex<BufferHandle<[T]>> for Range<usize> {
         }
     }
 
-    unsafe fn get_unchecked(self, buffer: &BufferHandle<[T]>) -> Self::Output {
+    unsafe fn get_unchecked(self, buffer: &Buffer<[T]>) -> Self::Output {
         BufferView {
             data: buffer.data.clone(),
             offset_in_bytes: self.start * mem::size_of::<T>(),
@@ -537,10 +538,10 @@ impl<T> BufferIndex<BufferView<[T]>> for Range<usize> {
     }
 }
 
-impl<T> BufferIndex<BufferHandle<[T]>> for RangeInclusive<usize> {
+impl<T> BufferIndex<Buffer<[T]>> for RangeInclusive<usize> {
     type Output = BufferView<[T]>;
 
-    fn get(self, buffer: &BufferHandle<[T]>) -> Option<Self::Output> {
+    fn get(self, buffer: &Buffer<[T]>) -> Option<Self::Output> {
         if *self.end() == usize::max_value() {
             None
         } else {
@@ -548,7 +549,7 @@ impl<T> BufferIndex<BufferHandle<[T]>> for RangeInclusive<usize> {
         }
     }
 
-    unsafe fn get_unchecked(self, buffer: &BufferHandle<[T]>) -> Self::Output {
+    unsafe fn get_unchecked(self, buffer: &Buffer<[T]>) -> Self::Output {
         (*self.start()..self.end() + 1).get_unchecked(buffer)
     }
 }
@@ -569,14 +570,14 @@ impl<T> BufferIndex<BufferView<[T]>> for RangeInclusive<usize> {
     }
 }
 
-impl<T> BufferIndex<BufferHandle<[T]>> for RangeFrom<usize> {
+impl<T> BufferIndex<Buffer<[T]>> for RangeFrom<usize> {
     type Output = BufferView<[T]>;
 
-    fn get(self, buffer: &BufferHandle<[T]>) -> Option<Self::Output> {
+    fn get(self, buffer: &Buffer<[T]>) -> Option<Self::Output> {
         (self.start..buffer.data.len).get(buffer)
     }
 
-    unsafe fn get_unchecked(self, buffer: &BufferHandle<[T]>) -> Self::Output {
+    unsafe fn get_unchecked(self, buffer: &Buffer<[T]>) -> Self::Output {
         (self.start..buffer.data.len).get_unchecked(buffer)
     }
 }
@@ -593,14 +594,14 @@ impl<T> BufferIndex<BufferView<[T]>> for RangeFrom<usize> {
     }
 }
 
-impl<T> BufferIndex<BufferHandle<[T]>> for RangeTo<usize> {
+impl<T> BufferIndex<Buffer<[T]>> for RangeTo<usize> {
     type Output = BufferView<[T]>;
 
-    fn get(self, buffer: &BufferHandle<[T]>) -> Option<Self::Output> {
+    fn get(self, buffer: &Buffer<[T]>) -> Option<Self::Output> {
         (0..self.end).get(buffer)
     }
 
-    unsafe fn get_unchecked(self, buffer: &BufferHandle<[T]>) -> Self::Output {
+    unsafe fn get_unchecked(self, buffer: &Buffer<[T]>) -> Self::Output {
         (0..self.end).get_unchecked(buffer)
     }
 }
@@ -617,14 +618,14 @@ impl<T> BufferIndex<BufferView<[T]>> for RangeTo<usize> {
     }
 }
 
-impl<T> BufferIndex<BufferHandle<[T]>> for RangeToInclusive<usize> {
+impl<T> BufferIndex<Buffer<[T]>> for RangeToInclusive<usize> {
     type Output = BufferView<[T]>;
 
-    fn get(self, buffer: &BufferHandle<[T]>) -> Option<Self::Output> {
+    fn get(self, buffer: &Buffer<[T]>) -> Option<Self::Output> {
         (0..=self.end).get(buffer)
     }
 
-    unsafe fn get_unchecked(self, buffer: &BufferHandle<[T]>) -> Self::Output {
+    unsafe fn get_unchecked(self, buffer: &Buffer<[T]>) -> Self::Output {
         (0..=self.end).get_unchecked(buffer)
     }
 }
@@ -641,7 +642,7 @@ impl<T> BufferIndex<BufferView<[T]>> for RangeToInclusive<usize> {
     }
 }
 
-struct BufferAllocateTask<D, T>
+struct BufferAllocateCommand<D, T>
 where
     T: ?Sized,
 {
@@ -650,14 +651,14 @@ where
     _marker: marker::PhantomData<T>,
 }
 
-impl<D, T> GpuTask<Connection> for BufferAllocateTask<D, T>
+impl<D, T> GpuTask<Connection> for BufferAllocateCommand<D, T>
 where
     D: Borrow<T>,
 {
     type Output = ();
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        let Connection(gl, state) = connection;
+        let (gl, state) = unsafe { connection.unpack_mut() };
         let data = unsafe { arc_get_mut_unchecked(&mut self.data) };
 
         let buffer_object = GL::create_buffer(&gl).unwrap();
@@ -686,14 +687,14 @@ where
     }
 }
 
-impl<D, T> GpuTask<Connection> for BufferAllocateTask<D, [T]>
+impl<D, T> GpuTask<Connection> for BufferAllocateCommand<D, [T]>
 where
     D: Borrow<[T]>,
 {
     type Output = ();
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        let Connection(gl, state) = connection;
+        let (gl, state) = unsafe { connection.unpack_mut() };
         let data = unsafe { arc_get_mut_unchecked(&mut self.data) };
 
         let buffer_object = GL::create_buffer(&gl).unwrap();
@@ -721,15 +722,15 @@ where
     }
 }
 
-struct BufferDropTask {
+struct BufferDropCommand {
     id: JsId,
 }
 
-impl GpuTask<Connection> for BufferDropTask {
+impl GpuTask<Connection> for BufferDropCommand {
     type Output = ();
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        let Connection(gl, _) = connection;
+        let (gl, _) = unsafe { connection.unpack() };
         let value = unsafe { JsId::into_value(self.id) };
 
         gl.delete_buffer(Some(&value.unchecked_into()));
@@ -738,7 +739,7 @@ impl GpuTask<Connection> for BufferDropTask {
     }
 }
 
-pub struct BufferUploadTask<T, D>
+pub struct BufferUploadCommand<T, D>
 where
     T: ?Sized,
 {
@@ -749,14 +750,18 @@ where
     _marker: marker::PhantomData<T>,
 }
 
-impl<T, D> GpuTask<Connection> for BufferUploadTask<T, D>
+impl<T, D> GpuTask<Connection> for BufferUploadCommand<T, D>
 where
     D: Borrow<T>,
 {
-    type Output = ();
+    type Output = Result<(), ContextMismatch>;
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        let Connection(gl, state) = connection;
+        if self.buffer_data.context_id != connection.context_id() {
+            return Progress::Finished(Err(ContextMismatch));
+        }
+
+        let (gl, state) = unsafe { connection.unpack_mut() };
 
         unsafe {
             self.buffer_data
@@ -783,18 +788,22 @@ where
             );
         };
 
-        Progress::Finished(())
+        Progress::Finished(Ok(()))
     }
 }
 
-impl<T, D> GpuTask<Connection> for BufferUploadTask<[T], D>
+impl<T, D> GpuTask<Connection> for BufferUploadCommand<[T], D>
 where
     D: Borrow<[T]>,
 {
-    type Output = ();
+    type Output = Result<(), ContextMismatch>;
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        let Connection(gl, state) = connection;
+        if self.buffer_data.context_id != connection.context_id() {
+            return Progress::Finished(Err(ContextMismatch));;
+        }
+
+        let (gl, state) = unsafe { connection.unpack_mut() };
 
         unsafe {
             self.buffer_data
@@ -826,11 +835,11 @@ where
             );
         };
 
-        Progress::Finished(())
+        Progress::Finished(Ok(()))
     }
 }
 
-pub struct BufferDownloadTask<T>
+pub struct BufferDownloadCommand<T>
 where
     T: ?Sized,
 {
@@ -846,13 +855,17 @@ enum BufferDownloadState {
     Copied(Option<WebGlBuffer>),
 }
 
-impl<T> GpuTask<Connection> for BufferDownloadTask<T> {
-    type Output = Box<T>;
+impl<T> GpuTask<Connection> for BufferDownloadCommand<T> {
+    type Output = Result<Box<T>, ContextMismatch>;
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
+        if self.data.context_id != connection.context_id() {
+            return Progress::Finished(Err(ContextMismatch));;
+        }
+
         match self.state {
             BufferDownloadState::Initial => {
-                let Connection(gl, state) = connection;
+                let (gl, state) = unsafe { connection.unpack_mut() };
                 let read_buffer = GL::create_buffer(&gl).unwrap();
                 let size_in_bytes = mem::size_of::<T>();
 
@@ -895,7 +908,7 @@ impl<T> GpuTask<Connection> for BufferDownloadTask<T> {
                 let read_buffer = read_buffer
                     .take()
                     .expect("Cannot make progress on a BufferDownload task after it has finished");
-                let Connection(gl, state) = connection;
+                let (gl, state) = unsafe { connection.unpack_mut() };
 
                 state
                     .set_bound_copy_read_buffer(Some(&read_buffer))
@@ -913,19 +926,23 @@ impl<T> GpuTask<Connection> for BufferDownloadTask<T> {
 
                 mem::forget(data);
 
-                Progress::Finished(value)
+                Progress::Finished(Ok(value))
             }
         }
     }
 }
 
-impl<T> GpuTask<Connection> for BufferDownloadTask<[T]> {
-    type Output = Box<[T]>;
+impl<T> GpuTask<Connection> for BufferDownloadCommand<[T]> {
+    type Output = Result<Box<[T]>, ContextMismatch>;
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
+        if self.data.context_id != connection.context_id() {
+            return Progress::Finished(Err(ContextMismatch));;
+        }
+
         match self.state {
             BufferDownloadState::Initial => {
-                let Connection(gl, state) = connection;
+                let (gl, state) = unsafe { connection.unpack_mut() };
                 let read_buffer = GL::create_buffer(&gl).unwrap();
                 let size_in_bytes = self.len * mem::size_of::<T>();
 
@@ -968,7 +985,7 @@ impl<T> GpuTask<Connection> for BufferDownloadTask<[T]> {
                 let read_buffer = read_buffer
                     .take()
                     .expect("Cannot make progress on a BufferDownload task after it has finished");
-                let Connection(gl, state) = connection;
+                let (gl, state) = unsafe { connection.unpack_mut() };
 
                 state
                     .set_bound_copy_read_buffer(Some(&read_buffer))
@@ -989,7 +1006,7 @@ impl<T> GpuTask<Connection> for BufferDownloadTask<[T]> {
 
                     mem::forget(data);
 
-                    Progress::Finished(boxed)
+                    Progress::Finished(Ok(boxed))
                 }
             }
         }

@@ -5,7 +5,6 @@ use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::image_format::InternalFormat;
-use crate::runtime::dropper::{DropObject, Dropper, RefCountedDropper};
 use crate::runtime::dynamic_state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
 use crate::task::{GpuTask, Progress};
@@ -14,7 +13,7 @@ use crate::util::{arc_get_mut_unchecked, JsId};
 pub unsafe trait RenderbufferFormat: InternalFormat {}
 
 pub struct RenderbufferHandle<F> {
-    pub(crate) data: Arc<RenderbufferData>,
+    data: Arc<RenderbufferData>,
     _marker: marker::PhantomData<[F]>,
 }
 
@@ -22,13 +21,13 @@ impl<F> RenderbufferHandle<F>
 where
     F: RenderbufferFormat + 'static,
 {
-    pub(crate) fn new<Rc>(context: &Rc, dropper: RefCountedDropper, width: u32, height: u32) -> Self
+    pub(crate) fn new<Rc>(context: &Rc, width: u32, height: u32) -> Self
     where
-        Rc: RenderingContext,
+        Rc: RenderingContext + Clone + 'static,
     {
         let data = Arc::new(RenderbufferData {
             id: None,
-            dropper,
+            dropper: Box::new(context.clone()),
             width,
             height,
         });
@@ -57,9 +56,22 @@ where
     }
 }
 
+trait RenderbufferObjectDropper {
+    fn drop_renderbuffer_object(&self, id: JsId);
+}
+
+impl<T> RenderbufferObjectDropper for T
+    where
+        T: RenderingContext,
+{
+    fn drop_renderbuffer_object(&self, id: JsId) {
+        self.submit(RenderbufferDropCommand { id });
+    }
+}
+
 pub(crate) struct RenderbufferData {
-    pub(crate) id: Option<JsId>,
-    dropper: RefCountedDropper,
+    id: Option<JsId>,
+    dropper: Box<RenderbufferObjectDropper>,
     width: u32,
     height: u32,
 }
@@ -67,7 +79,7 @@ pub(crate) struct RenderbufferData {
 impl Drop for RenderbufferData {
     fn drop(&mut self) {
         if let Some(id) = self.id {
-            self.dropper.drop_gl_object(DropObject::Renderbuffer(id));
+            self.dropper.drop_renderbuffer_object(id);
         }
     }
 }
@@ -84,7 +96,7 @@ where
     type Output = ();
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        let Connection(gl, state) = connection;
+        let (gl, state) = unsafe { connection.unpack_mut() };
         let mut data = unsafe { arc_get_mut_unchecked(&mut self.data) };
         let object = gl.create_renderbuffer().unwrap();
 
@@ -101,6 +113,23 @@ where
         );
 
         data.id = Some(JsId::from_value(object.into()));
+
+        Progress::Finished(())
+    }
+}
+
+struct RenderbufferDropCommand {
+    id: JsId,
+}
+
+impl GpuTask<Connection> for RenderbufferDropCommand {
+    type Output = ();
+
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
+        let (gl, _) = unsafe { connection.unpack() };
+        let value = unsafe { JsId::into_value(self.id) };
+
+        gl.delete_renderbuffer(Some(&value.unchecked_into()));
 
         Progress::Finished(())
     }
