@@ -1,6 +1,7 @@
 use std::borrow::Borrow;
 use std::marker;
 use std::mem;
+use std::ops::Deref;
 use std::slice;
 use std::sync::Arc;
 
@@ -16,8 +17,7 @@ use crate::image::util::{
 use crate::runtime::dynamic_state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext, ContextMismatch};
 use crate::task::{GpuTask, Progress};
-use crate::util::{arc_get_mut_unchecked, identical, JsId};
-use std::ops::Deref;
+use crate::util::{arc_get_mut_unchecked, identical, JsId, slice_make_mut};
 
 
 pub struct Texture2D<F> {
@@ -601,7 +601,7 @@ where
                         height as i32,
                         T::format_id(),
                         T::type_id(),
-                        Some(&mut *(data as *const _ as *mut _)),
+                        Some(slice_make_mut(data)),
                     )
                     .unwrap();
                 }
