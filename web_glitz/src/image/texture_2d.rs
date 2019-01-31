@@ -4,7 +4,6 @@ use std::mem;
 use std::slice;
 use std::sync::Arc;
 
-use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::image::{Region2D, Image2DSource};
@@ -88,10 +87,19 @@ where
         }
     }
 
-    pub fn base_level(&self) -> Texture2DLevel<F> {
-        Texture2DLevel {
+    pub fn base_level(&self) -> Level<F> {
+        Level {
             handle: self,
             level: 0,
+        }
+    }
+
+    pub fn base_level_mut(&mut self) -> LevelMut<F> {
+        LevelMut {
+            inner: Level {
+                handle: self,
+                level: 0,
+            }
         }
     }
 
@@ -138,14 +146,22 @@ where
         }
     }
 
-    pub fn levels(&self) -> Texture2DLevels<F> {
-        Texture2DLevels {
+    pub fn levels(&self) -> Levels<F> {
+        Levels {
             handle: self
         }
     }
 
-    pub fn generate_mipmap_task(&self) -> Texture2DGenerateMipmapTask {
-        Texture2DGenerateMipmapTask {
+    pub fn levels_mut(&mut self) -> LevelsMut<F> {
+        LevelsMut {
+            inner: Levels {
+                handle: self
+            }
+        }
+    }
+
+    pub fn generate_mipmap_command(&self) -> GenerateMipmapCommand {
+        GenerateMipmapCommand {
             texture_data: self.data.clone(),
         }
     }
@@ -169,11 +185,11 @@ impl Drop for Texture2DData {
     }
 }
 
-pub struct Texture2DLevels<'a, F> {
+pub struct Levels<'a, F> {
     handle: &'a Texture2D<F>
 }
 
-impl<'a, F> Texture2DLevels<'a, F>
+impl<'a, F> Levels<'a, F>
 where
     F: TextureFormat,
 {
@@ -181,11 +197,11 @@ where
         self.handle.data.levels
     }
 
-    pub fn get(&self, level: usize) -> Option<Texture2DLevel<F>> {
+    pub fn get(&self, level: usize) -> Option<Level<F>> {
         let texture_data = &self.handle.data;
 
         if level < texture_data.levels {
-            Some(Texture2DLevel {
+            Some(Level {
                 handle: &self.handle,
                 level,
             })
@@ -194,15 +210,15 @@ where
         }
     }
 
-    pub unsafe fn get_unchecked(&self, level: usize) -> Texture2DLevel<F> {
-        Texture2DLevel {
+    pub unsafe fn get_unchecked(&self, level: usize) -> Level<F> {
+        Level {
             handle: &self.handle,
             level,
         }
     }
 
-    pub fn iter(&self) -> Texture2DLevelsIter<F> {
-        Texture2DLevelsIter {
+    pub fn iter(&self) -> LevelsIter<F> {
+        LevelsIter {
             handle: &self.handle,
             current_level: 0,
             end_level: self.handle.data.levels,
@@ -210,16 +226,16 @@ where
     }
 }
 
-impl<'a, F> IntoIterator for Texture2DLevels<'a, F>
+impl<'a, F> IntoIterator for Levels<'a, F>
 where
     F: TextureFormat,
 {
-    type Item = Texture2DLevel<'a, F>;
+    type Item = Level<'a, F>;
 
-    type IntoIter = Texture2DLevelsIter<'a, F>;
+    type IntoIter = LevelsIter<'a, F>;
 
     fn into_iter(self) -> Self::IntoIter {
-        Texture2DLevelsIter {
+        LevelsIter {
             handle: &self.handle,
             current_level: 0,
             end_level: self.handle.data.levels
@@ -227,17 +243,17 @@ where
     }
 }
 
-pub struct Texture2DLevelsIter<'a, F> {
+pub struct LevelsIter<'a, F> {
     handle: &'a Texture2D<F>,
     current_level: usize,
     end_level: usize,
 }
 
-impl<'a, F> Iterator for Texture2DLevelsIter<'a, F>
+impl<'a, F> Iterator for LevelsIter<'a, F>
 where
     F: TextureFormat,
 {
-    type Item = Texture2DLevel<'a, F>;
+    type Item = Level<'a, F>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let level = self.current_level;
@@ -245,7 +261,7 @@ where
         if level < self.end_level {
             self.current_level += 1;
 
-            Some(Texture2DLevel {
+            Some(Level {
                 handle: &self.handle,
                 level,
             })
@@ -255,12 +271,12 @@ where
     }
 }
 
-pub struct Texture2DLevel<'a, F> {
+pub struct Level<'a, F> {
     handle: &'a Texture2D<F>,
     level: usize,
 }
 
-impl<'a, F> Texture2DLevel<'a, F>
+impl<'a, F> Level<'a, F>
 where
     F: TextureFormat,
 {
@@ -276,8 +292,8 @@ where
         mipmap_size(self.handle.data.height, self.level)
     }
 
-    pub fn sub_image(&self, region: Region2D) -> Texture2DLevelSubImage<F> {
-        Texture2DLevelSubImage {
+    pub fn sub_image(&self, region: Region2D) -> LevelSubImage<F> {
+        LevelSubImage {
             handle: &self.handle,
             level: self.level,
             region,
@@ -298,13 +314,13 @@ where
     }
 }
 
-pub struct Texture2DLevelSubImage<'a, F> {
+pub struct LevelSubImage<'a, F> {
     handle: &'a Texture2D<F>,
     level: usize,
     region: Region2D,
 }
 
-impl<'a, F> Texture2DLevelSubImage<'a, F>
+impl<'a, F> LevelSubImage<'a, F>
 where
     F: TextureFormat,
 {
@@ -324,8 +340,8 @@ where
         region_2d_overlap_height(self.handle.data.height, self.level, &self.region)
     }
 
-    pub fn sub_image(&self, region: Region2D) -> Texture2DLevelSubImage<F> {
-        Texture2DLevelSubImage {
+    pub fn sub_image(&self, region: Region2D) -> LevelSubImage<F> {
+        LevelSubImage {
             handle: &self.handle,
             level: self.level,
             region: region_2d_sub_image(self.region, region),
@@ -346,18 +362,18 @@ where
     }
 }
 
-pub struct Texture2DLevelsMut<'a, F> {
-    inner: Texture2DLevels<'a, F>
+pub struct LevelsMut<'a, F> {
+    inner: Levels<'a, F>
 }
 
-impl<'a, F> Texture2DLevelsMut<'a, F>
+impl<'a, F> LevelsMut<'a, F>
     where
         F: TextureFormat,
 {
-    pub fn get_mut(&mut self, level: usize) -> Option<Texture2DLevelMut<F>> {
+    pub fn get_mut(&mut self, level: usize) -> Option<LevelMut<F>> {
         if level < self.handle.data.levels {
-            Some(Texture2DLevelMut {
-                inner: Texture2DLevel {
+            Some(LevelMut {
+                inner: Level {
                     handle: &self.inner.handle,
                     level
                 },
@@ -367,17 +383,17 @@ impl<'a, F> Texture2DLevelsMut<'a, F>
         }
     }
 
-    pub unsafe fn get_mut_unchecked(&mut self, level: usize) -> Texture2DLevelMut<F> {
-        Texture2DLevelMut {
-            inner: Texture2DLevel {
+    pub unsafe fn get_mut_unchecked(&mut self, level: usize) -> LevelMut<F> {
+        LevelMut {
+            inner: Level {
                 handle: &self.inner.handle,
                 level
             },
         }
     }
 
-    pub fn iter_mut(&mut self) -> Texture2DLevelsMutIter<F> {
-        Texture2DLevelsMutIter {
+    pub fn iter_mut(&mut self) -> LevelsMutIter<F> {
+        LevelsMutIter {
             current_level: 0,
             end_level: self.inner.handle.data.levels,
             handle: &self.inner.handle,
@@ -385,16 +401,16 @@ impl<'a, F> Texture2DLevelsMut<'a, F>
     }
 }
 
-impl<'a, F> IntoIterator for Texture2DLevelsMut<'a, F>
+impl<'a, F> IntoIterator for LevelsMut<'a, F>
     where
         F: TextureFormat,
 {
-    type Item = Texture2DLevelMut<'a, F>;
+    type Item = LevelMut<'a, F>;
 
-    type IntoIter = Texture2DLevelsMutIter<'a, F>;
+    type IntoIter = LevelsMutIter<'a, F>;
 
     fn into_iter(self) -> Self::IntoIter {
-        Texture2DLevelsMutIter {
+        LevelsMutIter {
             current_level: 0,
             end_level: self.inner.handle.data.levels,
             handle: &self.inner.handle,
@@ -402,26 +418,26 @@ impl<'a, F> IntoIterator for Texture2DLevelsMut<'a, F>
     }
 }
 
-impl<'a, F> Deref for Texture2DLevelsMut<'a, F> where
+impl<'a, F> Deref for LevelsMut<'a, F> where
     F: TextureFormat, {
-    type Target = Texture2DLevels<'a, F>;
+    type Target = Levels<'a, F>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
-pub struct Texture2DLevelsMutIter<'a, F> {
+pub struct LevelsMutIter<'a, F> {
     handle: &'a Texture2D<F>,
     current_level: usize,
     end_level: usize,
 }
 
-impl<'a, F> Iterator for Texture2DLevelsMutIter<'a, F>
+impl<'a, F> Iterator for LevelsMutIter<'a, F>
     where
         F: TextureFormat,
 {
-    type Item = Texture2DLevelMut<'a, F>;
+    type Item = LevelMut<'a, F>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let level = self.current_level;
@@ -429,8 +445,8 @@ impl<'a, F> Iterator for Texture2DLevelsMutIter<'a, F>
         if level < self.end_level {
             self.current_level += 1;
 
-            Some(Texture2DLevelMut {
-                inner: Texture2DLevel {
+            Some(LevelMut {
+                inner: Level {
                     handle: &self.handle,
                     level
                 }
@@ -441,12 +457,12 @@ impl<'a, F> Iterator for Texture2DLevelsMutIter<'a, F>
     }
 }
 
-pub struct Texture2DLevelMut<'a, F> {
-    inner: Texture2DLevel<'a, F>
+pub struct LevelMut<'a, F> {
+    inner: Level<'a, F>
 }
 
-impl<'a, F> Deref for Texture2DLevelMut<'a, F> {
-    type Target = Texture2DLevel<'a, F>;
+impl<'a, F> Deref for LevelMut<'a, F> {
+    type Target = Level<'a, F>;
 
     fn deref(&self) -> &Self::Target {
         &self.inner
@@ -596,11 +612,11 @@ where
     }
 }
 
-pub struct Texture2DGenerateMipmapTask {
+pub struct GenerateMipmapCommand {
     texture_data: Arc<Texture2DData>,
 }
 
-impl GpuTask<Connection> for Texture2DGenerateMipmapTask {
+impl GpuTask<Connection> for GenerateMipmapCommand {
     type Output = Result<(), ContextMismatch>;
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
