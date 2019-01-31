@@ -946,7 +946,7 @@ macro_rules! generate_encoder_finish {
                     framebuffer: Framebuffer {
                         color: ($($C),*),
                         depth_stencil: (),
-                        _private: (),
+                        render_pass_id: self.data.render_pass_id,
                     },
                     data: self.data,
                 }
@@ -966,7 +966,7 @@ macro_rules! generate_encoder_finish {
                     framebuffer: Framebuffer {
                         color: ($($C),*),
                         depth_stencil: self.depth_stencil,
-                        _private: (),
+                        render_pass_id: self.data.render_pass_id,
                     },
                     data: self.data,
                 }

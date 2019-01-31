@@ -20,17 +20,211 @@ use render_pass::AttachableImageDescriptor;
 use renderbuffer::RenderbufferHandle;
 use renderbuffer::RenderbufferFormat;
 use render_pass::RenderPassMismatch;
-
-#[derive(Clone, Copy, PartialEq)]
-pub enum BlitFilter {
-    Nearest,
-    Linear
-}
+use image_format::Filterable;
 
 pub struct Framebuffer<C, Ds> {
     pub color: C,
     pub depth_stencil: Ds,
-    pub(crate) _private: ()
+    pub(crate) render_pass_id: usize
+}
+
+impl<C, Ds> Framebuffer<C, Ds> where C: BlitColorTarget {
+    pub fn blit_color_command<S>(&self, region: Region2D, source: S) -> BlitCommand where S: BlitColorCompatible<C> {
+        let region = match region {
+            Region2D::Area(origin, width, height) => (origin, width, height),
+            Region2D::Fill => {
+                let BlitTargetDescriptor { width, height} = self.color.descriptor();
+
+                ((0, 0), width, height)
+            }
+        };
+
+        BlitCommand {
+            render_pass_id: self.render_pass_id,
+            read_slot: Gl::COLOR_ATTACHMENT0,
+            bitmask: Gl::COLOR_BUFFER_BIT,
+            filter: Gl::NEAREST,
+            region,
+            source: source.descriptor()
+        }
+    }
+
+    pub fn blit_color_linear_command<S>(&self, region: Region2D, source: S) -> BlitCommand where S: BlitColorCompatible<C>, S::Format: Filterable {
+        let region = match region {
+            Region2D::Area(origin, width, height) => (origin, width, height),
+            Region2D::Fill => {
+                let BlitTargetDescriptor { width, height} = self.color.descriptor();
+
+                ((0, 0), width, height)
+            }
+        };
+
+        BlitCommand {
+            render_pass_id: self.render_pass_id,
+            read_slot: Gl::COLOR_ATTACHMENT0,
+            bitmask: Gl::COLOR_BUFFER_BIT,
+            filter: Gl::LINEAR,
+            region,
+            source: source.descriptor()
+        }
+    }
+}
+
+impl<C, F> Framebuffer<C, DepthStencilBuffer<F>> where F: DepthStencilRenderable {
+    pub fn blit_depth_stencil_command<S>(&self, region: Region2D, source: S) -> BlitCommand where S: BlitSource<Format=F> {
+        let region = match region {
+            Region2D::Area(origin, width, height) => (origin, width, height),
+            Region2D::Fill => ((0, 0), self.depth_stencil.width(), self.depth_stencil.height())
+        };
+
+        BlitCommand {
+            render_pass_id: self.render_pass_id,
+            read_slot: Gl::DEPTH_STENCIL_ATTACHMENT,
+            bitmask: Gl::DEPTH_BUFFER_BIT & Gl::STENCIL_BUFFER_BIT,
+            filter: Gl::NEAREST,
+            region,
+            source: source.descriptor()
+        }
+    }
+
+    pub fn blit_depth_command<S>(&self, region: Region2D, source: S) -> BlitCommand where S: BlitSource<Format=F> {
+        let region = match region {
+            Region2D::Area(origin, width, height) => (origin, width, height),
+            Region2D::Fill => ((0, 0), self.depth_stencil.width(), self.depth_stencil.height())
+        };
+
+        BlitCommand {
+            render_pass_id: self.render_pass_id,
+            read_slot: Gl::DEPTH_STENCIL_ATTACHMENT,
+            bitmask: Gl::DEPTH_BUFFER_BIT,
+            filter: Gl::NEAREST,
+            region,
+            source: source.descriptor()
+        }
+    }
+
+    pub fn blit_stencil_command<S>(&self, region: Region2D, source: S) -> BlitCommand where S: BlitSource<Format=F> {
+        let region = match region {
+            Region2D::Area(origin, width, height) => (origin, width, height),
+            Region2D::Fill => ((0, 0), self.depth_stencil.width(), self.depth_stencil.height())
+        };
+
+        BlitCommand {
+            render_pass_id: self.render_pass_id,
+            read_slot: Gl::DEPTH_STENCIL_ATTACHMENT,
+            bitmask: Gl::STENCIL_BUFFER_BIT,
+            filter: Gl::NEAREST,
+            region,
+            source: source.descriptor()
+        }
+    }
+}
+
+impl<C, F> Framebuffer<C, DepthBuffer<F>> where F: DepthRenderable {
+    pub fn blit_depth_command<S>(&self, region: Region2D, source: S) -> BlitCommand where S: BlitSource<Format=F> {
+        let region = match region {
+            Region2D::Area(origin, width, height) => (origin, width, height),
+            Region2D::Fill => ((0, 0), self.depth_stencil.width(), self.depth_stencil.height())
+        };
+
+        BlitCommand {
+            render_pass_id: self.render_pass_id,
+            read_slot: Gl::DEPTH_ATTACHMENT,
+            bitmask: Gl::DEPTH_BUFFER_BIT,
+            filter: Gl::NEAREST,
+            region,
+            source: source.descriptor()
+        }
+    }
+}
+
+impl<C, F> Framebuffer<C, StencilBuffer<F>> where F: StencilRenderable {
+    pub fn blit_stencil_command<S>(&self, region: Region2D, source: S) -> BlitCommand where S: BlitSource<Format=F> {
+        let region = match region {
+            Region2D::Area(origin, width, height) => (origin, width, height),
+            Region2D::Fill => ((0, 0), self.depth_stencil.width(), self.depth_stencil.height())
+        };
+
+        BlitCommand {
+            render_pass_id: self.render_pass_id,
+            read_slot: Gl::STENCIL_ATTACHMENT,
+            bitmask: Gl::STENCIL_BUFFER_BIT,
+            filter: Gl::NEAREST,
+            region,
+            source: source.descriptor()
+        }
+    }
+}
+
+pub trait BlitColorTarget {
+    fn descriptor(&self) -> BlitTargetDescriptor;
+}
+
+impl<C> BlitColorTarget for C where C: Buffer {
+    fn descriptor(&self) -> BlitTargetDescriptor {
+        BlitTargetDescriptor {
+            width: self.width(),
+            height: self.height()
+        }
+    }
+}
+
+macro_rules! impl_blit_color_target {
+    ($C0:ident, $($C:ident),*) => {
+        impl<$C0, $($C),*> BlitColorTarget for ($C0, $($C),*)
+        where
+            $C0: Buffer,
+            $($C: Buffer),*
+        {
+            fn descriptor(&self) -> BlitTargetDescriptor {
+                #[allow(non_snake_case)]
+                let ($C0, $($C),*) = self;
+
+                let mut width = $C0.width();
+
+                $(
+                    if $C.width() < width {
+                        width = $C.width();
+                    }
+                )*
+
+
+                let mut height = $C0.height();
+
+                $(
+                    if $C.height() < height {
+                        height = $C.height();
+                    }
+                )*
+
+                BlitTargetDescriptor {
+                    width,
+                    height
+                }
+            }
+        }
+    }
+}
+
+impl_blit_color_target!(C0, C1);
+impl_blit_color_target!(C0, C1, C2);
+impl_blit_color_target!(C0, C1, C2, C3);
+impl_blit_color_target!(C0, C1, C2, C3, C4);
+impl_blit_color_target!(C0, C1, C2, C3, C4, C5);
+impl_blit_color_target!(C0, C1, C2, C3, C4, C5, C6);
+impl_blit_color_target!(C0, C1, C2, C3, C4, C5, C6, C7);
+impl_blit_color_target!(C0, C1, C2, C3, C4, C5, C6, C7, C8);
+impl_blit_color_target!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9);
+impl_blit_color_target!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
+impl_blit_color_target!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11);
+impl_blit_color_target!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12);
+impl_blit_color_target!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13);
+impl_blit_color_target!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14);
+impl_blit_color_target!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15);
+
+pub struct BlitTargetDescriptor {
+    width: u32,
+    height: u32
 }
 
 pub trait BlitSource {
@@ -99,22 +293,33 @@ impl_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C1
 impl_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14);
 impl_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15);
 
-pub struct BlitColorCommand {}
-
-pub struct BlitDepthCommand {
+pub struct BlitColorCommand {
     region: ((u32, u32), u32, u32),
     source: BlitSourceDescriptor
 }
 
-impl<'a> GpuTask<RenderPassContext<'a>> for BlitDepthCommand {
-    type Output = ();
+pub struct BlitCommand {
+    render_pass_id: usize,
+    read_slot: u32,
+    bitmask: u32,
+    filter: u32,
+    region: ((u32, u32), u32, u32),
+    source: BlitSourceDescriptor
+}
+
+impl<'a> GpuTask<RenderPassContext<'a>> for BlitCommand {
+    type Output = Result<(), RenderPassMismatch>;
 
     fn progress(&mut self, context: &mut RenderPassContext) -> Progress<Self::Output> {
+        if self.render_pass_id != context.render_pass_id() {
+            return Progress::Finished(Err(RenderPassMismatch));
+        }
+
         let (gl, state) = unsafe { context.unpack_mut() };
 
         state.bind_read_framebuffer(gl);
 
-        self.source.image_descriptor.attach(gl,Gl::READ_FRAMEBUFFER, Gl::DEPTH_ATTACHMENT);
+        self.source.image_descriptor.attach(gl,Gl::READ_FRAMEBUFFER, self.read_slot);
 
         let ((src_x0, src_y0), src_width, src_height) = self.source.region;
         let src_x1 = src_x0 + src_width;
@@ -133,16 +338,20 @@ impl<'a> GpuTask<RenderPassContext<'a>> for BlitDepthCommand {
             dst_y0 as i32,
             dst_x1 as i32,
             dst_y1 as i32,
-            Gl::DEPTH_BUFFER_BIT,
-            Gl::NEAREST
+            self.bitmask,
+            self.filter
         );
 
-        Progress::Finished(())
+        Progress::Finished(Ok(()))
     }
 }
 
 pub trait Buffer {
     type Format: InternalFormat;
+
+    fn width(&self) -> u32;
+
+    fn height(&self) -> u32;
 }
 
 pub struct ColorFloatBuffer<F> where F: ColorFloatRenderable {
@@ -171,6 +380,14 @@ impl<F> ColorFloatBuffer<F> where F: ColorFloatRenderable {
 
 impl<F> Buffer for ColorFloatBuffer<F> where F: ColorFloatRenderable {
     type Format = F;
+
+    fn width(&self) -> u32 {
+        self.width
+    }
+
+    fn height(&self) -> u32 {
+        self.height
+    }
 }
 
 pub struct ColorIntegerBuffer<F> where F: ColorIntegerRenderable {
@@ -198,6 +415,14 @@ impl<F> ColorIntegerBuffer<F> where F: ColorIntegerRenderable {
 }
 impl<F> Buffer for ColorIntegerBuffer<F> where F: ColorIntegerRenderable {
     type Format = F;
+
+    fn width(&self) -> u32 {
+        self.width
+    }
+
+    fn height(&self) -> u32 {
+        self.height
+    }
 }
 
 pub struct ColorUnsignedIntegerBuffer<F> where F: ColorUnsignedIntegerRenderable {
@@ -230,6 +455,14 @@ impl<F> ColorUnsignedIntegerBuffer<F> where F: ColorUnsignedIntegerRenderable {
 
 impl<F> Buffer for ColorUnsignedIntegerBuffer<F> where F: ColorUnsignedIntegerRenderable {
     type Format = F;
+
+    fn width(&self) -> u32 {
+        self.width
+    }
+
+    fn height(&self) -> u32 {
+        self.height
+    }
 }
 
 pub struct DepthStencilBuffer<F> where F: DepthStencilRenderable {
@@ -274,6 +507,14 @@ impl<F> DepthStencilBuffer<F> where F: DepthStencilRenderable {
 
 impl<F> Buffer for DepthStencilBuffer<F> where F: DepthStencilRenderable {
     type Format = F;
+
+    fn width(&self) -> u32 {
+        self.width
+    }
+
+    fn height(&self) -> u32 {
+        self.height
+    }
 }
 
 pub struct DepthBuffer<F> where F: DepthRenderable {
@@ -300,6 +541,14 @@ impl<F> DepthBuffer<F> where F: DepthRenderable {
 
 impl<F> Buffer for DepthBuffer<F> where F: DepthRenderable {
     type Format = F;
+
+    fn width(&self) -> u32 {
+        self.width
+    }
+
+    fn height(&self) -> u32 {
+        self.height
+    }
 }
 
 pub struct StencilBuffer<F> where F: StencilRenderable {
@@ -326,6 +575,14 @@ impl<F> StencilBuffer<F> where F: StencilRenderable {
 
 impl<F> Buffer for StencilBuffer<F> where F: StencilRenderable {
     type Format = F;
+
+    fn width(&self) -> u32 {
+        self.width
+    }
+
+    fn height(&self) -> u32 {
+        self.height
+    }
 }
 
 pub struct ClearColorFloatCommand {
