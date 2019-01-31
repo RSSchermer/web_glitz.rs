@@ -10,7 +10,7 @@ futures = "0.1.25"
 js-sys = { git = "https://github.com/rustwasm/wasm-bindgen" }
 proc-macro-hack = "0.5"
 wasm-bindgen = { git = "https://github.com/rustwasm/wasm-bindgen" }
-web-glitz-derive = { version = "0.1.0", path = "../web_glitz_derive" }
+web-glitz-macros = { version = "0.1.0", path = "../web_glitz_macros" }
 
 [dependencies.web-sys]
 git = "https://github.com/rustwasm/wasm-bindgen"

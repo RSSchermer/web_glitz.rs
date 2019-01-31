@@ -1,5 +1,5 @@
 [package]
-name = "web-glitz-derive"
+name = "web-glitz-macros"
 version = "0.1.0"
 authors = ["Roland Schermer <roland0507@gmail.com>"]
 
