@@ -7,19 +7,18 @@ use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::image_format::{ClientFormat, Filterable};
-use crate::image_region::Region2D;
-use crate::runtime::dynamic_state::ContextUpdate;
-use crate::runtime::{Connection, RenderingContext};
-use crate::task::{GpuTask, Progress};
-use crate::texture::image_source::Image2DSourceInternal;
-use crate::texture::util::{
+use crate::image::{Region2D, Image2DSource};
+use crate::image::format::{ClientFormat, Filterable, TextureFormat};
+use crate::image::image_source::Image2DSourceInternal;
+use crate::image::texture_object_dropper::TextureObjectDropper;
+use crate::image::util::{
     mipmap_size, region_2d_overlap_height, region_2d_overlap_width, region_2d_sub_image,
 };
-use crate::texture::{Image2DSource, TextureFormat};
+use crate::runtime::dynamic_state::ContextUpdate;
+use crate::runtime::{Connection, RenderingContext, ContextMismatch};
+use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, identical, JsId};
-use texture::texture_object_dropper::TextureObjectDropper;
-use runtime::ContextMismatch;
+
 
 #[derive(Clone)]
 pub struct TextureCubeHandle<F> {

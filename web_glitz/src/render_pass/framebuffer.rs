@@ -1,26 +1,15 @@
+use std::marker;
+
 use web_sys::WebGl2RenderingContext as Gl;
 
-use image_region::Region2D;
-use render_pass::RenderPassContext;
-use task::GpuTask;
-use task::Progress;
-use util::slice_make_mut;
-
+use crate::image::Region2D;
+use crate::image::format::{InternalFormat, Filterable, ColorFloatRenderable, ColorIntegerRenderable, ColorUnsignedIntegerRenderable, DepthStencilRenderable, DepthRenderable, StencilRenderable, RenderbufferFormat};
+use crate::image::renderbuffer::RenderbufferHandle;
+use crate::render_pass::{RenderPassContext, AttachableImage, AttachableImageDescriptor, RenderPassMismatch};
 use crate::runtime::dynamic_state::ContextUpdate;
-use image_format::ColorFloatRenderable;
-use image_format::ColorIntegerRenderable;
-use image_format::ColorUnsignedIntegerRenderable;
-use render_pass::AttachableImage;
-use image_format::DepthStencilRenderable;
-use image_format::DepthRenderable;
-use image_format::StencilRenderable;
-use std::marker;
-use image_format::InternalFormat;
-use render_pass::AttachableImageDescriptor;
-use renderbuffer::RenderbufferHandle;
-use renderbuffer::RenderbufferFormat;
-use render_pass::RenderPassMismatch;
-use image_format::Filterable;
+use crate::task::{GpuTask, Progress};
+use crate::util::slice_make_mut;
+
 
 pub struct Framebuffer<C, Ds> {
     pub color: C,

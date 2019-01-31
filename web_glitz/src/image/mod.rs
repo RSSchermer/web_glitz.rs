@@ -1,3 +1,16 @@
+mod image_source;
+pub use self::image_source::{Alignment, FromPixelsError, Image2DSource, Image3DSource};
+
+pub mod format;
+pub mod renderbuffer;
+pub mod texture_2d;
+pub mod texture_2d_array;
+pub mod texture_3d;
+pub mod texture_cube;
+
+mod texture_object_dropper;
+mod util;
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Region2D {
     Fill,

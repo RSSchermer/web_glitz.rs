@@ -19,16 +19,12 @@ pub use web_glitz_macros::uniforms;
 pub use web_glitz_macros::*;
 
 pub mod buffer;
-pub mod image_format;
-pub mod image_region;
-pub mod program;
+pub mod image;
 pub mod render_pass;
-pub mod renderbuffer;
 pub mod runtime;
 pub mod sampler;
 pub mod std_140;
 pub mod task;
-pub mod texture;
 pub mod uniform;
 pub mod vertex_input;
 

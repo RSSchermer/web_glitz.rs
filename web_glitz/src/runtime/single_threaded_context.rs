@@ -4,18 +4,18 @@ use std::rc::Rc;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
-use buffer::IntoBuffer;
-use crate::buffer::{Buffer, BufferUsage};
-use crate::image_format::Filterable;
-use crate::renderbuffer::{RenderbufferFormat, RenderbufferHandle};
+use crate::buffer::{Buffer, BufferUsage, IntoBuffer};
+use crate::image::format::{Filterable, TextureFormat, RenderbufferFormat};
+use crate::image::renderbuffer::RenderbufferHandle;
+use crate::image::texture_2d::Texture2D;
+use crate::image::texture_2d_array::Texture2DArray;
+use crate::image::texture_3d::Texture3D;
+use crate::image::texture_cube::TextureCubeHandle;
 use crate::runtime::dynamic_state::DynamicState;
 use crate::runtime::executor_job::job;
 use crate::runtime::fenced::JsTimeoutFencedTaskRunner;
 use crate::runtime::{Connection, Execution, RenderingContext};
 use crate::task::{GpuTask, Progress};
-use crate::texture::{
-    Texture2DArray, Texture2D, Texture3D, TextureCubeHandle, TextureFormat,
-};
 
 thread_local!(static ID_GEN: IdGen = IdGen::new());
 

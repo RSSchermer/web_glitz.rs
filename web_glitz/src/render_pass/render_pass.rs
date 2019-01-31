@@ -1,32 +1,20 @@
-use image_format::ColorFloatRenderable;
-use image_format::ColorIntegerRenderable;
-use image_format::ColorUnsignedIntegerRenderable;
-use image_format::DepthRenderable;
-use image_format::DepthStencilRenderable;
-use image_format::InternalFormat;
-use image_format::StencilRenderable;
-use renderbuffer::RenderbufferHandle;
-use runtime::dynamic_state::AttachmentSet;
-use runtime::dynamic_state::DepthStencilAttachmentDescriptor;
-use runtime::Connection;
-use task::GpuTask;
-use task::Progress;
-use texture::CubeFace;
-use util::slice_make_mut;
-use util::JsId;
+use std::hash::{Hash, Hasher};
 
 use js_sys::Uint32Array;
-use renderbuffer::RenderbufferFormat;
-use runtime::dynamic_state::DrawBuffer;
-use runtime::dynamic_state::DynamicState;
-use std::hash::Hash;
-use std::hash::Hasher;
 use web_sys::WebGl2RenderingContext as Gl;
 
+use crate::image::format::{InternalFormat, ColorFloatRenderable, ColorIntegerRenderable, ColorUnsignedIntegerRenderable, DepthRenderable, DepthStencilRenderable, StencilRenderable, RenderbufferFormat};
+use crate::image::renderbuffer::RenderbufferHandle;
+use crate::image::texture_cube::CubeFace;
 use crate::render_pass::framebuffer::{
     Buffer, ColorFloatBuffer, ColorIntegerBuffer, ColorUnsignedIntegerBuffer, DepthBuffer,
     DepthStencilBuffer, Framebuffer, StencilBuffer,
 };
+use crate::runtime::dynamic_state::AttachmentSet;
+use crate::runtime::Connection;
+use crate::runtime::dynamic_state::{DynamicState, DrawBuffer, DepthStencilAttachmentDescriptor};
+use crate::task::{GpuTask, Progress};
+use crate::util::{JsId, slice_make_mut};
 
 pub struct RenderPass<Fb, F> {
     id: usize,

@@ -1,6 +1,6 @@
-use image_region::Region2D;
-use image_region::Region3D;
 use std::cmp;
+
+use crate::image::{Region2D, Region3D};
 
 pub(crate) fn mipmap_size(base_size: u32, level: usize) -> u32 {
     let level_size = base_size / 2 ^ (level as u32);

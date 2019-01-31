@@ -1,18 +1,19 @@
+use std::borrow::Borrow;
+
 use futures::future::Future;
 use futures::sync::oneshot::{Canceled, Receiver};
 use futures::{Async, Poll};
 use web_sys::WebGl2RenderingContext as Gl;
 
-use buffer::IntoBuffer;
-use crate::buffer::{Buffer, BufferUsage};
-use crate::image_format::Filterable;
-use crate::renderbuffer::{RenderbufferFormat, RenderbufferHandle};
+use crate::buffer::{Buffer, BufferUsage, IntoBuffer};
+use crate::image::format::{Filterable, TextureFormat, RenderbufferFormat};
+use crate::image::renderbuffer::RenderbufferHandle;
+use crate::image::texture_2d::Texture2D;
+use crate::image::texture_2d_array::Texture2DArray;
+use crate::image::texture_3d::Texture3D;
+use crate::image::texture_cube::TextureCubeHandle;
 use crate::runtime::dynamic_state::DynamicState;
 use crate::task::GpuTask;
-use crate::texture::{
-    Texture2DArray, Texture2D, Texture3D, TextureCubeHandle, TextureFormat,
-};
-use std::borrow::Borrow;
 
 pub trait RenderingContext {
     fn id(&self) -> usize;
