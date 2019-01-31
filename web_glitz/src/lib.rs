@@ -1,16 +1,7 @@
-#![feature(plugin)]
-#![feature(concat_idents)]
 #![feature(nll)]
-#![feature(optin_builtin_traits)]
-#![feature(try_from)]
 #![feature(unboxed_closures)]
 #![feature(fn_traits)]
-#![feature(specialization)]
-#![feature(log_syntax)]
-#![feature(trace_macros)]
-//#![plugin(phf_macros)]
 
-//extern crate phf;
 extern crate fnv;
 extern crate futures;
 extern crate js_sys;
