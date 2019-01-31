@@ -4,7 +4,7 @@ use js_sys::Uint32Array;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::image::format::{InternalFormat, ColorFloatRenderable, ColorIntegerRenderable, ColorUnsignedIntegerRenderable, DepthRenderable, DepthStencilRenderable, StencilRenderable, RenderbufferFormat};
-use crate::image::renderbuffer::RenderbufferHandle;
+use crate::image::renderbuffer::Renderbuffer;
 use crate::image::texture_cube::CubeFace;
 use crate::render_pass::framebuffer::{
     Buffer, ColorFloatBuffer, ColorIntegerBuffer, ColorUnsignedIntegerBuffer, DepthBuffer,
@@ -114,7 +114,7 @@ pub trait AttachableImage {
     fn descriptor(&self) -> AttachableImageDescriptor;
 }
 
-impl<F> AttachableImage for RenderbufferHandle<F>
+impl<F> AttachableImage for Renderbuffer<F>
 where
     F: RenderbufferFormat + 'static,
 {

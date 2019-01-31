@@ -6,11 +6,11 @@ use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::buffer::{Buffer, BufferUsage, IntoBuffer};
 use crate::image::format::{Filterable, TextureFormat, RenderbufferFormat};
-use crate::image::renderbuffer::RenderbufferHandle;
+use crate::image::renderbuffer::Renderbuffer;
 use crate::image::texture_2d::Texture2D;
 use crate::image::texture_2d_array::Texture2DArray;
 use crate::image::texture_3d::Texture3D;
-use crate::image::texture_cube::TextureCubeHandle;
+use crate::image::texture_cube::TextureCube;
 use crate::runtime::dynamic_state::DynamicState;
 use crate::runtime::executor_job::job;
 use crate::runtime::fenced::JsTimeoutFencedTaskRunner;
@@ -57,11 +57,11 @@ impl RenderingContext for SingleThreadedContext {
         data.into_buffer(self, usage_hint)
     }
 
-    fn create_renderbuffer<F>(&self, width: u32, height: u32) -> RenderbufferHandle<F>
+    fn create_renderbuffer<F>(&self, width: u32, height: u32) -> Renderbuffer<F>
     where
         F: RenderbufferFormat + 'static,
     {
-        RenderbufferHandle::new(
+        Renderbuffer::new(
             self,
             width,
             height,
@@ -134,11 +134,11 @@ impl RenderingContext for SingleThreadedContext {
         )
     }
 
-    fn create_texture_cube<F>(&self, width: u32, height: u32, levels: usize) -> TextureCubeHandle<F>
+    fn create_texture_cube<F>(&self, width: u32, height: u32, levels: usize) -> TextureCube<F>
     where
         F: TextureFormat + 'static,
     {
-        TextureCubeHandle::new(
+        TextureCube::new(
             self,
             width,
             height,

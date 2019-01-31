@@ -4,7 +4,7 @@ use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::image::Region2D;
 use crate::image::format::{InternalFormat, Filterable, ColorFloatRenderable, ColorIntegerRenderable, ColorUnsignedIntegerRenderable, DepthStencilRenderable, DepthRenderable, StencilRenderable, RenderbufferFormat};
-use crate::image::renderbuffer::RenderbufferHandle;
+use crate::image::renderbuffer::Renderbuffer;
 use crate::render_pass::{RenderPassContext, AttachableImage, AttachableImageDescriptor, RenderPassMismatch};
 use crate::runtime::dynamic_state::ContextUpdate;
 use crate::task::{GpuTask, Progress};
@@ -227,7 +227,7 @@ pub struct BlitSourceDescriptor {
     region: ((u32, u32), u32, u32)
 }
 
-impl<F> BlitSource for RenderbufferHandle<F> where F: RenderbufferFormat + 'static {
+impl<F> BlitSource for Renderbuffer<F> where F: RenderbufferFormat + 'static {
     type Format = F;
 
     fn descriptor(&self) -> BlitSourceDescriptor {

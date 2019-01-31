@@ -21,12 +21,12 @@ use crate::util::{arc_get_mut_unchecked, identical, JsId};
 
 
 #[derive(Clone)]
-pub struct TextureCubeHandle<F> {
+pub struct TextureCube<F> {
     data: Arc<TextureCubeData>,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> TextureCubeHandle<F> {
+impl<F> TextureCube<F> {
     pub(crate) fn bind(&self, connection: &mut Connection) -> u32 {
         let (gl, state) = unsafe { connection.unpack_mut() };
 
@@ -59,7 +59,7 @@ impl<F> TextureCubeHandle<F> {
     }
 }
 
-impl<F> TextureCubeHandle<F>
+impl<F> TextureCube<F>
 where
     F: TextureFormat + 'static,
 {
@@ -87,7 +87,7 @@ where
             _marker: marker::PhantomData,
         });
 
-        TextureCubeHandle {
+        TextureCube {
             data,
             _marker: marker::PhantomData,
         }
@@ -145,8 +145,8 @@ impl<F> TextureCubeLevels<F>
 where
     F: TextureFormat,
 {
-    pub fn texture(&self) -> TextureCubeHandle<F> {
-        TextureCubeHandle {
+    pub fn texture(&self) -> TextureCube<F> {
+        TextureCube {
             data: self.texture_data.clone(),
             _marker: marker::PhantomData,
         }
@@ -247,8 +247,8 @@ impl<F> TextureCubeLevel<F>
 where
     F: TextureFormat,
 {
-    pub fn texture(&self) -> TextureCubeHandle<F> {
-        TextureCubeHandle {
+    pub fn texture(&self) -> TextureCube<F> {
+        TextureCube {
             data: self.texture_data.clone(),
             _marker: marker::PhantomData,
         }
@@ -356,8 +356,8 @@ impl<F> TextureCubeLevelFace<F>
 where
     F: TextureFormat,
 {
-    pub fn texture(&self) -> TextureCubeHandle<F> {
-        TextureCubeHandle {
+    pub fn texture(&self) -> TextureCube<F> {
+        TextureCube {
             data: self.texture_data.clone(),
             _marker: marker::PhantomData,
         }
@@ -416,8 +416,8 @@ impl<F> TextureCubeLevelFaceSubImage<F>
 where
     F: TextureFormat,
 {
-    pub fn texture(&self) -> TextureCubeHandle<F> {
-        TextureCubeHandle {
+    pub fn texture(&self) -> TextureCube<F> {
+        TextureCube {
             data: self.texture_data.clone(),
             _marker: marker::PhantomData,
         }

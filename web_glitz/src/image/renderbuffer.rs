@@ -10,12 +10,12 @@ use crate::runtime::{Connection, RenderingContext};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, JsId};
 
-pub struct RenderbufferHandle<F> {
+pub struct Renderbuffer<F> {
     data: Arc<RenderbufferData>,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> RenderbufferHandle<F>
+impl<F> Renderbuffer<F>
 where
     F: RenderbufferFormat + 'static,
 {
@@ -30,12 +30,12 @@ where
             height,
         });
 
-        context.submit(RenderbufferAllocateTask::<F> {
+        context.submit(RenderbufferAllocateCommand::<F> {
             data: data.clone(),
             _marker: marker::PhantomData,
         });
 
-        RenderbufferHandle {
+        Renderbuffer {
             data,
             _marker: marker::PhantomData,
         }
@@ -82,12 +82,12 @@ impl Drop for RenderbufferData {
     }
 }
 
-struct RenderbufferAllocateTask<F> {
+struct RenderbufferAllocateCommand<F> {
     data: Arc<RenderbufferData>,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> GpuTask<Connection> for RenderbufferAllocateTask<F>
+impl<F> GpuTask<Connection> for RenderbufferAllocateCommand<F>
 where
     F: RenderbufferFormat,
 {

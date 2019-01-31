@@ -6,7 +6,7 @@ use crate::image::format::{
 use crate::image::texture_2d::Texture2D;
 use crate::image::texture_2d_array::Texture2DArray;
 use crate::image::texture_3d::Texture3D;
-use crate::image::texture_cube::TextureCubeHandle;
+use crate::image::texture_cube::TextureCube;
 use crate::runtime::dynamic_state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
 use crate::util::{arc_get_mut_unchecked, identical, JsId};
@@ -156,7 +156,7 @@ impl<F> UnsignedIntegerSampler3DHandle<F> {
 }
 
 pub struct FloatSamplerCubeHandle<F> {
-    data: Arc<SamplerData<TextureCubeHandle<F>>>,
+    data: Arc<SamplerData<TextureCube<F>>>,
 }
 
 impl<F> FloatSamplerCubeHandle<F> {
@@ -172,7 +172,7 @@ impl<F> FloatSamplerCubeHandle<F> {
 }
 
 pub struct IntegerSamplerCubeHandle<F> {
-    data: Arc<SamplerData<TextureCubeHandle<F>>>,
+    data: Arc<SamplerData<TextureCube<F>>>,
 }
 
 impl<F> IntegerSamplerCubeHandle<F> {
@@ -188,7 +188,7 @@ impl<F> IntegerSamplerCubeHandle<F> {
 }
 
 pub struct UnsignedIntegerSamplerCubeHandle<F> {
-    data: Arc<SamplerData<TextureCubeHandle<F>>>,
+    data: Arc<SamplerData<TextureCube<F>>>,
 }
 
 impl<F> UnsignedIntegerSamplerCubeHandle<F> {
@@ -236,7 +236,7 @@ impl<F> Sampler2DArrayShadowHandle<F> {
 }
 
 pub struct SamplerCubeShadowHandle<F> {
-    data: Arc<SamplerData<TextureCubeHandle<F>>>,
+    data: Arc<SamplerData<TextureCube<F>>>,
 }
 
 impl<F> SamplerCubeShadowHandle<F> {
