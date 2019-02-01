@@ -70,7 +70,7 @@ where
             recent_uniform_binding: None,
         });
 
-        context.submit(BufferAllocateCommand {
+        context.submit(AllocateCommand {
             data: data.clone(),
             initial: self,
             _marker: marker::PhantomData,
@@ -103,7 +103,7 @@ where
             recent_uniform_binding: None,
         });
 
-        context.submit(BufferAllocateCommand::<D, [T]> {
+        context.submit(AllocateCommand::<D, [T]> {
             data: data.clone(),
             initial: self,
             _marker: marker::PhantomData,
@@ -125,7 +125,7 @@ where
     T: RenderingContext,
 {
     fn drop_buffer_object(&self, id: JsId) {
-        self.submit(BufferDropCommand { id });
+        self.submit(DropCommand { id });
     }
 }
 struct BufferData {
@@ -173,11 +173,11 @@ where
 }
 
 impl<T> Buffer<T> {
-    pub fn upload_command<D>(&self, data: D) -> BufferUploadCommand<T, D>
+    pub fn upload_command<D>(&self, data: D) -> UploadCommand<T, D>
     where
         D: Borrow<T> + Send + Sync + 'static,
     {
-        BufferUploadCommand {
+        UploadCommand {
             buffer_data: self.data.clone(),
             data,
             offset_in_bytes: 0,
@@ -186,10 +186,10 @@ impl<T> Buffer<T> {
         }
     }
 
-    pub fn download_command(&self) -> BufferDownloadCommand<T> {
-        BufferDownloadCommand {
+    pub fn download_command(&self) -> DownloadCommand<T> {
+        DownloadCommand {
             data: self.data.clone(),
-            state: BufferDownloadState::Initial,
+            state: DownloadState::Initial,
             offset_in_bytes: 0,
             len: 1,
             _marker: marker::PhantomData,
@@ -216,11 +216,11 @@ impl<T> Buffer<[T]> {
         index.get_unchecked(self)
     }
 
-    pub fn upload_command<D>(&self, data: D) -> BufferUploadCommand<[T], D>
+    pub fn upload_command<D>(&self, data: D) -> UploadCommand<[T], D>
     where
         D: Borrow<[T]> + Send + Sync + 'static,
     {
-        BufferUploadCommand {
+        UploadCommand {
             buffer_data: self.data.clone(),
             data,
             offset_in_bytes: 0,
@@ -229,10 +229,10 @@ impl<T> Buffer<[T]> {
         }
     }
 
-    pub fn download_command(&self) -> BufferDownloadCommand<[T]> {
-        BufferDownloadCommand {
+    pub fn download_command(&self) -> DownloadCommand<[T]> {
+        DownloadCommand {
             data: self.data.clone(),
-            state: BufferDownloadState::Initial,
+            state: DownloadState::Initial,
             offset_in_bytes: 0,
             len: self.data.len,
             _marker: marker::PhantomData,
@@ -297,11 +297,11 @@ impl<T> BufferView<T> {
         }
     }
 
-    pub fn upload_task<D>(&self, data: D) -> BufferUploadCommand<T, D>
+    pub fn upload_command<D>(&self, data: D) -> UploadCommand<T, D>
     where
         D: Borrow<T> + Send + Sync + 'static,
     {
-        BufferUploadCommand {
+        UploadCommand {
             buffer_data: self.data.clone(),
             data,
             offset_in_bytes: self.offset_in_bytes,
@@ -310,10 +310,10 @@ impl<T> BufferView<T> {
         }
     }
 
-    pub fn download_task(&self) -> BufferDownloadCommand<T> {
-        BufferDownloadCommand {
+    pub fn download_command(&self) -> DownloadCommand<T> {
+        DownloadCommand {
             data: self.data.clone(),
-            state: BufferDownloadState::Initial,
+            state: DownloadState::Initial,
             offset_in_bytes: self.offset_in_bytes,
             len: 1,
             _marker: marker::PhantomData,
@@ -340,11 +340,11 @@ impl<T> BufferView<[T]> {
         index.get_unchecked(self)
     }
 
-    pub fn upload_task<D>(&self, data: D) -> BufferUploadCommand<[T], D>
+    pub fn upload_command<D>(&self, data: D) -> UploadCommand<[T], D>
     where
         D: Borrow<[T]> + Send + Sync + 'static,
     {
-        BufferUploadCommand {
+        UploadCommand {
             buffer_data: self.data.clone(),
             data,
             offset_in_bytes: self.offset_in_bytes,
@@ -353,10 +353,10 @@ impl<T> BufferView<[T]> {
         }
     }
 
-    pub fn download_task(&self) -> BufferDownloadCommand<[T]> {
-        BufferDownloadCommand {
+    pub fn download_command(&self) -> DownloadCommand<[T]> {
+        DownloadCommand {
             data: self.data.clone(),
-            state: BufferDownloadState::Initial,
+            state: DownloadState::Initial,
             offset_in_bytes: self.offset_in_bytes,
             len: self.len,
             _marker: marker::PhantomData,
@@ -642,7 +642,7 @@ impl<T> BufferIndex<BufferView<[T]>> for RangeToInclusive<usize> {
     }
 }
 
-struct BufferAllocateCommand<D, T>
+struct AllocateCommand<D, T>
 where
     T: ?Sized,
 {
@@ -651,7 +651,7 @@ where
     _marker: marker::PhantomData<T>,
 }
 
-impl<D, T> GpuTask<Connection> for BufferAllocateCommand<D, T>
+impl<D, T> GpuTask<Connection> for AllocateCommand<D, T>
 where
     D: Borrow<T>,
 {
@@ -687,7 +687,7 @@ where
     }
 }
 
-impl<D, T> GpuTask<Connection> for BufferAllocateCommand<D, [T]>
+impl<D, T> GpuTask<Connection> for AllocateCommand<D, [T]>
 where
     D: Borrow<[T]>,
 {
@@ -722,11 +722,11 @@ where
     }
 }
 
-struct BufferDropCommand {
+struct DropCommand {
     id: JsId,
 }
 
-impl GpuTask<Connection> for BufferDropCommand {
+impl GpuTask<Connection> for DropCommand {
     type Output = ();
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
@@ -739,7 +739,7 @@ impl GpuTask<Connection> for BufferDropCommand {
     }
 }
 
-pub struct BufferUploadCommand<T, D>
+pub struct UploadCommand<T, D>
 where
     T: ?Sized,
 {
@@ -750,7 +750,7 @@ where
     _marker: marker::PhantomData<T>,
 }
 
-impl<T, D> GpuTask<Connection> for BufferUploadCommand<T, D>
+impl<T, D> GpuTask<Connection> for UploadCommand<T, D>
 where
     D: Borrow<T>,
 {
@@ -792,7 +792,7 @@ where
     }
 }
 
-impl<T, D> GpuTask<Connection> for BufferUploadCommand<[T], D>
+impl<T, D> GpuTask<Connection> for UploadCommand<[T], D>
 where
     D: Borrow<[T]>,
 {
@@ -839,23 +839,23 @@ where
     }
 }
 
-pub struct BufferDownloadCommand<T>
+pub struct DownloadCommand<T>
 where
     T: ?Sized,
 {
     data: Arc<BufferData>,
-    state: BufferDownloadState,
+    state: DownloadState,
     offset_in_bytes: usize,
     len: usize,
     _marker: marker::PhantomData<T>,
 }
 
-enum BufferDownloadState {
+enum DownloadState {
     Initial,
     Copied(Option<WebGlBuffer>),
 }
 
-impl<T> GpuTask<Connection> for BufferDownloadCommand<T> {
+impl<T> GpuTask<Connection> for DownloadCommand<T> {
     type Output = Result<Box<T>, ContextMismatch>;
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
@@ -864,7 +864,7 @@ impl<T> GpuTask<Connection> for BufferDownloadCommand<T> {
         }
 
         match self.state {
-            BufferDownloadState::Initial => {
+            DownloadState::Initial => {
                 let (gl, state) = unsafe { connection.unpack_mut() };
                 let read_buffer = GL::create_buffer(&gl).unwrap();
                 let size_in_bytes = mem::size_of::<T>();
@@ -899,12 +899,12 @@ impl<T> GpuTask<Connection> for BufferDownloadCommand<T> {
 
                 mem::replace(
                     &mut self.state,
-                    BufferDownloadState::Copied(Some(read_buffer)),
+                    DownloadState::Copied(Some(read_buffer)),
                 );
 
                 Progress::ContinueFenced
             }
-            BufferDownloadState::Copied(ref mut read_buffer) => {
+            DownloadState::Copied(ref mut read_buffer) => {
                 let read_buffer = read_buffer
                     .take()
                     .expect("Cannot make progress on a BufferDownload task after it has finished");
@@ -932,7 +932,7 @@ impl<T> GpuTask<Connection> for BufferDownloadCommand<T> {
     }
 }
 
-impl<T> GpuTask<Connection> for BufferDownloadCommand<[T]> {
+impl<T> GpuTask<Connection> for DownloadCommand<[T]> {
     type Output = Result<Box<[T]>, ContextMismatch>;
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
@@ -941,7 +941,7 @@ impl<T> GpuTask<Connection> for BufferDownloadCommand<[T]> {
         }
 
         match self.state {
-            BufferDownloadState::Initial => {
+            DownloadState::Initial => {
                 let (gl, state) = unsafe { connection.unpack_mut() };
                 let read_buffer = GL::create_buffer(&gl).unwrap();
                 let size_in_bytes = self.len * mem::size_of::<T>();
@@ -976,12 +976,12 @@ impl<T> GpuTask<Connection> for BufferDownloadCommand<[T]> {
 
                 mem::replace(
                     &mut self.state,
-                    BufferDownloadState::Copied(Some(read_buffer)),
+                    DownloadState::Copied(Some(read_buffer)),
                 );
 
                 Progress::ContinueFenced
             }
-            BufferDownloadState::Copied(ref mut read_buffer) => {
+            DownloadState::Copied(ref mut read_buffer) => {
                 let read_buffer = read_buffer
                     .take()
                     .expect("Cannot make progress on a BufferDownload task after it has finished");
