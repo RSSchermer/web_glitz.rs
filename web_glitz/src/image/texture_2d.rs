@@ -18,6 +18,12 @@ use crate::runtime::dynamic_state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext, ContextMismatch};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, identical, JsId, slice_make_mut};
+use std::ops::Range;
+use std::ops::RangeFull;
+use std::ops::RangeInclusive;
+use std::ops::RangeFrom;
+use std::ops::RangeTo;
+use std::ops::RangeToInclusive;
 
 
 pub struct Texture2D<F> {
@@ -148,14 +154,18 @@ where
 
     pub fn levels(&self) -> Levels<F> {
         Levels {
-            handle: self
+            handle: self,
+            offset: 0,
+            len: self.data.levels
         }
     }
 
     pub fn levels_mut(&mut self) -> LevelsMut<F> {
         LevelsMut {
             inner: Levels {
-                handle: self
+                handle: self,
+                offset: 0,
+                len: self.data.levels
             }
         }
     }
@@ -186,7 +196,9 @@ impl Drop for Texture2DData {
 }
 
 pub struct Levels<'a, F> {
-    handle: &'a Texture2D<F>
+    handle: &'a Texture2D<F>,
+    offset: usize,
+    len: usize
 }
 
 impl<'a, F> Levels<'a, F>
@@ -197,24 +209,12 @@ where
         self.handle.data.levels
     }
 
-    pub fn get(&self, level: usize) -> Option<Level<F>> {
-        let texture_data = &self.handle.data;
-
-        if level < texture_data.levels {
-            Some(Level {
-                handle: &self.handle,
-                level,
-            })
-        } else {
-            None
-        }
+    pub fn get<'b, I>(&'b self, index: I) -> Option<I::Output> where I: LevelsIndex<&'b Self> {
+        index.get(self)
     }
 
-    pub unsafe fn get_unchecked(&self, level: usize) -> Level<F> {
-        Level {
-            handle: &self.handle,
-            level,
-        }
+    pub unsafe fn get_unchecked<'b, I>(&'b self, index: I) -> I::Output where I: LevelsIndex<&'b Self> {
+        index.get_unchecked(self)
     }
 
     pub fn iter(&self) -> LevelsIter<F> {
@@ -268,6 +268,136 @@ where
         } else {
             None
         }
+    }
+}
+
+pub trait LevelsIndex<T> {
+    type Output;
+
+    fn get(self, levels: T) -> Option<Self::Output>;
+
+    unsafe fn get_unchecked(self, levels: T) -> Self::Output;
+}
+
+impl<'a, 'b, F> LevelsIndex<&'a Levels<'b, F>> for usize {
+    type Output = Level<'a, F>;
+
+    fn get(self, levels: &'a Levels<'b, F>) -> Option<Self::Output> {
+        if self < levels.len {
+            Some(Level {
+                handle: levels.handle,
+                level: levels.offset + self
+            })
+        } else {
+            None
+        }
+    }
+
+    unsafe fn get_unchecked(self, levels: &'a Levels<'b, F>) -> Self::Output {
+        Level {
+            handle: levels.handle,
+            level: levels.offset + self
+        }
+    }
+}
+
+impl<'a, 'b, F> LevelsIndex<&'a Levels<'b, F>> for RangeFull {
+    type Output = Levels<'a, F>;
+
+    fn get(self, levels: &'a Levels<'b, F>) -> Option<Self::Output> {
+        Some(Levels {
+            handle: levels.handle,
+            offset: levels.offset,
+            len: levels.len
+        })
+    }
+
+    unsafe fn get_unchecked(self, levels: &'a Levels<'b, F>) -> Self::Output {
+        Levels {
+            handle: levels.handle,
+            offset: levels.offset,
+            len: levels.len
+        }
+    }
+}
+
+impl<'a, 'b, F> LevelsIndex<&'a Levels<'b, F>> for Range<usize> {
+    type Output = Levels<'a, F>;
+
+    fn get(self, levels: &'a Levels<'b, F>) -> Option<Self::Output> {
+        let Range { start, end } = self;
+
+        if start > end || end > levels.len {
+            None
+        } else {
+            Some(Levels {
+                handle: levels.handle,
+                offset: levels.offset + start,
+                len: end - start
+            })
+        }
+    }
+
+    unsafe fn get_unchecked(self, levels: &'a Levels<'b, F>) -> Self::Output {
+        let Range { start, end } = self;
+
+        Levels {
+            handle: levels.handle,
+            offset: levels.offset + start,
+            len: end - start
+        }
+    }
+}
+
+impl<'a, 'b, F> LevelsIndex<&'a Levels<'b, F>> for RangeInclusive<usize> {
+    type Output = Levels<'a, F>;
+
+    fn get(self, levels: &'a Levels<'b, F>) -> Option<Self::Output> {
+        if *self.end() == usize::max_value() {
+            None
+        } else {
+            (*self.start()..self.end() + 1).get(levels)
+        }
+    }
+
+    unsafe fn get_unchecked(self, levels: &'a Levels<'b, F>) -> Self::Output {
+        (*self.start()..self.end() + 1).get_unchecked(levels)
+    }
+}
+
+impl<'a, 'b, F> LevelsIndex<&'a Levels<'b, F>> for RangeFrom<usize> {
+    type Output = Levels<'a, F>;
+
+    fn get(self, levels: &'a Levels<'b, F>) -> Option<Self::Output> {
+        (self.start..levels.len).get(levels)
+    }
+
+    unsafe fn get_unchecked(self, levels: &'a Levels<'b, F>) -> Self::Output {
+        (self.start..levels.len).get_unchecked(levels)
+    }
+}
+
+impl<'a, 'b, F> LevelsIndex<&'a Levels<'b, F>> for RangeTo<usize> {
+    type Output = Levels<'a, F>;
+
+    fn get(self, levels: &'a Levels<'b, F>) -> Option<Self::Output> {
+        (0..self.end).get(levels)
+    }
+
+    unsafe fn get_unchecked(self, levels: &'a Levels<'b, F>) -> Self::Output {
+        (0..self.end).get_unchecked(levels)
+    }
+}
+
+impl<'a, 'b, F> LevelsIndex<&'a Levels<'b, F>> for RangeToInclusive<usize> {
+    type Output = Levels<'a, F>;
+
+    fn get(self, levels: &'a Levels<'b, F>) -> Option<Self::Output> {
+        (0..=self.end).get(levels)
+    }
+
+    unsafe fn get_unchecked(self, levels: &'a Levels<'b, F>) -> Self::Output {
+        (0..=self.end).get_unchecked(levels)
     }
 }
 
@@ -370,26 +500,12 @@ impl<'a, F> LevelsMut<'a, F>
     where
         F: TextureFormat,
 {
-    pub fn get_mut(&mut self, level: usize) -> Option<LevelMut<F>> {
-        if level < self.handle.data.levels {
-            Some(LevelMut {
-                inner: Level {
-                    handle: &self.inner.handle,
-                    level
-                },
-            })
-        } else {
-            None
-        }
+    pub fn get_mut<'b, I>(&'b mut self, index: I) -> Option<I::Output> where I: LevelsMutIndex<&'b mut Self> {
+        index.get_mut(self)
     }
 
-    pub unsafe fn get_mut_unchecked(&mut self, level: usize) -> LevelMut<F> {
-        LevelMut {
-            inner: Level {
-                handle: &self.inner.handle,
-                level
-            },
-        }
+    pub unsafe fn get_unchecked_mut<'b, I>(&'b mut self, index: I) -> I::Output where I: LevelsMutIndex<&'b mut Self> {
+        index.get_unchecked_mut(self)
     }
 
     pub fn iter_mut(&mut self) -> LevelsMutIter<F> {
@@ -454,6 +570,148 @@ impl<'a, F> Iterator for LevelsMutIter<'a, F>
         } else {
             None
         }
+    }
+}
+
+pub trait LevelsMutIndex<T> {
+    type Output;
+
+    fn get_mut(self, levels: T) -> Option<Self::Output>;
+
+    unsafe fn get_unchecked_mut(self, levels: T) -> Self::Output;
+}
+
+impl<'a, 'b, F> LevelsMutIndex<&'a mut LevelsMut<'b, F>> for usize {
+    type Output = LevelMut<'a, F>;
+
+    fn get_mut(self, levels: &'a mut LevelsMut<'b, F>) -> Option<Self::Output> {
+        if self < levels.inner.len {
+            Some(LevelMut {
+                inner: Level {
+                    handle: levels.inner.handle,
+                    level: levels.inner.offset + self
+                }
+            })
+        } else {
+            None
+        }
+    }
+
+    unsafe fn get_unchecked_mut(self, levels: &'a mut LevelsMut<'b, F>) -> Self::Output {
+        LevelMut {
+            inner: Level {
+                handle: levels.inner.handle,
+                level: levels.inner.offset + self
+            }
+        }
+    }
+}
+
+impl<'a, 'b, F> LevelsMutIndex<&'a mut LevelsMut<'b, F>> for RangeFull {
+    type Output = LevelsMut<'a, F>;
+
+    fn get_mut(self, levels: &'a mut LevelsMut<'b, F>) -> Option<Self::Output> {
+        Some(LevelsMut {
+            inner: Levels {
+                handle: levels.inner.handle,
+                offset: levels.inner.offset,
+                len: levels.inner.len
+            }
+        })
+    }
+
+    unsafe fn get_unchecked_mut(self, levels: &'a mut LevelsMut<'b, F>) -> Self::Output {
+        LevelsMut {
+            inner: Levels {
+                handle: levels.inner.handle,
+                offset: levels.inner.offset,
+                len: levels.inner.len
+            }
+        }
+    }
+}
+
+impl<'a, 'b, F> LevelsMutIndex<&'a mut LevelsMut<'b, F>> for Range<usize> {
+    type Output = LevelsMut<'a, F>;
+
+    fn get_mut(self, levels: &'a mut LevelsMut<'b, F>) -> Option<Self::Output> {
+        let Range { start, end } = self;
+
+        if start > end || end > levels.inner.len {
+            None
+        } else {
+            Some(LevelsMut {
+                inner: Levels {
+                    handle: levels.inner.handle,
+                    offset: levels.inner.offset + start,
+                    len: end - start
+                }
+            })
+        }
+    }
+
+    unsafe fn get_unchecked_mut(self, levels: &'a mut LevelsMut<'b, F>) -> Self::Output {
+        let Range { start, end } = self;
+
+        LevelsMut {
+            inner: Levels {
+                handle: levels.inner.handle,
+                offset: levels.inner.offset + start,
+                len: end - start
+            }
+        }
+    }
+}
+
+impl<'a, 'b, F> LevelsMutIndex<&'a mut LevelsMut<'b, F>> for RangeInclusive<usize> {
+    type Output = LevelsMut<'a, F>;
+
+    fn get_mut(self, levels: &'a mut LevelsMut<'b, F>) -> Option<Self::Output> {
+        if *self.end() == usize::max_value() {
+            None
+        } else {
+            (*self.start()..self.end() + 1).get_mut(levels)
+        }
+    }
+
+    unsafe fn get_unchecked_mut(self, levels: &'a mut LevelsMut<'b, F>) -> Self::Output {
+        (*self.start()..self.end() + 1).get_unchecked_mut(levels)
+    }
+}
+
+impl<'a, 'b, F> LevelsMutIndex<&'a mut LevelsMut<'b, F>> for RangeFrom<usize> {
+    type Output = LevelsMut<'a, F>;
+
+    fn get_mut(self, levels: &'a mut LevelsMut<'b, F>) -> Option<Self::Output> {
+        (self.start..levels.inner.len).get_mut(levels)
+    }
+
+    unsafe fn get_unchecked_mut(self, levels: &'a mut LevelsMut<'b, F>) -> Self::Output {
+        (self.start..levels.inner.len).get_unchecked_mut(levels)
+    }
+}
+
+impl<'a, 'b, F> LevelsMutIndex<&'a mut LevelsMut<'b, F>> for RangeTo<usize> {
+    type Output = LevelsMut<'a, F>;
+
+    fn get_mut(self, levels: &'a mut LevelsMut<'b, F>) -> Option<Self::Output> {
+        (0..self.end).get_mut(levels)
+    }
+
+    unsafe fn get_unchecked_mut(self, levels: &'a mut LevelsMut<'b, F>) -> Self::Output {
+        (0..self.end).get_unchecked_mut(levels)
+    }
+}
+
+impl<'a, 'b, F> LevelsMutIndex<&'a mut LevelsMut<'b, F>> for RangeToInclusive<usize> {
+    type Output = LevelsMut<'a, F>;
+
+    fn get_mut(self, levels: &'a mut LevelsMut<'b, F>) -> Option<Self::Output> {
+        (0..=self.end).get_mut(levels)
+    }
+
+    unsafe fn get_unchecked_mut(self, levels: &'a mut LevelsMut<'b, F>) -> Self::Output {
+        (0..=self.end).get_unchecked_mut(levels)
     }
 }
 
