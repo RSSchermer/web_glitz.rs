@@ -46,7 +46,7 @@ pub struct RenderPassMismatch;
 
 impl<Fb, F, T, O> GpuTask<Connection> for RenderPass<Fb, F>
 where
-    F: FnOnce(&mut Fb) -> T,
+    F: FnOnce(&Fb) -> T,
     for<'a> T: GpuTask<RenderPassContext<'a>, Output=O>,
 {
     type Output = O;
@@ -406,6 +406,22 @@ impl Default for RenderTarget<(), ()> {
             color: (),
             depth_stencil: (),
         }
+    }
+}
+
+impl<'a, 'b, T, F> RenderTargetDescriptor for RenderTarget<&'a [FloatAttachment<'b, T>], ()> where T: AttachableImage<Format=F>, F: ColorFloatRenderable {
+    type Framebuffer = Framebuffer<Vec<ColorFloatBuffer<F>>, ()>;
+
+    fn encode_render_target(&self, context: &mut EncodingContext) -> RenderTargetEncoding<Self::Framebuffer> {
+        RenderTargetEncoding::from_float_attachments(context,self.color)
+    }
+}
+
+impl<'a, T, F> RenderTargetDescriptor for RenderTarget<Vec<FloatAttachment<'a, T>>, ()> where T: AttachableImage<Format=F>, F: ColorFloatRenderable {
+    type Framebuffer = Framebuffer<Vec<ColorFloatBuffer<F>>, ()>;
+
+    fn encode_render_target(&self, context: &mut EncodingContext) -> RenderTargetEncoding<Self::Framebuffer> {
+        RenderTargetEncoding::from_float_attachments(context,&self.color)
     }
 }
 
@@ -983,6 +999,48 @@ generate_encoder_finish!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, 
 pub struct RenderTargetEncoding<F> {
     framebuffer: F,
     data: RenderTargetEncoderData,
+}
+
+impl<F> RenderTargetEncoding<Framebuffer<Vec<ColorFloatBuffer<F>>, ()>> where F: ColorFloatRenderable {
+    pub fn from_float_attachments<'a, 'b: 'a, I, T>(context: &mut EncodingContext, iter: I) -> Self where I: IntoIterator<Item=&'a FloatAttachment<'b, T>>, T: AttachableImage<Format=F> + 'b {
+        let mut color_attachments = [None; 16];
+        let mut load_ops = [LoadOpInstance::Load; 17];
+        let mut store_ops = [StoreOp::Store; 17];
+        let mut buffers = Vec::new();
+
+        for (index, attachment) in iter.into_iter().enumerate() {
+            let descriptor = attachment.image.descriptor();
+
+            buffers.push(ColorFloatBuffer::new(
+                context.render_pass_id,
+                index as i32,
+                descriptor.width(),
+                descriptor.height()
+            ));
+
+            color_attachments[index] = Some(descriptor);
+            load_ops[index] = attachment.load_op.as_instance(index as i32);
+            store_ops[index] = attachment.store_op;
+        }
+
+        let color_count = buffers.len();
+
+        RenderTargetEncoding {
+            framebuffer: Framebuffer {
+                color: buffers,
+                depth_stencil: (),
+                render_pass_id: context.render_pass_id
+            },
+            data: RenderTargetEncoderData {
+                render_pass_id: context.render_pass_id,
+                load_ops,
+                store_ops,
+                color_count,
+                color_attachments,
+                depth_stencil_attachment: DepthStencilAttachmentDescriptor::None,
+            }
+        }
+    }
 }
 
 impl<F> RenderTargetEncoding<F> {
