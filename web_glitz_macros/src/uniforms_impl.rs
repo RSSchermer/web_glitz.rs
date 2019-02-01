@@ -19,7 +19,7 @@ struct Uniforms {
 }
 
 impl Parse for Uniforms {
-    fn parse(input: ParseStream) -> ParseResult<Self> {
+    fn parse(input: ParseStream<'_>) -> ParseResult<Self> {
         Ok(Uniforms {
             fields: input.parse_terminated(UniformFieldValue::parse)?,
         })
@@ -32,7 +32,7 @@ struct UniformFieldValue {
 }
 
 impl Parse for UniformFieldValue {
-    fn parse(input: ParseStream) -> ParseResult<Self> {
+    fn parse(input: ParseStream<'_>) -> ParseResult<Self> {
         let name = input.parse()?;
 
         input.parse::<Token![:]>()?;

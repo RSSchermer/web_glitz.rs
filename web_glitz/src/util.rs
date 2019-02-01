@@ -44,11 +44,9 @@ impl JsId {
 }
 
 pub(crate) unsafe fn arc_get_mut_unchecked<T>(arc: &Arc<T>) -> &mut T {
-    unsafe {
-        let ptr = arc.deref() as *const _;
+    let ptr = arc.deref() as *const _;
 
-        &mut *(ptr as *mut _)
-    }
+    &mut *(ptr as *mut _)
 }
 
 pub(crate) fn identical<T>(a: Option<&T>, b: Option<&T>) -> bool
