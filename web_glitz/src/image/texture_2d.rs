@@ -82,7 +82,7 @@ where
             most_recent_unit: None,
         });
 
-        context.submit(Texture2DAllocateTask::<F> {
+        context.submit(AllocateCommand::<F> {
             data: data.clone(),
             _marker: marker::PhantomData,
         });
@@ -141,7 +141,7 @@ where
             most_recent_unit: None,
         });
 
-        context.submit(Texture2DAllocateTask::<F> {
+        context.submit(AllocateCommand::<F> {
             data: data.clone(),
             _marker: marker::PhantomData,
         });
@@ -430,11 +430,11 @@ where
         }
     }
 
-    pub fn upload_task<D, T>(&self, data: Image2DSource<D, T>) -> Texture2DUploadTask<D, T, F>
+    pub fn upload_command<D, T>(&self, data: Image2DSource<D, T>) -> UploadCommand<D, T, F>
     where
         T: ClientFormat<F>,
     {
-        Texture2DUploadTask {
+        UploadCommand {
             data,
             texture_data: self.handle.data.clone(),
             level: self.level,
@@ -478,11 +478,11 @@ where
         }
     }
 
-    pub fn upload_task<D, T>(&self, data: Image2DSource<D, T>) -> Texture2DUploadTask<D, T, F>
+    pub fn upload_command<D, T>(&self, data: Image2DSource<D, T>) -> UploadCommand<D, T, F>
     where
         T: ClientFormat<F>,
     {
-        Texture2DUploadTask {
+        UploadCommand {
             data,
             texture_data: self.handle.data.clone(),
             level: self.level,
@@ -727,12 +727,12 @@ impl<'a, F> Deref for LevelMut<'a, F> {
     }
 }
 
-struct Texture2DAllocateTask<F> {
+struct AllocateCommand<F> {
     data: Arc<Texture2DData>,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> GpuTask<Connection> for Texture2DAllocateTask<F>
+impl<F> GpuTask<Connection> for AllocateCommand<F>
 where
     F: TextureFormat,
 {
@@ -764,7 +764,7 @@ where
     }
 }
 
-pub struct Texture2DUploadTask<D, T, F> {
+pub struct UploadCommand<D, T, F> {
     data: Image2DSource<D, T>,
     texture_data: Arc<Texture2DData>,
     level: usize,
@@ -772,7 +772,7 @@ pub struct Texture2DUploadTask<D, T, F> {
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<D, T, F> GpuTask<Connection> for Texture2DUploadTask<D, T, F>
+impl<D, T, F> GpuTask<Connection> for UploadCommand<D, T, F>
 where
     D: Borrow<[T]>,
     T: ClientFormat<F>,
