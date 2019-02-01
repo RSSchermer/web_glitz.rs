@@ -2,6 +2,7 @@
 name = "web-glitz-derive-test"
 version = "0.1.0"
 authors = ["Roland Schermer <roland0507@gmail.com>"]
+edition = "2018"
 publish = false
 
 [dev-dependencies]
