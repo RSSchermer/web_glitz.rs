@@ -707,7 +707,7 @@ where
         unsafe {
             let initial = self.initial.borrow();
             let size = initial.len() * mem::size_of::<T>();
-            let mut initial = slice::from_raw_parts(initial as *const _ as *const u8, size);
+            let initial = slice::from_raw_parts(initial as *const _ as *const u8, size);
 
             gl.buffer_data_with_u8_array(
                 GL::COPY_WRITE_BUFFER,

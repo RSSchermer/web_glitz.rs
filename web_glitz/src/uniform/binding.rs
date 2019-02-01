@@ -2782,7 +2782,7 @@ impl<'a> Binder<'a, BlockSlot> {
 
         if *current_binding != binding {
             unsafe {
-                self.slot.program_id.with_value_unchecked(|program| {
+                program_id.with_value_unchecked(|program| {
                     gl.uniform_block_binding(program, *index, binding);
                 });
             }

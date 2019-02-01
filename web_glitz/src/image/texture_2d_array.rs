@@ -740,7 +740,7 @@ where
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, state) = unsafe { connection.unpack_mut() };
-        let mut data = unsafe { arc_get_mut_unchecked(&mut self.data) };
+        let data = unsafe { arc_get_mut_unchecked(&mut self.data) };
 
         let texture_object = gl.create_texture().unwrap();
 

@@ -12,7 +12,7 @@ use crate::render_pass::AttachableImageDescriptor;
 use crate::runtime::index_lru::IndexLRU;
 use crate::util::identical;
 use fnv::{FnvHashMap, FnvHasher};
-use util::JsId;
+use crate::util::JsId;
 
 pub struct DynamicState {
     framebuffer_cache: FnvHashMap<u64, (Framebuffer, [Option<JsId>; 17])>,

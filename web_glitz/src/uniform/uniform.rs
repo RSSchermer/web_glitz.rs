@@ -14,7 +14,7 @@ use crate::std_140::Std140;
 
 use super::binding::BindingSlot;
 use super::{IdentifierSegment, IdentifierTail, UniformIdentifier};
-use buffer::BufferView;
+use crate::buffer::BufferView;
 
 pub trait Uniform {
     fn bind(&self, identifier: IdentifierTail, slot: &mut BindingSlot) -> Result<(), BindingError>;
