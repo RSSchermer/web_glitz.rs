@@ -301,61 +301,61 @@ pub enum LoadOp<T> {
 }
 
 impl LoadOp<[f32; 4]> {
-    fn as_instance(&self, index: i32) -> LoadOpInstance {
+    fn as_instance(&self, index: i32) -> LoadAction {
         match self {
-            LoadOp::Load => LoadOpInstance::Load,
-            LoadOp::Clear(value) => LoadOpInstance::ClearColorFloat(index, *value),
+            LoadOp::Load => LoadAction::Load,
+            LoadOp::Clear(value) => LoadAction::ClearColorFloat(index, *value),
         }
     }
 }
 
 impl LoadOp<[i32; 4]> {
-    fn as_instance(&self, index: i32) -> LoadOpInstance {
+    fn as_instance(&self, index: i32) -> LoadAction {
         match self {
-            LoadOp::Load => LoadOpInstance::Load,
-            LoadOp::Clear(value) => LoadOpInstance::ClearColorInteger(index, *value),
+            LoadOp::Load => LoadAction::Load,
+            LoadOp::Clear(value) => LoadAction::ClearColorInteger(index, *value),
         }
     }
 }
 
 impl LoadOp<[u32; 4]> {
-    fn as_instance(&self, index: i32) -> LoadOpInstance {
+    fn as_instance(&self, index: i32) -> LoadAction {
         match self {
-            LoadOp::Load => LoadOpInstance::Load,
-            LoadOp::Clear(value) => LoadOpInstance::ClearColorUnsignedInteger(index, *value),
+            LoadOp::Load => LoadAction::Load,
+            LoadOp::Clear(value) => LoadAction::ClearColorUnsignedInteger(index, *value),
         }
     }
 }
 
 impl LoadOp<(f32, i32)> {
-    fn as_instance(&self) -> LoadOpInstance {
+    fn as_instance(&self) -> LoadAction {
         match self {
-            LoadOp::Load => LoadOpInstance::Load,
-            LoadOp::Clear((depth, stencil)) => LoadOpInstance::ClearDepthStencil(*depth, *stencil),
+            LoadOp::Load => LoadAction::Load,
+            LoadOp::Clear((depth, stencil)) => LoadAction::ClearDepthStencil(*depth, *stencil),
         }
     }
 }
 
 impl LoadOp<f32> {
-    fn as_instance(&self) -> LoadOpInstance {
+    fn as_instance(&self) -> LoadAction {
         match self {
-            LoadOp::Load => LoadOpInstance::Load,
-            LoadOp::Clear(depth) => LoadOpInstance::ClearDepth(*depth),
+            LoadOp::Load => LoadAction::Load,
+            LoadOp::Clear(depth) => LoadAction::ClearDepth(*depth),
         }
     }
 }
 
 impl LoadOp<i32> {
-    fn as_instance(&self) -> LoadOpInstance {
+    fn as_action(&self) -> LoadAction {
         match self {
-            LoadOp::Load => LoadOpInstance::Load,
-            LoadOp::Clear(stencil) => LoadOpInstance::ClearStencil(*stencil),
+            LoadOp::Load => LoadAction::Load,
+            LoadOp::Clear(stencil) => LoadAction::ClearStencil(*stencil),
         }
     }
 }
 
 #[derive(Clone, Copy)]
-enum LoadOpInstance {
+enum LoadAction {
     Load,
     ClearColorFloat(i32, [f32; 4]),
     ClearColorInteger(i32, [i32; 4]),
@@ -365,31 +365,31 @@ enum LoadOpInstance {
     ClearStencil(i32),
 }
 
-impl LoadOpInstance {
+impl LoadAction {
     fn perform(&self, gl: &Gl) {
         match self {
-            LoadOpInstance::Load => (),
-            LoadOpInstance::ClearColorFloat(index, value) => {
+            LoadAction::Load => (),
+            LoadAction::ClearColorFloat(index, value) => {
                 gl.clear_bufferfv_with_f32_array(Gl::COLOR, *index, unsafe {
                     slice_make_mut(value)
                 })
             }
-            LoadOpInstance::ClearColorInteger(index, value) => {
+            LoadAction::ClearColorInteger(index, value) => {
                 gl.clear_bufferiv_with_i32_array(Gl::COLOR, *index, unsafe {
                     slice_make_mut(value)
                 })
             }
-            LoadOpInstance::ClearColorUnsignedInteger(index, value) => gl
+            LoadAction::ClearColorUnsignedInteger(index, value) => gl
                 .clear_bufferuiv_with_u32_array(Gl::COLOR, *index, unsafe {
                     slice_make_mut(value)
                 }),
-            LoadOpInstance::ClearDepthStencil(depth, stencil) => {
+            LoadAction::ClearDepthStencil(depth, stencil) => {
                 gl.clear_bufferfi(Gl::DEPTH_STENCIL, 0, *depth, *stencil)
             }
-            LoadOpInstance::ClearDepth(value) => {
+            LoadAction::ClearDepth(value) => {
                 gl.clear_bufferfv_with_f32_array(Gl::DEPTH, 0, unsafe { slice_make_mut(&[*value]) })
             }
-            LoadOpInstance::ClearStencil(value) => {
+            LoadAction::ClearStencil(value) => {
                 gl.clear_bufferiv_with_i32_array(Gl::STENCIL, 0, unsafe {
                     slice_make_mut(&[*value])
                 })
@@ -993,7 +993,7 @@ pub struct RenderTargetEncoder<C, Ds> {
 
 struct RenderTargetEncoderData {
     render_pass_id: usize,
-    load_ops: [LoadOpInstance; 17],
+    load_ops: [LoadAction; 17],
     store_ops: [StoreOp; 17],
     color_count: usize,
     color_attachments: [Option<Attachment>; 16],
@@ -1007,7 +1007,7 @@ impl RenderTargetEncoder<(), ()> {
             depth_stencil: (),
             data: RenderTargetEncoderData {
                 render_pass_id: context.render_pass_id,
-                load_ops: [LoadOpInstance::Load; 17],
+                load_ops: [LoadAction::Load; 17],
                 store_ops: [StoreOp::Store; 17],
                 color_count: 0,
                 color_attachments: [
@@ -1183,7 +1183,7 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
         let width = image_descriptor.width();
         let height = image_descriptor.height();
 
-        self.data.load_ops[16] = attachment.load_op.as_instance();
+        self.data.load_ops[16] = attachment.load_op.as_action();
         self.data.store_ops[16] = attachment.store_op;
         self.data.depth_stencil_attachment =
             DepthStencilAttachmentDescriptor::Stencil(image_descriptor);
