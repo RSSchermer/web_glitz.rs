@@ -8,7 +8,7 @@ use web_sys::{
     WebGlSampler, WebGlSync, WebGlTexture, WebGlVertexArrayObject,
 };
 
-use crate::render_pass::AttachableImageDescriptor;
+use crate::render_pass::Attachment;
 use crate::runtime::index_lru::IndexLRU;
 use crate::util::identical;
 use crate::util::JsId;
@@ -1290,15 +1290,15 @@ impl<'a> FramebufferCache<'a> {
 }
 
 pub(crate) trait AttachmentSet: Hash {
-    fn color_attachments(&self) -> &[Option<AttachableImageDescriptor>];
+    fn color_attachments(&self) -> &[Option<Attachment>];
 
     fn depth_stencil_attachment(&self) -> &DepthStencilAttachmentDescriptor;
 }
 
 #[derive(PartialEq, Hash)]
 pub(crate) enum DepthStencilAttachmentDescriptor {
-    Depth(AttachableImageDescriptor),
-    Stencil(AttachableImageDescriptor),
-    DepthStencil(AttachableImageDescriptor),
+    Depth(Attachment),
+    Stencil(Attachment),
+    DepthStencil(Attachment),
     None,
 }

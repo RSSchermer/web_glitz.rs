@@ -78,42 +78,42 @@ unsafe impl ShadowSamplable for DepthComponent32F {}
 unsafe impl ShadowSamplable for Depth24Stencil8 {}
 unsafe impl ShadowSamplable for Depth32FStencil8 {}
 
-pub unsafe trait ColorFloatRenderable: InternalFormat {}
+pub unsafe trait FloatRenderable: InternalFormat {}
 
-unsafe impl ColorFloatRenderable for R8 {}
-unsafe impl ColorFloatRenderable for RG8 {}
-unsafe impl ColorFloatRenderable for RGB8 {}
-unsafe impl ColorFloatRenderable for RGBA8 {}
-unsafe impl ColorFloatRenderable for SRGB8_ALPHA8 {}
-unsafe impl ColorFloatRenderable for RGBA4 {}
-unsafe impl ColorFloatRenderable for RGB565 {}
-unsafe impl ColorFloatRenderable for RGB5_A1 {}
-unsafe impl ColorFloatRenderable for RGB10_A2 {}
+unsafe impl FloatRenderable for R8 {}
+unsafe impl FloatRenderable for RG8 {}
+unsafe impl FloatRenderable for RGB8 {}
+unsafe impl FloatRenderable for RGBA8 {}
+unsafe impl FloatRenderable for SRGB8_ALPHA8 {}
+unsafe impl FloatRenderable for RGBA4 {}
+unsafe impl FloatRenderable for RGB565 {}
+unsafe impl FloatRenderable for RGB5_A1 {}
+unsafe impl FloatRenderable for RGB10_A2 {}
 
-pub unsafe trait ColorIntegerRenderable: InternalFormat {}
+pub unsafe trait IntegerRenderable: InternalFormat {}
 
-unsafe impl ColorIntegerRenderable for R8I {}
-unsafe impl ColorIntegerRenderable for R16I {}
-unsafe impl ColorIntegerRenderable for R32I {}
-unsafe impl ColorIntegerRenderable for RG8I {}
-unsafe impl ColorIntegerRenderable for RG16I {}
-unsafe impl ColorIntegerRenderable for RG32I {}
-unsafe impl ColorIntegerRenderable for RGBA8I {}
-unsafe impl ColorIntegerRenderable for RGBA16I {}
-unsafe impl ColorIntegerRenderable for RGBA32I {}
+unsafe impl IntegerRenderable for R8I {}
+unsafe impl IntegerRenderable for R16I {}
+unsafe impl IntegerRenderable for R32I {}
+unsafe impl IntegerRenderable for RG8I {}
+unsafe impl IntegerRenderable for RG16I {}
+unsafe impl IntegerRenderable for RG32I {}
+unsafe impl IntegerRenderable for RGBA8I {}
+unsafe impl IntegerRenderable for RGBA16I {}
+unsafe impl IntegerRenderable for RGBA32I {}
 
-pub unsafe trait ColorUnsignedIntegerRenderable: InternalFormat {}
+pub unsafe trait UnsignedIntegerRenderable: InternalFormat {}
 
-unsafe impl ColorUnsignedIntegerRenderable for R8UI {}
-unsafe impl ColorUnsignedIntegerRenderable for R16UI {}
-unsafe impl ColorUnsignedIntegerRenderable for R32UI {}
-unsafe impl ColorUnsignedIntegerRenderable for RG8UI {}
-unsafe impl ColorUnsignedIntegerRenderable for RG16UI {}
-unsafe impl ColorUnsignedIntegerRenderable for RG32UI {}
-unsafe impl ColorUnsignedIntegerRenderable for RGBA8UI {}
-unsafe impl ColorUnsignedIntegerRenderable for RGB10_A2UI {}
-unsafe impl ColorUnsignedIntegerRenderable for RGBA16UI {}
-unsafe impl ColorUnsignedIntegerRenderable for RGBA32UI {}
+unsafe impl UnsignedIntegerRenderable for R8UI {}
+unsafe impl UnsignedIntegerRenderable for R16UI {}
+unsafe impl UnsignedIntegerRenderable for R32UI {}
+unsafe impl UnsignedIntegerRenderable for RG8UI {}
+unsafe impl UnsignedIntegerRenderable for RG16UI {}
+unsafe impl UnsignedIntegerRenderable for RG32UI {}
+unsafe impl UnsignedIntegerRenderable for RGBA8UI {}
+unsafe impl UnsignedIntegerRenderable for RGB10_A2UI {}
+unsafe impl UnsignedIntegerRenderable for RGBA16UI {}
+unsafe impl UnsignedIntegerRenderable for RGBA32UI {}
 
 pub unsafe trait DepthStencilRenderable: InternalFormat {}
 

@@ -1,12 +1,11 @@
 mod framebuffer;
 pub use self::framebuffer::{
-    Buffer, ColorFloatBuffer, ColorIntegerBuffer, ColorUnsignedIntegerBuffer, DepthBuffer,
-    DepthStencilBuffer, Framebuffer, StencilBuffer,
+    Buffer, DepthBuffer, DepthStencilBuffer, FloatBuffer, Framebuffer, IntegerBuffer,
+    StencilBuffer, UnsignedIntegerBuffer,
 };
 
 mod render_pass;
 pub use self::render_pass::{
-    AttachableImage, AttachableImageDescriptor, LoadOp, RenderPass, RenderPassContext,
-    RenderPassMismatch, RenderTarget, RenderTargetDescription, RenderTargetEncoder,
-    RenderTargetEncoding, StoreOp,
+    Attachment, IntoAttachment, LoadOp, RenderPass, RenderPassContext, RenderPassMismatch,
+    RenderTarget, RenderTargetDescription, RenderTargetEncoder, RenderTargetEncoding, StoreOp,
 };

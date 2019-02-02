@@ -3,14 +3,12 @@ use std::marker;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::image::format::{
-    ColorFloatRenderable, ColorIntegerRenderable, ColorUnsignedIntegerRenderable, DepthRenderable,
-    DepthStencilRenderable, Filterable, InternalFormat, RenderbufferFormat, StencilRenderable,
+    DepthRenderable, DepthStencilRenderable, Filterable, FloatRenderable, IntegerRenderable,
+    InternalFormat, RenderbufferFormat, StencilRenderable, UnsignedIntegerRenderable,
 };
 use crate::image::renderbuffer::Renderbuffer;
 use crate::image::Region2D;
-use crate::render_pass::{
-    AttachableImage, AttachableImageDescriptor, RenderPassContext, RenderPassMismatch,
-};
+use crate::render_pass::{Attachment, IntoAttachment, RenderPassContext, RenderPassMismatch};
 use crate::runtime::dynamic_state::ContextUpdate;
 use crate::task::{GpuTask, Progress};
 use crate::util::slice_make_mut;
@@ -284,42 +282,42 @@ pub trait BlitSource {
 }
 
 pub struct BlitSourceDescriptor {
-    image_descriptor: AttachableImageDescriptor,
+    image_descriptor: Attachment,
     region: ((u32, u32), u32, u32),
 }
 
-impl<F> BlitSource for Renderbuffer<F>
-where
-    F: RenderbufferFormat + 'static,
-{
-    type Format = F;
-
-    fn descriptor(&self) -> BlitSourceDescriptor {
-        BlitSourceDescriptor {
-            image_descriptor: AttachableImage::descriptor(self),
-            region: ((0, 0), self.width(), self.height()),
-        }
-    }
-}
+//impl<F> BlitSource for Renderbuffer<F>
+//where
+//    F: RenderbufferFormat + 'static,
+//{
+//    type Format = F;
+//
+//    fn descriptor(&self) -> BlitSourceDescriptor {
+//        BlitSourceDescriptor {
+//            image_descriptor: AttachableImageRef::descriptor(self),
+//            region: ((0, 0), self.width(), self.height()),
+//        }
+//    }
+//}
 
 pub unsafe trait BlitColorCompatible<C>: BlitSource {}
 
-unsafe impl<T> BlitColorCompatible<ColorFloatBuffer<T::Format>> for T
+unsafe impl<T> BlitColorCompatible<FloatBuffer<T::Format>> for T
 where
     T: BlitSource,
-    T::Format: ColorFloatRenderable,
+    T::Format: FloatRenderable,
 {
 }
-unsafe impl<T> BlitColorCompatible<ColorIntegerBuffer<T::Format>> for T
+unsafe impl<T> BlitColorCompatible<IntegerBuffer<T::Format>> for T
 where
     T: BlitSource,
-    T::Format: ColorIntegerRenderable,
+    T::Format: IntegerRenderable,
 {
 }
-unsafe impl<T> BlitColorCompatible<ColorUnsignedIntegerBuffer<T::Format>> for T
+unsafe impl<T> BlitColorCompatible<UnsignedIntegerBuffer<T::Format>> for T
 where
     T: BlitSource,
-    T::Format: ColorUnsignedIntegerRenderable,
+    T::Format: UnsignedIntegerRenderable,
 {
 }
 
@@ -409,9 +407,9 @@ pub trait Buffer {
     fn height(&self) -> u32;
 }
 
-pub struct ColorFloatBuffer<F>
+pub struct FloatBuffer<F>
 where
-    F: ColorFloatRenderable,
+    F: FloatRenderable,
 {
     render_pass_id: usize,
     index: i32,
@@ -420,12 +418,12 @@ where
     _marker: marker::PhantomData<Box<F>>,
 }
 
-impl<F> ColorFloatBuffer<F>
+impl<F> FloatBuffer<F>
 where
-    F: ColorFloatRenderable,
+    F: FloatRenderable,
 {
     pub(crate) fn new(render_pass_id: usize, index: i32, width: u32, height: u32) -> Self {
-        ColorFloatBuffer {
+        FloatBuffer {
             render_pass_id,
             index,
             width,
@@ -434,12 +432,8 @@ where
         }
     }
 
-    pub fn clear_command(
-        &mut self,
-        clear_value: [f32; 4],
-        region: Region2D,
-    ) -> ClearColorFloatCommand {
-        ClearColorFloatCommand {
+    pub fn clear_command(&mut self, clear_value: [f32; 4], region: Region2D) -> ClearFloatCommand {
+        ClearFloatCommand {
             render_pass_id: self.render_pass_id,
             buffer_index: self.index,
             clear_value,
@@ -448,9 +442,9 @@ where
     }
 }
 
-impl<F> Buffer for ColorFloatBuffer<F>
+impl<F> Buffer for FloatBuffer<F>
 where
-    F: ColorFloatRenderable,
+    F: FloatRenderable,
 {
     type Format = F;
 
@@ -463,9 +457,9 @@ where
     }
 }
 
-pub struct ColorIntegerBuffer<F>
+pub struct IntegerBuffer<F>
 where
-    F: ColorIntegerRenderable,
+    F: IntegerRenderable,
 {
     render_pass_id: usize,
     index: i32,
@@ -474,12 +468,12 @@ where
     _marker: marker::PhantomData<Box<F>>,
 }
 
-impl<F> ColorIntegerBuffer<F>
+impl<F> IntegerBuffer<F>
 where
-    F: ColorIntegerRenderable,
+    F: IntegerRenderable,
 {
     pub(crate) fn new(render_pass_id: usize, index: i32, width: u32, height: u32) -> Self {
-        ColorIntegerBuffer {
+        IntegerBuffer {
             render_pass_id,
             index,
             width,
@@ -492,8 +486,8 @@ where
         &mut self,
         clear_value: [i32; 4],
         region: Region2D,
-    ) -> ClearColorIntegerCommand {
-        ClearColorIntegerCommand {
+    ) -> ClearIntegerCommand {
+        ClearIntegerCommand {
             render_pass_id: self.render_pass_id,
             buffer_index: self.index,
             clear_value,
@@ -501,9 +495,9 @@ where
         }
     }
 }
-impl<F> Buffer for ColorIntegerBuffer<F>
+impl<F> Buffer for IntegerBuffer<F>
 where
-    F: ColorIntegerRenderable,
+    F: IntegerRenderable,
 {
     type Format = F;
 
@@ -516,9 +510,9 @@ where
     }
 }
 
-pub struct ColorUnsignedIntegerBuffer<F>
+pub struct UnsignedIntegerBuffer<F>
 where
-    F: ColorUnsignedIntegerRenderable,
+    F: UnsignedIntegerRenderable,
 {
     render_pass_id: usize,
     index: i32,
@@ -527,12 +521,12 @@ where
     _marker: marker::PhantomData<Box<F>>,
 }
 
-impl<F> ColorUnsignedIntegerBuffer<F>
+impl<F> UnsignedIntegerBuffer<F>
 where
-    F: ColorUnsignedIntegerRenderable,
+    F: UnsignedIntegerRenderable,
 {
     pub(crate) fn new(render_pass_id: usize, index: i32, width: u32, height: u32) -> Self {
-        ColorUnsignedIntegerBuffer {
+        UnsignedIntegerBuffer {
             render_pass_id,
             index,
             width,
@@ -545,8 +539,8 @@ where
         &mut self,
         clear_value: [u32; 4],
         region: Region2D,
-    ) -> ClearColorUnsignedIntegerCommand {
-        ClearColorUnsignedIntegerCommand {
+    ) -> ClearUnsignedIntegerCommand {
+        ClearUnsignedIntegerCommand {
             render_pass_id: self.render_pass_id,
             buffer_index: self.index,
             clear_value,
@@ -555,9 +549,9 @@ where
     }
 }
 
-impl<F> Buffer for ColorUnsignedIntegerBuffer<F>
+impl<F> Buffer for UnsignedIntegerBuffer<F>
 where
-    F: ColorUnsignedIntegerRenderable,
+    F: UnsignedIntegerRenderable,
 {
     type Format = F;
 
@@ -733,14 +727,14 @@ where
     }
 }
 
-pub struct ClearColorFloatCommand {
+pub struct ClearFloatCommand {
     render_pass_id: usize,
     buffer_index: i32,
     clear_value: [f32; 4],
     region: Region2D,
 }
 
-impl<'a> GpuTask<RenderPassContext<'a>> for ClearColorFloatCommand {
+impl<'a> GpuTask<RenderPassContext<'a>> for ClearFloatCommand {
     type Output = Result<(), RenderPassMismatch>;
 
     fn progress(&mut self, context: &mut RenderPassContext) -> Progress<Self::Output> {
@@ -769,14 +763,14 @@ impl<'a> GpuTask<RenderPassContext<'a>> for ClearColorFloatCommand {
     }
 }
 
-pub struct ClearColorIntegerCommand {
+pub struct ClearIntegerCommand {
     render_pass_id: usize,
     buffer_index: i32,
     clear_value: [i32; 4],
     region: Region2D,
 }
 
-impl<'a> GpuTask<RenderPassContext<'a>> for ClearColorIntegerCommand {
+impl<'a> GpuTask<RenderPassContext<'a>> for ClearIntegerCommand {
     type Output = Result<(), RenderPassMismatch>;
 
     fn progress(&mut self, context: &mut RenderPassContext) -> Progress<Self::Output> {
@@ -805,14 +799,14 @@ impl<'a> GpuTask<RenderPassContext<'a>> for ClearColorIntegerCommand {
     }
 }
 
-pub struct ClearColorUnsignedIntegerCommand {
+pub struct ClearUnsignedIntegerCommand {
     render_pass_id: usize,
     buffer_index: i32,
     clear_value: [u32; 4],
     region: Region2D,
 }
 
-impl<'a> GpuTask<RenderPassContext<'a>> for ClearColorUnsignedIntegerCommand {
+impl<'a> GpuTask<RenderPassContext<'a>> for ClearUnsignedIntegerCommand {
     type Output = Result<(), RenderPassMismatch>;
 
     fn progress(&mut self, context: &mut RenderPassContext) -> Progress<Self::Output> {
