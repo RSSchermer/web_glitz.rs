@@ -128,7 +128,7 @@ where
 
     fn into_attachment(self) -> Attachment {
         Attachment {
-            internal: AttachableImageDescriptorInternal::Renderbuffer {
+            internal: AttachmentInternal::Renderbuffer {
                 id: self.id().unwrap(),
             },
             width: self.width(),
@@ -139,13 +139,13 @@ where
 
 #[derive(Hash, PartialEq)]
 pub struct Attachment {
-    internal: AttachableImageDescriptorInternal,
+    internal: AttachmentInternal,
     width: u32,
     height: u32,
 }
 
 #[derive(Hash, PartialEq)]
-enum AttachableImageDescriptorInternal {
+enum AttachmentInternal {
     Texture2DLevel { id: JsId, level: u8 },
     LayeredTextureLevelLayer { id: JsId, level: u8, layer: u16 },
     TextureCubeLevelFace { id: JsId, level: u8, face: CubeFace },
@@ -155,10 +155,10 @@ enum AttachableImageDescriptorInternal {
 impl Attachment {
     pub(crate) fn id(&self) -> JsId {
         match self.internal {
-            AttachableImageDescriptorInternal::Texture2DLevel { id, .. } => id,
-            AttachableImageDescriptorInternal::LayeredTextureLevelLayer { id, .. } => id,
-            AttachableImageDescriptorInternal::TextureCubeLevelFace { id, .. } => id,
-            AttachableImageDescriptorInternal::Renderbuffer { id } => id,
+            AttachmentInternal::Texture2DLevel { id, .. } => id,
+            AttachmentInternal::LayeredTextureLevelLayer { id, .. } => id,
+            AttachmentInternal::TextureCubeLevelFace { id, .. } => id,
+            AttachmentInternal::Renderbuffer { id } => id,
         }
     }
 
@@ -173,7 +173,7 @@ impl Attachment {
     pub(crate) fn attach(&self, gl: &Gl, target: u32, slot: u32) {
         unsafe {
             match self.internal {
-                AttachableImageDescriptorInternal::Texture2DLevel { id, level } => {
+                AttachmentInternal::Texture2DLevel { id, level } => {
                     id.with_value_unchecked(|texture_object| {
                         gl.framebuffer_texture_2d(
                             target,
@@ -184,7 +184,7 @@ impl Attachment {
                         );
                     });
                 }
-                AttachableImageDescriptorInternal::LayeredTextureLevelLayer {
+                AttachmentInternal::LayeredTextureLevelLayer {
                     id,
                     level,
                     layer,
@@ -199,7 +199,7 @@ impl Attachment {
                         );
                     });
                 }
-                AttachableImageDescriptorInternal::TextureCubeLevelFace { id, level, face } => {
+                AttachmentInternal::TextureCubeLevelFace { id, level, face } => {
                     id.with_value_unchecked(|texture_object| {
                         gl.framebuffer_texture_2d(
                             target,
@@ -210,7 +210,7 @@ impl Attachment {
                         );
                     });
                 }
-                AttachableImageDescriptorInternal::Renderbuffer { id } => {
+                AttachmentInternal::Renderbuffer { id } => {
                     id.with_value_unchecked(|renderbuffer_object| {
                         gl.framebuffer_renderbuffer(
                             target,
