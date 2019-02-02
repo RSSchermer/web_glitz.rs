@@ -706,7 +706,7 @@ where
 }
 
 macro_rules! impl_render_target_description {
-    ($($location:tt: $C:ident),*) => {
+    ($($C:ident),*) => {
         impl<$($C),*> RenderTargetDescription for RenderTarget<($($C),*), ()>
         where
             $($C: ColorTargetDescription),*
@@ -716,8 +716,11 @@ macro_rules! impl_render_target_description {
             fn into_encoding(self, context: &mut EncodingContext) -> RenderTargetEncoding<Self::Framebuffer> {
                 let encoder = RenderTargetEncoder::new(context);
 
+                #[allow(non_snake_case)]
+                let ($($C),*) = self.color;
+
                 $(
-                    let encoder = self.color.$location.encode(encoder).unwrap();
+                    let encoder = $C.encode(encoder).unwrap();
                 )*
 
                 encoder.finish()
@@ -734,8 +737,11 @@ macro_rules! impl_render_target_description {
             fn into_encoding(self, context: &mut EncodingContext) -> RenderTargetEncoding<Self::Framebuffer> {
                 let encoder = RenderTargetEncoder::new(context);
 
+                #[allow(non_snake_case)]
+                let ($($C),*) = self.color;
+
                 $(
-                    let encoder = self.color.$location.encode(encoder).unwrap();
+                    let encoder = $C.encode(encoder).unwrap();
                 )*
 
                 let encoder = self.depth_stencil.encode(encoder);
@@ -746,128 +752,22 @@ macro_rules! impl_render_target_description {
     }
 }
 
-impl_render_target_description!(0: C0, 1: C1);
-impl_render_target_description!(0: C0, 1: C1, 2: C2);
-impl_render_target_description!(0: C0, 1: C1, 2: C2, 3: C3);
-impl_render_target_description!(0: C0, 1: C1, 2: C2, 3: C3, 4: C4);
-impl_render_target_description!(0: C0, 1: C1, 2: C2, 3: C3, 4: C4, 5: C5);
-impl_render_target_description!(0: C0, 1: C1, 2: C2, 3: C3, 4: C4, 5: C5, 6: C6);
-impl_render_target_description!(0: C0, 1: C1, 2: C2, 3: C3, 4: C4, 5: C5, 6: C6, 7: C7);
+impl_render_target_description!(C0, C1);
+impl_render_target_description!(C0, C1, C2);
+impl_render_target_description!(C0, C1, C2, C3);
+impl_render_target_description!(C0, C1, C2, C3, C4);
+impl_render_target_description!(C0, C1, C2, C3, C4, C5);
+impl_render_target_description!(C0, C1, C2, C3, C4, C5, C6);
+impl_render_target_description!(C0, C1, C2, C3, C4, C5, C6, C7);
+impl_render_target_description!(C0, C1, C2, C3, C4, C5, C6, C7, C8);
+impl_render_target_description!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9);
+impl_render_target_description!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
+impl_render_target_description!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11);
+impl_render_target_description!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12);
+impl_render_target_description!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13);
+impl_render_target_description!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14);
 impl_render_target_description!(
-    0: C0,
-    1: C1,
-    2: C2,
-    3: C3,
-    4: C4,
-    5: C5,
-    6: C6,
-    7: C7,
-    8: C8
-);
-impl_render_target_description!(
-    0: C0,
-    1: C1,
-    2: C2,
-    3: C3,
-    4: C4,
-    5: C5,
-    6: C6,
-    7: C7,
-    8: C8,
-    9: C9
-);
-impl_render_target_description!(
-    0: C0,
-    1: C1,
-    2: C2,
-    3: C3,
-    4: C4,
-    5: C5,
-    6: C6,
-    7: C7,
-    8: C8,
-    9: C9,
-    10: C10
-);
-impl_render_target_description!(
-    0: C0,
-    1: C1,
-    2: C2,
-    3: C3,
-    4: C4,
-    5: C5,
-    6: C6,
-    7: C7,
-    8: C8,
-    9: C9,
-    10: C10,
-    11: C11
-);
-impl_render_target_description!(
-    0: C0,
-    1: C1,
-    2: C2,
-    3: C3,
-    4: C4,
-    5: C5,
-    6: C6,
-    7: C7,
-    8: C8,
-    9: C9,
-    10: C10,
-    11: C11,
-    12: C12
-);
-impl_render_target_description!(
-    0: C0,
-    1: C1,
-    2: C2,
-    3: C3,
-    4: C4,
-    5: C5,
-    6: C6,
-    7: C7,
-    8: C8,
-    9: C9,
-    10: C10,
-    11: C11,
-    12: C12,
-    13: C13
-);
-impl_render_target_description!(
-    0: C0,
-    1: C1,
-    2: C2,
-    3: C3,
-    4: C4,
-    5: C5,
-    6: C6,
-    7: C7,
-    8: C8,
-    9: C9,
-    10: C10,
-    11: C11,
-    12: C12,
-    13: C13,
-    14: C14
-);
-impl_render_target_description!(
-    0: C0,
-    1: C1,
-    2: C2,
-    3: C3,
-    4: C4,
-    5: C5,
-    6: C6,
-    7: C7,
-    8: C8,
-    9: C9,
-    10: C10,
-    11: C11,
-    12: C12,
-    13: C13,
-    14: C14,
-    15: C15
+    C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15
 );
 
 pub trait ColorTargetDescription {
