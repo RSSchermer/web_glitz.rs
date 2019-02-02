@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::image::format::{
-    FloatSamplable, IntegerSamplable, ShadowSamplable, UnsignedIntegerSamplable, TextureFormat
+    FloatSamplable, IntegerSamplable, ShadowSamplable, TextureFormat, UnsignedIntegerSamplable,
 };
 use crate::image::texture_2d::Texture2D;
 use crate::image::texture_2d_array::Texture2DArray;

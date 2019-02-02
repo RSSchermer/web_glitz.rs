@@ -5,7 +5,7 @@ use std::rc::Rc;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::buffer::{Buffer, BufferUsage, IntoBuffer};
-use crate::image::format::{Filterable, TextureFormat, RenderbufferFormat};
+use crate::image::format::{Filterable, RenderbufferFormat, TextureFormat};
 use crate::image::renderbuffer::Renderbuffer;
 use crate::image::texture_2d::Texture2D;
 use crate::image::texture_2d_array::Texture2DArray;
@@ -20,14 +20,12 @@ use crate::task::{GpuTask, Progress};
 thread_local!(static ID_GEN: IdGen = IdGen::new());
 
 struct IdGen {
-    next: Cell<usize>
+    next: Cell<usize>,
 }
 
 impl IdGen {
     const fn new() -> Self {
-        IdGen {
-            next: Cell::new(0)
-        }
+        IdGen { next: Cell::new(0) }
     }
 
     fn next(&self) -> usize {
@@ -42,7 +40,7 @@ impl IdGen {
 #[derive(Clone)]
 pub struct SingleThreadedContext {
     executor: Rc<RefCell<SingleThreadedExecutor>>,
-    id: usize
+    id: usize,
 }
 
 impl RenderingContext for SingleThreadedContext {
@@ -61,39 +59,21 @@ impl RenderingContext for SingleThreadedContext {
     where
         F: RenderbufferFormat + 'static,
     {
-        Renderbuffer::new(
-            self,
-            width,
-            height,
-        )
+        Renderbuffer::new(self, width, height)
     }
 
     fn create_texture_2d<F>(&self, width: u32, height: u32) -> Texture2D<F>
     where
         F: TextureFormat + 'static,
     {
-        Texture2D::new(
-            self,
-            width,
-            height,
-        )
+        Texture2D::new(self, width, height)
     }
 
-    fn create_texture_2d_mipmapped<F>(
-        &self,
-        width: u32,
-        height: u32,
-        levels: usize,
-    ) -> Texture2D<F>
+    fn create_texture_2d_mipmapped<F>(&self, width: u32, height: u32, levels: usize) -> Texture2D<F>
     where
         F: TextureFormat + Filterable + 'static,
     {
-        Texture2D::new_mipmapped(
-            self,
-            width,
-            height,
-            levels,
-        )
+        Texture2D::new_mipmapped(self, width, height, levels)
     }
 
     fn create_texture_2d_array<F>(
@@ -106,13 +86,7 @@ impl RenderingContext for SingleThreadedContext {
     where
         F: TextureFormat + 'static,
     {
-        Texture2DArray::new(
-            self,
-            width,
-            height,
-            depth,
-            levels,
-        )
+        Texture2DArray::new(self, width, height, depth, levels)
     }
 
     fn create_texture_3d<F>(
@@ -125,25 +99,14 @@ impl RenderingContext for SingleThreadedContext {
     where
         F: TextureFormat + 'static,
     {
-        Texture3D::new(
-            self,
-            width,
-            height,
-            depth,
-            levels,
-        )
+        Texture3D::new(self, width, height, depth, levels)
     }
 
     fn create_texture_cube<F>(&self, width: u32, height: u32, levels: usize) -> TextureCube<F>
     where
         F: TextureFormat + 'static,
     {
-        TextureCube::new(
-            self,
-            width,
-            height,
-            levels,
-        )
+        TextureCube::new(self, width, height, levels)
     }
 
     fn submit<T>(&self, task: T) -> Execution<T::Output>
@@ -159,8 +122,9 @@ impl SingleThreadedContext {
         let id = ID_GEN.with(|id_gen| id_gen.next());
 
         SingleThreadedContext {
-            executor: RefCell::new(SingleThreadedExecutor::new(Connection::new(id, gl, state))).into(),
-            id
+            executor: RefCell::new(SingleThreadedExecutor::new(Connection::new(id, gl, state)))
+                .into(),
+            id,
         }
     }
 }

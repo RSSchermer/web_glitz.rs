@@ -1,6 +1,6 @@
 use wasm_bindgen::JsCast;
 
-use crate::runtime::{RenderingContext, Connection};
+use crate::runtime::{Connection, RenderingContext};
 use crate::task::{GpuTask, Progress};
 use crate::util::JsId;
 
@@ -9,8 +9,8 @@ pub(super) trait TextureObjectDropper {
 }
 
 impl<T> TextureObjectDropper for T
-    where
-        T: RenderingContext,
+where
+    T: RenderingContext,
 {
     fn drop_texture_object(&self, id: JsId) {
         self.submit(TextureDropCommand { id });

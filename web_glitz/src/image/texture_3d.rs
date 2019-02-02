@@ -8,7 +8,6 @@ use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::image::{Region2D, Region3D, Image2DSource, Image3DSource};
 use crate::image::format::{ClientFormat, TextureFormat};
 use crate::image::image_source::{Image2DSourceInternal, Image3DSourceInternal};
 use crate::image::texture_object_dropper::TextureObjectDropper;
@@ -17,8 +16,9 @@ use crate::image::util::{
     region_3d_overlap_depth, region_3d_overlap_height, region_3d_overlap_width,
     region_3d_sub_image,
 };
+use crate::image::{Image2DSource, Image3DSource, Region2D, Region3D};
 use crate::runtime::dynamic_state::ContextUpdate;
-use crate::runtime::{Connection, RenderingContext, ContextMismatch};
+use crate::runtime::{Connection, ContextMismatch, RenderingContext};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, identical, JsId};
 
@@ -40,7 +40,8 @@ impl<F> Texture3D<F> {
                     || !identical(
                         state.texture_units_textures()[most_recent_unit.unwrap() as usize].as_ref(),
                         Some(&texture_object),
-                    ) {
+                    )
+                {
                     state.set_active_texture_lru().apply(gl).unwrap();
                     state
                         .set_bound_texture_3d(Some(&texture_object))
@@ -64,13 +65,7 @@ impl<F> Texture3D<F>
 where
     F: TextureFormat + 'static,
 {
-    pub(crate) fn new<Rc>(
-        context: &Rc,
-        width: u32,
-        height: u32,
-        depth: u32,
-        levels: usize,
-    ) -> Self
+    pub(crate) fn new<Rc>(context: &Rc, width: u32, height: u32, depth: u32, levels: usize) -> Self
     where
         Rc: RenderingContext + Clone + 'static,
     {

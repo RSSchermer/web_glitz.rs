@@ -11,8 +11,8 @@ use web_sys::{
 use crate::render_pass::AttachableImageDescriptor;
 use crate::runtime::index_lru::IndexLRU;
 use crate::util::identical;
-use fnv::{FnvHashMap, FnvHasher};
 use crate::util::JsId;
+use fnv::{FnvHashMap, FnvHasher};
 
 pub struct DynamicState {
     framebuffer_cache: FnvHashMap<u64, (Framebuffer, [Option<JsId>; 17])>,
@@ -94,7 +94,10 @@ impl DynamicState {
     }
 
     pub(crate) fn bind_read_framebuffer(&mut self, gl: &Gl) {
-        if !identical(self.bound_read_framebuffer.as_ref(), Some(&self.read_framebuffer)) {
+        if !identical(
+            self.bound_read_framebuffer.as_ref(),
+            Some(&self.read_framebuffer),
+        ) {
             gl.bind_framebuffer(Gl::READ_FRAMEBUFFER, Some(&self.read_framebuffer));
 
             self.bound_read_framebuffer = Some(self.read_framebuffer.clone());

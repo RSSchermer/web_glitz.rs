@@ -7,18 +7,17 @@ use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::image::{Region2D, Image2DSource};
 use crate::image::format::{ClientFormat, Filterable, TextureFormat};
 use crate::image::image_source::Image2DSourceInternal;
 use crate::image::texture_object_dropper::TextureObjectDropper;
 use crate::image::util::{
     mipmap_size, region_2d_overlap_height, region_2d_overlap_width, region_2d_sub_image,
 };
+use crate::image::{Image2DSource, Region2D};
 use crate::runtime::dynamic_state::ContextUpdate;
-use crate::runtime::{Connection, RenderingContext, ContextMismatch};
+use crate::runtime::{Connection, ContextMismatch, RenderingContext};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, identical, JsId};
-
 
 #[derive(Clone)]
 pub struct TextureCube<F> {
@@ -39,7 +38,8 @@ impl<F> TextureCube<F> {
                     || !identical(
                         state.texture_units_textures()[most_recent_unit.unwrap() as usize].as_ref(),
                         Some(&texture_object),
-                    ) {
+                    )
+                {
                     state.set_active_texture_lru().apply(gl).unwrap();
                     state
                         .set_bound_texture_cube_map(Some(&texture_object))
@@ -63,12 +63,7 @@ impl<F> TextureCube<F>
 where
     F: TextureFormat + 'static,
 {
-    pub(crate) fn new<Rc>(
-        context: &Rc,
-        width: u32,
-        height: u32,
-        levels: usize,
-    ) -> Self
+    pub(crate) fn new<Rc>(context: &Rc, width: u32, height: u32, levels: usize) -> Self
     where
         Rc: RenderingContext + Clone + 'static,
     {

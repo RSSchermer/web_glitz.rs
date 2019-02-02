@@ -59,8 +59,8 @@ trait RenderbufferObjectDropper {
 }
 
 impl<T> RenderbufferObjectDropper for T
-    where
-        T: RenderingContext,
+where
+    T: RenderingContext,
 {
     fn drop_renderbuffer_object(&self, id: JsId) {
         self.submit(RenderbufferDropCommand { id });

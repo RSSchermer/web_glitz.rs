@@ -5,8 +5,8 @@ pub unsafe trait InternalFormat {
 }
 
 pub unsafe trait ClientFormat<T>
-    where
-        T: InternalFormat,
+where
+    T: InternalFormat,
 {
     fn format_id() -> u32;
 

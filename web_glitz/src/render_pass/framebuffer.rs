@@ -2,27 +2,37 @@ use std::marker;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::image::Region2D;
-use crate::image::format::{InternalFormat, Filterable, ColorFloatRenderable, ColorIntegerRenderable, ColorUnsignedIntegerRenderable, DepthStencilRenderable, DepthRenderable, StencilRenderable, RenderbufferFormat};
+use crate::image::format::{
+    ColorFloatRenderable, ColorIntegerRenderable, ColorUnsignedIntegerRenderable, DepthRenderable,
+    DepthStencilRenderable, Filterable, InternalFormat, RenderbufferFormat, StencilRenderable,
+};
 use crate::image::renderbuffer::Renderbuffer;
-use crate::render_pass::{RenderPassContext, AttachableImage, AttachableImageDescriptor, RenderPassMismatch};
+use crate::image::Region2D;
+use crate::render_pass::{
+    AttachableImage, AttachableImageDescriptor, RenderPassContext, RenderPassMismatch,
+};
 use crate::runtime::dynamic_state::ContextUpdate;
 use crate::task::{GpuTask, Progress};
 use crate::util::slice_make_mut;
 
-
 pub struct Framebuffer<C, Ds> {
     pub color: C,
     pub depth_stencil: Ds,
-    pub(crate) render_pass_id: usize
+    pub(crate) render_pass_id: usize,
 }
 
-impl<C, Ds> Framebuffer<C, Ds> where C: BlitColorTarget {
-    pub fn blit_color_command<S>(&self, region: Region2D, source: S) -> BlitCommand where S: BlitColorCompatible<C> {
+impl<C, Ds> Framebuffer<C, Ds>
+where
+    C: BlitColorTarget,
+{
+    pub fn blit_color_command<S>(&self, region: Region2D, source: S) -> BlitCommand
+    where
+        S: BlitColorCompatible<C>,
+    {
         let region = match region {
             Region2D::Area(origin, width, height) => (origin, width, height),
             Region2D::Fill => {
-                let BlitTargetDescriptor { width, height} = self.color.descriptor();
+                let BlitTargetDescriptor { width, height } = self.color.descriptor();
 
                 ((0, 0), width, height)
             }
@@ -34,15 +44,19 @@ impl<C, Ds> Framebuffer<C, Ds> where C: BlitColorTarget {
             bitmask: Gl::COLOR_BUFFER_BIT,
             filter: Gl::NEAREST,
             region,
-            source: source.descriptor()
+            source: source.descriptor(),
         }
     }
 
-    pub fn blit_color_linear_command<S>(&self, region: Region2D, source: S) -> BlitCommand where S: BlitColorCompatible<C>, S::Format: Filterable {
+    pub fn blit_color_linear_command<S>(&self, region: Region2D, source: S) -> BlitCommand
+    where
+        S: BlitColorCompatible<C>,
+        S::Format: Filterable,
+    {
         let region = match region {
             Region2D::Area(origin, width, height) => (origin, width, height),
             Region2D::Fill => {
-                let BlitTargetDescriptor { width, height} = self.color.descriptor();
+                let BlitTargetDescriptor { width, height } = self.color.descriptor();
 
                 ((0, 0), width, height)
             }
@@ -54,16 +68,26 @@ impl<C, Ds> Framebuffer<C, Ds> where C: BlitColorTarget {
             bitmask: Gl::COLOR_BUFFER_BIT,
             filter: Gl::LINEAR,
             region,
-            source: source.descriptor()
+            source: source.descriptor(),
         }
     }
 }
 
-impl<C, F> Framebuffer<C, DepthStencilBuffer<F>> where F: DepthStencilRenderable {
-    pub fn blit_depth_stencil_command<S>(&self, region: Region2D, source: S) -> BlitCommand where S: BlitSource<Format=F> {
+impl<C, F> Framebuffer<C, DepthStencilBuffer<F>>
+where
+    F: DepthStencilRenderable,
+{
+    pub fn blit_depth_stencil_command<S>(&self, region: Region2D, source: S) -> BlitCommand
+    where
+        S: BlitSource<Format = F>,
+    {
         let region = match region {
             Region2D::Area(origin, width, height) => (origin, width, height),
-            Region2D::Fill => ((0, 0), self.depth_stencil.width(), self.depth_stencil.height())
+            Region2D::Fill => (
+                (0, 0),
+                self.depth_stencil.width(),
+                self.depth_stencil.height(),
+            ),
         };
 
         BlitCommand {
@@ -72,14 +96,21 @@ impl<C, F> Framebuffer<C, DepthStencilBuffer<F>> where F: DepthStencilRenderable
             bitmask: Gl::DEPTH_BUFFER_BIT & Gl::STENCIL_BUFFER_BIT,
             filter: Gl::NEAREST,
             region,
-            source: source.descriptor()
+            source: source.descriptor(),
         }
     }
 
-    pub fn blit_depth_command<S>(&self, region: Region2D, source: S) -> BlitCommand where S: BlitSource<Format=F> {
+    pub fn blit_depth_command<S>(&self, region: Region2D, source: S) -> BlitCommand
+    where
+        S: BlitSource<Format = F>,
+    {
         let region = match region {
             Region2D::Area(origin, width, height) => (origin, width, height),
-            Region2D::Fill => ((0, 0), self.depth_stencil.width(), self.depth_stencil.height())
+            Region2D::Fill => (
+                (0, 0),
+                self.depth_stencil.width(),
+                self.depth_stencil.height(),
+            ),
         };
 
         BlitCommand {
@@ -88,14 +119,21 @@ impl<C, F> Framebuffer<C, DepthStencilBuffer<F>> where F: DepthStencilRenderable
             bitmask: Gl::DEPTH_BUFFER_BIT,
             filter: Gl::NEAREST,
             region,
-            source: source.descriptor()
+            source: source.descriptor(),
         }
     }
 
-    pub fn blit_stencil_command<S>(&self, region: Region2D, source: S) -> BlitCommand where S: BlitSource<Format=F> {
+    pub fn blit_stencil_command<S>(&self, region: Region2D, source: S) -> BlitCommand
+    where
+        S: BlitSource<Format = F>,
+    {
         let region = match region {
             Region2D::Area(origin, width, height) => (origin, width, height),
-            Region2D::Fill => ((0, 0), self.depth_stencil.width(), self.depth_stencil.height())
+            Region2D::Fill => (
+                (0, 0),
+                self.depth_stencil.width(),
+                self.depth_stencil.height(),
+            ),
         };
 
         BlitCommand {
@@ -104,16 +142,26 @@ impl<C, F> Framebuffer<C, DepthStencilBuffer<F>> where F: DepthStencilRenderable
             bitmask: Gl::STENCIL_BUFFER_BIT,
             filter: Gl::NEAREST,
             region,
-            source: source.descriptor()
+            source: source.descriptor(),
         }
     }
 }
 
-impl<C, F> Framebuffer<C, DepthBuffer<F>> where F: DepthRenderable {
-    pub fn blit_depth_command<S>(&self, region: Region2D, source: S) -> BlitCommand where S: BlitSource<Format=F> {
+impl<C, F> Framebuffer<C, DepthBuffer<F>>
+where
+    F: DepthRenderable,
+{
+    pub fn blit_depth_command<S>(&self, region: Region2D, source: S) -> BlitCommand
+    where
+        S: BlitSource<Format = F>,
+    {
         let region = match region {
             Region2D::Area(origin, width, height) => (origin, width, height),
-            Region2D::Fill => ((0, 0), self.depth_stencil.width(), self.depth_stencil.height())
+            Region2D::Fill => (
+                (0, 0),
+                self.depth_stencil.width(),
+                self.depth_stencil.height(),
+            ),
         };
 
         BlitCommand {
@@ -122,16 +170,26 @@ impl<C, F> Framebuffer<C, DepthBuffer<F>> where F: DepthRenderable {
             bitmask: Gl::DEPTH_BUFFER_BIT,
             filter: Gl::NEAREST,
             region,
-            source: source.descriptor()
+            source: source.descriptor(),
         }
     }
 }
 
-impl<C, F> Framebuffer<C, StencilBuffer<F>> where F: StencilRenderable {
-    pub fn blit_stencil_command<S>(&self, region: Region2D, source: S) -> BlitCommand where S: BlitSource<Format=F> {
+impl<C, F> Framebuffer<C, StencilBuffer<F>>
+where
+    F: StencilRenderable,
+{
+    pub fn blit_stencil_command<S>(&self, region: Region2D, source: S) -> BlitCommand
+    where
+        S: BlitSource<Format = F>,
+    {
         let region = match region {
             Region2D::Area(origin, width, height) => (origin, width, height),
-            Region2D::Fill => ((0, 0), self.depth_stencil.width(), self.depth_stencil.height())
+            Region2D::Fill => (
+                (0, 0),
+                self.depth_stencil.width(),
+                self.depth_stencil.height(),
+            ),
         };
 
         BlitCommand {
@@ -140,7 +198,7 @@ impl<C, F> Framebuffer<C, StencilBuffer<F>> where F: StencilRenderable {
             bitmask: Gl::STENCIL_BUFFER_BIT,
             filter: Gl::NEAREST,
             region,
-            source: source.descriptor()
+            source: source.descriptor(),
         }
     }
 }
@@ -149,11 +207,14 @@ pub trait BlitColorTarget {
     fn descriptor(&self) -> BlitTargetDescriptor;
 }
 
-impl<C> BlitColorTarget for C where C: Buffer {
+impl<C> BlitColorTarget for C
+where
+    C: Buffer,
+{
     fn descriptor(&self) -> BlitTargetDescriptor {
         BlitTargetDescriptor {
             width: self.width(),
-            height: self.height()
+            height: self.height(),
         }
     }
 }
@@ -213,7 +274,7 @@ impl_blit_color_target!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C
 
 pub struct BlitTargetDescriptor {
     width: u32,
-    height: u32
+    height: u32,
 }
 
 pub trait BlitSource {
@@ -224,16 +285,19 @@ pub trait BlitSource {
 
 pub struct BlitSourceDescriptor {
     image_descriptor: AttachableImageDescriptor,
-    region: ((u32, u32), u32, u32)
+    region: ((u32, u32), u32, u32),
 }
 
-impl<F> BlitSource for Renderbuffer<F> where F: RenderbufferFormat + 'static {
+impl<F> BlitSource for Renderbuffer<F>
+where
+    F: RenderbufferFormat + 'static,
+{
     type Format = F;
 
     fn descriptor(&self) -> BlitSourceDescriptor {
         BlitSourceDescriptor {
             image_descriptor: AttachableImage::descriptor(self),
-            region: ((0, 0), self.width(), self.height())
+            region: ((0, 0), self.width(), self.height()),
         }
     }
 }
@@ -284,7 +348,7 @@ impl_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C1
 
 pub struct BlitColorCommand {
     region: ((u32, u32), u32, u32),
-    source: BlitSourceDescriptor
+    source: BlitSourceDescriptor,
 }
 
 pub struct BlitCommand {
@@ -293,7 +357,7 @@ pub struct BlitCommand {
     bitmask: u32,
     filter: u32,
     region: ((u32, u32), u32, u32),
-    source: BlitSourceDescriptor
+    source: BlitSourceDescriptor,
 }
 
 impl<'a> GpuTask<RenderPassContext<'a>> for BlitCommand {
@@ -308,7 +372,9 @@ impl<'a> GpuTask<RenderPassContext<'a>> for BlitCommand {
 
         state.bind_read_framebuffer(gl);
 
-        self.source.image_descriptor.attach(gl,Gl::READ_FRAMEBUFFER, self.read_slot);
+        self.source
+            .image_descriptor
+            .attach(gl, Gl::READ_FRAMEBUFFER, self.read_slot);
 
         let ((src_x0, src_y0), src_width, src_height) = self.source.region;
         let src_x1 = src_x0 + src_width;
@@ -328,7 +394,7 @@ impl<'a> GpuTask<RenderPassContext<'a>> for BlitCommand {
             dst_x1 as i32,
             dst_y1 as i32,
             self.bitmask,
-            self.filter
+            self.filter,
         );
 
         Progress::Finished(Ok(()))
@@ -343,21 +409,36 @@ pub trait Buffer {
     fn height(&self) -> u32;
 }
 
-pub struct ColorFloatBuffer<F> where F: ColorFloatRenderable {
+pub struct ColorFloatBuffer<F>
+where
+    F: ColorFloatRenderable,
+{
     render_pass_id: usize,
     index: i32,
     width: u32,
     height: u32,
-    _marker: marker::PhantomData<Box<F>>
+    _marker: marker::PhantomData<Box<F>>,
 }
 
-impl<F> ColorFloatBuffer<F> where F: ColorFloatRenderable {
+impl<F> ColorFloatBuffer<F>
+where
+    F: ColorFloatRenderable,
+{
     pub(crate) fn new(render_pass_id: usize, index: i32, width: u32, height: u32) -> Self {
-        ColorFloatBuffer { render_pass_id, index,  width,
-            height, _marker: marker::PhantomData }
+        ColorFloatBuffer {
+            render_pass_id,
+            index,
+            width,
+            height,
+            _marker: marker::PhantomData,
+        }
     }
 
-    pub fn clear_command(&mut self, clear_value: [f32; 4], region: Region2D) -> ClearColorFloatCommand {
+    pub fn clear_command(
+        &mut self,
+        clear_value: [f32; 4],
+        region: Region2D,
+    ) -> ClearColorFloatCommand {
         ClearColorFloatCommand {
             render_pass_id: self.render_pass_id,
             buffer_index: self.index,
@@ -367,7 +448,10 @@ impl<F> ColorFloatBuffer<F> where F: ColorFloatRenderable {
     }
 }
 
-impl<F> Buffer for ColorFloatBuffer<F> where F: ColorFloatRenderable {
+impl<F> Buffer for ColorFloatBuffer<F>
+where
+    F: ColorFloatRenderable,
+{
     type Format = F;
 
     fn width(&self) -> u32 {
@@ -379,21 +463,36 @@ impl<F> Buffer for ColorFloatBuffer<F> where F: ColorFloatRenderable {
     }
 }
 
-pub struct ColorIntegerBuffer<F> where F: ColorIntegerRenderable {
+pub struct ColorIntegerBuffer<F>
+where
+    F: ColorIntegerRenderable,
+{
     render_pass_id: usize,
     index: i32,
     width: u32,
     height: u32,
-    _marker: marker::PhantomData<Box<F>>
+    _marker: marker::PhantomData<Box<F>>,
 }
 
-impl<F> ColorIntegerBuffer<F> where F: ColorIntegerRenderable {
+impl<F> ColorIntegerBuffer<F>
+where
+    F: ColorIntegerRenderable,
+{
     pub(crate) fn new(render_pass_id: usize, index: i32, width: u32, height: u32) -> Self {
-        ColorIntegerBuffer { render_pass_id, index, width,
-            height, _marker: marker::PhantomData }
+        ColorIntegerBuffer {
+            render_pass_id,
+            index,
+            width,
+            height,
+            _marker: marker::PhantomData,
+        }
     }
 
-    pub fn clear_command(&mut self, clear_value: [i32; 4], region: Region2D) -> ClearColorIntegerCommand {
+    pub fn clear_command(
+        &mut self,
+        clear_value: [i32; 4],
+        region: Region2D,
+    ) -> ClearColorIntegerCommand {
         ClearColorIntegerCommand {
             render_pass_id: self.render_pass_id,
             buffer_index: self.index,
@@ -402,7 +501,10 @@ impl<F> ColorIntegerBuffer<F> where F: ColorIntegerRenderable {
         }
     }
 }
-impl<F> Buffer for ColorIntegerBuffer<F> where F: ColorIntegerRenderable {
+impl<F> Buffer for ColorIntegerBuffer<F>
+where
+    F: ColorIntegerRenderable,
+{
     type Format = F;
 
     fn width(&self) -> u32 {
@@ -414,18 +516,29 @@ impl<F> Buffer for ColorIntegerBuffer<F> where F: ColorIntegerRenderable {
     }
 }
 
-pub struct ColorUnsignedIntegerBuffer<F> where F: ColorUnsignedIntegerRenderable {
+pub struct ColorUnsignedIntegerBuffer<F>
+where
+    F: ColorUnsignedIntegerRenderable,
+{
     render_pass_id: usize,
     index: i32,
     width: u32,
     height: u32,
-    _marker: marker::PhantomData<Box<F>>
+    _marker: marker::PhantomData<Box<F>>,
 }
 
-impl<F> ColorUnsignedIntegerBuffer<F> where F: ColorUnsignedIntegerRenderable {
+impl<F> ColorUnsignedIntegerBuffer<F>
+where
+    F: ColorUnsignedIntegerRenderable,
+{
     pub(crate) fn new(render_pass_id: usize, index: i32, width: u32, height: u32) -> Self {
-        ColorUnsignedIntegerBuffer { render_pass_id, index, width,
-            height, _marker: marker::PhantomData }
+        ColorUnsignedIntegerBuffer {
+            render_pass_id,
+            index,
+            width,
+            height,
+            _marker: marker::PhantomData,
+        }
     }
 
     pub fn clear_command(
@@ -442,7 +555,10 @@ impl<F> ColorUnsignedIntegerBuffer<F> where F: ColorUnsignedIntegerRenderable {
     }
 }
 
-impl<F> Buffer for ColorUnsignedIntegerBuffer<F> where F: ColorUnsignedIntegerRenderable {
+impl<F> Buffer for ColorUnsignedIntegerBuffer<F>
+where
+    F: ColorUnsignedIntegerRenderable,
+{
     type Format = F;
 
     fn width(&self) -> u32 {
@@ -454,20 +570,26 @@ impl<F> Buffer for ColorUnsignedIntegerBuffer<F> where F: ColorUnsignedIntegerRe
     }
 }
 
-pub struct DepthStencilBuffer<F> where F: DepthStencilRenderable {
+pub struct DepthStencilBuffer<F>
+where
+    F: DepthStencilRenderable,
+{
     render_pass_id: usize,
     width: u32,
     height: u32,
-    _marker: marker::PhantomData<Box<F>>
+    _marker: marker::PhantomData<Box<F>>,
 }
 
-impl<F> DepthStencilBuffer<F> where F: DepthStencilRenderable {
+impl<F> DepthStencilBuffer<F>
+where
+    F: DepthStencilRenderable,
+{
     pub(crate) fn new(render_pass_id: usize, width: u32, height: u32) -> Self {
         DepthStencilBuffer {
             render_pass_id,
             width,
             height,
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 
@@ -486,15 +608,26 @@ impl<F> DepthStencilBuffer<F> where F: DepthStencilRenderable {
     }
 
     pub fn clear_depth_command(&mut self, depth: f32, region: Region2D) -> ClearDepthCommand {
-        ClearDepthCommand { render_pass_id: self.render_pass_id,depth, region }
+        ClearDepthCommand {
+            render_pass_id: self.render_pass_id,
+            depth,
+            region,
+        }
     }
 
     pub fn clear_stencil_command(&mut self, stencil: i32, region: Region2D) -> ClearStencilCommand {
-        ClearStencilCommand { render_pass_id: self.render_pass_id,stencil, region }
+        ClearStencilCommand {
+            render_pass_id: self.render_pass_id,
+            stencil,
+            region,
+        }
     }
 }
 
-impl<F> Buffer for DepthStencilBuffer<F> where F: DepthStencilRenderable {
+impl<F> Buffer for DepthStencilBuffer<F>
+where
+    F: DepthStencilRenderable,
+{
     type Format = F;
 
     fn width(&self) -> u32 {
@@ -506,29 +639,42 @@ impl<F> Buffer for DepthStencilBuffer<F> where F: DepthStencilRenderable {
     }
 }
 
-pub struct DepthBuffer<F> where F: DepthRenderable {
+pub struct DepthBuffer<F>
+where
+    F: DepthRenderable,
+{
     render_pass_id: usize,
     width: u32,
     height: u32,
-    _marker: marker::PhantomData<Box<F>>
+    _marker: marker::PhantomData<Box<F>>,
 }
 
-impl<F> DepthBuffer<F> where F: DepthRenderable {
+impl<F> DepthBuffer<F>
+where
+    F: DepthRenderable,
+{
     pub(crate) fn new(render_pass_id: usize, width: u32, height: u32) -> Self {
         DepthBuffer {
             render_pass_id,
             width,
             height,
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 
     pub fn clear_command(&mut self, depth: f32, region: Region2D) -> ClearDepthCommand {
-        ClearDepthCommand { render_pass_id: self.render_pass_id, depth, region }
+        ClearDepthCommand {
+            render_pass_id: self.render_pass_id,
+            depth,
+            region,
+        }
     }
 }
 
-impl<F> Buffer for DepthBuffer<F> where F: DepthRenderable {
+impl<F> Buffer for DepthBuffer<F>
+where
+    F: DepthRenderable,
+{
     type Format = F;
 
     fn width(&self) -> u32 {
@@ -540,29 +686,42 @@ impl<F> Buffer for DepthBuffer<F> where F: DepthRenderable {
     }
 }
 
-pub struct StencilBuffer<F> where F: StencilRenderable {
+pub struct StencilBuffer<F>
+where
+    F: StencilRenderable,
+{
     render_pass_id: usize,
     width: u32,
     height: u32,
-    _marker: marker::PhantomData<Box<F>>
+    _marker: marker::PhantomData<Box<F>>,
 }
 
-impl<F> StencilBuffer<F> where F: StencilRenderable {
+impl<F> StencilBuffer<F>
+where
+    F: StencilRenderable,
+{
     pub(crate) fn new(render_pass_id: usize, width: u32, height: u32) -> Self {
         StencilBuffer {
             render_pass_id,
             width,
             height,
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 
     pub fn clear_command(&mut self, stencil: i32, region: Region2D) -> ClearStencilCommand {
-        ClearStencilCommand { render_pass_id: self.render_pass_id, stencil, region }
+        ClearStencilCommand {
+            render_pass_id: self.render_pass_id,
+            stencil,
+            region,
+        }
     }
 }
 
-impl<F> Buffer for StencilBuffer<F> where F: StencilRenderable {
+impl<F> Buffer for StencilBuffer<F>
+where
+    F: StencilRenderable,
+{
     type Format = F;
 
     fn width(&self) -> u32 {

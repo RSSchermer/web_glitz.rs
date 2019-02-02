@@ -9,7 +9,7 @@ use wasm_bindgen::JsCast;
 use web_sys::{WebGl2RenderingContext as GL, WebGlBuffer};
 
 use crate::runtime::dynamic_state::{BufferRange, ContextUpdate};
-use crate::runtime::{Connection, RenderingContext, ContextMismatch};
+use crate::runtime::{Connection, ContextMismatch, RenderingContext};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, slice_make_mut, JsId};
 
@@ -897,10 +897,7 @@ impl<T> GpuTask<Connection> for DownloadCommand<T> {
                     size_in_bytes as i32,
                 );
 
-                mem::replace(
-                    &mut self.state,
-                    DownloadState::Copied(Some(read_buffer)),
-                );
+                mem::replace(&mut self.state, DownloadState::Copied(Some(read_buffer)));
 
                 Progress::ContinueFenced
             }
@@ -974,10 +971,7 @@ impl<T> GpuTask<Connection> for DownloadCommand<[T]> {
                     size_in_bytes as i32,
                 );
 
-                mem::replace(
-                    &mut self.state,
-                    DownloadState::Copied(Some(read_buffer)),
-                );
+                mem::replace(&mut self.state, DownloadState::Copied(Some(read_buffer)));
 
                 Progress::ContinueFenced
             }

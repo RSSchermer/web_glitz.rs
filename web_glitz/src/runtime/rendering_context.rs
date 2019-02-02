@@ -6,7 +6,7 @@ use futures::{Async, Poll};
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::buffer::{Buffer, BufferUsage, IntoBuffer};
-use crate::image::format::{Filterable, TextureFormat, RenderbufferFormat};
+use crate::image::format::{Filterable, RenderbufferFormat, TextureFormat};
 use crate::image::renderbuffer::Renderbuffer;
 use crate::image::texture_2d::Texture2D;
 use crate::image::texture_2d_array::Texture2DArray;
@@ -59,12 +59,7 @@ pub trait RenderingContext {
     where
         F: TextureFormat + 'static;
 
-    fn create_texture_cube<F>(
-        &self,
-        width: u32,
-        height: u32,
-        levels: usize,
-    ) -> TextureCube<F>
+    fn create_texture_cube<F>(&self, width: u32, height: u32, levels: usize) -> TextureCube<F>
     where
         F: TextureFormat + 'static;
 
@@ -134,7 +129,7 @@ impl Connection {
         Connection {
             context_id,
             gl,
-            state
+            state,
         }
     }
 
