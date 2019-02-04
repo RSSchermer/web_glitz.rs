@@ -1,7 +1,9 @@
 use std::borrow::Borrow;
 use std::cmp;
+use std::hash::{Hash, Hasher};
 use std::marker;
 use std::mem;
+use std::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 use std::slice;
 use std::sync::Arc;
 
@@ -21,14 +23,6 @@ use crate::runtime::dynamic_state::ContextUpdate;
 use crate::runtime::{Connection, ContextMismatch, RenderingContext};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, identical, JsId};
-use std::hash::Hash;
-use std::hash::Hasher;
-use std::ops::Range;
-use std::ops::RangeFrom;
-use std::ops::RangeFull;
-use std::ops::RangeInclusive;
-use std::ops::RangeTo;
-use std::ops::RangeToInclusive;
 
 pub struct Texture2DArray<F> {
     data: Arc<Texture2DArrayData>,
