@@ -864,6 +864,20 @@ where
         self.len
     }
 
+    pub fn get<'b, I>(&'b self, index: I) -> Option<I::Output>
+        where
+            I: LevelSubImageLayersIndex<'b, F>,
+    {
+        index.get(self)
+    }
+
+    pub unsafe fn get_unchecked<'b, I>(&'b self, index: I) -> I::Output
+        where
+            I: LevelSubImageLayersIndex<'b, F>,
+    {
+        index.get_unchecked(self)
+    }
+
     pub fn iter(&self) -> LevelSubImageLayersIter<F> {
         LevelSubImageLayersIter {
             handle: self.handle,
@@ -923,6 +937,169 @@ where
         } else {
             None
         }
+    }
+}
+
+pub trait LevelSubImageLayersIndex<'a, F> {
+    type Output;
+
+    fn get(self, layers: &'a LevelSubImageLayers<F>) -> Option<Self::Output>;
+
+    unsafe fn get_unchecked(self, layers: &'a LevelSubImageLayers<F>) -> Self::Output;
+}
+
+impl<'a, F> LevelSubImageLayersIndex<'a, F> for usize
+    where
+        F: 'a,
+{
+    type Output = LevelLayerSubImage<'a, F>;
+
+    fn get(self, layers: &'a LevelSubImageLayers<F>) -> Option<Self::Output> {
+        if self < layers.len {
+            Some(LevelLayerSubImage {
+                handle: layers.handle,
+                level: layers.level,
+                layer: layers.offset + self,
+                region: layers.region
+            })
+        } else {
+            None
+        }
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelSubImageLayers<F>) -> Self::Output {
+        LevelLayerSubImage {
+            handle: layers.handle,
+            level: layers.level,
+            layer: layers.offset + self,
+            region: layers.region
+        }
+    }
+}
+
+impl<'a, F> LevelSubImageLayersIndex<'a, F> for RangeFull
+    where
+        F: 'a,
+{
+    type Output = LevelSubImageLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelSubImageLayers<F>) -> Option<Self::Output> {
+        Some(LevelSubImageLayers {
+            handle: layers.handle,
+            level: layers.level,
+            offset: layers.offset,
+            len: layers.len,
+            region: layers.region
+        })
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelSubImageLayers<F>) -> Self::Output {
+        LevelSubImageLayers {
+            handle: layers.handle,
+            level: layers.level,
+            offset: layers.offset,
+            len: layers.len,
+            region: layers.region
+        }
+    }
+}
+
+impl<'a, F> LevelSubImageLayersIndex<'a, F> for Range<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelSubImageLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelSubImageLayers<F>) -> Option<Self::Output> {
+        let Range { start, end } = self;
+
+        if start > end || end > layers.len {
+            None
+        } else {
+            Some(LevelSubImageLayers {
+                handle: layers.handle,
+                level: layers.level,
+                offset: layers.offset + start,
+                len: end - start,
+                region: layers.region
+            })
+        }
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelSubImageLayers<F>) -> Self::Output {
+        let Range { start, end } = self;
+
+        LevelSubImageLayers {
+            handle: layers.handle,
+            level: layers.level,
+            offset: layers.offset + start,
+            len: end - start,
+            region: layers.region
+        }
+    }
+}
+
+impl<'a, F> LevelSubImageLayersIndex<'a, F> for RangeInclusive<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelSubImageLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelSubImageLayers<F>) -> Option<Self::Output> {
+        if *self.end() == usize::max_value() {
+            None
+        } else {
+            <Range<usize> as LevelSubImageLayersIndex<'a, F>>::get(*self.start()..self.end() + 1, layers)
+        }
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelSubImageLayers<F>) -> Self::Output {
+        <Range<usize> as LevelSubImageLayersIndex<'a, F>>::get_unchecked(*self.start()..self.end() + 1, layers)
+    }
+}
+
+impl<'a, F> LevelSubImageLayersIndex<'a, F> for RangeFrom<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelSubImageLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelSubImageLayers<F>) -> Option<Self::Output> {
+        <Range<usize> as LevelSubImageLayersIndex<'a, F>>::get(self.start..layers.len, layers)
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelSubImageLayers<F>) -> Self::Output {
+        <Range<usize> as LevelSubImageLayersIndex<'a, F>>::get_unchecked(self.start..layers.len, layers)
+    }
+}
+
+impl<'a, F> LevelSubImageLayersIndex<'a, F> for RangeTo<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelSubImageLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelSubImageLayers<F>) -> Option<Self::Output> {
+        <Range<usize> as LevelSubImageLayersIndex<'a, F>>::get(0..self.end, layers)
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelSubImageLayers<F>) -> Self::Output {
+        <Range<usize> as LevelSubImageLayersIndex<'a, F>>::get_unchecked(0..self.end, layers)
+    }
+}
+
+impl<'a, F> LevelSubImageLayersIndex<'a, F> for RangeToInclusive<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelSubImageLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelSubImageLayers<F>) -> Option<Self::Output> {
+        <RangeInclusive<usize> as LevelSubImageLayersIndex<'a, F>>::get(0..=self.end, layers)
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelSubImageLayers<F>) -> Self::Output {
+        <RangeInclusive<usize> as LevelSubImageLayersIndex<'a, F>>::get_unchecked(0..=self.end, layers)
     }
 }
 
