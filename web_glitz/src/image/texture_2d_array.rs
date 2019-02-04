@@ -347,12 +347,12 @@ impl<'a, F> LevelsIndex<'a, F> for RangeInclusive<usize>
         if *self.end() == usize::max_value() {
             None
         } else {
-            (*self.start()..self.end() + 1).get(levels)
+            <Range<usize> as LevelsIndex<'a, F>>::get(*self.start()..self.end() + 1, levels)
         }
     }
 
     unsafe fn get_unchecked(self, levels: &'a Levels<F>) -> Self::Output {
-        (*self.start()..self.end() + 1).get_unchecked(levels)
+        <Range<usize> as LevelsIndex<'a, F>>::get_unchecked(*self.start()..self.end() + 1, levels)
     }
 }
 
@@ -363,11 +363,11 @@ impl<'a, F> LevelsIndex<'a, F> for RangeFrom<usize>
     type Output = Levels<'a, F>;
 
     fn get(self, levels: &'a Levels<F>) -> Option<Self::Output> {
-        (self.start..levels.len).get(levels)
+        <Range<usize> as LevelsIndex<'a, F>>::get(self.start..levels.len, levels)
     }
 
     unsafe fn get_unchecked(self, levels: &'a Levels<F>) -> Self::Output {
-        (self.start..levels.len).get_unchecked(levels)
+        <Range<usize> as LevelsIndex<'a, F>>::get_unchecked(self.start..levels.len, levels)
     }
 }
 
@@ -378,11 +378,11 @@ impl<'a, F> LevelsIndex<'a, F> for RangeTo<usize>
     type Output = Levels<'a, F>;
 
     fn get(self, levels: &'a Levels<F>) -> Option<Self::Output> {
-        (0..self.end).get(levels)
+        <Range<usize> as LevelsIndex<'a, F>>::get(0..self.end, levels)
     }
 
     unsafe fn get_unchecked(self, levels: &'a Levels<F>) -> Self::Output {
-        (0..self.end).get_unchecked(levels)
+        <Range<usize> as LevelsIndex<'a, F>>::get_unchecked(0..self.end, levels)
     }
 }
 
@@ -393,11 +393,11 @@ impl<'a, F> LevelsIndex<'a, F> for RangeToInclusive<usize>
     type Output = Levels<'a, F>;
 
     fn get(self, levels: &'a Levels<F>) -> Option<Self::Output> {
-        (0..=self.end).get(levels)
+        <RangeInclusive<usize> as LevelsIndex<'a, F>>::get(0..=self.end, levels)
     }
 
     unsafe fn get_unchecked(self, levels: &'a Levels<F>) -> Self::Output {
-        (0..=self.end).get_unchecked(levels)
+        <RangeInclusive<usize> as LevelsIndex<'a, F>>::get_unchecked(0..=self.end, levels)
     }
 }
 
@@ -481,6 +481,20 @@ where
         self.len
     }
 
+    pub fn get<'b, I>(&'b self, index: I) -> Option<I::Output>
+        where
+            I: LevelLayersIndex<'b, F>,
+    {
+        index.get(self)
+    }
+
+    pub unsafe fn get_unchecked<'b, I>(&'b self, index: I) -> I::Output
+        where
+            I: LevelLayersIndex<'b, F>,
+    {
+        index.get_unchecked(self)
+    }
+
     pub fn iter(&self) -> LevelLayersIter<F> {
         LevelLayersIter {
             handle: self.handle,
@@ -536,6 +550,163 @@ where
         } else {
             None
         }
+    }
+}
+
+pub trait LevelLayersIndex<'a, F> {
+    type Output;
+
+    fn get(self, layers: &'a LevelLayers<F>) -> Option<Self::Output>;
+
+    unsafe fn get_unchecked(self, layers: &'a LevelLayers<F>) -> Self::Output;
+}
+
+impl<'a, F> LevelLayersIndex<'a, F> for usize
+    where
+        F: 'a,
+{
+    type Output = LevelLayer<'a, F>;
+
+    fn get(self, layers: &'a LevelLayers<F>) -> Option<Self::Output> {
+        if self < layers.len {
+            Some(LevelLayer {
+                handle: layers.handle,
+                level: layers.level,
+                layer: layers.offset + self,
+            })
+        } else {
+            None
+        }
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelLayers<F>) -> Self::Output {
+        LevelLayer {
+            handle: layers.handle,
+            level: layers.level,
+            layer: layers.offset + self,
+        }
+    }
+}
+
+impl<'a, F> LevelLayersIndex<'a, F> for RangeFull
+    where
+        F: 'a,
+{
+    type Output = LevelLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelLayers<F>) -> Option<Self::Output> {
+        Some(LevelLayers {
+            handle: layers.handle,
+            level: layers.level,
+            offset: layers.offset,
+            len: layers.len,
+        })
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelLayers<F>) -> Self::Output {
+        LevelLayers {
+            handle: layers.handle,
+            level: layers.level,
+            offset: layers.offset,
+            len: layers.len,
+        }
+    }
+}
+
+impl<'a, F> LevelLayersIndex<'a, F> for Range<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelLayers<F>) -> Option<Self::Output> {
+        let Range { start, end } = self;
+
+        if start > end || end > layers.len {
+            None
+        } else {
+            Some(LevelLayers {
+                handle: layers.handle,
+                level: layers.level,
+                offset: layers.offset + start,
+                len: end - start,
+            })
+        }
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelLayers<F>) -> Self::Output {
+        let Range { start, end } = self;
+
+        LevelLayers {
+            handle: layers.handle,
+            level: layers.level,
+            offset: layers.offset + start,
+            len: end - start,
+        }
+    }
+}
+
+impl<'a, F> LevelLayersIndex<'a, F> for RangeInclusive<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelLayers<F>) -> Option<Self::Output> {
+        if *self.end() == usize::max_value() {
+            None
+        } else {
+            <Range<usize> as LevelLayersIndex<'a, F>>::get(*self.start()..self.end() + 1, layers)
+        }
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelLayers<F>) -> Self::Output {
+        <Range<usize> as LevelLayersIndex<'a, F>>::get_unchecked(*self.start()..self.end() + 1, layers)
+    }
+}
+
+impl<'a, F> LevelLayersIndex<'a, F> for RangeFrom<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelLayers<F>) -> Option<Self::Output> {
+        <Range<usize> as LevelLayersIndex<'a, F>>::get(self.start..layers.len, layers)
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelLayers<F>) -> Self::Output {
+        <Range<usize> as LevelLayersIndex<'a, F>>::get_unchecked(self.start..layers.len, layers)
+    }
+}
+
+impl<'a, F> LevelLayersIndex<'a, F> for RangeTo<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelLayers<F>) -> Option<Self::Output> {
+        <Range<usize> as LevelLayersIndex<'a, F>>::get(0..self.end, layers)
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelLayers<F>) -> Self::Output {
+        <Range<usize> as LevelLayersIndex<'a, F>>::get_unchecked(0..self.end, layers)
+    }
+}
+
+impl<'a, F> LevelLayersIndex<'a, F> for RangeToInclusive<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelLayers<F>) -> Option<Self::Output> {
+        <RangeInclusive<usize> as LevelLayersIndex<'a, F>>::get(0..=self.end, layers)
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelLayers<F>) -> Self::Output {
+        <RangeInclusive<usize> as LevelLayersIndex<'a, F>>::get_unchecked(0..=self.end, layers)
     }
 }
 
