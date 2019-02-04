@@ -1,7 +1,9 @@
 use std::borrow::Borrow;
 use std::cmp;
+use std::hash::{Hash, Hasher};
 use std::marker;
 use std::mem;
+use std::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 use std::slice;
 use std::sync::Arc;
 
@@ -21,8 +23,7 @@ use crate::runtime::dynamic_state::ContextUpdate;
 use crate::runtime::{Connection, ContextMismatch, RenderingContext};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, identical, JsId};
-use std::hash::Hash;
-use std::hash::Hasher;
+use std::ops::Deref;
 
 pub struct Texture3D<F> {
     data: Arc<Texture3DData>,
@@ -40,13 +41,13 @@ impl<F> Texture3D<F> {
             data.id.unwrap().with_value_unchecked(|texture_object| {
                 if most_recent_unit.is_none()
                     || !identical(
-                        state.texture_units_textures()[most_recent_unit.unwrap() as usize].as_ref(),
-                        Some(&texture_object),
-                    )
+                    state.texture_units_textures()[most_recent_unit.unwrap() as usize].as_ref(),
+                    Some(&texture_object),
+                )
                 {
                     state.set_active_texture_lru().apply(gl).unwrap();
                     state
-                        .set_bound_texture_3d(Some(&texture_object))
+                        .set_bound_texture_2d_array(Some(&texture_object))
                         .apply(gl)
                         .unwrap();
 
@@ -64,12 +65,12 @@ impl<F> Texture3D<F> {
 }
 
 impl<F> Texture3D<F>
-where
-    F: TextureFormat + 'static,
+    where
+        F: TextureFormat + 'static,
 {
     pub(crate) fn new<Rc>(context: &Rc, width: u32, height: u32, depth: u32, levels: usize) -> Self
-    where
-        Rc: RenderingContext + Clone + 'static,
+        where
+            Rc: RenderingContext + Clone + 'static,
     {
         let data = Arc::new(Texture3DData {
             id: None,
@@ -82,7 +83,7 @@ where
             most_recent_unit: None,
         });
 
-        context.submit(Texture3DAllocateTask::<F> {
+        context.submit(AllocateCommand::<F> {
             data: data.clone(),
             _marker: marker::PhantomData,
         });
@@ -93,18 +94,18 @@ where
         }
     }
 
-    pub fn base_level(&self) -> Texture3DLevel<F> {
-        Texture3DLevel {
-            texture_data: self.data.clone(),
+    pub fn base_level(&self) -> Level<F> {
+        Level {
+            handle: self,
             level: 0,
-            _marker: marker::PhantomData,
         }
     }
 
-    pub fn levels(&self) -> Texture3DLevels<F> {
-        Texture3DLevels {
-            texture_data: self.data.clone(),
-            _marker: marker::PhantomData,
+    pub fn levels(&self) -> Levels<F> {
+        Levels {
+            handle: self,
+            offset: 0,
+            len: self.data.levels,
         }
     }
 
@@ -146,8 +147,8 @@ impl PartialEq for Texture3DData {
 
 impl Hash for Texture3DData {
     fn hash<H>(&self, state: &mut H)
-    where
-        H: Hasher,
+        where
+            H: Hasher,
     {
         self.id.hash(state);
     }
@@ -161,82 +162,71 @@ impl Drop for Texture3DData {
     }
 }
 
-#[derive(Clone)]
-pub struct Texture3DLevels<F> {
-    texture_data: Arc<Texture3DData>,
-    _marker: marker::PhantomData<[F]>,
+pub struct Levels<'a, F> {
+    handle: &'a Texture3D<F>,
+    offset: usize,
+    len: usize,
 }
 
-impl<F> Texture3DLevels<F>
-where
-    F: TextureFormat,
+impl<'a, F> Levels<'a, F>
+    where
+        F: TextureFormat,
 {
     pub fn len(&self) -> usize {
-        self.texture_data.levels
+        self.len
     }
 
-    pub fn get(&self, level: usize) -> Option<Texture3DLevel<F>> {
-        let texture_data = &self.texture_data;
-
-        if level < texture_data.levels {
-            Some(Texture3DLevel {
-                texture_data: texture_data.clone(),
-                level,
-                _marker: marker::PhantomData,
-            })
-        } else {
-            None
-        }
+    pub fn get<'b, I>(&'b self, index: I) -> Option<I::Output>
+        where
+            I: LevelsIndex<'b, F>,
+    {
+        index.get(self)
     }
 
-    pub unsafe fn get_unchecked(&self, level: usize) -> Texture3DLevel<F> {
-        Texture3DLevel {
-            texture_data: self.texture_data.clone(),
-            level,
-            _marker: marker::PhantomData,
-        }
+    pub unsafe fn get_unchecked<'b, I>(&'b self, index: I) -> I::Output
+        where
+            I: LevelsIndex<'b, F>,
+    {
+        index.get_unchecked(self)
     }
 
-    pub fn iter(&self) -> Texture3DLevelsIter<F> {
-        Texture3DLevelsIter {
-            texture_data: self.texture_data.clone(),
-            current_level: 0,
-            end_level: self.texture_data.levels,
-            _marker: marker::PhantomData,
+    pub fn iter(&self) -> LevelsIter<F> {
+        LevelsIter {
+            handle: self.handle,
+            current_level: self.offset,
+            end_level: self.offset + self.len,
         }
     }
 }
 
-impl<F> IntoIterator for Texture3DLevels<F>
-where
-    F: TextureFormat,
+impl<'a, F> IntoIterator for Levels<'a, F>
+    where
+        F: TextureFormat,
 {
-    type Item = Texture3DLevel<F>;
+    type Item = Level<'a, F>;
 
-    type IntoIter = Texture3DLevelsIter<F>;
+    type IntoIter = LevelsIter<'a, F>;
 
     fn into_iter(self) -> Self::IntoIter {
-        Texture3DLevelsIter {
-            current_level: 0,
-            end_level: self.texture_data.levels,
-            texture_data: self.texture_data.clone(),
-            _marker: marker::PhantomData,
+        LevelsIter {
+            handle: self.handle,
+            current_level: self.offset,
+            end_level: self.offset + self.len,
         }
     }
 }
 
-pub struct Texture3DLevelsIter<F> {
-    texture_data: Arc<Texture3DData>,
+pub struct LevelsIter<'a, F> {
+    handle: &'a Texture3D<F>,
     current_level: usize,
     end_level: usize,
-    _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> Iterator for Texture3DLevelsIter<F>
-where
-    F: TextureFormat,
+impl<'a, F> Iterator for LevelsIter<'a, F>
+    where
+        F: TextureFormat,
 {
-    type Item = Texture3DLevel<F>;
+    type Item = Level<'a, F>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let level = self.current_level;
@@ -244,10 +234,9 @@ where
         if level < self.end_level {
             self.current_level += 1;
 
-            Some(Texture3DLevel {
-                texture_data: self.texture_data.clone(),
+            Some(Level {
+                handle: self.handle,
                 level,
-                _marker: marker::PhantomData,
             })
         } else {
             None
@@ -255,22 +244,168 @@ where
     }
 }
 
-#[derive(Clone)]
-pub struct Texture3DLevel<F> {
-    texture_data: Arc<Texture3DData>,
-    level: usize,
-    _marker: marker::PhantomData<[F]>,
+pub trait LevelsIndex<'a, F> {
+    type Output;
+
+    fn get(self, levels: &'a Levels<F>) -> Option<Self::Output>;
+
+    unsafe fn get_unchecked(self, levels: &'a Levels<F>) -> Self::Output;
 }
 
-impl<F> Texture3DLevel<F>
-where
-    F: TextureFormat,
+impl<'a, F> LevelsIndex<'a, F> for usize
+    where
+        F: 'a,
 {
-    pub fn texture(&self) -> Texture3D<F> {
-        Texture3D {
-            data: self.texture_data.clone(),
-            _marker: marker::PhantomData,
+    type Output = Level<'a, F>;
+
+    fn get(self, levels: &'a Levels<F>) -> Option<Self::Output> {
+        if self < levels.len {
+            Some(Level {
+                handle: levels.handle,
+                level: levels.offset + self,
+            })
+        } else {
+            None
         }
+    }
+
+    unsafe fn get_unchecked(self, levels: &'a Levels<F>) -> Self::Output {
+        Level {
+            handle: levels.handle,
+            level: levels.offset + self,
+        }
+    }
+}
+
+impl<'a, F> LevelsIndex<'a, F> for RangeFull
+    where
+        F: 'a,
+{
+    type Output = Levels<'a, F>;
+
+    fn get(self, levels: &'a Levels<F>) -> Option<Self::Output> {
+        Some(Levels {
+            handle: levels.handle,
+            offset: levels.offset,
+            len: levels.len,
+        })
+    }
+
+    unsafe fn get_unchecked(self, levels: &'a Levels<F>) -> Self::Output {
+        Levels {
+            handle: levels.handle,
+            offset: levels.offset,
+            len: levels.len,
+        }
+    }
+}
+
+impl<'a, F> LevelsIndex<'a, F> for Range<usize>
+    where
+        F: 'a,
+{
+    type Output = Levels<'a, F>;
+
+    fn get(self, levels: &'a Levels<F>) -> Option<Self::Output> {
+        let Range { start, end } = self;
+
+        if start > end || end > levels.len {
+            None
+        } else {
+            Some(Levels {
+                handle: levels.handle,
+                offset: levels.offset + start,
+                len: end - start,
+            })
+        }
+    }
+
+    unsafe fn get_unchecked(self, levels: &'a Levels<F>) -> Self::Output {
+        let Range { start, end } = self;
+
+        Levels {
+            handle: levels.handle,
+            offset: levels.offset + start,
+            len: end - start,
+        }
+    }
+}
+
+impl<'a, F> LevelsIndex<'a, F> for RangeInclusive<usize>
+    where
+        F: 'a,
+{
+    type Output = Levels<'a, F>;
+
+    fn get(self, levels: &'a Levels<F>) -> Option<Self::Output> {
+        if *self.end() == usize::max_value() {
+            None
+        } else {
+            <Range<usize> as LevelsIndex<'a, F>>::get(*self.start()..self.end() + 1, levels)
+        }
+    }
+
+    unsafe fn get_unchecked(self, levels: &'a Levels<F>) -> Self::Output {
+        <Range<usize> as LevelsIndex<'a, F>>::get_unchecked(*self.start()..self.end() + 1, levels)
+    }
+}
+
+impl<'a, F> LevelsIndex<'a, F> for RangeFrom<usize>
+    where
+        F: 'a,
+{
+    type Output = Levels<'a, F>;
+
+    fn get(self, levels: &'a Levels<F>) -> Option<Self::Output> {
+        <Range<usize> as LevelsIndex<'a, F>>::get(self.start..levels.len, levels)
+    }
+
+    unsafe fn get_unchecked(self, levels: &'a Levels<F>) -> Self::Output {
+        <Range<usize> as LevelsIndex<'a, F>>::get_unchecked(self.start..levels.len, levels)
+    }
+}
+
+impl<'a, F> LevelsIndex<'a, F> for RangeTo<usize>
+    where
+        F: 'a,
+{
+    type Output = Levels<'a, F>;
+
+    fn get(self, levels: &'a Levels<F>) -> Option<Self::Output> {
+        <Range<usize> as LevelsIndex<'a, F>>::get(0..self.end, levels)
+    }
+
+    unsafe fn get_unchecked(self, levels: &'a Levels<F>) -> Self::Output {
+        <Range<usize> as LevelsIndex<'a, F>>::get_unchecked(0..self.end, levels)
+    }
+}
+
+impl<'a, F> LevelsIndex<'a, F> for RangeToInclusive<usize>
+    where
+        F: 'a,
+{
+    type Output = Levels<'a, F>;
+
+    fn get(self, levels: &'a Levels<F>) -> Option<Self::Output> {
+        <RangeInclusive<usize> as LevelsIndex<'a, F>>::get(0..=self.end, levels)
+    }
+
+    unsafe fn get_unchecked(self, levels: &'a Levels<F>) -> Self::Output {
+        <RangeInclusive<usize> as LevelsIndex<'a, F>>::get_unchecked(0..=self.end, levels)
+    }
+}
+
+pub struct Level<'a, F> {
+    handle: &'a Texture3D<F>,
+    level: usize,
+}
+
+impl<'a, F> Level<'a, F>
+    where
+        F: TextureFormat,
+{
+    pub(crate) fn texture_data(&self) -> &Arc<Texture3DData> {
+        &self.handle.data
     }
 
     pub fn level(&self) -> usize {
@@ -278,41 +413,41 @@ where
     }
 
     pub fn width(&self) -> u32 {
-        mipmap_size(self.texture_data.width, self.level)
+        mipmap_size(self.handle.data.width, self.level)
     }
 
     pub fn height(&self) -> u32 {
-        mipmap_size(self.texture_data.height, self.level)
+        mipmap_size(self.handle.data.height, self.level)
     }
 
     pub fn depth(&self) -> u32 {
-        self.texture_data.depth
+        self.handle.data.depth
     }
 
-    pub fn layers(&self) -> Texture3DLevelLayers<F> {
-        Texture3DLevelLayers {
-            texture_data: self.texture_data.clone(),
+    pub fn layers(&self) -> LevelLayers<F> {
+        LevelLayers {
+            handle: self.handle,
             level: self.level,
-            _marker: marker::PhantomData,
+            offset: 0,
+            len: self.handle.data.depth as usize,
         }
     }
 
-    pub fn sub_image(&self, region: Region3D) -> Texture3DLevelSubImage<F> {
-        Texture3DLevelSubImage {
-            texture_data: self.texture_data.clone(),
+    pub fn sub_image(&self, region: Region3D) -> LevelSubImage<F> {
+        LevelSubImage {
+            handle: self.handle,
             level: self.level,
             region,
-            _marker: marker::PhantomData,
         }
     }
 
-    pub fn upload_task<D, T>(&self, data: Image3DSource<D, T>) -> Texture3DLevelUploadTask<D, T, F>
-    where
-        T: ClientFormat<F>,
+    pub fn upload_command<D, T>(&self, data: Image3DSource<D, T>) -> LevelUploadCommand<D, T, F>
+        where
+            T: ClientFormat<F>,
     {
-        Texture3DLevelUploadTask {
+        LevelUploadCommand {
             data,
-            texture_data: self.texture_data.clone(),
+            texture_data: self.handle.data.clone(),
             level: self.level,
             region: Region3D::Fill,
             _marker: marker::PhantomData,
@@ -320,86 +455,75 @@ where
     }
 }
 
-#[derive(Clone)]
-pub struct Texture3DLevelLayers<F> {
-    texture_data: Arc<Texture3DData>,
+pub struct LevelLayers<'a, F> {
+    handle: &'a Texture3D<F>,
     level: usize,
-    _marker: marker::PhantomData<[F]>,
+    offset: usize,
+    len: usize,
 }
 
-impl<F> Texture3DLevelLayers<F>
-where
-    F: TextureFormat,
+impl<'a, F> LevelLayers<'a, F>
+    where
+        F: TextureFormat,
 {
     pub fn len(&self) -> usize {
-        self.texture_data.depth as usize
+        self.len
     }
 
-    pub fn get(&self, index: usize) -> Option<Texture3DLevelLayer<F>> {
-        if index < self.texture_data.depth as usize {
-            Some(Texture3DLevelLayer {
-                texture_data: self.texture_data.clone(),
-                level: self.level,
-                layer: index,
-                _marker: marker::PhantomData,
-            })
-        } else {
-            None
-        }
+    pub fn get<'b, I>(&'b self, index: I) -> Option<I::Output>
+        where
+            I: LevelLayersIndex<'b, F>,
+    {
+        index.get(self)
     }
 
-    pub fn get_unchecked(&self, index: usize) -> Texture3DLevelLayer<F> {
-        Texture3DLevelLayer {
-            texture_data: self.texture_data.clone(),
+    pub unsafe fn get_unchecked<'b, I>(&'b self, index: I) -> I::Output
+        where
+            I: LevelLayersIndex<'b, F>,
+    {
+        index.get_unchecked(self)
+    }
+
+    pub fn iter(&self) -> LevelLayersIter<F> {
+        LevelLayersIter {
+            handle: self.handle,
             level: self.level,
-            layer: index,
-            _marker: marker::PhantomData,
-        }
-    }
-
-    pub fn iter(&self) -> Texture3DLevelLayersIter<F> {
-        Texture3DLevelLayersIter {
-            level: self.level,
-            current_layer: 0,
-            end_layer: self.texture_data.depth as usize,
-            texture_data: self.texture_data.clone(),
-            _marker: marker::PhantomData,
+            current_layer: self.offset,
+            end_layer: self.offset + self.len,
         }
     }
 }
 
-impl<F> IntoIterator for Texture3DLevelLayers<F>
-where
-    F: TextureFormat,
+impl<'a, F> IntoIterator for LevelLayers<'a, F>
+    where
+        F: TextureFormat,
 {
-    type Item = Texture3DLevelLayer<F>;
+    type Item = LevelLayer<'a, F>;
 
-    type IntoIter = Texture3DLevelLayersIter<F>;
+    type IntoIter = LevelLayersIter<'a, F>;
 
     fn into_iter(self) -> Self::IntoIter {
-        Texture3DLevelLayersIter {
+        LevelLayersIter {
+            handle: self.handle,
             level: self.level,
-            current_layer: 0,
-            end_layer: self.texture_data.depth as usize,
-            texture_data: self.texture_data,
-            _marker: marker::PhantomData,
+            current_layer: self.offset,
+            end_layer: self.offset + self.len,
         }
     }
 }
 
-pub struct Texture3DLevelLayersIter<F> {
-    texture_data: Arc<Texture3DData>,
+pub struct LevelLayersIter<'a, F> {
+    handle: &'a Texture3D<F>,
     level: usize,
     current_layer: usize,
     end_layer: usize,
-    _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> Iterator for Texture3DLevelLayersIter<F>
-where
-    F: TextureFormat,
+impl<'a, F> Iterator for LevelLayersIter<'a, F>
+    where
+        F: TextureFormat,
 {
-    type Item = Texture3DLevelLayer<F>;
+    type Item = LevelLayer<'a, F>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let layer = self.current_layer;
@@ -407,11 +531,10 @@ where
         if layer < self.end_layer {
             self.current_layer += 1;
 
-            Some(Texture3DLevelLayer {
-                texture_data: self.texture_data.clone(),
+            Some(LevelLayer {
+                handle: self.handle,
                 level: self.level,
                 layer,
-                _marker: marker::PhantomData,
             })
         } else {
             None
@@ -419,23 +542,178 @@ where
     }
 }
 
-#[derive(Clone)]
-pub struct Texture3DLevelLayer<F> {
-    texture_data: Arc<Texture3DData>,
-    level: usize,
-    layer: usize,
-    _marker: marker::PhantomData<[F]>,
+pub trait LevelLayersIndex<'a, F> {
+    type Output;
+
+    fn get(self, layers: &'a LevelLayers<F>) -> Option<Self::Output>;
+
+    unsafe fn get_unchecked(self, layers: &'a LevelLayers<F>) -> Self::Output;
 }
 
-impl<F> Texture3DLevelLayer<F>
-where
-    F: TextureFormat,
+impl<'a, F> LevelLayersIndex<'a, F> for usize
+    where
+        F: 'a,
 {
-    pub fn texture(&self) -> Texture3D<F> {
-        Texture3D {
-            data: self.texture_data.clone(),
-            _marker: marker::PhantomData,
+    type Output = LevelLayer<'a, F>;
+
+    fn get(self, layers: &'a LevelLayers<F>) -> Option<Self::Output> {
+        if self < layers.len {
+            Some(LevelLayer {
+                handle: layers.handle,
+                level: layers.level,
+                layer: layers.offset + self,
+            })
+        } else {
+            None
         }
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelLayers<F>) -> Self::Output {
+        LevelLayer {
+            handle: layers.handle,
+            level: layers.level,
+            layer: layers.offset + self,
+        }
+    }
+}
+
+impl<'a, F> LevelLayersIndex<'a, F> for RangeFull
+    where
+        F: 'a,
+{
+    type Output = LevelLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelLayers<F>) -> Option<Self::Output> {
+        Some(LevelLayers {
+            handle: layers.handle,
+            level: layers.level,
+            offset: layers.offset,
+            len: layers.len,
+        })
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelLayers<F>) -> Self::Output {
+        LevelLayers {
+            handle: layers.handle,
+            level: layers.level,
+            offset: layers.offset,
+            len: layers.len,
+        }
+    }
+}
+
+impl<'a, F> LevelLayersIndex<'a, F> for Range<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelLayers<F>) -> Option<Self::Output> {
+        let Range { start, end } = self;
+
+        if start > end || end > layers.len {
+            None
+        } else {
+            Some(LevelLayers {
+                handle: layers.handle,
+                level: layers.level,
+                offset: layers.offset + start,
+                len: end - start,
+            })
+        }
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelLayers<F>) -> Self::Output {
+        let Range { start, end } = self;
+
+        LevelLayers {
+            handle: layers.handle,
+            level: layers.level,
+            offset: layers.offset + start,
+            len: end - start,
+        }
+    }
+}
+
+impl<'a, F> LevelLayersIndex<'a, F> for RangeInclusive<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelLayers<F>) -> Option<Self::Output> {
+        if *self.end() == usize::max_value() {
+            None
+        } else {
+            <Range<usize> as LevelLayersIndex<'a, F>>::get(*self.start()..self.end() + 1, layers)
+        }
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelLayers<F>) -> Self::Output {
+        <Range<usize> as LevelLayersIndex<'a, F>>::get_unchecked(
+            *self.start()..self.end() + 1,
+            layers,
+        )
+    }
+}
+
+impl<'a, F> LevelLayersIndex<'a, F> for RangeFrom<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelLayers<F>) -> Option<Self::Output> {
+        <Range<usize> as LevelLayersIndex<'a, F>>::get(self.start..layers.len, layers)
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelLayers<F>) -> Self::Output {
+        <Range<usize> as LevelLayersIndex<'a, F>>::get_unchecked(self.start..layers.len, layers)
+    }
+}
+
+impl<'a, F> LevelLayersIndex<'a, F> for RangeTo<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelLayers<F>) -> Option<Self::Output> {
+        <Range<usize> as LevelLayersIndex<'a, F>>::get(0..self.end, layers)
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelLayers<F>) -> Self::Output {
+        <Range<usize> as LevelLayersIndex<'a, F>>::get_unchecked(0..self.end, layers)
+    }
+}
+
+impl<'a, F> LevelLayersIndex<'a, F> for RangeToInclusive<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelLayers<F>) -> Option<Self::Output> {
+        <RangeInclusive<usize> as LevelLayersIndex<'a, F>>::get(0..=self.end, layers)
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelLayers<F>) -> Self::Output {
+        <RangeInclusive<usize> as LevelLayersIndex<'a, F>>::get_unchecked(0..=self.end, layers)
+    }
+}
+
+pub struct LevelLayer<'a, F> {
+    handle: &'a Texture3D<F>,
+    level: usize,
+    layer: usize,
+}
+
+impl<'a, F> LevelLayer<'a, F>
+    where
+        F: TextureFormat,
+{
+    pub(crate) fn texture_data(&self) -> &Arc<Texture3DData> {
+        &self.handle.data
     }
 
     pub fn level(&self) -> usize {
@@ -447,33 +725,32 @@ where
     }
 
     pub fn width(&self) -> u32 {
-        mipmap_size(self.texture_data.width, self.level)
+        mipmap_size(self.handle.data.width, self.level)
     }
 
     pub fn height(&self) -> u32 {
-        mipmap_size(self.texture_data.height, self.level)
+        mipmap_size(self.handle.data.height, self.level)
     }
 
-    pub fn sub_image(&self, region: Region2D) -> Texture3DLevelLayerSubImage<F> {
-        Texture3DLevelLayerSubImage {
-            texture_data: self.texture_data.clone(),
+    pub fn sub_image(&self, region: Region2D) -> LevelLayerSubImage<F> {
+        LevelLayerSubImage {
+            handle: self.handle,
             level: self.level,
             layer: self.layer,
             region,
-            _marker: marker::PhantomData,
         }
     }
 
-    pub fn upload_task<D, T>(
+    pub fn upload_command<D, T>(
         &self,
         data: Image2DSource<D, T>,
-    ) -> Texture3DLevelLayerUploadTask<D, T, F>
-    where
-        T: ClientFormat<F>,
+    ) -> LevelLayerUploadCommand<D, T, F>
+        where
+            T: ClientFormat<F>,
     {
-        Texture3DLevelLayerUploadTask {
+        LevelLayerUploadCommand {
             data,
-            texture_data: self.texture_data.clone(),
+            texture_data: self.handle.data.clone(),
             level: self.level,
             layer: self.layer,
             region: Region2D::Fill,
@@ -482,25 +759,16 @@ where
     }
 }
 
-#[derive(Clone)]
-pub struct Texture3DLevelSubImage<F> {
-    texture_data: Arc<Texture3DData>,
+pub struct LevelSubImage<'a, F> {
+    handle: &'a Texture3D<F>,
     level: usize,
     region: Region3D,
-    _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> Texture3DLevelSubImage<F>
-where
-    F: TextureFormat,
+impl<'a, F> LevelSubImage<'a, F>
+    where
+        F: TextureFormat,
 {
-    pub fn texture(&self) -> Texture3D<F> {
-        Texture3D {
-            data: self.texture_data.clone(),
-            _marker: marker::PhantomData,
-        }
-    }
-
     pub fn level(&self) -> usize {
         self.level
     }
@@ -510,21 +778,21 @@ where
     }
 
     pub fn width(&self) -> u32 {
-        region_3d_overlap_width(self.texture_data.width, self.level, &self.region)
+        region_3d_overlap_width(self.handle.data.width, self.level, &self.region)
     }
 
     pub fn height(&self) -> u32 {
-        region_3d_overlap_height(self.texture_data.height, self.level, &self.region)
+        region_3d_overlap_height(self.handle.data.height, self.level, &self.region)
     }
 
     pub fn depth(&self) -> u32 {
-        region_3d_overlap_depth(self.texture_data.depth, &self.region)
+        region_3d_overlap_depth(self.handle.data.depth, &self.region)
     }
 
-    pub fn layers(&self) -> Texture3DLevelSubImageLayers<F> {
+    pub fn layers(&self) -> LevelSubImageLayers<F> {
         let (start_layer, end_layer, region) = match self.region {
             Region3D::Area((offset_x, offset_y, offset_z), width, height, depth) => {
-                let max_layer = cmp::min(self.texture_data.depth, offset_z + depth);
+                let max_layer = cmp::min(self.handle.data.depth, offset_z + depth);
 
                 (
                     offset_z,
@@ -532,35 +800,33 @@ where
                     Region2D::Area((offset_x, offset_y), width, height),
                 )
             }
-            Region3D::Fill => (0, self.texture_data.depth, Region2D::Fill),
+            Region3D::Fill => (0, self.handle.data.depth, Region2D::Fill),
         };
 
-        Texture3DLevelSubImageLayers {
-            texture_data: self.texture_data.clone(),
+        LevelSubImageLayers {
+            handle: self.handle,
             level: self.level,
-            start_layer: start_layer as usize,
-            end_layer: end_layer as usize,
+            offset: start_layer as usize,
+            len: (end_layer - start_layer) as usize,
             region,
-            _marker: marker::PhantomData,
         }
     }
 
-    pub fn sub_image(&self, region: Region3D) -> Texture3DLevelSubImage<F> {
-        Texture3DLevelSubImage {
-            texture_data: self.texture_data.clone(),
+    pub fn sub_image(&self, region: Region3D) -> LevelSubImage<F> {
+        LevelSubImage {
+            handle: self.handle,
             level: self.level,
             region: region_3d_sub_image(self.region, region),
-            _marker: marker::PhantomData,
         }
     }
 
-    pub fn upload_task<D, T>(&self, data: Image3DSource<D, T>) -> Texture3DLevelUploadTask<D, T, F>
-    where
-        T: ClientFormat<F>,
+    pub fn upload_command<D, T>(&self, data: Image3DSource<D, T>) -> LevelUploadCommand<D, T, F>
+        where
+            T: ClientFormat<F>,
     {
-        Texture3DLevelUploadTask {
+        LevelUploadCommand {
             data,
-            texture_data: self.texture_data.clone(),
+            texture_data: self.handle.data.clone(),
             level: self.level,
             region: self.region,
             _marker: marker::PhantomData,
@@ -568,89 +834,79 @@ where
     }
 }
 
-#[derive(Clone)]
-pub struct Texture3DLevelSubImageLayers<F> {
-    texture_data: Arc<Texture3DData>,
+pub struct LevelSubImageLayers<'a, F> {
+    handle: &'a Texture3D<F>,
     level: usize,
-    start_layer: usize,
-    end_layer: usize,
+    offset: usize,
+    len: usize,
     region: Region2D,
-    _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> Texture3DLevelSubImageLayers<F>
-where
-    F: TextureFormat,
+impl<'a, F> LevelSubImageLayers<'a, F>
+    where
+        F: TextureFormat,
 {
     pub fn len(&self) -> usize {
-        self.end_layer - self.start_layer
+        self.len
     }
 
-    pub fn get(&self, index: usize) -> Option<Texture3DLevelLayerSubImage<F>> {
-        let layer = self.start_layer + index;
-
-        if layer < self.end_layer {
-            Some(Texture3DLevelLayerSubImage {
-                texture_data: self.texture_data.clone(),
-                level: self.level,
-                layer,
-                region: self.region,
-                _marker: marker::PhantomData,
-            })
-        } else {
-            None
-        }
+    pub fn get<'b, I>(&'b self, index: I) -> Option<I::Output>
+        where
+            I: LevelSubImageLayersIndex<'b, F>,
+    {
+        index.get(self)
     }
 
-    pub fn get_unchecked(&self, index: usize) -> Texture3DLevelLayerSubImage<F> {
-        Texture3DLevelLayerSubImage {
-            texture_data: self.texture_data.clone(),
-            level: self.level,
-            layer: self.start_layer + index,
-            region: self.region,
-            _marker: marker::PhantomData,
-        }
+    pub unsafe fn get_unchecked<'b, I>(&'b self, index: I) -> I::Output
+        where
+            I: LevelSubImageLayersIndex<'b, F>,
+    {
+        index.get_unchecked(self)
     }
 
-    pub fn iter(&self) -> Texture3DLevelSubImageLayersIter<F> {
-        Texture3DLevelSubImageLayersIter {
-            texture_data: self.texture_data.clone(),
+    pub fn iter(&self) -> LevelSubImageLayersIter<F> {
+        LevelSubImageLayersIter {
+            handle: self.handle,
             level: self.level,
             region: self.region,
-            current_layer: self.start_layer as usize,
-            end_layer: self.end_layer as usize,
-            _marker: marker::PhantomData,
+            current_layer: self.offset as usize,
+            end_layer: self.offset + self.len as usize,
         }
     }
 }
 
-impl<F> IntoIterator for Texture3DLevelSubImageLayers<F>
-where
-    F: TextureFormat,
+impl<'a, F> IntoIterator for LevelSubImageLayers<'a, F>
+    where
+        F: TextureFormat,
 {
-    type Item = Texture3DLevelLayerSubImage<F>;
+    type Item = LevelLayerSubImage<'a, F>;
 
-    type IntoIter = Texture3DLevelSubImageLayersIter<F>;
+    type IntoIter = LevelSubImageLayersIter<'a, F>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.iter()
+        LevelSubImageLayersIter {
+            handle: self.handle,
+            level: self.level,
+            region: self.region,
+            current_layer: self.offset as usize,
+            end_layer: self.offset + self.len as usize,
+        }
     }
 }
 
-pub struct Texture3DLevelSubImageLayersIter<F> {
-    texture_data: Arc<Texture3DData>,
+pub struct LevelSubImageLayersIter<'a, F> {
+    handle: &'a Texture3D<F>,
     level: usize,
     region: Region2D,
     current_layer: usize,
     end_layer: usize,
-    _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> Iterator for Texture3DLevelSubImageLayersIter<F>
-where
-    F: TextureFormat,
+impl<'a, F> Iterator for LevelSubImageLayersIter<'a, F>
+    where
+        F: TextureFormat,
 {
-    type Item = Texture3DLevelLayerSubImage<F>;
+    type Item = LevelLayerSubImage<'a, F>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let layer = self.current_layer;
@@ -658,12 +914,11 @@ where
         if layer < self.end_layer {
             self.current_layer += 1;
 
-            Some(Texture3DLevelLayerSubImage {
-                texture_data: self.texture_data.clone(),
+            Some(LevelLayerSubImage {
+                handle: self.handle,
                 level: self.level,
                 layer,
                 region: self.region,
-                _marker: marker::PhantomData,
             })
         } else {
             None
@@ -671,26 +926,192 @@ where
     }
 }
 
-#[derive(Clone)]
-pub struct Texture3DLevelLayerSubImage<F> {
-    texture_data: Arc<Texture3DData>,
-    level: usize,
-    layer: usize,
-    region: Region2D,
-    _marker: marker::PhantomData<[F]>,
+pub trait LevelSubImageLayersIndex<'a, F> {
+    type Output;
+
+    fn get(self, layers: &'a LevelSubImageLayers<F>) -> Option<Self::Output>;
+
+    unsafe fn get_unchecked(self, layers: &'a LevelSubImageLayers<F>) -> Self::Output;
 }
 
-impl<F> Texture3DLevelLayerSubImage<F>
-where
-    F: TextureFormat,
+impl<'a, F> LevelSubImageLayersIndex<'a, F> for usize
+    where
+        F: 'a,
 {
-    pub fn texture(&self) -> Texture3D<F> {
-        Texture3D {
-            data: self.texture_data.clone(),
-            _marker: marker::PhantomData,
+    type Output = LevelLayerSubImage<'a, F>;
+
+    fn get(self, layers: &'a LevelSubImageLayers<F>) -> Option<Self::Output> {
+        if self < layers.len {
+            Some(LevelLayerSubImage {
+                handle: layers.handle,
+                level: layers.level,
+                layer: layers.offset + self,
+                region: layers.region,
+            })
+        } else {
+            None
         }
     }
 
+    unsafe fn get_unchecked(self, layers: &'a LevelSubImageLayers<F>) -> Self::Output {
+        LevelLayerSubImage {
+            handle: layers.handle,
+            level: layers.level,
+            layer: layers.offset + self,
+            region: layers.region,
+        }
+    }
+}
+
+impl<'a, F> LevelSubImageLayersIndex<'a, F> for RangeFull
+    where
+        F: 'a,
+{
+    type Output = LevelSubImageLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelSubImageLayers<F>) -> Option<Self::Output> {
+        Some(LevelSubImageLayers {
+            handle: layers.handle,
+            level: layers.level,
+            offset: layers.offset,
+            len: layers.len,
+            region: layers.region,
+        })
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelSubImageLayers<F>) -> Self::Output {
+        LevelSubImageLayers {
+            handle: layers.handle,
+            level: layers.level,
+            offset: layers.offset,
+            len: layers.len,
+            region: layers.region,
+        }
+    }
+}
+
+impl<'a, F> LevelSubImageLayersIndex<'a, F> for Range<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelSubImageLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelSubImageLayers<F>) -> Option<Self::Output> {
+        let Range { start, end } = self;
+
+        if start > end || end > layers.len {
+            None
+        } else {
+            Some(LevelSubImageLayers {
+                handle: layers.handle,
+                level: layers.level,
+                offset: layers.offset + start,
+                len: end - start,
+                region: layers.region,
+            })
+        }
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelSubImageLayers<F>) -> Self::Output {
+        let Range { start, end } = self;
+
+        LevelSubImageLayers {
+            handle: layers.handle,
+            level: layers.level,
+            offset: layers.offset + start,
+            len: end - start,
+            region: layers.region,
+        }
+    }
+}
+
+impl<'a, F> LevelSubImageLayersIndex<'a, F> for RangeInclusive<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelSubImageLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelSubImageLayers<F>) -> Option<Self::Output> {
+        if *self.end() == usize::max_value() {
+            None
+        } else {
+            <Range<usize> as LevelSubImageLayersIndex<'a, F>>::get(
+                *self.start()..self.end() + 1,
+                layers,
+            )
+        }
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelSubImageLayers<F>) -> Self::Output {
+        <Range<usize> as LevelSubImageLayersIndex<'a, F>>::get_unchecked(
+            *self.start()..self.end() + 1,
+            layers,
+        )
+    }
+}
+
+impl<'a, F> LevelSubImageLayersIndex<'a, F> for RangeFrom<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelSubImageLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelSubImageLayers<F>) -> Option<Self::Output> {
+        <Range<usize> as LevelSubImageLayersIndex<'a, F>>::get(self.start..layers.len, layers)
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelSubImageLayers<F>) -> Self::Output {
+        <Range<usize> as LevelSubImageLayersIndex<'a, F>>::get_unchecked(
+            self.start..layers.len,
+            layers,
+        )
+    }
+}
+
+impl<'a, F> LevelSubImageLayersIndex<'a, F> for RangeTo<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelSubImageLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelSubImageLayers<F>) -> Option<Self::Output> {
+        <Range<usize> as LevelSubImageLayersIndex<'a, F>>::get(0..self.end, layers)
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelSubImageLayers<F>) -> Self::Output {
+        <Range<usize> as LevelSubImageLayersIndex<'a, F>>::get_unchecked(0..self.end, layers)
+    }
+}
+
+impl<'a, F> LevelSubImageLayersIndex<'a, F> for RangeToInclusive<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelSubImageLayers<'a, F>;
+
+    fn get(self, layers: &'a LevelSubImageLayers<F>) -> Option<Self::Output> {
+        <RangeInclusive<usize> as LevelSubImageLayersIndex<'a, F>>::get(0..=self.end, layers)
+    }
+
+    unsafe fn get_unchecked(self, layers: &'a LevelSubImageLayers<F>) -> Self::Output {
+        <RangeInclusive<usize> as LevelSubImageLayersIndex<'a, F>>::get_unchecked(
+            0..=self.end,
+            layers,
+        )
+    }
+}
+
+pub struct LevelLayerSubImage<'a, F> {
+    handle: &'a Texture3D<F>,
+    level: usize,
+    layer: usize,
+    region: Region2D,
+}
+
+impl<'a, F> LevelLayerSubImage<'a, F>
+    where
+        F: TextureFormat,
+{
     pub fn level(&self) -> usize {
         self.level
     }
@@ -704,33 +1125,32 @@ where
     }
 
     pub fn width(&self) -> u32 {
-        region_2d_overlap_width(self.texture_data.width, self.level, &self.region)
+        region_2d_overlap_width(self.handle.data.width, self.level, &self.region)
     }
 
     pub fn height(&self) -> u32 {
-        region_2d_overlap_height(self.texture_data.height, self.level, &self.region)
+        region_2d_overlap_height(self.handle.data.height, self.level, &self.region)
     }
 
-    pub fn sub_image(&self, region: Region2D) -> Texture3DLevelLayerSubImage<F> {
-        Texture3DLevelLayerSubImage {
-            texture_data: self.texture_data.clone(),
+    pub fn sub_image(&self, region: Region2D) -> LevelLayerSubImage<F> {
+        LevelLayerSubImage {
+            handle: self.handle,
             level: self.level,
             layer: self.layer,
             region: region_2d_sub_image(self.region, region),
-            _marker: marker::PhantomData,
         }
     }
 
-    pub fn upload_task<D, T>(
+    pub fn upload_command<D, T>(
         &self,
         data: Image2DSource<D, T>,
-    ) -> Texture3DLevelLayerUploadTask<D, T, F>
-    where
-        T: ClientFormat<F>,
+    ) -> LevelLayerUploadCommand<D, T, F>
+        where
+            T: ClientFormat<F>,
     {
-        Texture3DLevelLayerUploadTask {
+        LevelLayerUploadCommand {
             data,
-            texture_data: self.texture_data.clone(),
+            texture_data: self.handle.data.clone(),
             level: self.level,
             layer: self.layer,
             region: self.region,
@@ -739,14 +1159,553 @@ where
     }
 }
 
-struct Texture3DAllocateTask<F> {
+pub struct LevelsMut<'a, F> {
+    inner: Levels<'a, F>
+}
+
+impl<'a, F> LevelsMut<'a, F> {
+    pub fn get_mut<'b, I>(&'b self, index: I) -> Option<I::Output>
+        where
+            I: LevelsMutIndex<'b, F>,
+    {
+        index.get_mut(self)
+    }
+
+    pub unsafe fn get_unchecked_mut<'b, I>(&'b self, index: I) -> I::Output
+        where
+            I: LevelsMutIndex<'b, F>,
+    {
+        index.get_unchecked_mut(self)
+    }
+
+    pub fn iter_mut(&self) -> LevelsMutIter<F> {
+        LevelsMutIter {
+            handle: self.handle,
+            current_level: self.offset,
+            end_level: self.offset + self.len,
+        }
+    }
+}
+
+impl<'a, F> Deref for LevelsMut<'a, F> {
+    type Target = Levels<'a, F>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl<'a, F> IntoIterator for LevelsMut<'a, F>
+    where
+        F: TextureFormat,
+{
+    type Item = LevelMut<'a, F>;
+
+    type IntoIter = LevelsMutIter<'a, F>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        LevelsMutIter {
+            handle: self.handle,
+            current_level: self.offset,
+            end_level: self.offset + self.len,
+        }
+    }
+}
+
+pub trait LevelsMutIndex<'a, F> {
+    type Output;
+
+    fn get_mut(self, levels: &'a LevelsMut<F>) -> Option<Self::Output>;
+
+    unsafe fn get_unchecked_mut(self, levels: &'a LevelsMut<F>) -> Self::Output;
+}
+
+impl<'a, F> LevelsMutIndex<'a, F> for usize
+    where
+        F: 'a,
+{
+    type Output = LevelMut<'a, F>;
+
+    fn get_mut(self, levels: &'a LevelsMut<F>) -> Option<Self::Output> {
+        if self < levels.len {
+            Some(LevelMut {
+                inner: Level {
+                    handle: levels.handle,
+                    level: levels.offset + self,
+                }
+            })
+        } else {
+            None
+        }
+    }
+
+    unsafe fn get_unchecked_mut(self, levels: &'a LevelsMut<F>) -> Self::Output {
+        LevelMut {
+            inner: Level {
+                handle: levels.handle,
+                level: levels.offset + self,
+            }
+        }
+    }
+}
+
+impl<'a, F> LevelsMutIndex<'a, F> for RangeFull
+    where
+        F: 'a,
+{
+    type Output = LevelsMut<'a, F>;
+
+    fn get_mut(self, levels: &'a LevelsMut<F>) -> Option<Self::Output> {
+        Some(LevelsMut {
+            inner: Levels {
+                handle: levels.handle,
+                offset: levels.offset,
+                len: levels.len,
+            }
+        })
+    }
+
+    unsafe fn get_unchecked_mut(self, levels: &'a LevelsMut<F>) -> Self::Output {
+        LevelsMut {
+            inner: Levels {
+                handle: levels.handle,
+                offset: levels.offset,
+                len: levels.len,
+            }
+        }
+    }
+}
+
+impl<'a, F> LevelsMutIndex<'a, F> for Range<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelsMut<'a, F>;
+
+    fn get_mut(self, levels: &'a LevelsMut<F>) -> Option<Self::Output> {
+        let Range { start, end } = self;
+
+        if start > end || end > levels.len {
+            None
+        } else {
+            Some(LevelsMut {
+                inner: Levels {
+                    handle: levels.handle,
+                    offset: levels.offset + start,
+                    len: end - start,
+                }
+            })
+        }
+    }
+
+    unsafe fn get_unchecked_mut(self, levels: &'a LevelsMut<F>) -> Self::Output {
+        let Range { start, end } = self;
+
+        LevelsMut {
+            inner: Levels {
+                handle: levels.handle,
+                offset: levels.offset + start,
+                len: end - start,
+            }
+        }
+    }
+}
+
+impl<'a, F> LevelsMutIndex<'a, F> for RangeInclusive<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelsMut<'a, F>;
+
+    fn get_mut(self, levels: &'a LevelsMut<F>) -> Option<Self::Output> {
+        if *self.end() == usize::max_value() {
+            None
+        } else {
+            <Range<usize> as LevelsMutIndex<'a, F>>::get_mut(*self.start()..self.end() + 1, levels)
+        }
+    }
+
+    unsafe fn get_unchecked_mut(self, levels: &'a LevelsMut<F>) -> Self::Output {
+        <Range<usize> as LevelsMutIndex<'a, F>>::get_unchecked_mut(*self.start()..self.end() + 1, levels)
+    }
+}
+
+impl<'a, F> LevelsMutIndex<'a, F> for RangeFrom<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelsMut<'a, F>;
+
+    fn get_mut(self, levels: &'a LevelsMut<F>) -> Option<Self::Output> {
+        <Range<usize> as LevelsMutIndex<'a, F>>::get_mut(self.start..levels.len, levels)
+    }
+
+    unsafe fn get_unchecked_mut(self, levels: &'a LevelsMut<F>) -> Self::Output {
+        <Range<usize> as LevelsMutIndex<'a, F>>::get_unchecked_mut(self.start..levels.len, levels)
+    }
+}
+
+impl<'a, F> LevelsMutIndex<'a, F> for RangeTo<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelsMut<'a, F>;
+
+    fn get_mut(self, levels: &'a LevelsMut<F>) -> Option<Self::Output> {
+        <Range<usize> as LevelsMutIndex<'a, F>>::get_mut(0..self.end, levels)
+    }
+
+    unsafe fn get_unchecked_mut(self, levels: &'a LevelsMut<F>) -> Self::Output {
+        <Range<usize> as LevelsMutIndex<'a, F>>::get_unchecked_mut(0..self.end, levels)
+    }
+}
+
+impl<'a, F> LevelsMutIndex<'a, F> for RangeToInclusive<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelsMut<'a, F>;
+
+    fn get_mut(self, levels: &'a LevelsMut<F>) -> Option<Self::Output> {
+        <RangeInclusive<usize> as LevelsMutIndex<'a, F>>::get_mut(0..=self.end, levels)
+    }
+
+    unsafe fn get_unchecked_mut(self, levels: &'a LevelsMut<F>) -> Self::Output {
+        <RangeInclusive<usize> as LevelsMutIndex<'a, F>>::get_unchecked_mut(0..=self.end, levels)
+    }
+}
+
+pub struct LevelsMutIter<'a, F> {
+    handle: &'a Texture3D<F>,
+    current_level: usize,
+    end_level: usize,
+}
+
+impl<'a, F> Iterator for LevelsMutIter<'a, F>
+    where
+        F: TextureFormat,
+{
+    type Item = LevelMut<'a, F>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let level = self.current_level;
+
+        if level < self.end_level {
+            self.current_level += 1;
+
+            Some(LevelMut {
+                inner: Level {
+                    handle: self.handle,
+                    level,
+                }
+            })
+        } else {
+            None
+        }
+    }
+}
+
+pub struct LevelMut<'a, F> {
+    inner: Level<'a, F>
+}
+
+impl<'a, F> LevelMut<'a, F> {
+    pub fn layers_mut(&mut self) -> LevelLayersMut<'a, F> {
+        LevelLayersMut {
+            inner: LevelLayers {
+                handle: self.handle,
+                level: self.level,
+                offset: 0,
+                len: self.handle.data.depth as usize,
+            }
+        }
+    }
+}
+
+impl<'a, F> Deref for LevelMut<'a, F> {
+    type Target = Level<'a, F>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+pub struct LevelLayersMut<'a, F> {
+    inner: LevelLayers<'a, F>
+}
+
+impl<'a, F> LevelLayersMut<'a, F> {
+    pub fn get_mut<'b, I>(&'b self, index: I) -> Option<I::Output>
+        where
+            I: LevelLayersMutIndex<'b, F>,
+    {
+        index.get_mut(self)
+    }
+
+    pub unsafe fn get_unchecked_mut<'b, I>(&'b self, index: I) -> I::Output
+        where
+            I: LevelLayersMutIndex<'b, F>,
+    {
+        index.get_unchecked_mut(self)
+    }
+
+    pub fn iter_mut(&self) -> LevelLayersMutIter<F> {
+        LevelLayersMutIter {
+            handle: self.handle,
+            level: self.level,
+            current_layer: self.offset,
+            end_layer: self.offset + self.len,
+        }
+    }
+}
+
+impl<'a, F> IntoIterator for LevelLayersMut<'a, F>
+    where
+        F: TextureFormat,
+{
+    type Item = LevelLayerMut<'a, F>;
+
+    type IntoIter = LevelLayersMutIter<'a, F>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        LevelLayersMutIter {
+            handle: self.handle,
+            level: self.level,
+            current_layer: self.offset,
+            end_layer: self.offset + self.len,
+        }
+    }
+}
+
+impl<'a, F> Deref for LevelLayersMut<'a, F> {
+    type Target = LevelLayers<'a, F>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+pub struct LevelLayersMutIter<'a, F> {
+    handle: &'a Texture3D<F>,
+    level: usize,
+    current_layer: usize,
+    end_layer: usize,
+}
+
+impl<'a, F> Iterator for LevelLayersMutIter<'a, F>
+    where
+        F: TextureFormat,
+{
+    type Item = LevelLayerMut<'a, F>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let layer = self.current_layer;
+
+        if layer < self.end_layer {
+            self.current_layer += 1;
+
+            Some(LevelLayerMut {
+                inner: LevelLayer {
+                    handle: self.handle,
+                    level: self.level,
+                    layer,
+                }
+            })
+        } else {
+            None
+        }
+    }
+}
+
+pub trait LevelLayersMutIndex<'a, F> {
+    type Output;
+
+    fn get_mut(self, layers: &'a LevelLayersMut<F>) -> Option<Self::Output>;
+
+    unsafe fn get_unchecked_mut(self, layers: &'a LevelLayersMut<F>) -> Self::Output;
+}
+
+impl<'a, F> LevelLayersMutIndex<'a, F> for usize
+    where
+        F: 'a,
+{
+    type Output = LevelLayerMut<'a, F>;
+
+    fn get_mut(self, layers: &'a LevelLayersMut<F>) -> Option<Self::Output> {
+        if self < layers.len {
+            Some(LevelLayerMut {
+                inner: LevelLayer {
+                    handle: layers.handle,
+                    level: layers.level,
+                    layer: layers.offset + self,
+                }
+            })
+        } else {
+            None
+        }
+    }
+
+    unsafe fn get_unchecked_mut(self, layers: &'a LevelLayersMut<F>) -> Self::Output {
+        LevelLayerMut {
+            inner: LevelLayer {
+                handle: layers.handle,
+                level: layers.level,
+                layer: layers.offset + self,
+            }
+        }
+    }
+}
+
+impl<'a, F> LevelLayersMutIndex<'a, F> for RangeFull
+    where
+        F: 'a,
+{
+    type Output = LevelLayersMut<'a, F>;
+
+    fn get_mut(self, layers: &'a LevelLayersMut<F>) -> Option<Self::Output> {
+        Some(LevelLayersMut {
+            inner: LevelLayers {
+                handle: layers.handle,
+                level: layers.level,
+                offset: layers.offset,
+                len: layers.len,
+            }
+        })
+    }
+
+    unsafe fn get_unchecked_mut(self, layers: &'a LevelLayersMut<F>) -> Self::Output {
+        LevelLayersMut {
+            inner: LevelLayers {
+                handle: layers.handle,
+                level: layers.level,
+                offset: layers.offset,
+                len: layers.len,
+            }
+        }
+    }
+}
+
+impl<'a, F> LevelLayersMutIndex<'a, F> for Range<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelLayersMut<'a, F>;
+
+    fn get_mut(self, layers: &'a LevelLayersMut<F>) -> Option<Self::Output> {
+        let Range { start, end } = self;
+
+        if start > end || end > layers.len {
+            None
+        } else {
+            Some(LevelLayersMut {
+                inner: LevelLayers {
+                    handle: layers.handle,
+                    level: layers.level,
+                    offset: layers.offset + start,
+                    len: end - start,
+                }
+            })
+        }
+    }
+
+    unsafe fn get_unchecked_mut(self, layers: &'a LevelLayersMut<F>) -> Self::Output {
+        let Range { start, end } = self;
+
+        LevelLayersMut {
+            inner: LevelLayers {
+                handle: layers.handle,
+                level: layers.level,
+                offset: layers.offset + start,
+                len: end - start,
+            }
+        }
+    }
+}
+
+impl<'a, F> LevelLayersMutIndex<'a, F> for RangeInclusive<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelLayersMut<'a, F>;
+
+    fn get_mut(self, layers: &'a LevelLayersMut<F>) -> Option<Self::Output> {
+        if *self.end() == usize::max_value() {
+            None
+        } else {
+            <Range<usize> as LevelLayersMutIndex<'a, F>>::get_mut(*self.start()..self.end() + 1, layers)
+        }
+    }
+
+    unsafe fn get_unchecked_mut(self, layers: &'a LevelLayersMut<F>) -> Self::Output {
+        <Range<usize> as LevelLayersMutIndex<'a, F>>::get_unchecked_mut(*self.start()..self.end() + 1, layers)
+    }
+}
+
+impl<'a, F> LevelLayersMutIndex<'a, F> for RangeFrom<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelLayersMut<'a, F>;
+
+    fn get_mut(self, layers: &'a LevelLayersMut<F>) -> Option<Self::Output> {
+        <Range<usize> as LevelLayersMutIndex<'a, F>>::get_mut(self.start..layers.len, layers)
+    }
+
+    unsafe fn get_unchecked_mut(self, layers: &'a LevelLayersMut<F>) -> Self::Output {
+        <Range<usize> as LevelLayersMutIndex<'a, F>>::get_unchecked_mut(self.start..layers.len, layers)
+    }
+}
+
+impl<'a, F> LevelLayersMutIndex<'a, F> for RangeTo<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelLayersMut<'a, F>;
+
+    fn get_mut(self, layers: &'a LevelLayersMut<F>) -> Option<Self::Output> {
+        <Range<usize> as LevelLayersMutIndex<'a, F>>::get_mut(0..self.end, layers)
+    }
+
+    unsafe fn get_unchecked_mut(self, layers: &'a LevelLayersMut<F>) -> Self::Output {
+        <Range<usize> as LevelLayersMutIndex<'a, F>>::get_unchecked_mut(0..self.end, layers)
+    }
+}
+
+impl<'a, F> LevelLayersMutIndex<'a, F> for RangeToInclusive<usize>
+    where
+        F: 'a,
+{
+    type Output = LevelLayersMut<'a, F>;
+
+    fn get_mut(self, layers: &'a LevelLayersMut<F>) -> Option<Self::Output> {
+        <RangeInclusive<usize> as LevelLayersMutIndex<'a, F>>::get_mut(0..=self.end, layers)
+    }
+
+    unsafe fn get_unchecked_mut(self, layers: &'a LevelLayersMut<F>) -> Self::Output {
+        <RangeInclusive<usize> as LevelLayersMutIndex<'a, F>>::get_unchecked_mut(0..=self.end, layers)
+    }
+}
+
+pub struct LevelLayerMut<'a, F> {
+    inner: LevelLayer<'a, F>
+}
+
+impl<'a, F> Deref for LevelLayerMut<'a, F> {
+    type Target = LevelLayer<'a, F>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+struct AllocateCommand<F> {
     data: Arc<Texture3DData>,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> GpuTask<Connection> for Texture3DAllocateTask<F>
-where
-    F: TextureFormat,
+impl<F> GpuTask<Connection> for AllocateCommand<F>
+    where
+        F: TextureFormat,
 {
     type Output = ();
 
@@ -758,7 +1717,7 @@ where
 
         state.set_active_texture_lru().apply(gl).unwrap();
         state
-            .set_bound_texture_3d(Some(&texture_object))
+            .set_bound_texture_2d_array(Some(&texture_object))
             .apply(gl)
             .unwrap();
 
@@ -777,7 +1736,7 @@ where
     }
 }
 
-pub struct Texture3DLevelUploadTask<D, T, F> {
+pub struct LevelUploadCommand<D, T, F> {
     data: Image3DSource<D, T>,
     texture_data: Arc<Texture3DData>,
     level: usize,
@@ -785,11 +1744,11 @@ pub struct Texture3DLevelUploadTask<D, T, F> {
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<D, T, F> GpuTask<Connection> for Texture3DLevelUploadTask<D, T, F>
-where
-    D: Borrow<[T]>,
-    T: ClientFormat<F>,
-    F: TextureFormat,
+impl<D, T, F> GpuTask<Connection> for LevelUploadCommand<D, T, F>
+    where
+        D: Borrow<[T]>,
+        T: ClientFormat<F>,
+        F: TextureFormat,
 {
     type Output = Result<(), ContextMismatch>;
 
@@ -825,7 +1784,7 @@ where
                         .unwrap()
                         .with_value_unchecked(|texture_object| {
                             state
-                                .set_bound_texture_3d(Some(texture_object))
+                                .set_bound_texture_2d_array(Some(texture_object))
                                 .apply(gl)
                                 .unwrap();
                         });
@@ -862,6 +1821,7 @@ where
                     Region3D::Fill => (0, 0, 0),
                     Region3D::Area(offset, ..) => offset,
                 };
+
                 let element_size = mem::size_of::<T>() as u32;
 
                 unsafe {
@@ -889,7 +1849,7 @@ where
                         T::type_id(),
                         Some(&mut *(data as *const _ as *mut _)),
                     )
-                    .unwrap();
+                        .unwrap();
                 }
             }
         }
@@ -898,7 +1858,7 @@ where
     }
 }
 
-pub struct Texture3DLevelLayerUploadTask<D, T, F> {
+pub struct LevelLayerUploadCommand<D, T, F> {
     data: Image2DSource<D, T>,
     texture_data: Arc<Texture3DData>,
     level: usize,
@@ -907,11 +1867,11 @@ pub struct Texture3DLevelLayerUploadTask<D, T, F> {
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<D, T, F> GpuTask<Connection> for Texture3DLevelLayerUploadTask<D, T, F>
-where
-    D: Borrow<[T]>,
-    T: ClientFormat<F>,
-    F: TextureFormat,
+impl<D, T, F> GpuTask<Connection> for LevelLayerUploadCommand<D, T, F>
+    where
+        D: Borrow<[T]>,
+        T: ClientFormat<F>,
+        F: TextureFormat,
 {
     type Output = Result<(), ContextMismatch>;
 
@@ -944,7 +1904,7 @@ where
                         .unwrap()
                         .with_value_unchecked(|texture_object| {
                             state
-                                .set_bound_texture_3d(Some(texture_object))
+                                .set_bound_texture_2d_array(Some(texture_object))
                                 .apply(gl)
                                 .unwrap();
                         });
@@ -997,7 +1957,7 @@ where
                         T::type_id(),
                         Some(&mut *(data as *const _ as *mut _)),
                     )
-                    .unwrap();
+                        .unwrap();
                 }
             }
         }
