@@ -82,7 +82,7 @@ where
             most_recent_unit: None,
         });
 
-        context.submit(Texture2DArrayAllocateTask::<F> {
+        context.submit(AllocateCommand::<F> {
             data: data.clone(),
             _marker: marker::PhantomData,
         });
@@ -93,18 +93,18 @@ where
         }
     }
 
-    pub fn base_level(&self) -> Texture2DArrayLevel<F> {
-        Texture2DArrayLevel {
-            texture_data: self.data.clone(),
+    pub fn base_level(&self) -> Level<F> {
+        Level {
+            handle: self,
             level: 0,
-            _marker: marker::PhantomData,
         }
     }
 
-    pub fn levels(&self) -> Texture2DArrayLevels<F> {
-        Texture2DArrayLevels {
-            texture_data: self.data.clone(),
-            _marker: marker::PhantomData,
+    pub fn levels(&self) -> Levels<F> {
+        Levels {
+            handle: self,
+            offset: 0,
+            len: self.data.levels
         }
     }
 
@@ -162,81 +162,57 @@ impl Drop for Texture2DArrayData {
 }
 
 #[derive(Clone)]
-pub struct Texture2DArrayLevels<F> {
-    texture_data: Arc<Texture2DArrayData>,
-    _marker: marker::PhantomData<[F]>,
+pub struct Levels<'a, F> {
+    handle: &'a Texture2DArray<F>,
+    offset: usize,
+    len: usize
 }
 
-impl<F> Texture2DArrayLevels<F>
+impl<'a, F> Levels<'a, F>
 where
     F: TextureFormat,
 {
     pub fn len(&self) -> usize {
-        self.texture_data.levels
+        self.len
     }
 
-    pub fn get(&self, level: usize) -> Option<Texture2DArrayLevel<F>> {
-        let texture_data = &self.texture_data;
-
-        if level < texture_data.levels {
-            Some(Texture2DArrayLevel {
-                texture_data: texture_data.clone(),
-                level,
-                _marker: marker::PhantomData,
-            })
-        } else {
-            None
-        }
-    }
-
-    pub unsafe fn get_unchecked(&self, level: usize) -> Texture2DArrayLevel<F> {
-        Texture2DArrayLevel {
-            texture_data: self.texture_data.clone(),
-            level,
-            _marker: marker::PhantomData,
-        }
-    }
-
-    pub fn iter(&self) -> Texture2DArrayLevelsIter<F> {
-        Texture2DArrayLevelsIter {
-            texture_data: self.texture_data.clone(),
-            current_level: 0,
-            end_level: self.texture_data.levels,
-            _marker: marker::PhantomData,
+    pub fn iter(&self) -> LevelsIter<F> {
+        LevelsIter {
+            handle: self.handle,
+            current_level: self.offset,
+            end_level: self.offset + self.len,
         }
     }
 }
 
-impl<F> IntoIterator for Texture2DArrayLevels<F>
+impl<'a, F> IntoIterator for Levels<'a, F>
 where
     F: TextureFormat,
 {
-    type Item = Texture2DArrayLevel<F>;
+    type Item = Level<'a, F>;
 
-    type IntoIter = Texture2DArrayLevelsIter<F>;
+    type IntoIter = LevelsIter<'a, F>;
 
     fn into_iter(self) -> Self::IntoIter {
-        Texture2DArrayLevelsIter {
-            current_level: 0,
-            end_level: self.texture_data.levels,
-            texture_data: self.texture_data,
-            _marker: marker::PhantomData,
+        LevelsIter {
+            handle: self.handle,
+            current_level: self.offset,
+            end_level: self.offset + self.len,
         }
     }
 }
 
-pub struct Texture2DArrayLevelsIter<F> {
-    texture_data: Arc<Texture2DArrayData>,
+pub struct LevelsIter<'a, F> {
+    handle: &'a Texture2DArray<F>,
     current_level: usize,
     end_level: usize,
-    _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> Iterator for Texture2DArrayLevelsIter<F>
+impl<'a, F> Iterator for LevelsIter<'a, F>
 where
     F: TextureFormat,
 {
-    type Item = Texture2DArrayLevel<F>;
+    type Item = Level<'a, F>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let level = self.current_level;
@@ -244,10 +220,9 @@ where
         if level < self.end_level {
             self.current_level += 1;
 
-            Some(Texture2DArrayLevel {
-                texture_data: self.texture_data.clone(),
+            Some(Level {
+                handle: self.handle,
                 level,
-                _marker: marker::PhantomData,
             })
         } else {
             None
@@ -256,21 +231,17 @@ where
 }
 
 #[derive(Clone)]
-pub struct Texture2DArrayLevel<F> {
-    texture_data: Arc<Texture2DArrayData>,
+pub struct Level<'a, F> {
+    handle: &'a Texture2DArray<F>,
     level: usize,
-    _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> Texture2DArrayLevel<F>
+impl<'a, F> Level<'a, F>
 where
     F: TextureFormat,
 {
-    pub fn texture(&self) -> Texture2DArray<F> {
-        Texture2DArray {
-            data: self.texture_data.clone(),
-            _marker: marker::PhantomData,
-        }
+    pub(crate) fn texture_data(&self) -> &Arc<Texture2DArrayData> {
+        &self.handle.data
     }
 
     pub fn level(&self) -> usize {
@@ -278,44 +249,44 @@ where
     }
 
     pub fn width(&self) -> u32 {
-        mipmap_size(self.texture_data.width, self.level)
+        mipmap_size(self.handle.data.width, self.level)
     }
 
     pub fn height(&self) -> u32 {
-        mipmap_size(self.texture_data.height, self.level)
+        mipmap_size(self.handle.data.height, self.level)
     }
 
     pub fn depth(&self) -> u32 {
-        self.texture_data.depth
+        self.handle.data.depth
     }
 
-    pub fn layers(&self) -> Texture2DArrayLevelLayers<F> {
-        Texture2DArrayLevelLayers {
-            texture_data: self.texture_data.clone(),
+    pub fn layers(&self) -> LevelLayers<F> {
+        LevelLayers {
+            handle: self.handle,
             level: self.level,
-            _marker: marker::PhantomData,
+            offset: 0,
+            len: self.handle.data.depth as usize
         }
     }
 
-    pub fn sub_image(&self, region: Region3D) -> Texture2DArrayLevelSubImage<F> {
-        Texture2DArrayLevelSubImage {
-            texture_data: self.texture_data.clone(),
+    pub fn sub_image(&self, region: Region3D) -> LevelSubImage<F> {
+        LevelSubImage {
+            handle: self.handle,
             level: self.level,
             region,
-            _marker: marker::PhantomData,
         }
     }
 
-    pub fn upload_task<D, T>(
+    pub fn upload_command<D, T>(
         &self,
         data: Image3DSource<D, T>,
-    ) -> Texture2DArrayLevelUploadTask<D, T, F>
+    ) -> LevelUploadCommand<D, T, F>
     where
         T: ClientFormat<F>,
     {
-        Texture2DArrayLevelUploadTask {
+        LevelUploadCommand {
             data,
-            texture_data: self.texture_data.clone(),
+            texture_data: self.handle.data.clone(),
             level: self.level,
             region: Region3D::Fill,
             _marker: marker::PhantomData,
@@ -324,85 +295,61 @@ where
 }
 
 #[derive(Clone)]
-pub struct Texture2DArrayLevelLayers<F> {
-    texture_data: Arc<Texture2DArrayData>,
+pub struct LevelLayers<'a, F> {
+    handle: &'a Texture2DArray<F>,
     level: usize,
-    _marker: marker::PhantomData<[F]>,
+    offset: usize,
+    len: usize,
 }
 
-impl<F> Texture2DArrayLevelLayers<F>
+impl<'a, F> LevelLayers<'a, F>
 where
     F: TextureFormat,
 {
     pub fn len(&self) -> usize {
-        self.texture_data.depth as usize
+        self.len
     }
 
-    pub fn get(&self, index: usize) -> Option<Texture2DArrayLevelLayer<F>> {
-        if index < self.texture_data.depth as usize {
-            Some(Texture2DArrayLevelLayer {
-                texture_data: self.texture_data.clone(),
-                level: self.level,
-                layer: index,
-                _marker: marker::PhantomData,
-            })
-        } else {
-            None
-        }
-    }
-
-    pub fn get_unchecked(&self, index: usize) -> Texture2DArrayLevelLayer<F> {
-        Texture2DArrayLevelLayer {
-            texture_data: self.texture_data.clone(),
+    pub fn iter(&self) -> LevelLayersIter<F> {
+        LevelLayersIter {
+            handle: self.handle,
             level: self.level,
-            layer: index,
-            _marker: marker::PhantomData,
-        }
-    }
-
-    pub fn iter(&self) -> Texture2DArrayLevelLayersIter<F> {
-        Texture2DArrayLevelLayersIter {
-            texture_data: self.texture_data.clone(),
-            level: self.level,
-            current_layer: 0,
-            end_layer: self.texture_data.depth as usize,
-            _marker: marker::PhantomData,
+            current_layer: self.offset,
+            end_layer: self.offset + self.len,
         }
     }
 }
 
-impl<F> IntoIterator for Texture2DArrayLevelLayers<F>
+impl<'a, F> IntoIterator for LevelLayers<'a, F>
 where
     F: TextureFormat,
 {
-    type Item = Texture2DArrayLevelLayer<F>;
+    type Item = LevelLayer<'a, F>;
 
-    type IntoIter = Texture2DArrayLevelLayersIter<F>;
+    type IntoIter = LevelLayersIter<'a, F>;
 
     fn into_iter(self) -> Self::IntoIter {
-        Texture2DArrayLevelLayersIter {
+        LevelLayersIter {
+            handle: self.handle,
             level: self.level,
-            current_layer: 0,
-            end_layer: self.texture_data.depth as usize,
-            texture_data: self.texture_data.clone(),
-            _marker: marker::PhantomData,
+            current_layer: self.offset,
+            end_layer: self.offset + self.len,
         }
     }
 }
 
-pub struct Texture2DArrayLevelLayersIter<F> {
-    texture_data: Arc<Texture2DArrayData>,
+pub struct LevelLayersIter<'a, F> {
+    handle: &'a Texture2DArray<F>,
     level: usize,
     current_layer: usize,
     end_layer: usize,
-    _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> Iterator for Texture2DArrayLevelLayersIter<F>
+impl<'a, F> Iterator for LevelLayersIter<'a, F>
 where
     F: TextureFormat,
 {
-    type Item = Texture2DArrayLevelLayer<F>;
+    type Item = LevelLayer<'a, F>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let layer = self.current_layer;
@@ -410,11 +357,10 @@ where
         if layer < self.end_layer {
             self.current_layer += 1;
 
-            Some(Texture2DArrayLevelLayer {
-                texture_data: self.texture_data.clone(),
+            Some(LevelLayer {
+                handle: self.handle,
                 level: self.level,
                 layer,
-                _marker: marker::PhantomData,
             })
         } else {
             None
@@ -423,22 +369,18 @@ where
 }
 
 #[derive(Clone)]
-pub struct Texture2DArrayLevelLayer<F> {
-    texture_data: Arc<Texture2DArrayData>,
+pub struct LevelLayer<'a, F> {
+    handle: &'a Texture2DArray<F>,
     level: usize,
     layer: usize,
-    _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> Texture2DArrayLevelLayer<F>
+impl<'a, F> LevelLayer<'a, F>
 where
     F: TextureFormat,
 {
-    pub fn texture(&self) -> Texture2DArray<F> {
-        Texture2DArray {
-            data: self.texture_data.clone(),
-            _marker: marker::PhantomData,
-        }
+    pub(crate) fn texture_data(&self) -> &Arc<Texture2DArrayData> {
+        &self.handle.data
     }
 
     pub fn level(&self) -> usize {
@@ -450,33 +392,32 @@ where
     }
 
     pub fn width(&self) -> u32 {
-        mipmap_size(self.texture_data.width, self.level)
+        mipmap_size(self.handle.data.width, self.level)
     }
 
     pub fn height(&self) -> u32 {
-        mipmap_size(self.texture_data.height, self.level)
+        mipmap_size(self.handle.data.height, self.level)
     }
 
-    pub fn sub_image(&self, region: Region2D) -> Texture2DArrayLevelLayerSubImage<F> {
-        Texture2DArrayLevelLayerSubImage {
-            texture_data: self.texture_data.clone(),
+    pub fn sub_image(&self, region: Region2D) -> LevelLayerSubImage<F> {
+        LevelLayerSubImage {
+            handle: self.handle,
             level: self.level,
             layer: self.layer,
             region,
-            _marker: marker::PhantomData,
         }
     }
 
-    pub fn upload_task<D, T>(
+    pub fn upload_command<D, T>(
         &self,
         data: Image2DSource<D, T>,
-    ) -> Texture2DArrayLevelLayerUploadTask<D, T, F>
+    ) -> LevelLayerUploadCommand<D, T, F>
     where
         T: ClientFormat<F>,
     {
-        Texture2DArrayLevelLayerUploadTask {
+        LevelLayerUploadCommand {
             data,
-            texture_data: self.texture_data.clone(),
+            texture_data: self.handle.data.clone(),
             level: self.level,
             layer: self.layer,
             region: Region2D::Fill,
@@ -486,24 +427,16 @@ where
 }
 
 #[derive(Clone)]
-pub struct Texture2DArrayLevelSubImage<F> {
-    texture_data: Arc<Texture2DArrayData>,
+pub struct LevelSubImage<'a, F> {
+    handle: &'a Texture2DArray<F>,
     level: usize,
     region: Region3D,
-    _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> Texture2DArrayLevelSubImage<F>
+impl<'a, F> LevelSubImage<'a, F>
 where
     F: TextureFormat,
 {
-    pub fn texture(&self) -> Texture2DArray<F> {
-        Texture2DArray {
-            data: self.texture_data.clone(),
-            _marker: marker::PhantomData,
-        }
-    }
-
     pub fn level(&self) -> usize {
         self.level
     }
@@ -513,21 +446,21 @@ where
     }
 
     pub fn width(&self) -> u32 {
-        region_3d_overlap_width(self.texture_data.width, self.level, &self.region)
+        region_3d_overlap_width(self.handle.data.width, self.level, &self.region)
     }
 
     pub fn height(&self) -> u32 {
-        region_3d_overlap_height(self.texture_data.height, self.level, &self.region)
+        region_3d_overlap_height(self.handle.data.height, self.level, &self.region)
     }
 
     pub fn depth(&self) -> u32 {
-        region_3d_overlap_depth(self.texture_data.depth, &self.region)
+        region_3d_overlap_depth(self.handle.data.depth, &self.region)
     }
 
-    pub fn layers(&self) -> Texture2DArrayLevelSubImageLayers<F> {
+    pub fn layers(&self) -> LevelSubImageLayers<F> {
         let (start_layer, end_layer, region) = match self.region {
             Region3D::Area((offset_x, offset_y, offset_z), width, height, depth) => {
-                let max_layer = cmp::min(self.texture_data.depth, offset_z + depth);
+                let max_layer = cmp::min(self.handle.data.depth, offset_z + depth);
 
                 (
                     offset_z,
@@ -535,38 +468,36 @@ where
                     Region2D::Area((offset_x, offset_y), width, height),
                 )
             }
-            Region3D::Fill => (0, self.texture_data.depth, Region2D::Fill),
+            Region3D::Fill => (0, self.handle.data.depth, Region2D::Fill),
         };
 
-        Texture2DArrayLevelSubImageLayers {
-            texture_data: self.texture_data.clone(),
+        LevelSubImageLayers {
+            handle: self.handle,
             level: self.level,
-            start_layer: start_layer as usize,
-            end_layer: end_layer as usize,
+            offset: start_layer as usize,
+            len: (end_layer - start_layer) as usize,
             region,
-            _marker: marker::PhantomData,
         }
     }
 
-    pub fn sub_image(&self, region: Region3D) -> Texture2DArrayLevelSubImage<F> {
-        Texture2DArrayLevelSubImage {
-            texture_data: self.texture_data.clone(),
+    pub fn sub_image(&self, region: Region3D) -> LevelSubImage<F> {
+        LevelSubImage {
+            handle: self.handle,
             level: self.level,
             region: region_3d_sub_image(self.region, region),
-            _marker: marker::PhantomData,
         }
     }
 
-    pub fn upload_task<D, T>(
+    pub fn upload_command<D, T>(
         &self,
         data: Image3DSource<D, T>,
-    ) -> Texture2DArrayLevelUploadTask<D, T, F>
+    ) -> LevelUploadCommand<D, T, F>
     where
         T: ClientFormat<F>,
     {
-        Texture2DArrayLevelUploadTask {
+        LevelUploadCommand {
             data,
-            texture_data: self.texture_data.clone(),
+            texture_data: self.handle.data.clone(),
             level: self.level,
             region: self.region,
             _marker: marker::PhantomData,
@@ -575,88 +506,65 @@ where
 }
 
 #[derive(Clone)]
-pub struct Texture2DArrayLevelSubImageLayers<F> {
-    texture_data: Arc<Texture2DArrayData>,
+pub struct LevelSubImageLayers<'a, F> {
+    handle: &'a Texture2DArray<F>,
     level: usize,
-    start_layer: usize,
-    end_layer: usize,
+    offset: usize,
+    len: usize,
     region: Region2D,
-    _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> Texture2DArrayLevelSubImageLayers<F>
+impl<'a, F> LevelSubImageLayers<'a, F>
 where
     F: TextureFormat,
 {
     pub fn len(&self) -> usize {
-        self.end_layer - self.start_layer
+        self.len
     }
 
-    pub fn get(&self, index: usize) -> Option<Texture2DArrayLevelLayerSubImage<F>> {
-        let layer = self.start_layer + index;
-
-        if layer < self.end_layer {
-            Some(Texture2DArrayLevelLayerSubImage {
-                texture_data: self.texture_data.clone(),
-                level: self.level,
-                layer,
-                region: self.region,
-                _marker: marker::PhantomData,
-            })
-        } else {
-            None
-        }
-    }
-
-    pub fn get_unchecked(&self, index: usize) -> Texture2DArrayLevelLayerSubImage<F> {
-        Texture2DArrayLevelLayerSubImage {
-            texture_data: self.texture_data.clone(),
-            level: self.level,
-            layer: self.start_layer + index,
-            region: self.region,
-            _marker: marker::PhantomData,
-        }
-    }
-
-    pub fn iter(&self) -> Texture2DArrayLevelSubImageLayersIter<F> {
-        Texture2DArrayLevelSubImageLayersIter {
-            texture_data: self.texture_data.clone(),
+    pub fn iter(&self) -> LevelSubImageLayersIter<F> {
+        LevelSubImageLayersIter {
+            handle: self.handle,
             level: self.level,
             region: self.region,
-            current_layer: self.start_layer as usize,
-            end_layer: self.end_layer as usize,
-            _marker: marker::PhantomData,
+            current_layer: self.offset as usize,
+            end_layer: self.offset + self.len as usize,
         }
     }
 }
 
-impl<F> IntoIterator for Texture2DArrayLevelSubImageLayers<F>
+impl<'a, F> IntoIterator for LevelSubImageLayers<'a, F>
 where
     F: TextureFormat,
 {
-    type Item = Texture2DArrayLevelLayerSubImage<F>;
+    type Item = LevelLayerSubImage<'a, F>;
 
-    type IntoIter = Texture2DArrayLevelSubImageLayersIter<F>;
+    type IntoIter = LevelSubImageLayersIter<'a, F>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.iter()
+        LevelSubImageLayersIter {
+            handle: self.handle,
+            level: self.level,
+            region: self.region,
+            current_layer: self.offset as usize,
+            end_layer: self.offset + self.len as usize,
+        }
     }
 }
 
-pub struct Texture2DArrayLevelSubImageLayersIter<F> {
-    texture_data: Arc<Texture2DArrayData>,
+pub struct LevelSubImageLayersIter<'a, F> {
+    handle: &'a Texture2DArray<F>,
     level: usize,
     region: Region2D,
     current_layer: usize,
     end_layer: usize,
-    _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> Iterator for Texture2DArrayLevelSubImageLayersIter<F>
+impl<'a, F> Iterator for LevelSubImageLayersIter<'a, F>
 where
     F: TextureFormat,
 {
-    type Item = Texture2DArrayLevelLayerSubImage<F>;
+    type Item = LevelLayerSubImage<'a, F>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let layer = self.current_layer;
@@ -664,12 +572,11 @@ where
         if layer < self.end_layer {
             self.current_layer += 1;
 
-            Some(Texture2DArrayLevelLayerSubImage {
-                texture_data: self.texture_data.clone(),
+            Some(LevelLayerSubImage {
+                handle: self.handle,
                 level: self.level,
                 layer,
                 region: self.region,
-                _marker: marker::PhantomData,
             })
         } else {
             None
@@ -678,25 +585,17 @@ where
 }
 
 #[derive(Clone)]
-pub struct Texture2DArrayLevelLayerSubImage<F> {
-    texture_data: Arc<Texture2DArrayData>,
+pub struct LevelLayerSubImage<'a, F> {
+    handle: &'a Texture2DArray<F>,
     level: usize,
     layer: usize,
     region: Region2D,
-    _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> Texture2DArrayLevelLayerSubImage<F>
+impl<'a, F> LevelLayerSubImage<'a, F>
 where
     F: TextureFormat,
 {
-    pub fn texture(&self) -> Texture2DArray<F> {
-        Texture2DArray {
-            data: self.texture_data.clone(),
-            _marker: marker::PhantomData,
-        }
-    }
-
     pub fn level(&self) -> usize {
         self.level
     }
@@ -710,33 +609,32 @@ where
     }
 
     pub fn width(&self) -> u32 {
-        region_2d_overlap_width(self.texture_data.width, self.level, &self.region)
+        region_2d_overlap_width(self.handle.data.width, self.level, &self.region)
     }
 
     pub fn height(&self) -> u32 {
-        region_2d_overlap_height(self.texture_data.height, self.level, &self.region)
+        region_2d_overlap_height(self.handle.data.height, self.level, &self.region)
     }
 
-    pub fn sub_image(&self, region: Region2D) -> Texture2DArrayLevelLayerSubImage<F> {
-        Texture2DArrayLevelLayerSubImage {
-            texture_data: self.texture_data.clone(),
+    pub fn sub_image(&self, region: Region2D) -> LevelLayerSubImage<F> {
+        LevelLayerSubImage {
+            handle: self.handle,
             level: self.level,
             layer: self.layer,
             region: region_2d_sub_image(self.region, region),
-            _marker: marker::PhantomData,
         }
     }
 
-    pub fn upload_task<D, T>(
+    pub fn upload_command<D, T>(
         &self,
         data: Image2DSource<D, T>,
-    ) -> Texture2DArrayLevelLayerUploadTask<D, T, F>
+    ) -> LevelLayerUploadCommand<D, T, F>
     where
         T: ClientFormat<F>,
     {
-        Texture2DArrayLevelLayerUploadTask {
+        LevelLayerUploadCommand {
             data,
-            texture_data: self.texture_data.clone(),
+            texture_data: self.handle.data.clone(),
             level: self.level,
             layer: self.layer,
             region: self.region,
@@ -745,12 +643,12 @@ where
     }
 }
 
-struct Texture2DArrayAllocateTask<F> {
+struct AllocateCommand<F> {
     data: Arc<Texture2DArrayData>,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> GpuTask<Connection> for Texture2DArrayAllocateTask<F>
+impl<F> GpuTask<Connection> for AllocateCommand<F>
 where
     F: TextureFormat,
 {
@@ -783,7 +681,7 @@ where
     }
 }
 
-pub struct Texture2DArrayLevelUploadTask<D, T, F> {
+pub struct LevelUploadCommand<D, T, F> {
     data: Image3DSource<D, T>,
     texture_data: Arc<Texture2DArrayData>,
     level: usize,
@@ -791,7 +689,7 @@ pub struct Texture2DArrayLevelUploadTask<D, T, F> {
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<D, T, F> GpuTask<Connection> for Texture2DArrayLevelUploadTask<D, T, F>
+impl<D, T, F> GpuTask<Connection> for LevelUploadCommand<D, T, F>
 where
     D: Borrow<[T]>,
     T: ClientFormat<F>,
@@ -905,7 +803,7 @@ where
     }
 }
 
-pub struct Texture2DArrayLevelLayerUploadTask<D, T, F> {
+pub struct LevelLayerUploadCommand<D, T, F> {
     data: Image2DSource<D, T>,
     texture_data: Arc<Texture2DArrayData>,
     level: usize,
@@ -914,7 +812,7 @@ pub struct Texture2DArrayLevelLayerUploadTask<D, T, F> {
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<D, T, F> GpuTask<Connection> for Texture2DArrayLevelLayerUploadTask<D, T, F>
+impl<D, T, F> GpuTask<Connection> for LevelLayerUploadCommand<D, T, F>
 where
     D: Borrow<[T]>,
     T: ClientFormat<F>,
