@@ -23,10 +23,10 @@ use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, identical, JsId};
 use std::hash::Hash;
 use std::hash::Hasher;
-use std::ops::RangeFull;
 use std::ops::Range;
-use std::ops::RangeInclusive;
 use std::ops::RangeFrom;
+use std::ops::RangeFull;
+use std::ops::RangeInclusive;
 use std::ops::RangeTo;
 use std::ops::RangeToInclusive;
 
@@ -110,7 +110,7 @@ where
         Levels {
             handle: self,
             offset: 0,
-            len: self.data.levels
+            len: self.data.levels,
         }
     }
 
@@ -171,7 +171,7 @@ impl Drop for Texture2DArrayData {
 pub struct Levels<'a, F> {
     handle: &'a Texture2DArray<F>,
     offset: usize,
-    len: usize
+    len: usize,
 }
 
 impl<'a, F> Levels<'a, F>
@@ -183,15 +183,15 @@ where
     }
 
     pub fn get<'b, I>(&'b self, index: I) -> Option<I::Output>
-        where
-            I: LevelsIndex<'b, F>,
+    where
+        I: LevelsIndex<'b, F>,
     {
         index.get(self)
     }
 
     pub unsafe fn get_unchecked<'b, I>(&'b self, index: I) -> I::Output
-        where
-            I: LevelsIndex<'b, F>,
+    where
+        I: LevelsIndex<'b, F>,
     {
         index.get_unchecked(self)
     }
@@ -259,8 +259,8 @@ pub trait LevelsIndex<'a, F> {
 }
 
 impl<'a, F> LevelsIndex<'a, F> for usize
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = Level<'a, F>;
 
@@ -284,8 +284,8 @@ impl<'a, F> LevelsIndex<'a, F> for usize
 }
 
 impl<'a, F> LevelsIndex<'a, F> for RangeFull
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = Levels<'a, F>;
 
@@ -307,8 +307,8 @@ impl<'a, F> LevelsIndex<'a, F> for RangeFull
 }
 
 impl<'a, F> LevelsIndex<'a, F> for Range<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = Levels<'a, F>;
 
@@ -338,8 +338,8 @@ impl<'a, F> LevelsIndex<'a, F> for Range<usize>
 }
 
 impl<'a, F> LevelsIndex<'a, F> for RangeInclusive<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = Levels<'a, F>;
 
@@ -357,8 +357,8 @@ impl<'a, F> LevelsIndex<'a, F> for RangeInclusive<usize>
 }
 
 impl<'a, F> LevelsIndex<'a, F> for RangeFrom<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = Levels<'a, F>;
 
@@ -372,8 +372,8 @@ impl<'a, F> LevelsIndex<'a, F> for RangeFrom<usize>
 }
 
 impl<'a, F> LevelsIndex<'a, F> for RangeTo<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = Levels<'a, F>;
 
@@ -387,8 +387,8 @@ impl<'a, F> LevelsIndex<'a, F> for RangeTo<usize>
 }
 
 impl<'a, F> LevelsIndex<'a, F> for RangeToInclusive<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = Levels<'a, F>;
 
@@ -436,7 +436,7 @@ where
             handle: self.handle,
             level: self.level,
             offset: 0,
-            len: self.handle.data.depth as usize
+            len: self.handle.data.depth as usize,
         }
     }
 
@@ -448,10 +448,7 @@ where
         }
     }
 
-    pub fn upload_command<D, T>(
-        &self,
-        data: Image3DSource<D, T>,
-    ) -> LevelUploadCommand<D, T, F>
+    pub fn upload_command<D, T>(&self, data: Image3DSource<D, T>) -> LevelUploadCommand<D, T, F>
     where
         T: ClientFormat<F>,
     {
@@ -482,15 +479,15 @@ where
     }
 
     pub fn get<'b, I>(&'b self, index: I) -> Option<I::Output>
-        where
-            I: LevelLayersIndex<'b, F>,
+    where
+        I: LevelLayersIndex<'b, F>,
     {
         index.get(self)
     }
 
     pub unsafe fn get_unchecked<'b, I>(&'b self, index: I) -> I::Output
-        where
-            I: LevelLayersIndex<'b, F>,
+    where
+        I: LevelLayersIndex<'b, F>,
     {
         index.get_unchecked(self)
     }
@@ -562,8 +559,8 @@ pub trait LevelLayersIndex<'a, F> {
 }
 
 impl<'a, F> LevelLayersIndex<'a, F> for usize
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelLayer<'a, F>;
 
@@ -589,8 +586,8 @@ impl<'a, F> LevelLayersIndex<'a, F> for usize
 }
 
 impl<'a, F> LevelLayersIndex<'a, F> for RangeFull
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelLayers<'a, F>;
 
@@ -614,8 +611,8 @@ impl<'a, F> LevelLayersIndex<'a, F> for RangeFull
 }
 
 impl<'a, F> LevelLayersIndex<'a, F> for Range<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelLayers<'a, F>;
 
@@ -647,8 +644,8 @@ impl<'a, F> LevelLayersIndex<'a, F> for Range<usize>
 }
 
 impl<'a, F> LevelLayersIndex<'a, F> for RangeInclusive<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelLayers<'a, F>;
 
@@ -661,13 +658,16 @@ impl<'a, F> LevelLayersIndex<'a, F> for RangeInclusive<usize>
     }
 
     unsafe fn get_unchecked(self, layers: &'a LevelLayers<F>) -> Self::Output {
-        <Range<usize> as LevelLayersIndex<'a, F>>::get_unchecked(*self.start()..self.end() + 1, layers)
+        <Range<usize> as LevelLayersIndex<'a, F>>::get_unchecked(
+            *self.start()..self.end() + 1,
+            layers,
+        )
     }
 }
 
 impl<'a, F> LevelLayersIndex<'a, F> for RangeFrom<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelLayers<'a, F>;
 
@@ -681,8 +681,8 @@ impl<'a, F> LevelLayersIndex<'a, F> for RangeFrom<usize>
 }
 
 impl<'a, F> LevelLayersIndex<'a, F> for RangeTo<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelLayers<'a, F>;
 
@@ -696,8 +696,8 @@ impl<'a, F> LevelLayersIndex<'a, F> for RangeTo<usize>
 }
 
 impl<'a, F> LevelLayersIndex<'a, F> for RangeToInclusive<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelLayers<'a, F>;
 
@@ -830,10 +830,7 @@ where
         }
     }
 
-    pub fn upload_command<D, T>(
-        &self,
-        data: Image3DSource<D, T>,
-    ) -> LevelUploadCommand<D, T, F>
+    pub fn upload_command<D, T>(&self, data: Image3DSource<D, T>) -> LevelUploadCommand<D, T, F>
     where
         T: ClientFormat<F>,
     {
@@ -865,15 +862,15 @@ where
     }
 
     pub fn get<'b, I>(&'b self, index: I) -> Option<I::Output>
-        where
-            I: LevelSubImageLayersIndex<'b, F>,
+    where
+        I: LevelSubImageLayersIndex<'b, F>,
     {
         index.get(self)
     }
 
     pub unsafe fn get_unchecked<'b, I>(&'b self, index: I) -> I::Output
-        where
-            I: LevelSubImageLayersIndex<'b, F>,
+    where
+        I: LevelSubImageLayersIndex<'b, F>,
     {
         index.get_unchecked(self)
     }
@@ -949,8 +946,8 @@ pub trait LevelSubImageLayersIndex<'a, F> {
 }
 
 impl<'a, F> LevelSubImageLayersIndex<'a, F> for usize
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelLayerSubImage<'a, F>;
 
@@ -960,7 +957,7 @@ impl<'a, F> LevelSubImageLayersIndex<'a, F> for usize
                 handle: layers.handle,
                 level: layers.level,
                 layer: layers.offset + self,
-                region: layers.region
+                region: layers.region,
             })
         } else {
             None
@@ -972,14 +969,14 @@ impl<'a, F> LevelSubImageLayersIndex<'a, F> for usize
             handle: layers.handle,
             level: layers.level,
             layer: layers.offset + self,
-            region: layers.region
+            region: layers.region,
         }
     }
 }
 
 impl<'a, F> LevelSubImageLayersIndex<'a, F> for RangeFull
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelSubImageLayers<'a, F>;
 
@@ -989,7 +986,7 @@ impl<'a, F> LevelSubImageLayersIndex<'a, F> for RangeFull
             level: layers.level,
             offset: layers.offset,
             len: layers.len,
-            region: layers.region
+            region: layers.region,
         })
     }
 
@@ -999,14 +996,14 @@ impl<'a, F> LevelSubImageLayersIndex<'a, F> for RangeFull
             level: layers.level,
             offset: layers.offset,
             len: layers.len,
-            region: layers.region
+            region: layers.region,
         }
     }
 }
 
 impl<'a, F> LevelSubImageLayersIndex<'a, F> for Range<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelSubImageLayers<'a, F>;
 
@@ -1021,7 +1018,7 @@ impl<'a, F> LevelSubImageLayersIndex<'a, F> for Range<usize>
                 level: layers.level,
                 offset: layers.offset + start,
                 len: end - start,
-                region: layers.region
+                region: layers.region,
             })
         }
     }
@@ -1034,14 +1031,14 @@ impl<'a, F> LevelSubImageLayersIndex<'a, F> for Range<usize>
             level: layers.level,
             offset: layers.offset + start,
             len: end - start,
-            region: layers.region
+            region: layers.region,
         }
     }
 }
 
 impl<'a, F> LevelSubImageLayersIndex<'a, F> for RangeInclusive<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelSubImageLayers<'a, F>;
 
@@ -1049,18 +1046,24 @@ impl<'a, F> LevelSubImageLayersIndex<'a, F> for RangeInclusive<usize>
         if *self.end() == usize::max_value() {
             None
         } else {
-            <Range<usize> as LevelSubImageLayersIndex<'a, F>>::get(*self.start()..self.end() + 1, layers)
+            <Range<usize> as LevelSubImageLayersIndex<'a, F>>::get(
+                *self.start()..self.end() + 1,
+                layers,
+            )
         }
     }
 
     unsafe fn get_unchecked(self, layers: &'a LevelSubImageLayers<F>) -> Self::Output {
-        <Range<usize> as LevelSubImageLayersIndex<'a, F>>::get_unchecked(*self.start()..self.end() + 1, layers)
+        <Range<usize> as LevelSubImageLayersIndex<'a, F>>::get_unchecked(
+            *self.start()..self.end() + 1,
+            layers,
+        )
     }
 }
 
 impl<'a, F> LevelSubImageLayersIndex<'a, F> for RangeFrom<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelSubImageLayers<'a, F>;
 
@@ -1069,13 +1072,16 @@ impl<'a, F> LevelSubImageLayersIndex<'a, F> for RangeFrom<usize>
     }
 
     unsafe fn get_unchecked(self, layers: &'a LevelSubImageLayers<F>) -> Self::Output {
-        <Range<usize> as LevelSubImageLayersIndex<'a, F>>::get_unchecked(self.start..layers.len, layers)
+        <Range<usize> as LevelSubImageLayersIndex<'a, F>>::get_unchecked(
+            self.start..layers.len,
+            layers,
+        )
     }
 }
 
 impl<'a, F> LevelSubImageLayersIndex<'a, F> for RangeTo<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelSubImageLayers<'a, F>;
 
@@ -1089,8 +1095,8 @@ impl<'a, F> LevelSubImageLayersIndex<'a, F> for RangeTo<usize>
 }
 
 impl<'a, F> LevelSubImageLayersIndex<'a, F> for RangeToInclusive<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelSubImageLayers<'a, F>;
 
@@ -1099,7 +1105,10 @@ impl<'a, F> LevelSubImageLayersIndex<'a, F> for RangeToInclusive<usize>
     }
 
     unsafe fn get_unchecked(self, layers: &'a LevelSubImageLayers<F>) -> Self::Output {
-        <RangeInclusive<usize> as LevelSubImageLayersIndex<'a, F>>::get_unchecked(0..=self.end, layers)
+        <RangeInclusive<usize> as LevelSubImageLayersIndex<'a, F>>::get_unchecked(
+            0..=self.end,
+            layers,
+        )
     }
 }
 
