@@ -24,6 +24,9 @@ use std::ops::RangeFull;
 use std::ops::RangeInclusive;
 use std::ops::RangeTo;
 use std::ops::RangeToInclusive;
+use crate::image::renderbuffer::RenderbufferData;
+use std::hash::Hash;
+use std::hash::Hasher;
 
 pub struct Texture2D<F> {
     data: Arc<Texture2DData>,
@@ -31,6 +34,10 @@ pub struct Texture2D<F> {
 }
 
 impl<F> Texture2D<F> {
+    pub(crate) fn data(&self) -> &Arc<Texture2DData> {
+        &self.data
+    }
+
     pub(crate) fn bind(&self, connection: &mut Connection) -> u32 {
         let (gl, state) = unsafe { connection.unpack_mut() };
 
@@ -172,7 +179,7 @@ where
     }
 }
 
-struct Texture2DData {
+pub(crate) struct Texture2DData {
     id: Option<JsId>,
     context_id: usize,
     dropper: Box<TextureObjectDropper>,
@@ -180,6 +187,24 @@ struct Texture2DData {
     height: u32,
     levels: usize,
     most_recent_unit: Option<u32>,
+}
+
+impl Texture2DData {
+    pub(crate) fn id(&self) -> Option<JsId> {
+        self.id
+    }
+}
+
+impl PartialEq for Texture2DData {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Hash for Texture2DData {
+    fn hash<H>(&self, state: &mut H) where H: Hasher {
+        self.id.hash(state);
+    }
 }
 
 impl Drop for Texture2DData {
@@ -432,6 +457,10 @@ impl<'a, F> Level<'a, F>
 where
     F: TextureFormat,
 {
+    pub(crate) fn texture_data(&self) -> &Arc<Texture2DData> {
+        self.handle.data()
+    }
+
     pub fn level(&self) -> usize {
         self.level
     }

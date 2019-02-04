@@ -18,6 +18,8 @@ use crate::runtime::dynamic_state::ContextUpdate;
 use crate::runtime::{Connection, ContextMismatch, RenderingContext};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, identical, JsId};
+use std::hash::Hash;
+use std::hash::Hasher;
 
 #[derive(Clone)]
 pub struct TextureCube<F> {
@@ -112,7 +114,7 @@ where
     }
 }
 
-struct TextureCubeData {
+pub(crate) struct TextureCubeData {
     id: Option<JsId>,
     context_id: usize,
     dropper: Box<TextureObjectDropper>,
@@ -120,6 +122,24 @@ struct TextureCubeData {
     height: u32,
     levels: usize,
     most_recent_unit: Option<u32>,
+}
+
+impl TextureCubeData {
+    pub(crate) fn id(&self) -> Option<JsId> {
+        self.id
+    }
+}
+
+impl PartialEq for TextureCubeData {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Hash for TextureCubeData {
+    fn hash<H>(&self, state: &mut H) where H: Hasher {
+        self.id.hash(state);
+    }
 }
 
 impl Drop for TextureCubeData {

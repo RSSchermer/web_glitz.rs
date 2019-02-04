@@ -1,14 +1,18 @@
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
 use js_sys::Uint32Array;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::image::format::{
     DepthRenderable, DepthStencilRenderable, FloatRenderable, IntegerRenderable, InternalFormat,
-    RenderbufferFormat, StencilRenderable, UnsignedIntegerRenderable,
+    RenderbufferFormat, StencilRenderable, UnsignedIntegerRenderable, TextureFormat
 };
-use crate::image::renderbuffer::Renderbuffer;
-use crate::image::texture_cube::CubeFace;
+use crate::image::renderbuffer::{Renderbuffer, RenderbufferData};
+use crate::image::texture_2d::{Texture2DData, Level as Texture2DLevel, LevelMut as Texture2DLevelMut};
+use crate::image::texture_2d_array::{Texture2DArrayData};
+use crate::image::texture_3d::{Texture3DData};
+use crate::image::texture_cube::{TextureCubeData, CubeFace};
 use crate::render_pass::framebuffer::{
     Buffer, DepthBuffer, DepthStencilBuffer, FloatBuffer, Framebuffer, IntegerBuffer,
     StencilBuffer, UnsignedIntegerBuffer,
@@ -120,6 +124,28 @@ pub trait IntoAttachment {
     fn into_attachment(self) -> Attachment;
 }
 
+impl<'a, F> IntoAttachment for Texture2DLevelMut<'a, F>
+    where
+        F: TextureFormat,
+{
+    type Format = F;
+
+    fn into_attachment(self) -> Attachment {
+        Attachment::from_texture_2d_level(&self)
+    }
+}
+
+impl<'a, 'b, F> IntoAttachment for &'a mut Texture2DLevelMut<'b, F>
+    where
+        F: TextureFormat,
+{
+    type Format = F;
+
+    fn into_attachment(self) -> Attachment {
+        Attachment::from_texture_2d_level(self)
+    }
+}
+
 impl<'a, F> IntoAttachment for &'a mut Renderbuffer<F>
 where
     F: RenderbufferFormat + 'static,
@@ -127,13 +153,7 @@ where
     type Format = F;
 
     fn into_attachment(self) -> Attachment {
-        Attachment {
-            internal: AttachmentInternal::Renderbuffer {
-                id: self.id().unwrap(),
-            },
-            width: self.width(),
-            height: self.height(),
-        }
+        Attachment::from_renderbuffer(self)
     }
 }
 
@@ -144,21 +164,46 @@ pub struct Attachment {
     height: u32,
 }
 
+impl Attachment {
+    pub(crate) fn from_texture_2d_level<F>(level: &Texture2DLevel<F>) -> Self where F: TextureFormat {
+        Attachment {
+            internal: AttachmentInternal::Texture2DLevel {
+                data: level.texture_data().clone(),
+                level: level.level() as u8
+            },
+            width: level.width(),
+            height: level.height()
+        }
+    }
+
+    pub(crate) fn from_renderbuffer<F>(render_buffer: &Renderbuffer<F>) -> Self where F: RenderbufferFormat + 'static {
+        Attachment {
+            internal: AttachmentInternal::Renderbuffer {
+                data: render_buffer.data().clone(),
+            },
+            width: render_buffer.width(),
+            height: render_buffer.height(),
+        }
+    }
+}
+
 #[derive(Hash, PartialEq)]
 enum AttachmentInternal {
-    Texture2DLevel { id: JsId, level: u8 },
-    LayeredTextureLevelLayer { id: JsId, level: u8, layer: u16 },
-    TextureCubeLevelFace { id: JsId, level: u8, face: CubeFace },
-    Renderbuffer { id: JsId },
+    Texture2DLevel { data: Arc<Texture2DData>, level: u8 },
+    Texture2DArrayLevelLayer { data: Arc<Texture2DArrayData>, level: u8, layer: u16 },
+    Texture3DLevelLayer { data: Arc<Texture3DData>, level: u8, layer: u16 },
+    TextureCubeLevelFace { data: Arc<TextureCubeData>, level: u8, face: CubeFace },
+    Renderbuffer { data: Arc<RenderbufferData> },
 }
 
 impl Attachment {
     pub(crate) fn id(&self) -> JsId {
-        match self.internal {
-            AttachmentInternal::Texture2DLevel { id, .. } => id,
-            AttachmentInternal::LayeredTextureLevelLayer { id, .. } => id,
-            AttachmentInternal::TextureCubeLevelFace { id, .. } => id,
-            AttachmentInternal::Renderbuffer { id } => id,
+        match &self.internal {
+            AttachmentInternal::Texture2DLevel { data, .. } => data.id().unwrap(),
+            AttachmentInternal::Texture2DArrayLevelLayer { data, .. } => data.id().unwrap(),
+            AttachmentInternal::Texture3DLevelLayer { data, .. } => data.id().unwrap(),
+            AttachmentInternal::TextureCubeLevelFace { data, .. } => data.id().unwrap(),
+            AttachmentInternal::Renderbuffer { data, .. } => data.id().unwrap(),
         }
     }
 
@@ -172,46 +217,61 @@ impl Attachment {
 
     pub(crate) fn attach(&self, gl: &Gl, target: u32, slot: u32) {
         unsafe {
-            match self.internal {
-                AttachmentInternal::Texture2DLevel { id, level } => {
-                    id.with_value_unchecked(|texture_object| {
+            match &self.internal {
+                AttachmentInternal::Texture2DLevel { data, level } => {
+                    data.id().unwrap().with_value_unchecked(|texture_object| {
                         gl.framebuffer_texture_2d(
                             target,
                             slot,
                             Gl::TEXTURE_2D,
                             Some(&texture_object),
-                            level as i32,
+                            *level as i32,
                         );
                     });
                 }
-                AttachmentInternal::LayeredTextureLevelLayer {
-                    id,
+                AttachmentInternal::Texture2DArrayLevelLayer {
+                    data,
                     level,
                     layer,
                 } => {
-                    id.with_value_unchecked(|texture_object| {
+                    data.id().unwrap().with_value_unchecked(|texture_object| {
                         gl.framebuffer_texture_layer(
                             target,
                             slot,
                             Some(&texture_object),
-                            level as i32,
-                            layer as i32,
+                            *level as i32,
+                            *layer as i32,
                         );
                     });
                 }
-                AttachmentInternal::TextureCubeLevelFace { id, level, face } => {
-                    id.with_value_unchecked(|texture_object| {
+                AttachmentInternal::Texture3DLevelLayer {
+                    data,
+                    level,
+                    layer,
+                } => {
+                    data.id().unwrap().with_value_unchecked(|texture_object| {
+                        gl.framebuffer_texture_layer(
+                            target,
+                            slot,
+                            Some(&texture_object),
+                            *level as i32,
+                            *layer as i32,
+                        );
+                    });
+                }
+                AttachmentInternal::TextureCubeLevelFace { data, level, face } => {
+                    data.id().unwrap().with_value_unchecked(|texture_object| {
                         gl.framebuffer_texture_2d(
                             target,
                             slot,
                             face.id(),
                             Some(&texture_object),
-                            level as i32,
+                            *level as i32,
                         );
                     });
                 }
-                AttachmentInternal::Renderbuffer { id } => {
-                    id.with_value_unchecked(|renderbuffer_object| {
+                AttachmentInternal::Renderbuffer { data } => {
+                    data.id().unwrap().with_value_unchecked(|renderbuffer_object| {
                         gl.framebuffer_renderbuffer(
                             target,
                             slot,

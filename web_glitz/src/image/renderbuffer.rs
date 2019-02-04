@@ -9,6 +9,8 @@ use crate::runtime::dynamic_state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, JsId};
+use std::hash::Hash;
+use std::hash::Hasher;
 
 pub struct Renderbuffer<F> {
     data: Arc<RenderbufferData>,
@@ -45,6 +47,10 @@ where
         self.data.id
     }
 
+    pub(crate) fn data(&self) -> &Arc<RenderbufferData> {
+        &self.data
+    }
+
     pub fn width(&self) -> u32 {
         self.data.width
     }
@@ -72,6 +78,24 @@ pub(crate) struct RenderbufferData {
     dropper: Box<RenderbufferObjectDropper>,
     width: u32,
     height: u32,
+}
+
+impl RenderbufferData {
+    pub(crate) fn id(&self) -> Option<JsId> {
+        self.id
+    }
+}
+
+impl PartialEq for RenderbufferData {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Hash for RenderbufferData {
+    fn hash<H>(&self, state: &mut H) where H: Hasher {
+        self.id.hash(state);
+    }
 }
 
 impl Drop for RenderbufferData {
