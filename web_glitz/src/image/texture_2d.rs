@@ -264,7 +264,11 @@ where
     type IntoIter = LevelsIter<'a, F>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.iter()
+        LevelsIter {
+            handle: &self.handle,
+            current_level: self.offset,
+            end_level: self.offset + self.len,
+        }
     }
 }
 
@@ -582,7 +586,11 @@ where
     type IntoIter = LevelsMutIter<'a, F>;
 
     fn into_iter(mut self) -> Self::IntoIter {
-        self.iter_mut()
+        LevelsMutIter {
+            current_level: self.offset,
+            end_level: self.offset + self.len,
+            handle: &self.inner.handle,
+        }
     }
 }
 
