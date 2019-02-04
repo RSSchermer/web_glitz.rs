@@ -9,6 +9,7 @@ use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::image::format::{ClientFormat, Filterable, TextureFormat};
 use crate::image::image_source::Image2DSourceInternal;
+use crate::image::renderbuffer::RenderbufferData;
 use crate::image::texture_object_dropper::TextureObjectDropper;
 use crate::image::util::{
     mipmap_size, region_2d_overlap_height, region_2d_overlap_width, region_2d_sub_image,
@@ -18,15 +19,14 @@ use crate::runtime::dynamic_state::ContextUpdate;
 use crate::runtime::{Connection, ContextMismatch, RenderingContext};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, identical, slice_make_mut, JsId};
+use std::hash::Hash;
+use std::hash::Hasher;
 use std::ops::Range;
 use std::ops::RangeFrom;
 use std::ops::RangeFull;
 use std::ops::RangeInclusive;
 use std::ops::RangeTo;
 use std::ops::RangeToInclusive;
-use crate::image::renderbuffer::RenderbufferData;
-use std::hash::Hash;
-use std::hash::Hasher;
 
 pub struct Texture2D<F> {
     data: Arc<Texture2DData>,
@@ -202,7 +202,10 @@ impl PartialEq for Texture2DData {
 }
 
 impl Hash for Texture2DData {
-    fn hash<H>(&self, state: &mut H) where H: Hasher {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
         self.id.hash(state);
     }
 }

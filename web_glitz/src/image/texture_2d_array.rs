@@ -145,7 +145,10 @@ impl PartialEq for Texture2DArrayData {
 }
 
 impl Hash for Texture2DArrayData {
-    fn hash<H>(&self, state: &mut H) where H: Hasher {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
         self.id.hash(state);
     }
 }

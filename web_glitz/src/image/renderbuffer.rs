@@ -93,7 +93,10 @@ impl PartialEq for RenderbufferData {
 }
 
 impl Hash for RenderbufferData {
-    fn hash<H>(&self, state: &mut H) where H: Hasher {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
         self.id.hash(state);
     }
 }

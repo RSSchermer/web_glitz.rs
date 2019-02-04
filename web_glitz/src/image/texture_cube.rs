@@ -137,7 +137,10 @@ impl PartialEq for TextureCubeData {
 }
 
 impl Hash for TextureCubeData {
-    fn hash<H>(&self, state: &mut H) where H: Hasher {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
         self.id.hash(state);
     }
 }

@@ -145,7 +145,10 @@ impl PartialEq for Texture3DData {
 }
 
 impl Hash for Texture3DData {
-    fn hash<H>(&self, state: &mut H) where H: Hasher {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
         self.id.hash(state);
     }
 }
