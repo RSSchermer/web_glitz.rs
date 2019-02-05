@@ -3,8 +3,7 @@ pub use self::rendering_context::{
     Connection, ContextMismatch, Execution, RenderingContext, SubmitError,
 };
 
-mod single_threaded_context;
-pub use self::single_threaded_context::SingleThreadedContext;
+pub mod single_threaded;
 
 pub mod state;
 
