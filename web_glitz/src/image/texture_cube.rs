@@ -64,7 +64,7 @@ impl<F> TextureCube<F>
 where
     F: TextureFormat + 'static,
 {
-    pub(crate) fn new<Rc>(context: &Rc, width: u32, height: u32, levels: usize) -> Self
+    pub(crate) fn new<Rc>(context: &Rc, width: u32, height: u32) -> Self
     where
         Rc: RenderingContext + Clone + 'static,
     {
@@ -74,7 +74,7 @@ where
             dropper: Box::new(context.clone()),
             width,
             height,
-            levels,
+            levels: 1,
             most_recent_unit: None,
         });
 
@@ -105,6 +105,44 @@ where
         }
     }
 
+    pub fn width(&self) -> u32 {
+        self.data.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.data.height
+    }
+}
+
+impl<F> TextureCube<F>
+    where
+        F: TextureFormat + Filterable + 'static,
+{
+    pub(crate) fn new_mipmapped<Rc>(context: &Rc, width: u32, height: u32, levels: usize) -> Self
+        where
+            Rc: RenderingContext + Clone + 'static,
+    {
+        let data = Arc::new(TextureCubeData {
+            id: None,
+            context_id: context.id(),
+            dropper: Box::new(context.clone()),
+            width,
+            height,
+            levels,
+            most_recent_unit: None,
+        });
+
+        context.submit(AllocateCommand::<F> {
+            data: data.clone(),
+            _marker: marker::PhantomData,
+        });
+
+        TextureCube {
+            data,
+            _marker: marker::PhantomData,
+        }
+    }
+
     pub fn levels(&self) -> Levels<F> {
         Levels {
             handle: self,
@@ -121,14 +159,6 @@ where
                 len: self.data.levels,
             },
         }
-    }
-
-    pub fn width(&self) -> u32 {
-        self.data.width
-    }
-
-    pub fn height(&self) -> u32 {
-        self.data.height
     }
 }
 
@@ -1083,6 +1113,35 @@ where
                 }
             }
         }
+
+        Progress::Finished(Ok(()))
+    }
+}
+
+pub struct GenerateMipmapCommand {
+    texture_data: Arc<TextureCubeData>,
+}
+
+impl GpuTask<Connection> for GenerateMipmapCommand {
+    type Output = Result<(), ContextMismatch>;
+
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
+        if self.texture_data.context_id != connection.context_id() {
+            return Progress::Finished(Err(ContextMismatch));
+        }
+
+        let (gl, state) = unsafe { connection.unpack_mut() };
+
+        unsafe {
+            self.texture_data
+                .id
+                .unwrap()
+                .with_value_unchecked(|texture_object| {
+                    state.set_bound_texture_cube_map(Some(texture_object));
+                });
+        }
+
+        gl.generate_mipmap(Gl::TEXTURE_CUBE_MAP);
 
         Progress::Finished(Ok(()))
     }

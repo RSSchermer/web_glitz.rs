@@ -10,7 +10,7 @@ use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::image::format::{ClientFormat, TextureFormat};
+use crate::image::format::{ClientFormat, TextureFormat, Filterable};
 use crate::image::image_source::{Image2DSourceInternal, Image3DSourceInternal};
 use crate::image::texture_object_dropper::TextureObjectDropper;
 use crate::image::util::{
@@ -67,7 +67,7 @@ impl<F> Texture2DArray<F>
 where
     F: TextureFormat + 'static,
 {
-    pub(crate) fn new<Rc>(context: &Rc, width: u32, height: u32, depth: u32, levels: usize) -> Self
+    pub(crate) fn new<Rc>(context: &Rc, width: u32, height: u32, depth: u32) -> Self
     where
         Rc: RenderingContext + Clone + 'static,
     {
@@ -78,7 +78,7 @@ where
             width,
             height,
             depth,
-            levels,
+            levels: 1,
             most_recent_unit: None,
         });
 
@@ -109,6 +109,46 @@ where
         }
     }
 
+    pub fn width(&self) -> u32 {
+        self.data.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.data.height
+    }
+
+    pub fn depth(&self) -> u32 {
+        self.data.depth
+    }
+}
+
+impl<F> Texture2DArray<F> where F: TextureFormat + Filterable + 'static {
+    pub(crate) fn new_mipmapped<Rc>(context: &Rc, width: u32, height: u32, depth: u32, levels: usize) -> Self
+        where
+            Rc: RenderingContext + Clone + 'static,
+    {
+        let data = Arc::new(Texture2DArrayData {
+            id: None,
+            context_id: context.id(),
+            dropper: Box::new(context.clone()),
+            width,
+            height,
+            depth,
+            levels,
+            most_recent_unit: None,
+        });
+
+        context.submit(AllocateCommand::<F> {
+            data: data.clone(),
+            _marker: marker::PhantomData,
+        });
+
+        Texture2DArray {
+            data,
+            _marker: marker::PhantomData,
+        }
+    }
+
     pub fn levels(&self) -> Levels<F> {
         Levels {
             handle: self,
@@ -127,16 +167,10 @@ where
         }
     }
 
-    pub fn width(&self) -> u32 {
-        self.data.width
-    }
-
-    pub fn height(&self) -> u32 {
-        self.data.height
-    }
-
-    pub fn depth(&self) -> u32 {
-        self.data.depth
+    pub fn generate_mipmap_command(&self) -> GenerateMipmapCommand {
+        GenerateMipmapCommand {
+            texture_data: self.data.clone(),
+        }
     }
 }
 
@@ -1994,6 +2028,35 @@ where
                 }
             }
         }
+
+        Progress::Finished(Ok(()))
+    }
+}
+
+pub struct GenerateMipmapCommand {
+    texture_data: Arc<Texture2DArrayData>,
+}
+
+impl GpuTask<Connection> for GenerateMipmapCommand {
+    type Output = Result<(), ContextMismatch>;
+
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
+        if self.texture_data.context_id != connection.context_id() {
+            return Progress::Finished(Err(ContextMismatch));
+        }
+
+        let (gl, state) = unsafe { connection.unpack_mut() };
+
+        unsafe {
+            self.texture_data
+                .id
+                .unwrap()
+                .with_value_unchecked(|texture_object| {
+                    state.set_bound_texture_2d_array(Some(texture_object));
+                });
+        }
+
+        gl.generate_mipmap(Gl::TEXTURE_2D_ARRAY);
 
         Progress::Finished(Ok(()))
     }

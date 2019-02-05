@@ -44,24 +44,46 @@ pub trait RenderingContext {
         width: u32,
         height: u32,
         depth: u32,
-        levels: usize,
     ) -> Texture2DArray<F>
     where
         F: TextureFormat + 'static;
+
+    fn create_texture_2d_array_mipmapped<F>(
+        &self,
+        width: u32,
+        height: u32,
+        depth: u32,
+        levels: usize
+    ) -> Texture2DArray<F>
+        where
+            F: TextureFormat + Filterable + 'static;
 
     fn create_texture_3d<F>(
         &self,
         width: u32,
         height: u32,
         depth: u32,
-        levels: usize,
     ) -> Texture3D<F>
     where
         F: TextureFormat + 'static;
 
-    fn create_texture_cube<F>(&self, width: u32, height: u32, levels: usize) -> TextureCube<F>
+    fn create_texture_3d_mipmapped<F>(
+        &self,
+        width: u32,
+        height: u32,
+        depth: u32,
+        levels: usize,
+    ) -> Texture3D<F>
+        where
+            F: TextureFormat + Filterable + 'static;
+
+    fn create_texture_cube<F>(&self, width: u32, height: u32) -> TextureCube<F>
     where
         F: TextureFormat + 'static;
+
+    fn create_texture_cube_mipmapped<F>(&self, width: u32, height: u32, levels: usize) -> TextureCube<F>
+        where
+            F: TextureFormat + Filterable + 'static;
 
     fn submit<T>(&self, task: T) -> Execution<T::Output>
     where

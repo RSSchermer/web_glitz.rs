@@ -81,12 +81,24 @@ impl RenderingContext for SingleThreadedContext {
         width: u32,
         height: u32,
         depth: u32,
-        levels: usize,
     ) -> Texture2DArray<F>
     where
         F: TextureFormat + 'static,
     {
-        Texture2DArray::new(self, width, height, depth, levels)
+        Texture2DArray::new(self, width, height, depth)
+    }
+
+    fn create_texture_2d_array_mipmapped<F>(
+        &self,
+        width: u32,
+        height: u32,
+        depth: u32,
+        levels: usize,
+    ) -> Texture2DArray<F>
+        where
+            F: TextureFormat + Filterable + 'static,
+    {
+        Texture2DArray::new_mipmapped(self, width, height, depth, levels)
     }
 
     fn create_texture_3d<F>(
@@ -94,19 +106,38 @@ impl RenderingContext for SingleThreadedContext {
         width: u32,
         height: u32,
         depth: u32,
-        levels: usize,
     ) -> Texture3D<F>
     where
         F: TextureFormat + 'static,
     {
-        Texture3D::new(self, width, height, depth, levels)
+        Texture3D::new(self, width, height, depth)
     }
 
-    fn create_texture_cube<F>(&self, width: u32, height: u32, levels: usize) -> TextureCube<F>
+    fn create_texture_3d_mipmapped<F>(
+        &self,
+        width: u32,
+        height: u32,
+        depth: u32,
+        levels: usize,
+    ) -> Texture3D<F>
+        where
+            F: TextureFormat + Filterable + 'static,
+    {
+        Texture3D::new_mipmapped(self, width, height, depth, levels)
+    }
+
+    fn create_texture_cube<F>(&self, width: u32, height: u32) -> TextureCube<F>
     where
         F: TextureFormat + 'static,
     {
-        TextureCube::new(self, width, height, levels)
+        TextureCube::new(self, width, height)
+    }
+
+    fn create_texture_cube_mipmapped<F>(&self, width: u32, height: u32, levels: usize) -> TextureCube<F>
+        where
+            F: TextureFormat + Filterable + 'static,
+    {
+        TextureCube::new_mipmapped(self, width, height, levels)
     }
 
     fn submit<T>(&self, task: T) -> Execution<T::Output>
