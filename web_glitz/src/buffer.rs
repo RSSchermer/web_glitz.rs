@@ -8,7 +8,7 @@ use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use web_sys::{WebGl2RenderingContext as GL, WebGlBuffer};
 
-use crate::runtime::dynamic_state::{BufferRange, ContextUpdate};
+use crate::runtime::state::{BufferRange, ContextUpdate};
 use crate::runtime::{Connection, ContextMismatch, RenderingContext};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, slice_make_mut, JsId};

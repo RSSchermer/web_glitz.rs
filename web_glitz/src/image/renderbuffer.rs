@@ -5,7 +5,7 @@ use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::image::format::RenderbufferFormat;
-use crate::runtime::dynamic_state::ContextUpdate;
+use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, JsId};

@@ -13,7 +13,7 @@ use crate::image::texture_2d_array::{LevelLayer as Texture2DArrayLevelLayer, Lev
 use crate::image::texture_3d::{LevelLayer as Texture3DLevelLayer, LevelLayerSubImage as Texture3DLevelLayerSubImage};
 use crate::image::texture_cube::{LevelFace as TextureCubeLevelFace, LevelFaceSubImage as TextureCubeLevelFaceSubImage};
 use crate::render_pass::{Attachment, IntoAttachment, RenderPassContext, RenderPassMismatch};
-use crate::runtime::dynamic_state::ContextUpdate;
+use crate::runtime::state::ContextUpdate;
 use crate::task::{GpuTask, Progress};
 use crate::util::slice_make_mut;
 

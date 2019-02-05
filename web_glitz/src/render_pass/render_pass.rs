@@ -19,8 +19,8 @@ use crate::render_pass::framebuffer::{
     Buffer, DepthBuffer, DepthStencilBuffer, FloatBuffer, Framebuffer, IntegerBuffer,
     StencilBuffer, UnsignedIntegerBuffer,
 };
-use crate::runtime::dynamic_state::AttachmentSet;
-use crate::runtime::dynamic_state::{DepthStencilAttachmentDescriptor, DrawBuffer, DynamicState};
+use crate::runtime::state::AttachmentSet;
+use crate::runtime::state::{DepthStencilAttachmentDescriptor, DrawBuffer, DynamicState};
 use crate::runtime::Connection;
 use crate::task::{GpuTask, Progress};
 use crate::util::{slice_make_mut, JsId};

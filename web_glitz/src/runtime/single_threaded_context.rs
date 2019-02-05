@@ -11,7 +11,7 @@ use crate::image::texture_2d::Texture2D;
 use crate::image::texture_2d_array::Texture2DArray;
 use crate::image::texture_3d::Texture3D;
 use crate::image::texture_cube::TextureCube;
-use crate::runtime::dynamic_state::DynamicState;
+use crate::runtime::state::DynamicState;
 use crate::runtime::executor_job::job;
 use crate::runtime::fenced::JsTimeoutFencedTaskRunner;
 use crate::runtime::{Connection, Execution, RenderingContext};

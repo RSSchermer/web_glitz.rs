@@ -16,7 +16,7 @@ use crate::image::util::{
     mipmap_size, region_2d_overlap_height, region_2d_overlap_width, region_2d_sub_image,
 };
 use crate::image::{Image2DSource, Region2D};
-use crate::runtime::dynamic_state::ContextUpdate;
+use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, ContextMismatch, RenderingContext};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, identical, slice_make_mut, JsId};

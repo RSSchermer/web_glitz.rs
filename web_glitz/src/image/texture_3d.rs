@@ -19,7 +19,7 @@ use crate::image::util::{
     region_3d_sub_image,
 };
 use crate::image::{Image2DSource, Image3DSource, Region2D, Region3D};
-use crate::runtime::dynamic_state::ContextUpdate;
+use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, ContextMismatch, RenderingContext};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, identical, JsId};
