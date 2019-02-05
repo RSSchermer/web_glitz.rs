@@ -593,6 +593,14 @@ impl<'a, F> LevelFaceSubImage<'a, F>
 where
     F: TextureFormat,
 {
+    pub(crate) fn level_face_ref(&self) -> LevelFace<F> {
+        LevelFace {
+            handle: self.handle,
+            level: self.level,
+            face: self.face
+        }
+    }
+
     pub fn level(&self) -> usize {
         self.level
     }

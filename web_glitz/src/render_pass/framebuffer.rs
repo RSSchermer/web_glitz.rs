@@ -2,12 +2,16 @@ use std::marker;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
+use crate::image::Region2D;
 use crate::image::format::{
     DepthRenderable, DepthStencilRenderable, Filterable, FloatRenderable, IntegerRenderable,
-    InternalFormat, RenderbufferFormat, StencilRenderable, UnsignedIntegerRenderable,
+    InternalFormat, RenderbufferFormat, StencilRenderable, UnsignedIntegerRenderable, TextureFormat
 };
 use crate::image::renderbuffer::Renderbuffer;
-use crate::image::Region2D;
+use crate::image::texture_2d::{Level as Texture2DLevel, LevelSubImage as Texture2DLevelSubImage};
+use crate::image::texture_2d_array::{LevelLayer as Texture2DArrayLevelLayer, LevelLayerSubImage as Texture2DArrayLevelLayerSubImage};
+use crate::image::texture_3d::{LevelLayer as Texture3DLevelLayer, LevelLayerSubImage as Texture3DLevelLayerSubImage};
+use crate::image::texture_cube::{LevelFace as TextureCubeLevelFace, LevelFaceSubImage as TextureCubeLevelFaceSubImage};
 use crate::render_pass::{Attachment, IntoAttachment, RenderPassContext, RenderPassMismatch};
 use crate::runtime::dynamic_state::ContextUpdate;
 use crate::task::{GpuTask, Progress};
@@ -23,7 +27,7 @@ impl<C, Ds> Framebuffer<C, Ds>
 where
     C: BlitColorTarget,
 {
-    pub fn blit_color_command<S>(&self, region: Region2D, source: S) -> BlitCommand
+    pub fn blit_color_command<S>(&self, region: Region2D, source: &S) -> BlitCommand
     where
         S: BlitColorCompatible<C>,
     {
@@ -46,7 +50,7 @@ where
         }
     }
 
-    pub fn blit_color_linear_command<S>(&self, region: Region2D, source: S) -> BlitCommand
+    pub fn blit_color_linear_command<S>(&self, region: Region2D, source: &S) -> BlitCommand
     where
         S: BlitColorCompatible<C>,
         S::Format: Filterable,
@@ -75,7 +79,7 @@ impl<C, F> Framebuffer<C, DepthStencilBuffer<F>>
 where
     F: DepthStencilRenderable,
 {
-    pub fn blit_depth_stencil_command<S>(&self, region: Region2D, source: S) -> BlitCommand
+    pub fn blit_depth_stencil_command<S>(&self, region: Region2D, source: &S) -> BlitCommand
     where
         S: BlitSource<Format = F>,
     {
@@ -98,7 +102,7 @@ where
         }
     }
 
-    pub fn blit_depth_command<S>(&self, region: Region2D, source: S) -> BlitCommand
+    pub fn blit_depth_command<S>(&self, region: Region2D, source: &S) -> BlitCommand
     where
         S: BlitSource<Format = F>,
     {
@@ -121,7 +125,7 @@ where
         }
     }
 
-    pub fn blit_stencil_command<S>(&self, region: Region2D, source: S) -> BlitCommand
+    pub fn blit_stencil_command<S>(&self, region: Region2D, source: &S) -> BlitCommand
     where
         S: BlitSource<Format = F>,
     {
@@ -149,7 +153,7 @@ impl<C, F> Framebuffer<C, DepthBuffer<F>>
 where
     F: DepthRenderable,
 {
-    pub fn blit_depth_command<S>(&self, region: Region2D, source: S) -> BlitCommand
+    pub fn blit_depth_command<S>(&self, region: Region2D, source: &S) -> BlitCommand
     where
         S: BlitSource<Format = F>,
     {
@@ -177,7 +181,7 @@ impl<C, F> Framebuffer<C, StencilBuffer<F>>
 where
     F: StencilRenderable,
 {
-    pub fn blit_stencil_command<S>(&self, region: Region2D, source: S) -> BlitCommand
+    pub fn blit_stencil_command<S>(&self, region: Region2D, source: &S) -> BlitCommand
     where
         S: BlitSource<Format = F>,
     {
@@ -282,23 +286,155 @@ pub trait BlitSource {
 }
 
 pub struct BlitSourceDescriptor {
-    image_descriptor: Attachment,
+    attachment: Attachment,
     region: ((u32, u32), u32, u32),
 }
 
-//impl<F> BlitSource for Renderbuffer<F>
-//where
-//    F: RenderbufferFormat + 'static,
-//{
-//    type Format = F;
-//
-//    fn descriptor(&self) -> BlitSourceDescriptor {
-//        BlitSourceDescriptor {
-//            image_descriptor: AttachableImageRef::descriptor(self),
-//            region: ((0, 0), self.width(), self.height()),
-//        }
-//    }
-//}
+impl<'a, F> BlitSource for Texture2DLevel<'a, F>
+    where
+        F: TextureFormat + 'static,
+{
+    type Format = F;
+
+    fn descriptor(&self) -> BlitSourceDescriptor {
+        BlitSourceDescriptor {
+            attachment: Attachment::from_texture_2d_level(self),
+            region: ((0, 0), self.width(), self.height()),
+        }
+    }
+}
+
+impl<'a, F> BlitSource for Texture2DLevelSubImage<'a, F>
+    where
+        F: TextureFormat + 'static,
+{
+    type Format = F;
+
+    fn descriptor(&self) -> BlitSourceDescriptor {
+        let origin = match self.region() {
+            Region2D::Fill => (0, 0),
+            Region2D::Area(origin, ..) => origin
+        };
+
+        BlitSourceDescriptor {
+            attachment: Attachment::from_texture_2d_level(&self.level_ref()),
+            region: (origin, self.width(), self.height()),
+        }
+    }
+}
+
+impl<'a, F> BlitSource for Texture2DArrayLevelLayer<'a, F>
+    where
+        F: TextureFormat + 'static,
+{
+    type Format = F;
+
+    fn descriptor(&self) -> BlitSourceDescriptor {
+        BlitSourceDescriptor {
+            attachment: Attachment::from_texture_2d_array_level_layer(self),
+            region: ((0, 0), self.width(), self.height()),
+        }
+    }
+}
+
+impl<'a, F> BlitSource for Texture2DArrayLevelLayerSubImage<'a, F>
+    where
+        F: TextureFormat + 'static,
+{
+    type Format = F;
+
+    fn descriptor(&self) -> BlitSourceDescriptor {
+        let origin = match self.region() {
+            Region2D::Fill => (0, 0),
+            Region2D::Area(origin, ..) => origin
+        };
+
+        BlitSourceDescriptor {
+            attachment: Attachment::from_texture_2d_array_level_layer(&self.level_layer_ref()),
+            region: (origin, self.width(), self.height()),
+        }
+    }
+}
+
+impl<'a, F> BlitSource for Texture3DLevelLayer<'a, F>
+    where
+        F: TextureFormat + 'static,
+{
+    type Format = F;
+
+    fn descriptor(&self) -> BlitSourceDescriptor {
+        BlitSourceDescriptor {
+            attachment: Attachment::from_texture_3d_level_layer(self),
+            region: ((0, 0), self.width(), self.height()),
+        }
+    }
+}
+
+impl<'a, F> BlitSource for Texture3DLevelLayerSubImage<'a, F>
+    where
+        F: TextureFormat + 'static,
+{
+    type Format = F;
+
+    fn descriptor(&self) -> BlitSourceDescriptor {
+        let origin = match self.region() {
+            Region2D::Fill => (0, 0),
+            Region2D::Area(origin, ..) => origin
+        };
+
+        BlitSourceDescriptor {
+            attachment: Attachment::from_texture_3d_level_layer(&self.level_layer_ref()),
+            region: (origin, self.width(), self.height()),
+        }
+    }
+}
+
+impl<'a, F> BlitSource for TextureCubeLevelFace<'a, F>
+    where
+        F: TextureFormat + 'static,
+{
+    type Format = F;
+
+    fn descriptor(&self) -> BlitSourceDescriptor {
+        BlitSourceDescriptor {
+            attachment: Attachment::from_texture_cube_level_face(self),
+            region: ((0, 0), self.width(), self.height()),
+        }
+    }
+}
+
+impl<'a, F> BlitSource for TextureCubeLevelFaceSubImage<'a, F>
+    where
+        F: TextureFormat + 'static,
+{
+    type Format = F;
+
+    fn descriptor(&self) -> BlitSourceDescriptor {
+        let origin = match self.region() {
+            Region2D::Fill => (0, 0),
+            Region2D::Area(origin, ..) => origin
+        };
+
+        BlitSourceDescriptor {
+            attachment: Attachment::from_texture_cube_level_face(&self.level_face_ref()),
+            region: (origin, self.width(), self.height()),
+        }
+    }
+}
+
+impl<F> BlitSource for Renderbuffer<F>
+where
+    F: RenderbufferFormat + 'static,
+{
+    type Format = F;
+
+    fn descriptor(&self) -> BlitSourceDescriptor {
+        BlitSourceDescriptor {
+            attachment: Attachment::from_renderbuffer(self),
+            region: ((0, 0), self.width(), self.height()),
+        }
+    }
+}
 
 pub unsafe trait BlitColorCompatible<C>: BlitSource {}
 
@@ -371,7 +507,7 @@ impl<'a> GpuTask<RenderPassContext<'a>> for BlitCommand {
         state.bind_read_framebuffer(gl);
 
         self.source
-            .image_descriptor
+            .attachment
             .attach(gl, Gl::READ_FRAMEBUFFER, self.read_slot);
 
         let ((src_x0, src_y0), src_width, src_height) = self.source.region;

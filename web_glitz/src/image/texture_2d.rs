@@ -501,6 +501,13 @@ impl<'a, F> LevelSubImage<'a, F>
 where
     F: TextureFormat,
 {
+    pub(crate) fn level_ref(&self) -> Level<F> {
+        Level {
+            handle: self.handle,
+            level: self.level
+        }
+    }
+
     pub fn level(&self) -> usize {
         self.level
     }
