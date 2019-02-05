@@ -12,9 +12,9 @@ use crate::image::renderbuffer::{Renderbuffer, RenderbufferData};
 use crate::image::texture_2d::{
     Level as Texture2DLevel, LevelMut as Texture2DLevelMut, Texture2DData,
 };
-use crate::image::texture_2d_array::Texture2DArrayData;
-use crate::image::texture_3d::Texture3DData;
-use crate::image::texture_cube::{CubeFace, TextureCubeData};
+use crate::image::texture_2d_array::{ LevelLayer as Texture2DArrayLevelLayer, LevelLayerMut as Texture2DArrayLevelLayerMut, Texture2DArrayData};
+use crate::image::texture_3d::{ LevelLayer as Texture3DLevelLayer, LevelLayerMut as Texture3DLevelLayerMut, Texture3DData};
+use crate::image::texture_cube::{LevelFace as TextureCubeLevelFace, LevelFaceMut as TextureCubeLevelFaceMut, CubeFace, TextureCubeData};
 use crate::render_pass::framebuffer::{
     Buffer, DepthBuffer, DepthStencilBuffer, FloatBuffer, Framebuffer, IntegerBuffer,
     StencilBuffer, UnsignedIntegerBuffer,
@@ -148,6 +148,72 @@ where
     }
 }
 
+impl<'a, F> IntoAttachment for Texture2DArrayLevelLayerMut<'a, F>
+    where
+        F: TextureFormat,
+{
+    type Format = F;
+
+    fn into_attachment(self) -> Attachment {
+        Attachment::from_texture_2d_array_level_layer(&self)
+    }
+}
+
+impl<'a, 'b, F> IntoAttachment for &'a mut Texture2DArrayLevelLayerMut<'b, F>
+    where
+        F: TextureFormat,
+{
+    type Format = F;
+
+    fn into_attachment(self) -> Attachment {
+        Attachment::from_texture_2d_array_level_layer(self)
+    }
+}
+
+impl<'a, F> IntoAttachment for Texture3DLevelLayerMut<'a, F>
+    where
+        F: TextureFormat,
+{
+    type Format = F;
+
+    fn into_attachment(self) -> Attachment {
+        Attachment::from_texture_3d_level_layer(&self)
+    }
+}
+
+impl<'a, 'b, F> IntoAttachment for &'a mut Texture3DLevelLayerMut<'b, F>
+    where
+        F: TextureFormat,
+{
+    type Format = F;
+
+    fn into_attachment(self) -> Attachment {
+        Attachment::from_texture_3d_level_layer(self)
+    }
+}
+
+impl<'a, F> IntoAttachment for TextureCubeLevelFaceMut<'a, F>
+    where
+        F: TextureFormat,
+{
+    type Format = F;
+
+    fn into_attachment(self) -> Attachment {
+        Attachment::from_texture_cube_level_face(&self)
+    }
+}
+
+impl<'a, 'b, F> IntoAttachment for &'a mut TextureCubeLevelFaceMut<'b, F>
+    where
+        F: TextureFormat,
+{
+    type Format = F;
+
+    fn into_attachment(self) -> Attachment {
+        Attachment::from_texture_cube_level_face(self)
+    }
+}
+
 impl<'a, F> IntoAttachment for &'a mut Renderbuffer<F>
 where
     F: RenderbufferFormat + 'static,
@@ -167,17 +233,62 @@ pub struct Attachment {
 }
 
 impl Attachment {
-    pub(crate) fn from_texture_2d_level<F>(level: &Texture2DLevel<F>) -> Self
+    pub(crate) fn from_texture_2d_level<F>(image: &Texture2DLevel<F>) -> Self
     where
         F: TextureFormat,
     {
         Attachment {
             internal: AttachmentInternal::Texture2DLevel {
-                data: level.texture_data().clone(),
-                level: level.level() as u8,
+                data: image.texture_data().clone(),
+                level: image.level() as u8,
             },
-            width: level.width(),
-            height: level.height(),
+            width: image.width(),
+            height: image.height(),
+        }
+    }
+
+    pub(crate) fn from_texture_2d_array_level_layer<F>(image: &Texture2DArrayLevelLayer<F>) -> Self
+        where
+            F: TextureFormat,
+    {
+        Attachment {
+            internal: AttachmentInternal::Texture2DArrayLevelLayer {
+                data: image.texture_data().clone(),
+                level: image.level() as u8,
+                layer: image.layer() as u16,
+            },
+            width: image.width(),
+            height: image.height(),
+        }
+    }
+
+    pub(crate) fn from_texture_3d_level_layer<F>(image: &Texture3DLevelLayer<F>) -> Self
+        where
+            F: TextureFormat,
+    {
+        Attachment {
+            internal: AttachmentInternal::Texture3DLevelLayer {
+                data: image.texture_data().clone(),
+                level: image.level() as u8,
+                layer: image.layer() as u16,
+            },
+            width: image.width(),
+            height: image.height(),
+        }
+    }
+
+    pub(crate) fn from_texture_cube_level_face<F>(image: &TextureCubeLevelFace<F>) -> Self
+        where
+            F: TextureFormat,
+    {
+        Attachment {
+            internal: AttachmentInternal::TextureCubeLevelFace {
+                data: image.texture_data().clone(),
+                level: image.level() as u8,
+                face: image.face(),
+            },
+            width: image.width(),
+            height: image.height(),
         }
     }
 
