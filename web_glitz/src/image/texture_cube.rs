@@ -1,6 +1,8 @@
 use std::borrow::Borrow;
+use std::hash::{Hash, Hasher};
 use std::marker;
 use std::mem;
+use std::ops::{Deref, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 use std::slice;
 use std::sync::Arc;
 
@@ -18,8 +20,6 @@ use crate::runtime::dynamic_state::ContextUpdate;
 use crate::runtime::{Connection, ContextMismatch, RenderingContext};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, identical, JsId};
-use std::hash::Hash;
-use std::hash::Hasher;
 
 pub struct TextureCube<F> {
     data: Arc<TextureCubeData>,
@@ -166,6 +166,21 @@ where
         self.len
     }
 
+    pub fn get<'b, I>(&'b self, index: I) -> Option<I::Output>
+        where
+            I: LevelsIndex<'b, F>,
+    {
+        index.get(self)
+    }
+
+    pub unsafe fn get_unchecked<'b, I>(&'b self, index: I) -> I::Output
+        where
+            I: LevelsIndex<'b, F>,
+    {
+        index.get_unchecked(self)
+    }
+
+
     pub fn iter(&self) -> LevelsIter<F> {
         LevelsIter {
             handle: self.handle,
@@ -217,6 +232,157 @@ where
         } else {
             None
         }
+    }
+}
+
+pub trait LevelsIndex<'a, F> {
+    type Output;
+
+    fn get(self, levels: &'a Levels<F>) -> Option<Self::Output>;
+
+    unsafe fn get_unchecked(self, levels: &'a Levels<F>) -> Self::Output;
+}
+
+impl<'a, F> LevelsIndex<'a, F> for usize
+    where
+        F: 'a,
+{
+    type Output = Level<'a, F>;
+
+    fn get(self, levels: &'a Levels<F>) -> Option<Self::Output> {
+        if self < levels.len {
+            Some(Level {
+                handle: levels.handle,
+                level: levels.offset + self,
+            })
+        } else {
+            None
+        }
+    }
+
+    unsafe fn get_unchecked(self, levels: &'a Levels<F>) -> Self::Output {
+        Level {
+            handle: levels.handle,
+            level: levels.offset + self,
+        }
+    }
+}
+
+impl<'a, F> LevelsIndex<'a, F> for RangeFull
+    where
+        F: 'a,
+{
+    type Output = Levels<'a, F>;
+
+    fn get(self, levels: &'a Levels<F>) -> Option<Self::Output> {
+        Some(Levels {
+            handle: levels.handle,
+            offset: levels.offset,
+            len: levels.len,
+        })
+    }
+
+    unsafe fn get_unchecked(self, levels: &'a Levels<F>) -> Self::Output {
+        Levels {
+            handle: levels.handle,
+            offset: levels.offset,
+            len: levels.len,
+        }
+    }
+}
+
+impl<'a, F> LevelsIndex<'a, F> for Range<usize>
+    where
+        F: 'a,
+{
+    type Output = Levels<'a, F>;
+
+    fn get(self, levels: &'a Levels<F>) -> Option<Self::Output> {
+        let Range { start, end } = self;
+
+        if start > end || end > levels.len {
+            None
+        } else {
+            Some(Levels {
+                handle: levels.handle,
+                offset: levels.offset + start,
+                len: end - start,
+            })
+        }
+    }
+
+    unsafe fn get_unchecked(self, levels: &'a Levels<F>) -> Self::Output {
+        let Range { start, end } = self;
+
+        Levels {
+            handle: levels.handle,
+            offset: levels.offset + start,
+            len: end - start,
+        }
+    }
+}
+
+impl<'a, F> LevelsIndex<'a, F> for RangeInclusive<usize>
+    where
+        F: 'a,
+{
+    type Output = Levels<'a, F>;
+
+    fn get(self, levels: &'a Levels<F>) -> Option<Self::Output> {
+        if *self.end() == usize::max_value() {
+            None
+        } else {
+            (*self.start()..self.end() + 1).get(levels)
+        }
+    }
+
+    unsafe fn get_unchecked(self, levels: &'a Levels<F>) -> Self::Output {
+        (*self.start()..self.end() + 1).get_unchecked(levels)
+    }
+}
+
+impl<'a, F> LevelsIndex<'a, F> for RangeFrom<usize>
+    where
+        F: 'a,
+{
+    type Output = Levels<'a, F>;
+
+    fn get(self, levels: &'a Levels<F>) -> Option<Self::Output> {
+        (self.start..levels.len).get(levels)
+    }
+
+    unsafe fn get_unchecked(self, levels: &'a Levels<F>) -> Self::Output {
+        (self.start..levels.len).get_unchecked(levels)
+    }
+}
+
+impl<'a, F> LevelsIndex<'a, F> for RangeTo<usize>
+    where
+        F: 'a,
+{
+    type Output = Levels<'a, F>;
+
+    fn get(self, levels: &'a Levels<F>) -> Option<Self::Output> {
+        (0..self.end).get(levels)
+    }
+
+    unsafe fn get_unchecked(self, levels: &'a Levels<F>) -> Self::Output {
+        (0..self.end).get_unchecked(levels)
+    }
+}
+
+impl<'a, F> LevelsIndex<'a, F> for RangeToInclusive<usize>
+    where
+        F: 'a,
+{
+    type Output = Levels<'a, F>;
+
+    fn get(self, levels: &'a Levels<F>) -> Option<Self::Output> {
+        (0..=self.end).get(levels)
+    }
+
+    unsafe fn get_unchecked(self, levels: &'a Levels<F>) -> Self::Output {
+        (0..=self.end).get_unchecked(levels)
     }
 }
 
