@@ -194,6 +194,36 @@ unsafe impl TextureFormat for LuminanceAlpha {}
 
 pub unsafe trait RenderbufferFormat: InternalFormat {}
 
+unsafe impl RenderbufferFormat for R8 {}
+unsafe impl RenderbufferFormat for R8UI {}
+unsafe impl RenderbufferFormat for R8I {}
+unsafe impl RenderbufferFormat for R16UI {}
+unsafe impl RenderbufferFormat for R16I {}
+unsafe impl RenderbufferFormat for R32UI {}
+unsafe impl RenderbufferFormat for R32I {}
+unsafe impl RenderbufferFormat for RG8 {}
+unsafe impl RenderbufferFormat for RG8UI {}
+unsafe impl RenderbufferFormat for RG8I {}
+unsafe impl RenderbufferFormat for RG16UI {}
+unsafe impl RenderbufferFormat for RG16I {}
+unsafe impl RenderbufferFormat for RG32UI {}
+unsafe impl RenderbufferFormat for RG32I {}
+unsafe impl RenderbufferFormat for RGB8 {}
+unsafe impl RenderbufferFormat for RGBA8 {}
+unsafe impl RenderbufferFormat for SRGB8_ALPHA8 {}
+unsafe impl RenderbufferFormat for RGB10_A2 {}
+unsafe impl RenderbufferFormat for RGBA8UI {}
+unsafe impl RenderbufferFormat for RGBA8I {}
+unsafe impl RenderbufferFormat for RGB10_A2UI {}
+unsafe impl RenderbufferFormat for RGBA16UI {}
+unsafe impl RenderbufferFormat for RGBA16I {}
+unsafe impl RenderbufferFormat for RGBA32UI {}
+unsafe impl RenderbufferFormat for RGBA32I {}
+unsafe impl RenderbufferFormat for DepthComponent24 {}
+unsafe impl RenderbufferFormat for DepthComponent32F {}
+unsafe impl RenderbufferFormat for Depth24Stencil8 {}
+unsafe impl RenderbufferFormat for Depth32FStencil8 {}
+
 pub struct R8;
 
 unsafe impl InternalFormat for R8 {
