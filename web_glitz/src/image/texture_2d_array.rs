@@ -3,7 +3,7 @@ use std::cmp;
 use std::hash::{Hash, Hasher};
 use std::marker;
 use std::mem;
-use std::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
+use std::ops::{Deref, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 use std::slice;
 use std::sync::Arc;
 
@@ -23,7 +23,6 @@ use crate::runtime::dynamic_state::ContextUpdate;
 use crate::runtime::{Connection, ContextMismatch, RenderingContext};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, identical, JsId};
-use std::ops::Deref;
 
 pub struct Texture2DArray<F> {
     data: Arc<Texture2DArrayData>,
@@ -106,7 +105,7 @@ where
             inner: Level {
                 handle: self,
                 level: 0,
-            }
+            },
         }
     }
 
@@ -124,7 +123,7 @@ where
                 handle: self,
                 offset: 0,
                 len: self.data.levels,
-            }
+            },
         }
     }
 
@@ -1179,20 +1178,20 @@ where
 }
 
 pub struct LevelsMut<'a, F> {
-    inner: Levels<'a, F>
+    inner: Levels<'a, F>,
 }
 
 impl<'a, F> LevelsMut<'a, F> {
     pub fn get_mut<'b, I>(&'b mut self, index: I) -> Option<I::Output>
-        where
-            I: LevelsMutIndex<'b, F>,
+    where
+        I: LevelsMutIndex<'b, F>,
     {
         index.get_mut(self)
     }
 
     pub unsafe fn get_unchecked_mut<'b, I>(&'b mut self, index: I) -> I::Output
-        where
-            I: LevelsMutIndex<'b, F>,
+    where
+        I: LevelsMutIndex<'b, F>,
     {
         index.get_unchecked_mut(self)
     }
@@ -1208,15 +1207,15 @@ impl<'a, F> LevelsMut<'a, F> {
 
 impl<'a, F> Deref for LevelsMut<'a, F> {
     type Target = Levels<'a, F>;
-    
+
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
 }
 
 impl<'a, F> IntoIterator for LevelsMut<'a, F>
-    where
-        F: TextureFormat,
+where
+    F: TextureFormat,
 {
     type Item = LevelMut<'a, F>;
 
@@ -1240,8 +1239,8 @@ pub trait LevelsMutIndex<'a, F> {
 }
 
 impl<'a, F> LevelsMutIndex<'a, F> for usize
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelMut<'a, F>;
 
@@ -1251,7 +1250,7 @@ impl<'a, F> LevelsMutIndex<'a, F> for usize
                 inner: Level {
                     handle: levels.handle,
                     level: levels.offset + self,
-                }
+                },
             })
         } else {
             None
@@ -1263,14 +1262,14 @@ impl<'a, F> LevelsMutIndex<'a, F> for usize
             inner: Level {
                 handle: levels.handle,
                 level: levels.offset + self,
-            }
+            },
         }
     }
 }
 
 impl<'a, F> LevelsMutIndex<'a, F> for RangeFull
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelsMut<'a, F>;
 
@@ -1280,7 +1279,7 @@ impl<'a, F> LevelsMutIndex<'a, F> for RangeFull
                 handle: levels.handle,
                 offset: levels.offset,
                 len: levels.len,
-            }
+            },
         })
     }
 
@@ -1290,14 +1289,14 @@ impl<'a, F> LevelsMutIndex<'a, F> for RangeFull
                 handle: levels.handle,
                 offset: levels.offset,
                 len: levels.len,
-            }
+            },
         }
     }
 }
 
 impl<'a, F> LevelsMutIndex<'a, F> for Range<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelsMut<'a, F>;
 
@@ -1312,7 +1311,7 @@ impl<'a, F> LevelsMutIndex<'a, F> for Range<usize>
                     handle: levels.handle,
                     offset: levels.offset + start,
                     len: end - start,
-                }
+                },
             })
         }
     }
@@ -1325,14 +1324,14 @@ impl<'a, F> LevelsMutIndex<'a, F> for Range<usize>
                 handle: levels.handle,
                 offset: levels.offset + start,
                 len: end - start,
-            }
+            },
         }
     }
 }
 
 impl<'a, F> LevelsMutIndex<'a, F> for RangeInclusive<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelsMut<'a, F>;
 
@@ -1345,13 +1344,16 @@ impl<'a, F> LevelsMutIndex<'a, F> for RangeInclusive<usize>
     }
 
     unsafe fn get_unchecked_mut(self, levels: &'a mut LevelsMut<F>) -> Self::Output {
-        <Range<usize> as LevelsMutIndex<'a, F>>::get_unchecked_mut(*self.start()..self.end() + 1, levels)
+        <Range<usize> as LevelsMutIndex<'a, F>>::get_unchecked_mut(
+            *self.start()..self.end() + 1,
+            levels,
+        )
     }
 }
 
 impl<'a, F> LevelsMutIndex<'a, F> for RangeFrom<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelsMut<'a, F>;
 
@@ -1365,8 +1367,8 @@ impl<'a, F> LevelsMutIndex<'a, F> for RangeFrom<usize>
 }
 
 impl<'a, F> LevelsMutIndex<'a, F> for RangeTo<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelsMut<'a, F>;
 
@@ -1380,8 +1382,8 @@ impl<'a, F> LevelsMutIndex<'a, F> for RangeTo<usize>
 }
 
 impl<'a, F> LevelsMutIndex<'a, F> for RangeToInclusive<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelsMut<'a, F>;
 
@@ -1401,8 +1403,8 @@ pub struct LevelsMutIter<'a, F> {
 }
 
 impl<'a, F> Iterator for LevelsMutIter<'a, F>
-    where
-        F: TextureFormat,
+where
+    F: TextureFormat,
 {
     type Item = LevelMut<'a, F>;
 
@@ -1416,7 +1418,7 @@ impl<'a, F> Iterator for LevelsMutIter<'a, F>
                 inner: Level {
                     handle: self.handle,
                     level,
-                }
+                },
             })
         } else {
             None
@@ -1425,7 +1427,7 @@ impl<'a, F> Iterator for LevelsMutIter<'a, F>
 }
 
 pub struct LevelMut<'a, F> {
-    inner: Level<'a, F>
+    inner: Level<'a, F>,
 }
 
 impl<'a, F> LevelMut<'a, F> {
@@ -1436,7 +1438,7 @@ impl<'a, F> LevelMut<'a, F> {
                 level: self.level,
                 offset: 0,
                 len: self.handle.data.depth as usize,
-            }
+            },
         }
     }
 }
@@ -1450,20 +1452,20 @@ impl<'a, F> Deref for LevelMut<'a, F> {
 }
 
 pub struct LevelLayersMut<'a, F> {
-    inner: LevelLayers<'a, F>
+    inner: LevelLayers<'a, F>,
 }
 
 impl<'a, F> LevelLayersMut<'a, F> {
     pub fn get_mut<'b, I>(&'b mut self, index: I) -> Option<I::Output>
-        where
-            I: LevelLayersMutIndex<'b, F>,
+    where
+        I: LevelLayersMutIndex<'b, F>,
     {
         index.get_mut(self)
     }
 
     pub unsafe fn get_unchecked_mut<'b, I>(&'b mut self, index: I) -> I::Output
-        where
-            I: LevelLayersMutIndex<'b, F>,
+    where
+        I: LevelLayersMutIndex<'b, F>,
     {
         index.get_unchecked_mut(self)
     }
@@ -1479,8 +1481,8 @@ impl<'a, F> LevelLayersMut<'a, F> {
 }
 
 impl<'a, F> IntoIterator for LevelLayersMut<'a, F>
-    where
-        F: TextureFormat,
+where
+    F: TextureFormat,
 {
     type Item = LevelLayerMut<'a, F>;
 
@@ -1498,7 +1500,7 @@ impl<'a, F> IntoIterator for LevelLayersMut<'a, F>
 
 impl<'a, F> Deref for LevelLayersMut<'a, F> {
     type Target = LevelLayers<'a, F>;
-    
+
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
@@ -1512,8 +1514,8 @@ pub struct LevelLayersMutIter<'a, F> {
 }
 
 impl<'a, F> Iterator for LevelLayersMutIter<'a, F>
-    where
-        F: TextureFormat,
+where
+    F: TextureFormat,
 {
     type Item = LevelLayerMut<'a, F>;
 
@@ -1528,7 +1530,7 @@ impl<'a, F> Iterator for LevelLayersMutIter<'a, F>
                     handle: self.handle,
                     level: self.level,
                     layer,
-                }
+                },
             })
         } else {
             None
@@ -1545,8 +1547,8 @@ pub trait LevelLayersMutIndex<'a, F> {
 }
 
 impl<'a, F> LevelLayersMutIndex<'a, F> for usize
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelLayerMut<'a, F>;
 
@@ -1557,7 +1559,7 @@ impl<'a, F> LevelLayersMutIndex<'a, F> for usize
                     handle: layers.handle,
                     level: layers.level,
                     layer: layers.offset + self,
-                }
+                },
             })
         } else {
             None
@@ -1570,14 +1572,14 @@ impl<'a, F> LevelLayersMutIndex<'a, F> for usize
                 handle: layers.handle,
                 level: layers.level,
                 layer: layers.offset + self,
-            }
+            },
         }
     }
 }
 
 impl<'a, F> LevelLayersMutIndex<'a, F> for RangeFull
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelLayersMut<'a, F>;
 
@@ -1588,7 +1590,7 @@ impl<'a, F> LevelLayersMutIndex<'a, F> for RangeFull
                 level: layers.level,
                 offset: layers.offset,
                 len: layers.len,
-            }
+            },
         })
     }
 
@@ -1599,14 +1601,14 @@ impl<'a, F> LevelLayersMutIndex<'a, F> for RangeFull
                 level: layers.level,
                 offset: layers.offset,
                 len: layers.len,
-            }
+            },
         }
     }
 }
 
 impl<'a, F> LevelLayersMutIndex<'a, F> for Range<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelLayersMut<'a, F>;
 
@@ -1622,7 +1624,7 @@ impl<'a, F> LevelLayersMutIndex<'a, F> for Range<usize>
                     level: layers.level,
                     offset: layers.offset + start,
                     len: end - start,
-                }
+                },
             })
         }
     }
@@ -1636,14 +1638,14 @@ impl<'a, F> LevelLayersMutIndex<'a, F> for Range<usize>
                 level: layers.level,
                 offset: layers.offset + start,
                 len: end - start,
-            }
+            },
         }
     }
 }
 
 impl<'a, F> LevelLayersMutIndex<'a, F> for RangeInclusive<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelLayersMut<'a, F>;
 
@@ -1651,18 +1653,24 @@ impl<'a, F> LevelLayersMutIndex<'a, F> for RangeInclusive<usize>
         if *self.end() == usize::max_value() {
             None
         } else {
-            <Range<usize> as LevelLayersMutIndex<'a, F>>::get_mut(*self.start()..self.end() + 1, layers)
+            <Range<usize> as LevelLayersMutIndex<'a, F>>::get_mut(
+                *self.start()..self.end() + 1,
+                layers,
+            )
         }
     }
 
     unsafe fn get_unchecked_mut(self, layers: &'a mut LevelLayersMut<F>) -> Self::Output {
-        <Range<usize> as LevelLayersMutIndex<'a, F>>::get_unchecked_mut(*self.start()..self.end() + 1, layers)
+        <Range<usize> as LevelLayersMutIndex<'a, F>>::get_unchecked_mut(
+            *self.start()..self.end() + 1,
+            layers,
+        )
     }
 }
 
 impl<'a, F> LevelLayersMutIndex<'a, F> for RangeFrom<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelLayersMut<'a, F>;
 
@@ -1671,13 +1679,16 @@ impl<'a, F> LevelLayersMutIndex<'a, F> for RangeFrom<usize>
     }
 
     unsafe fn get_unchecked_mut(self, layers: &'a mut LevelLayersMut<F>) -> Self::Output {
-        <Range<usize> as LevelLayersMutIndex<'a, F>>::get_unchecked_mut(self.start..layers.len, layers)
+        <Range<usize> as LevelLayersMutIndex<'a, F>>::get_unchecked_mut(
+            self.start..layers.len,
+            layers,
+        )
     }
 }
 
 impl<'a, F> LevelLayersMutIndex<'a, F> for RangeTo<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelLayersMut<'a, F>;
 
@@ -1691,8 +1702,8 @@ impl<'a, F> LevelLayersMutIndex<'a, F> for RangeTo<usize>
 }
 
 impl<'a, F> LevelLayersMutIndex<'a, F> for RangeToInclusive<usize>
-    where
-        F: 'a,
+where
+    F: 'a,
 {
     type Output = LevelLayersMut<'a, F>;
 
@@ -1701,12 +1712,15 @@ impl<'a, F> LevelLayersMutIndex<'a, F> for RangeToInclusive<usize>
     }
 
     unsafe fn get_unchecked_mut(self, layers: &'a mut LevelLayersMut<F>) -> Self::Output {
-        <RangeInclusive<usize> as LevelLayersMutIndex<'a, F>>::get_unchecked_mut(0..=self.end, layers)
+        <RangeInclusive<usize> as LevelLayersMutIndex<'a, F>>::get_unchecked_mut(
+            0..=self.end,
+            layers,
+        )
     }
 }
 
 pub struct LevelLayerMut<'a, F> {
-    inner: LevelLayer<'a, F>
+    inner: LevelLayer<'a, F>,
 }
 
 impl<'a, F> Deref for LevelLayerMut<'a, F> {
