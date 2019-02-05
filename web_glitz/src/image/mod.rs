@@ -33,3 +33,14 @@ impl Into<Region2D> for Region3D {
         }
     }
 }
+
+pub enum MipmapLevels {
+    Auto,
+    Manual(usize)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct MaxMipmapLevelsExceeded {
+    pub given: usize,
+    pub max: usize
+}

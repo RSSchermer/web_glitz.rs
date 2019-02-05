@@ -2,6 +2,10 @@ use std::cmp;
 
 use crate::image::{Region2D, Region3D};
 
+pub(crate) fn max_mipmap_levels(width: u32, height: u32) -> usize {
+    (cmp::max(width, height) as f64).log2() as usize + 1
+}
+
 pub(crate) fn mipmap_size(base_size: u32, level: usize) -> u32 {
     let level_size = base_size / 2 ^ (level as u32);
 

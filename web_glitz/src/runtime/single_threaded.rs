@@ -5,6 +5,7 @@ use std::rc::Rc;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::buffer::{Buffer, BufferUsage, IntoBuffer};
+use crate::image::{MipmapLevels, MaxMipmapLevelsExceeded};
 use crate::image::format::{Filterable, RenderbufferFormat, TextureFormat};
 use crate::image::renderbuffer::Renderbuffer;
 use crate::image::texture_2d::Texture2D;
@@ -69,7 +70,7 @@ impl RenderingContext for SingleThreadedContext {
         Texture2D::new(self, width, height)
     }
 
-    fn create_texture_2d_mipmapped<F>(&self, width: u32, height: u32, levels: usize) -> Texture2D<F>
+    fn create_texture_2d_mipmapped<F>(&self, width: u32, height: u32, levels: MipmapLevels) -> Result<Texture2D<F>, MaxMipmapLevelsExceeded>
     where
         F: TextureFormat + Filterable + 'static,
     {
@@ -93,8 +94,8 @@ impl RenderingContext for SingleThreadedContext {
         width: u32,
         height: u32,
         depth: u32,
-        levels: usize,
-    ) -> Texture2DArray<F>
+        levels: MipmapLevels,
+    ) -> Result<Texture2DArray<F>, MaxMipmapLevelsExceeded>
         where
             F: TextureFormat + Filterable + 'static,
     {
@@ -118,8 +119,8 @@ impl RenderingContext for SingleThreadedContext {
         width: u32,
         height: u32,
         depth: u32,
-        levels: usize,
-    ) -> Texture3D<F>
+        levels: MipmapLevels,
+    ) -> Result<Texture3D<F>, MaxMipmapLevelsExceeded>
         where
             F: TextureFormat + Filterable + 'static,
     {
@@ -133,7 +134,7 @@ impl RenderingContext for SingleThreadedContext {
         TextureCube::new(self, width, height)
     }
 
-    fn create_texture_cube_mipmapped<F>(&self, width: u32, height: u32, levels: usize) -> TextureCube<F>
+    fn create_texture_cube_mipmapped<F>(&self, width: u32, height: u32, levels: MipmapLevels) -> Result<TextureCube<F>, MaxMipmapLevelsExceeded>
         where
             F: TextureFormat + Filterable + 'static,
     {
