@@ -1,4 +1,4 @@
-(mod rendering_context;
+mod rendering_context;
 pub use self::rendering_context::{
     Connection, ContextMismatch, Execution, RenderingContext, SubmitError,
 };
