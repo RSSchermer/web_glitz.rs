@@ -21,7 +21,6 @@ use crate::util::{arc_get_mut_unchecked, identical, JsId};
 use std::hash::Hash;
 use std::hash::Hasher;
 
-#[derive(Clone)]
 pub struct TextureCube<F> {
     data: Arc<TextureCubeData>,
     _marker: marker::PhantomData<[F]>,
@@ -79,7 +78,7 @@ where
             most_recent_unit: None,
         });
 
-        context.submit(TextureCubeAllocateTask::<F> {
+        context.submit(AllocateCommand::<F> {
             data: data.clone(),
             _marker: marker::PhantomData,
         });
@@ -90,18 +89,18 @@ where
         }
     }
 
-    pub fn base_level(&self) -> TextureCubeLevel<F> {
-        TextureCubeLevel {
-            texture_data: self.data.clone(),
+    pub fn base_level(&self) -> Level<F> {
+        Level {
+            handle: self,
             level: 0,
-            _marker: marker::PhantomData,
         }
     }
 
-    pub fn levels(&self) -> TextureCubeLevels<F> {
-        TextureCubeLevels {
-            texture_data: self.data.clone(),
-            _marker: marker::PhantomData,
+    pub fn levels(&self) -> Levels<F> {
+        Levels {
+            handle: self,
+            offset: 0,
+            len: self.data.levels
         }
     }
 
@@ -153,89 +152,57 @@ impl Drop for TextureCubeData {
     }
 }
 
-#[derive(Clone)]
-pub struct TextureCubeLevels<F> {
-    texture_data: Arc<TextureCubeData>,
-    _marker: marker::PhantomData<[F]>,
+pub struct Levels<'a, F> {
+    handle: &'a TextureCube<F>,
+    offset: usize,
+    len: usize,
 }
 
-impl<F> TextureCubeLevels<F>
+impl<'a, F> Levels<'a, F>
 where
     F: TextureFormat,
 {
-    pub fn texture(&self) -> TextureCube<F> {
-        TextureCube {
-            data: self.texture_data.clone(),
-            _marker: marker::PhantomData,
-        }
-    }
-
     pub fn len(&self) -> usize {
-        self.texture_data.levels
+        self.len
     }
 
-    pub fn get(&self, level: usize) -> Option<TextureCubeLevel<F>> {
-        let texture_data = &self.texture_data;
-
-        if level < texture_data.levels {
-            Some(TextureCubeLevel {
-                texture_data: texture_data.clone(),
-                level,
-                _marker: marker::PhantomData,
-            })
-        } else {
-            None
-        }
-    }
-
-    pub unsafe fn get_unchecked(&self, level: usize) -> TextureCubeLevel<F> {
-        TextureCubeLevel {
-            texture_data: self.texture_data.clone(),
-            level,
-            _marker: marker::PhantomData,
-        }
-    }
-
-    pub fn iter(&self) -> TextureCubeLevelsIter<F> {
-        TextureCubeLevelsIter {
-            texture_data: self.texture_data.clone(),
-            current_level: 0,
-            end_level: self.texture_data.levels,
-            _marker: marker::PhantomData,
+    pub fn iter(&self) -> LevelsIter<F> {
+        LevelsIter {
+            handle: self.handle,
+            current_level: self.offset,
+            end_level: self.offset + self.len,
         }
     }
 }
 
-impl<F> IntoIterator for TextureCubeLevels<F>
+impl<'a, F> IntoIterator for Levels<'a, F>
 where
     F: TextureFormat,
 {
-    type Item = TextureCubeLevel<F>;
+    type Item = Level<'a, F>;
 
-    type IntoIter = TextureCubeLevelsIter<F>;
+    type IntoIter = LevelsIter<'a, F>;
 
     fn into_iter(self) -> Self::IntoIter {
-        TextureCubeLevelsIter {
-            current_level: 0,
-            end_level: self.texture_data.levels,
-            texture_data: self.texture_data,
-            _marker: marker::PhantomData,
+        LevelsIter {
+            handle: self.handle,
+            current_level: self.offset,
+            end_level: self.offset + self.len,
         }
     }
 }
 
-pub struct TextureCubeLevelsIter<F> {
-    texture_data: Arc<TextureCubeData>,
+pub struct LevelsIter<'a, F> {
+    handle: &'a TextureCube<F>,
     current_level: usize,
     end_level: usize,
-    _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> Iterator for TextureCubeLevelsIter<F>
+impl<'a, F> Iterator for LevelsIter<'a, F>
 where
     F: TextureFormat,
 {
-    type Item = TextureCubeLevel<F>;
+    type Item = Level<'a, F>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let level = self.current_level;
@@ -243,10 +210,9 @@ where
         if level < self.end_level {
             self.current_level += 1;
 
-            Some(TextureCubeLevel {
-                texture_data: self.texture_data.clone(),
+            Some(Level {
+                handle: self.handle,
                 level,
-                _marker: marker::PhantomData,
             })
         } else {
             None
@@ -254,87 +220,72 @@ where
     }
 }
 
-#[derive(Clone)]
-pub struct TextureCubeLevel<F> {
-    texture_data: Arc<TextureCubeData>,
+pub struct Level<'a, F> {
+    handle: &'a TextureCube<F>,
     level: usize,
-    _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> TextureCubeLevel<F>
+impl<'a, F> Level<'a, F>
 where
     F: TextureFormat,
 {
-    pub fn texture(&self) -> TextureCube<F> {
-        TextureCube {
-            data: self.texture_data.clone(),
-            _marker: marker::PhantomData,
-        }
-    }
-
     pub fn level(&self) -> usize {
         self.level
     }
 
     pub fn width(&self) -> u32 {
-        mipmap_size(self.texture_data.width, self.level)
+        mipmap_size(self.handle.data.width, self.level)
     }
 
     pub fn height(&self) -> u32 {
-        mipmap_size(self.texture_data.height, self.level)
+        mipmap_size(self.handle.data.height, self.level)
     }
 
-    pub fn positive_x(&self) -> TextureCubeLevelFace<F> {
-        TextureCubeLevelFace {
-            texture_data: self.texture_data.clone(),
+    pub fn positive_x(&self) -> LevelFace<F> {
+        LevelFace {
+            handle: self.handle,
             level: self.level,
             face: CubeFace::PositiveX,
-            _marker: marker::PhantomData,
         }
     }
 
-    pub fn negative_x(&self) -> TextureCubeLevelFace<F> {
-        TextureCubeLevelFace {
-            texture_data: self.texture_data.clone(),
+    pub fn negative_x(&self) -> LevelFace<F> {
+        LevelFace {
+            handle: self.handle,
             level: self.level,
             face: CubeFace::NegativeX,
-            _marker: marker::PhantomData,
         }
     }
 
-    pub fn positive_y(&self) -> TextureCubeLevelFace<F> {
-        TextureCubeLevelFace {
-            texture_data: self.texture_data.clone(),
+    pub fn positive_y(&self) -> LevelFace<F> {
+        LevelFace {
+            handle: self.handle,
             level: self.level,
             face: CubeFace::PositiveY,
-            _marker: marker::PhantomData,
         }
     }
 
-    pub fn negative_y(&self) -> TextureCubeLevelFace<F> {
-        TextureCubeLevelFace {
-            texture_data: self.texture_data.clone(),
+    pub fn negative_y(&self) -> LevelFace<F> {
+        LevelFace {
+            handle: self.handle,
             level: self.level,
             face: CubeFace::NegativeY,
-            _marker: marker::PhantomData,
         }
     }
 
-    pub fn positive_z(&self) -> TextureCubeLevelFace<F> {
-        TextureCubeLevelFace {
-            texture_data: self.texture_data.clone(),
+    pub fn positive_z(&self) -> LevelFace<F> {
+        LevelFace {
+            handle: self.handle,
             level: self.level,
             face: CubeFace::PositiveZ,
-            _marker: marker::PhantomData,
         }
     }
 
-    pub fn negative_z(&self) -> TextureCubeLevelFace<F> {
-        TextureCubeLevelFace {
-            texture_data: self.texture_data.clone(),
+    pub fn negative_z(&self) -> LevelFace<F> {
+        LevelFace {
+            handle: self.handle,
             level: self.level,
             face: CubeFace::NegativeZ,
-            _marker: marker::PhantomData,
         }
     }
 }
@@ -363,22 +314,18 @@ impl CubeFace {
 }
 
 #[derive(Clone)]
-pub struct TextureCubeLevelFace<F> {
-    texture_data: Arc<TextureCubeData>,
+pub struct LevelFace<'a, F> {
+    handle: &'a TextureCube<F>,
     level: usize,
     face: CubeFace,
-    _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> TextureCubeLevelFace<F>
+impl<'a, F> LevelFace<'a, F>
 where
     F: TextureFormat,
 {
-    pub fn texture(&self) -> TextureCube<F> {
-        TextureCube {
-            data: self.texture_data.clone(),
-            _marker: marker::PhantomData,
-        }
+    pub(crate) fn texture_data(&self) -> &Arc<TextureCubeData> {
+        &self.handle.data
     }
 
     pub fn level(&self) -> usize {
@@ -390,30 +337,29 @@ where
     }
 
     pub fn width(&self) -> u32 {
-        mipmap_size(self.texture_data.width, self.level)
+        mipmap_size(self.handle.data.width, self.level)
     }
 
     pub fn height(&self) -> u32 {
-        mipmap_size(self.texture_data.height, self.level)
+        mipmap_size(self.handle.data.height, self.level)
     }
 
-    pub fn sub_image(&self, region: Region2D) -> TextureCubeLevelFaceSubImage<F> {
-        TextureCubeLevelFaceSubImage {
-            texture_data: self.texture_data.clone(),
+    pub fn sub_image(&self, region: Region2D) -> LevelFaceSubImage<F> {
+        LevelFaceSubImage {
+            handle: self.handle,
             level: self.level,
             face: self.face,
             region,
-            _marker: marker::PhantomData,
         }
     }
 
-    pub fn upload_task<D, T>(&self, data: Image2DSource<D, T>) -> TextureCubeUploadTask<D, T, F>
+    pub fn upload_command<D, T>(&self, data: Image2DSource<D, T>) -> UploadCommand<D, T, F>
     where
         T: ClientFormat<F>,
     {
-        TextureCubeUploadTask {
+        UploadCommand {
             data,
-            texture_data: self.texture_data.clone(),
+            texture_data: self.handle.data.clone(),
             level: self.level,
             face: self.face,
             region: Region2D::Fill,
@@ -422,25 +368,17 @@ where
     }
 }
 
-pub struct TextureCubeLevelFaceSubImage<F> {
-    texture_data: Arc<TextureCubeData>,
+pub struct LevelFaceSubImage<'a, F> {
+    handle: &'a TextureCube<F>,
     level: usize,
     face: CubeFace,
     region: Region2D,
-    _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> TextureCubeLevelFaceSubImage<F>
+impl<'a, F> LevelFaceSubImage<'a, F>
 where
     F: TextureFormat,
 {
-    pub fn texture(&self) -> TextureCube<F> {
-        TextureCube {
-            data: self.texture_data.clone(),
-            _marker: marker::PhantomData,
-        }
-    }
-
     pub fn level(&self) -> usize {
         self.level
     }
@@ -454,30 +392,29 @@ where
     }
 
     pub fn width(&self) -> u32 {
-        region_2d_overlap_width(self.texture_data.width, self.level, &self.region)
+        region_2d_overlap_width(self.handle.data.width, self.level, &self.region)
     }
 
     pub fn height(&self) -> u32 {
-        region_2d_overlap_height(self.texture_data.height, self.level, &self.region)
+        region_2d_overlap_height(self.handle.data.height, self.level, &self.region)
     }
 
-    pub fn sub_image(&self, region: Region2D) -> TextureCubeLevelFaceSubImage<F> {
-        TextureCubeLevelFaceSubImage {
-            texture_data: self.texture_data.clone(),
+    pub fn sub_image(&self, region: Region2D) -> LevelFaceSubImage<F> {
+        LevelFaceSubImage {
+            handle: self.handle,
             level: self.level,
             face: self.face,
             region: region_2d_sub_image(self.region, region),
-            _marker: marker::PhantomData,
         }
     }
 
-    pub fn upload_task<D, T>(&self, data: Image2DSource<D, T>) -> TextureCubeUploadTask<D, T, F>
+    pub fn upload_command<D, T>(&self, data: Image2DSource<D, T>) -> UploadCommand<D, T, F>
     where
         T: ClientFormat<F>,
     {
-        TextureCubeUploadTask {
+        UploadCommand {
             data,
-            texture_data: self.texture_data.clone(),
+            texture_data: self.handle.data.clone(),
             level: self.level,
             face: self.face,
             region: self.region,
@@ -486,12 +423,12 @@ where
     }
 }
 
-struct TextureCubeAllocateTask<F> {
+struct AllocateCommand<F> {
     data: Arc<TextureCubeData>,
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> GpuTask<Connection> for TextureCubeAllocateTask<F>
+impl<F> GpuTask<Connection> for AllocateCommand<F>
 where
     F: TextureFormat,
 {
@@ -523,7 +460,7 @@ where
     }
 }
 
-pub struct TextureCubeUploadTask<D, T, F> {
+pub struct UploadCommand<D, T, F> {
     data: Image2DSource<D, T>,
     texture_data: Arc<TextureCubeData>,
     level: usize,
@@ -532,7 +469,7 @@ pub struct TextureCubeUploadTask<D, T, F> {
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<D, T, F> GpuTask<Connection> for TextureCubeUploadTask<D, T, F>
+impl<D, T, F> GpuTask<Connection> for UploadCommand<D, T, F>
 where
     D: Borrow<[T]>,
     T: ClientFormat<F>,
