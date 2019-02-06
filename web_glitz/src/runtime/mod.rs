@@ -1,6 +1,9 @@
+//mod context_options;
+//pub use self::context_options::{ContextOptions, ContextOptionsBuilder, PowerPreference, FailIfMajorPerformanceCaveat, IgnoreMajorPerformanceCaveat};
+
 mod rendering_context;
 pub use self::rendering_context::{
-    Connection, ContextMismatch, Execution, RenderingContext, SubmitError,
+    Connection, TaskContextMismatch, Execution, RenderingContext, SubmitError,
 };
 
 pub mod single_threaded;

@@ -169,4 +169,4 @@ impl Connection {
     }
 }
 
-pub struct ContextMismatch;
+pub struct TaskContextMismatch;

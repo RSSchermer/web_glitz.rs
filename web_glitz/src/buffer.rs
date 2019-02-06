@@ -9,7 +9,7 @@ use wasm_bindgen::JsCast;
 use web_sys::{WebGl2RenderingContext as GL, WebGlBuffer};
 
 use crate::runtime::state::{BufferRange, ContextUpdate};
-use crate::runtime::{Connection, ContextMismatch, RenderingContext};
+use crate::runtime::{Connection, TaskContextMismatch, RenderingContext};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, slice_make_mut, JsId};
 
@@ -754,11 +754,11 @@ impl<T, D> GpuTask<Connection> for UploadCommand<T, D>
 where
     D: Borrow<T>,
 {
-    type Output = Result<(), ContextMismatch>;
+    type Output = Result<(), TaskContextMismatch>;
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         if self.buffer_data.context_id != connection.context_id() {
-            return Progress::Finished(Err(ContextMismatch));
+            return Progress::Finished(Err(TaskContextMismatch));
         }
 
         let (gl, state) = unsafe { connection.unpack_mut() };
@@ -796,11 +796,11 @@ impl<T, D> GpuTask<Connection> for UploadCommand<[T], D>
 where
     D: Borrow<[T]>,
 {
-    type Output = Result<(), ContextMismatch>;
+    type Output = Result<(), TaskContextMismatch>;
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         if self.buffer_data.context_id != connection.context_id() {
-            return Progress::Finished(Err(ContextMismatch));;
+            return Progress::Finished(Err(TaskContextMismatch));;
         }
 
         let (gl, state) = unsafe { connection.unpack_mut() };
@@ -856,11 +856,11 @@ enum DownloadState {
 }
 
 impl<T> GpuTask<Connection> for DownloadCommand<T> {
-    type Output = Result<Box<T>, ContextMismatch>;
+    type Output = Result<Box<T>, TaskContextMismatch>;
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         if self.data.context_id != connection.context_id() {
-            return Progress::Finished(Err(ContextMismatch));;
+            return Progress::Finished(Err(TaskContextMismatch));;
         }
 
         match self.state {
@@ -930,11 +930,11 @@ impl<T> GpuTask<Connection> for DownloadCommand<T> {
 }
 
 impl<T> GpuTask<Connection> for DownloadCommand<[T]> {
-    type Output = Result<Box<[T]>, ContextMismatch>;
+    type Output = Result<Box<[T]>, TaskContextMismatch>;
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         if self.data.context_id != connection.context_id() {
-            return Progress::Finished(Err(ContextMismatch));;
+            return Progress::Finished(Err(TaskContextMismatch));;
         }
 
         match self.state {

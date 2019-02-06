@@ -18,7 +18,7 @@ use crate::image::util::{ max_mipmap_levels,
 };
 use crate::image::{Image2DSource, Region2D};
 use crate::runtime::state::ContextUpdate;
-use crate::runtime::{Connection, ContextMismatch, RenderingContext};
+use crate::runtime::{Connection, TaskContextMismatch, RenderingContext};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, identical, slice_make_mut, JsId};
 
@@ -890,11 +890,11 @@ where
     T: ClientFormat<F>,
     F: TextureFormat,
 {
-    type Output = Result<(), ContextMismatch>;
+    type Output = Result<(), TaskContextMismatch>;
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         if self.texture_data.context_id != connection.context_id() {
-            return Progress::Finished(Err(ContextMismatch));
+            return Progress::Finished(Err(TaskContextMismatch));
         }
 
         let mut width = region_2d_overlap_width(self.texture_data.width, self.level, &self.region);
@@ -987,11 +987,11 @@ pub struct GenerateMipmapCommand {
 }
 
 impl GpuTask<Connection> for GenerateMipmapCommand {
-    type Output = Result<(), ContextMismatch>;
+    type Output = Result<(), TaskContextMismatch>;
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         if self.texture_data.context_id != connection.context_id() {
-            return Progress::Finished(Err(ContextMismatch));
+            return Progress::Finished(Err(TaskContextMismatch));
         }
 
         let (gl, state) = unsafe { connection.unpack_mut() };
