@@ -203,6 +203,10 @@ impl Texture3DData {
     pub(crate) fn id(&self) -> Option<JsId> {
         self.id
     }
+
+    pub(crate) fn context_id(&self) -> usize {
+        self.context_id
+    }
 }
 
 impl PartialEq for Texture3DData {
@@ -1184,6 +1188,10 @@ where
             level: self.level,
             layer: self.layer
         }
+    }
+
+    pub(crate) fn texture_data(&self) -> &Arc<Texture3DData> {
+        &self.handle.data
     }
 
     pub fn level(&self) -> usize {

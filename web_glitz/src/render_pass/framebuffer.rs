@@ -16,10 +16,12 @@ use crate::render_pass::{Attachment, IntoAttachment, RenderPassContext, RenderPa
 use crate::runtime::state::ContextUpdate;
 use crate::task::{GpuTask, Progress};
 use crate::util::slice_make_mut;
+use crate::runtime::ContextMismatch;
 
 pub struct Framebuffer<C, Ds> {
     pub color: C,
     pub depth_stencil: Ds,
+    pub(crate) context_id: usize,
     pub(crate) render_pass_id: usize,
 }
 
@@ -27,10 +29,16 @@ impl<C, Ds> Framebuffer<C, Ds>
 where
     C: BlitColorTarget,
 {
-    pub fn blit_color_command<S>(&self, region: Region2D, source: &S) -> BlitCommand
+    pub fn blit_color_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, ContextMismatch>
     where
         S: BlitColorCompatible<C>,
     {
+        let source_descriptor = source.descriptor();
+
+        if source_descriptor.context_id != self.context_id {
+            return Err(ContextMismatch);
+        }
+
         let region = match region {
             Region2D::Area(origin, width, height) => (origin, width, height),
             Region2D::Fill => {
@@ -40,21 +48,27 @@ where
             }
         };
 
-        BlitCommand {
+        Ok(BlitCommand {
             render_pass_id: self.render_pass_id,
             read_slot: Gl::COLOR_ATTACHMENT0,
             bitmask: Gl::COLOR_BUFFER_BIT,
             filter: Gl::NEAREST,
             region,
-            source: source.descriptor(),
-        }
+            source: source_descriptor,
+        })
     }
 
-    pub fn blit_color_linear_command<S>(&self, region: Region2D, source: &S) -> BlitCommand
+    pub fn blit_color_linear_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, ContextMismatch>
     where
         S: BlitColorCompatible<C>,
         S::Format: Filterable,
     {
+        let source_descriptor = source.descriptor();
+
+        if source_descriptor.context_id != self.context_id {
+            return Err(ContextMismatch);
+        }
+
         let region = match region {
             Region2D::Area(origin, width, height) => (origin, width, height),
             Region2D::Fill => {
@@ -64,14 +78,14 @@ where
             }
         };
 
-        BlitCommand {
+        Ok(BlitCommand {
             render_pass_id: self.render_pass_id,
             read_slot: Gl::COLOR_ATTACHMENT0,
             bitmask: Gl::COLOR_BUFFER_BIT,
             filter: Gl::LINEAR,
             region,
-            source: source.descriptor(),
-        }
+            source: source_descriptor,
+        })
     }
 }
 
@@ -79,10 +93,16 @@ impl<C, F> Framebuffer<C, DepthStencilBuffer<F>>
 where
     F: DepthStencilRenderable,
 {
-    pub fn blit_depth_stencil_command<S>(&self, region: Region2D, source: &S) -> BlitCommand
+    pub fn blit_depth_stencil_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, ContextMismatch>
     where
         S: BlitSource<Format = F>,
     {
+        let source_descriptor = source.descriptor();
+
+        if source_descriptor.context_id != self.context_id {
+            return Err(ContextMismatch);
+        }
+
         let region = match region {
             Region2D::Area(origin, width, height) => (origin, width, height),
             Region2D::Fill => (
@@ -92,20 +112,26 @@ where
             ),
         };
 
-        BlitCommand {
+        Ok(BlitCommand {
             render_pass_id: self.render_pass_id,
             read_slot: Gl::DEPTH_STENCIL_ATTACHMENT,
             bitmask: Gl::DEPTH_BUFFER_BIT & Gl::STENCIL_BUFFER_BIT,
             filter: Gl::NEAREST,
             region,
-            source: source.descriptor(),
-        }
+            source: source_descriptor,
+        })
     }
 
-    pub fn blit_depth_command<S>(&self, region: Region2D, source: &S) -> BlitCommand
+    pub fn blit_depth_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, ContextMismatch>
     where
         S: BlitSource<Format = F>,
     {
+        let source_descriptor = source.descriptor();
+
+        if source_descriptor.context_id != self.context_id {
+            return Err(ContextMismatch);
+        }
+
         let region = match region {
             Region2D::Area(origin, width, height) => (origin, width, height),
             Region2D::Fill => (
@@ -115,20 +141,26 @@ where
             ),
         };
 
-        BlitCommand {
+        Ok(BlitCommand {
             render_pass_id: self.render_pass_id,
             read_slot: Gl::DEPTH_STENCIL_ATTACHMENT,
             bitmask: Gl::DEPTH_BUFFER_BIT,
             filter: Gl::NEAREST,
             region,
-            source: source.descriptor(),
-        }
+            source: source_descriptor,
+        })
     }
 
-    pub fn blit_stencil_command<S>(&self, region: Region2D, source: &S) -> BlitCommand
+    pub fn blit_stencil_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, ContextMismatch>
     where
         S: BlitSource<Format = F>,
     {
+        let source_descriptor = source.descriptor();
+
+        if source_descriptor.context_id != self.context_id {
+            return Err(ContextMismatch);
+        }
+
         let region = match region {
             Region2D::Area(origin, width, height) => (origin, width, height),
             Region2D::Fill => (
@@ -138,14 +170,14 @@ where
             ),
         };
 
-        BlitCommand {
+        Ok(BlitCommand {
             render_pass_id: self.render_pass_id,
             read_slot: Gl::DEPTH_STENCIL_ATTACHMENT,
             bitmask: Gl::STENCIL_BUFFER_BIT,
             filter: Gl::NEAREST,
             region,
-            source: source.descriptor(),
-        }
+            source: source_descriptor,
+        })
     }
 }
 
@@ -153,10 +185,16 @@ impl<C, F> Framebuffer<C, DepthBuffer<F>>
 where
     F: DepthRenderable,
 {
-    pub fn blit_depth_command<S>(&self, region: Region2D, source: &S) -> BlitCommand
+    pub fn blit_depth_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, ContextMismatch>
     where
         S: BlitSource<Format = F>,
     {
+        let source_descriptor = source.descriptor();
+
+        if source_descriptor.context_id != self.context_id {
+            return Err(ContextMismatch);
+        }
+
         let region = match region {
             Region2D::Area(origin, width, height) => (origin, width, height),
             Region2D::Fill => (
@@ -166,14 +204,14 @@ where
             ),
         };
 
-        BlitCommand {
+        Ok(BlitCommand {
             render_pass_id: self.render_pass_id,
             read_slot: Gl::DEPTH_ATTACHMENT,
             bitmask: Gl::DEPTH_BUFFER_BIT,
             filter: Gl::NEAREST,
             region,
-            source: source.descriptor(),
-        }
+            source: source_descriptor,
+        })
     }
 }
 
@@ -181,10 +219,16 @@ impl<C, F> Framebuffer<C, StencilBuffer<F>>
 where
     F: StencilRenderable,
 {
-    pub fn blit_stencil_command<S>(&self, region: Region2D, source: &S) -> BlitCommand
+    pub fn blit_stencil_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, ContextMismatch>
     where
         S: BlitSource<Format = F>,
     {
+        let source_descriptor = source.descriptor();
+
+        if source_descriptor.context_id != self.context_id {
+            return Err(ContextMismatch);
+        }
+
         let region = match region {
             Region2D::Area(origin, width, height) => (origin, width, height),
             Region2D::Fill => (
@@ -194,14 +238,14 @@ where
             ),
         };
 
-        BlitCommand {
+        Ok(BlitCommand {
             render_pass_id: self.render_pass_id,
             read_slot: Gl::STENCIL_ATTACHMENT,
             bitmask: Gl::STENCIL_BUFFER_BIT,
             filter: Gl::NEAREST,
             region,
-            source: source.descriptor(),
-        }
+            source: source_descriptor,
+        })
     }
 }
 
@@ -288,6 +332,7 @@ pub trait BlitSource {
 pub struct BlitSourceDescriptor {
     attachment: Attachment,
     region: ((u32, u32), u32, u32),
+    context_id: usize,
 }
 
 impl<'a, F> BlitSource for Texture2DLevel<'a, F>
@@ -300,6 +345,7 @@ impl<'a, F> BlitSource for Texture2DLevel<'a, F>
         BlitSourceDescriptor {
             attachment: Attachment::from_texture_2d_level(self),
             region: ((0, 0), self.width(), self.height()),
+            context_id: self.texture_data().context_id()
         }
     }
 }
@@ -319,6 +365,7 @@ impl<'a, F> BlitSource for Texture2DLevelSubImage<'a, F>
         BlitSourceDescriptor {
             attachment: Attachment::from_texture_2d_level(&self.level_ref()),
             region: (origin, self.width(), self.height()),
+            context_id: self.texture_data().context_id()
         }
     }
 }
@@ -333,6 +380,7 @@ impl<'a, F> BlitSource for Texture2DArrayLevelLayer<'a, F>
         BlitSourceDescriptor {
             attachment: Attachment::from_texture_2d_array_level_layer(self),
             region: ((0, 0), self.width(), self.height()),
+            context_id: self.texture_data().context_id()
         }
     }
 }
@@ -352,6 +400,7 @@ impl<'a, F> BlitSource for Texture2DArrayLevelLayerSubImage<'a, F>
         BlitSourceDescriptor {
             attachment: Attachment::from_texture_2d_array_level_layer(&self.level_layer_ref()),
             region: (origin, self.width(), self.height()),
+            context_id: self.texture_data().context_id()
         }
     }
 }
@@ -366,6 +415,7 @@ impl<'a, F> BlitSource for Texture3DLevelLayer<'a, F>
         BlitSourceDescriptor {
             attachment: Attachment::from_texture_3d_level_layer(self),
             region: ((0, 0), self.width(), self.height()),
+            context_id: self.texture_data().context_id()
         }
     }
 }
@@ -385,6 +435,7 @@ impl<'a, F> BlitSource for Texture3DLevelLayerSubImage<'a, F>
         BlitSourceDescriptor {
             attachment: Attachment::from_texture_3d_level_layer(&self.level_layer_ref()),
             region: (origin, self.width(), self.height()),
+            context_id: self.texture_data().context_id()
         }
     }
 }
@@ -399,6 +450,7 @@ impl<'a, F> BlitSource for TextureCubeLevelFace<'a, F>
         BlitSourceDescriptor {
             attachment: Attachment::from_texture_cube_level_face(self),
             region: ((0, 0), self.width(), self.height()),
+            context_id: self.texture_data().context_id()
         }
     }
 }
@@ -418,6 +470,7 @@ impl<'a, F> BlitSource for TextureCubeLevelFaceSubImage<'a, F>
         BlitSourceDescriptor {
             attachment: Attachment::from_texture_cube_level_face(&self.level_face_ref()),
             region: (origin, self.width(), self.height()),
+            context_id: self.texture_data().context_id()
         }
     }
 }
@@ -432,6 +485,7 @@ where
         BlitSourceDescriptor {
             attachment: Attachment::from_renderbuffer(self),
             region: ((0, 0), self.width(), self.height()),
+            context_id: self.data().context_id()
         }
     }
 }

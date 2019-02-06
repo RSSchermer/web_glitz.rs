@@ -27,6 +27,7 @@ where
     {
         let data = Arc::new(RenderbufferData {
             id: None,
+            context_id: context.id(),
             dropper: Box::new(context.clone()),
             width,
             height,
@@ -75,6 +76,7 @@ where
 
 pub(crate) struct RenderbufferData {
     id: Option<JsId>,
+    context_id: usize,
     dropper: Box<RenderbufferObjectDropper>,
     width: u32,
     height: u32,
@@ -83,6 +85,10 @@ pub(crate) struct RenderbufferData {
 impl RenderbufferData {
     pub(crate) fn id(&self) -> Option<JsId> {
         self.id
+    }
+
+    pub(crate) fn context_id(&self) -> usize {
+        self.context_id
     }
 }
 

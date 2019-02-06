@@ -206,6 +206,10 @@ impl Texture2DArrayData {
     pub(crate) fn id(&self) -> Option<JsId> {
         self.id
     }
+
+    pub(crate) fn context_id(&self) -> usize {
+        self.context_id
+    }
 }
 
 impl PartialEq for Texture2DArrayData {
@@ -1187,6 +1191,10 @@ where
             level: self.level,
             layer: self.layer
         }
+    }
+
+    pub(crate) fn texture_data(&self) -> &Arc<Texture2DArrayData> {
+        &self.handle.data
     }
 
     pub fn level(&self) -> usize {

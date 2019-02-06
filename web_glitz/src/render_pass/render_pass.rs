@@ -1213,6 +1213,7 @@ where
 pub struct MaxColorAttachmentsExceeded;
 
 pub struct EncodingContext {
+    context_id: usize,
     render_pass_id: usize,
 }
 
@@ -1223,6 +1224,7 @@ pub struct RenderTargetEncoder<C, Ds> {
 }
 
 struct RenderTargetEncoderData {
+    context_id: usize,
     render_pass_id: usize,
     load_ops: [LoadAction; 17],
     store_ops: [StoreOp; 17],
@@ -1237,6 +1239,7 @@ impl RenderTargetEncoder<(), ()> {
             color: (),
             depth_stencil: (),
             data: RenderTargetEncoderData {
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 load_ops: [LoadAction::Load; 17],
                 store_ops: [StoreOp::Store; 17],
@@ -1452,6 +1455,7 @@ macro_rules! generate_encoder_finish {
                     framebuffer: Framebuffer {
                         color: ($($C),*),
                         depth_stencil: (),
+                        context_id: self.data.context_id,
                         render_pass_id: self.data.render_pass_id,
                     },
                     data: self.data,
@@ -1472,6 +1476,7 @@ macro_rules! generate_encoder_finish {
                     framebuffer: Framebuffer {
                         color: ($($C),*),
                         depth_stencil: self.depth_stencil,
+                        context_id: self.data.context_id,
                         render_pass_id: self.data.render_pass_id,
                     },
                     data: self.data,
@@ -1541,9 +1546,11 @@ where
             framebuffer: Framebuffer {
                 color: buffers,
                 depth_stencil: (),
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
             },
             data: RenderTargetEncoderData {
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 load_ops,
                 store_ops,
@@ -1608,9 +1615,11 @@ where
                     depth_stencil_attachment.width(),
                     depth_stencil_attachment.height(),
                 ),
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
             },
             data: RenderTargetEncoderData {
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 load_ops,
                 store_ops,
@@ -1677,9 +1686,11 @@ where
                     depth_attachment.width(),
                     depth_attachment.height(),
                 ),
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
             },
             data: RenderTargetEncoderData {
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 load_ops,
                 store_ops,
@@ -1744,9 +1755,11 @@ where
                     stencil_attachment.width(),
                     stencil_attachment.height(),
                 ),
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
             },
             data: RenderTargetEncoderData {
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 load_ops,
                 store_ops,
@@ -1798,9 +1811,11 @@ where
             framebuffer: Framebuffer {
                 color: buffers,
                 depth_stencil: (),
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
             },
             data: RenderTargetEncoderData {
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 load_ops,
                 store_ops,
@@ -1865,9 +1880,11 @@ where
                     depth_stencil_attachment.width(),
                     depth_stencil_attachment.height(),
                 ),
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
             },
             data: RenderTargetEncoderData {
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 load_ops,
                 store_ops,
@@ -1934,9 +1951,11 @@ where
                     depth_attachment.width(),
                     depth_attachment.height(),
                 ),
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
             },
             data: RenderTargetEncoderData {
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 load_ops,
                 store_ops,
@@ -2001,9 +2020,11 @@ where
                     stencil_attachment.width(),
                     stencil_attachment.height(),
                 ),
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
             },
             data: RenderTargetEncoderData {
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 load_ops,
                 store_ops,
@@ -2055,9 +2076,11 @@ where
             framebuffer: Framebuffer {
                 color: buffers,
                 depth_stencil: (),
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
             },
             data: RenderTargetEncoderData {
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 load_ops,
                 store_ops,
@@ -2123,9 +2146,11 @@ where
                     depth_stencil_attachment.width(),
                     depth_stencil_attachment.height(),
                 ),
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
             },
             data: RenderTargetEncoderData {
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 load_ops,
                 store_ops,
@@ -2192,9 +2217,11 @@ where
                     depth_attachment.width(),
                     depth_attachment.height(),
                 ),
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
             },
             data: RenderTargetEncoderData {
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 load_ops,
                 store_ops,
@@ -2259,9 +2286,11 @@ where
                     stencil_attachment.width(),
                     stencil_attachment.height(),
                 ),
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
             },
             data: RenderTargetEncoderData {
+                context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 load_ops,
                 store_ops,
