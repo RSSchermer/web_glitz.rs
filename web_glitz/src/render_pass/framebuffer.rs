@@ -16,7 +16,8 @@ use crate::render_pass::{Attachment, IntoAttachment, RenderPassContext, RenderPa
 use crate::runtime::state::ContextUpdate;
 use crate::task::{GpuTask, Progress};
 use crate::util::slice_make_mut;
-use crate::runtime::ContextMismatch;
+
+pub struct BlitSourceContextMismatch;
 
 pub struct Framebuffer<C, Ds> {
     pub color: C,
@@ -29,14 +30,14 @@ impl<C, Ds> Framebuffer<C, Ds>
 where
     C: BlitColorTarget,
 {
-    pub fn blit_color_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, ContextMismatch>
+    pub fn blit_color_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, BlitSourceContextMismatch>
     where
         S: BlitColorCompatible<C>,
     {
         let source_descriptor = source.descriptor();
 
         if source_descriptor.context_id != self.context_id {
-            return Err(ContextMismatch);
+            return Err(BlitSourceContextMismatch);
         }
 
         let region = match region {
@@ -58,7 +59,7 @@ where
         })
     }
 
-    pub fn blit_color_linear_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, ContextMismatch>
+    pub fn blit_color_linear_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, BlitSourceContextMismatch>
     where
         S: BlitColorCompatible<C>,
         S::Format: Filterable,
@@ -66,7 +67,7 @@ where
         let source_descriptor = source.descriptor();
 
         if source_descriptor.context_id != self.context_id {
-            return Err(ContextMismatch);
+            return Err(BlitSourceContextMismatch);
         }
 
         let region = match region {
@@ -93,14 +94,14 @@ impl<C, F> Framebuffer<C, DepthStencilBuffer<F>>
 where
     F: DepthStencilRenderable,
 {
-    pub fn blit_depth_stencil_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, ContextMismatch>
+    pub fn blit_depth_stencil_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, BlitSourceContextMismatch>
     where
         S: BlitSource<Format = F>,
     {
         let source_descriptor = source.descriptor();
 
         if source_descriptor.context_id != self.context_id {
-            return Err(ContextMismatch);
+            return Err(BlitSourceContextMismatch);
         }
 
         let region = match region {
@@ -122,14 +123,14 @@ where
         })
     }
 
-    pub fn blit_depth_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, ContextMismatch>
+    pub fn blit_depth_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, BlitSourceContextMismatch>
     where
         S: BlitSource<Format = F>,
     {
         let source_descriptor = source.descriptor();
 
         if source_descriptor.context_id != self.context_id {
-            return Err(ContextMismatch);
+            return Err(BlitSourceContextMismatch);
         }
 
         let region = match region {
@@ -151,14 +152,14 @@ where
         })
     }
 
-    pub fn blit_stencil_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, ContextMismatch>
+    pub fn blit_stencil_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, BlitSourceContextMismatch>
     where
         S: BlitSource<Format = F>,
     {
         let source_descriptor = source.descriptor();
 
         if source_descriptor.context_id != self.context_id {
-            return Err(ContextMismatch);
+            return Err(BlitSourceContextMismatch);
         }
 
         let region = match region {
@@ -185,14 +186,14 @@ impl<C, F> Framebuffer<C, DepthBuffer<F>>
 where
     F: DepthRenderable,
 {
-    pub fn blit_depth_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, ContextMismatch>
+    pub fn blit_depth_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, BlitSourceContextMismatch>
     where
         S: BlitSource<Format = F>,
     {
         let source_descriptor = source.descriptor();
 
         if source_descriptor.context_id != self.context_id {
-            return Err(ContextMismatch);
+            return Err(BlitSourceContextMismatch);
         }
 
         let region = match region {
@@ -219,14 +220,14 @@ impl<C, F> Framebuffer<C, StencilBuffer<F>>
 where
     F: StencilRenderable,
 {
-    pub fn blit_stencil_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, ContextMismatch>
+    pub fn blit_stencil_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, BlitSourceContextMismatch>
     where
         S: BlitSource<Format = F>,
     {
         let source_descriptor = source.descriptor();
 
         if source_descriptor.context_id != self.context_id {
-            return Err(ContextMismatch);
+            return Err(BlitSourceContextMismatch);
         }
 
         let region = match region {
