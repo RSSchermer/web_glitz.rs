@@ -6,13 +6,13 @@ use futures::{Async, Poll};
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::buffer::{Buffer, BufferUsage, IntoBuffer};
-use crate::image::{MipmapLevels, MaxMipmapLevelsExceeded};
 use crate::image::format::{Filterable, RenderbufferFormat, TextureFormat};
 use crate::image::renderbuffer::Renderbuffer;
 use crate::image::texture_2d::Texture2D;
 use crate::image::texture_2d_array::Texture2DArray;
 use crate::image::texture_3d::Texture3D;
 use crate::image::texture_cube::TextureCube;
+use crate::image::{MaxMipmapLevelsExceeded, MipmapLevels};
 use crate::runtime::state::DynamicState;
 use crate::task::GpuTask;
 
@@ -40,12 +40,7 @@ pub trait RenderingContext {
     where
         F: TextureFormat + Filterable + 'static;
 
-    fn create_texture_2d_array<F>(
-        &self,
-        width: u32,
-        height: u32,
-        depth: u32,
-    ) -> Texture2DArray<F>
+    fn create_texture_2d_array<F>(&self, width: u32, height: u32, depth: u32) -> Texture2DArray<F>
     where
         F: TextureFormat + 'static;
 
@@ -54,17 +49,12 @@ pub trait RenderingContext {
         width: u32,
         height: u32,
         depth: u32,
-        levels: MipmapLevels
+        levels: MipmapLevels,
     ) -> Result<Texture2DArray<F>, MaxMipmapLevelsExceeded>
-        where
-            F: TextureFormat + Filterable + 'static;
+    where
+        F: TextureFormat + Filterable + 'static;
 
-    fn create_texture_3d<F>(
-        &self,
-        width: u32,
-        height: u32,
-        depth: u32,
-    ) -> Texture3D<F>
+    fn create_texture_3d<F>(&self, width: u32, height: u32, depth: u32) -> Texture3D<F>
     where
         F: TextureFormat + 'static;
 
@@ -75,16 +65,21 @@ pub trait RenderingContext {
         depth: u32,
         levels: MipmapLevels,
     ) -> Result<Texture3D<F>, MaxMipmapLevelsExceeded>
-        where
-            F: TextureFormat + Filterable + 'static;
+    where
+        F: TextureFormat + Filterable + 'static;
 
     fn create_texture_cube<F>(&self, width: u32, height: u32) -> TextureCube<F>
     where
         F: TextureFormat + 'static;
 
-    fn create_texture_cube_mipmapped<F>(&self, width: u32, height: u32, levels: MipmapLevels) -> Result<TextureCube<F>, MaxMipmapLevelsExceeded>
-        where
-            F: TextureFormat + Filterable + 'static;
+    fn create_texture_cube_mipmapped<F>(
+        &self,
+        width: u32,
+        height: u32,
+        levels: MipmapLevels,
+    ) -> Result<TextureCube<F>, MaxMipmapLevelsExceeded>
+    where
+        F: TextureFormat + Filterable + 'static;
 
     fn submit<T>(&self, task: T) -> Execution<T::Output>
     where

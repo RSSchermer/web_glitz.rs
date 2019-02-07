@@ -9,16 +9,17 @@ use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::image::{MipmapLevels, MaxMipmapLevelsExceeded};
 use crate::image::format::{ClientFormat, Filterable, TextureFormat};
 use crate::image::image_source::Image2DSourceInternal;
 use crate::image::texture_object_dropper::TextureObjectDropper;
-use crate::image::util::{max_mipmap_levels,
-    mipmap_size, region_2d_overlap_height, region_2d_overlap_width, region_2d_sub_image,
+use crate::image::util::{
+    max_mipmap_levels, mipmap_size, region_2d_overlap_height, region_2d_overlap_width,
+    region_2d_sub_image,
 };
 use crate::image::{Image2DSource, Region2D};
+use crate::image::{MaxMipmapLevelsExceeded, MipmapLevels};
 use crate::runtime::state::ContextUpdate;
-use crate::runtime::{Connection, TaskContextMismatch, RenderingContext};
+use crate::runtime::{Connection, RenderingContext, TaskContextMismatch};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, identical, JsId};
 
@@ -116,12 +117,17 @@ where
 }
 
 impl<F> TextureCube<F>
-    where
-        F: TextureFormat + Filterable + 'static,
+where
+    F: TextureFormat + Filterable + 'static,
 {
-    pub(crate) fn new_mipmapped<Rc>(context: &Rc, width: u32, height: u32, levels: MipmapLevels) -> Result<Self, MaxMipmapLevelsExceeded>
-        where
-            Rc: RenderingContext + Clone + 'static,
+    pub(crate) fn new_mipmapped<Rc>(
+        context: &Rc,
+        width: u32,
+        height: u32,
+        levels: MipmapLevels,
+    ) -> Result<Self, MaxMipmapLevelsExceeded>
+    where
+        Rc: RenderingContext + Clone + 'static,
     {
         let max_mipmap_levels = max_mipmap_levels(width, height);
 
@@ -131,7 +137,7 @@ impl<F> TextureCube<F>
                 if levels > max_mipmap_levels {
                     return Err(MaxMipmapLevelsExceeded {
                         given: levels,
-                        max: max_mipmap_levels
+                        max: max_mipmap_levels,
                     });
                 }
 
@@ -618,7 +624,7 @@ where
         LevelFace {
             handle: self.handle,
             level: self.level,
-            face: self.face
+            face: self.face,
         }
     }
 

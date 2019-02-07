@@ -5,6 +5,8 @@ extern crate fnv;
 extern crate futures;
 extern crate js_sys;
 #[macro_use]
+extern crate serde_derive;
+#[macro_use]
 extern crate proc_macro_hack;
 extern crate wasm_bindgen;
 extern crate web_sys;
