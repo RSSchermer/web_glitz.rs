@@ -44,7 +44,8 @@ use std::marker;
 pub struct RenderPass<Fb, F> {
     id: usize,
     context_id: usize,
-    render_target_encoding: RenderTargetEncoding<Fb>,
+    framebuffer: Fb,
+    render_target_encoding: RenderTargetEncodingData,
     f: Option<F>,
 }
 
@@ -88,24 +89,18 @@ where
         }
 
         let (gl, state) = unsafe { connection.unpack_mut() };
-        let RenderTargetEncoding {
-            render_pass_id,
-            framebuffer,
-            data,
-            ..
-        } = &self.render_target_encoding;
 
-        match data {
+        match &self.render_target_encoding {
             RenderTargetEncodingData::Default => {
                 state.set_bound_draw_framebuffer(None).apply(gl).unwrap();
 
                 let f = self.f.take().expect("Can only execute render pass once");
 
-                f(framebuffer)
+                f(&self.framebuffer)
                     .map_err(|e| RenderPassError::TaskError(e))
                     .progress(&mut RenderPassContext {
                         connection,
-                        render_pass_id: *render_pass_id,
+                        render_pass_id: self.id,
                     })
             }
             RenderTargetEncodingData::FBO(data) => {
@@ -124,11 +119,11 @@ where
 
                 let f = self.f.take().expect("Can only execute render pass once");
 
-                let output = f(framebuffer)
+                let output = f(&self.framebuffer)
                     .map_err(|e| RenderPassError::TaskError(e))
                     .progress(&mut RenderPassContext {
                         connection,
-                        render_pass_id: *render_pass_id,
+                        render_pass_id: self.id,
                     });
 
                 let mut invalidate_buffers = [0; 17];
@@ -472,10 +467,10 @@ impl FramebufferAttachment {
 pub trait RenderTargetDescription {
     type Framebuffer;
 
-    fn into_encoding(
+    fn into_encoding<'a>(
         self,
-        context: &mut EncodingContext,
-    ) -> RenderTargetEncoding<Self::Framebuffer>;
+        context: &'a mut EncodingContext,
+    ) -> RenderTargetEncoding<'a, Self::Framebuffer>;
 }
 
 pub struct FloatTarget<I>
@@ -706,14 +701,13 @@ impl RenderTargetDescription for DefaultFramebufferRef<DefaultRGBBuffer, ()> {
         context: &mut EncodingContext,
     ) -> RenderTargetEncoding<Self::Framebuffer> {
         RenderTargetEncoding {
-            context_id: context.context_id,
-            render_pass_id: context.render_pass_id,
             framebuffer: Framebuffer {
                 color: DefaultRGBBuffer::new(context.render_pass_id),
                 depth_stencil: (),
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
             },
+            context,
             data: RenderTargetEncodingData::Default,
         }
     }
@@ -729,14 +723,13 @@ impl RenderTargetDescription
         context: &mut EncodingContext,
     ) -> RenderTargetEncoding<Self::Framebuffer> {
         RenderTargetEncoding {
-            context_id: context.context_id,
-            render_pass_id: context.render_pass_id,
             framebuffer: Framebuffer {
                 color: DefaultRGBBuffer::new(context.render_pass_id),
                 depth_stencil: DefaultDepthStencilBuffer::new(context.render_pass_id),
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
             },
+            context,
             data: RenderTargetEncodingData::Default,
         }
     }
@@ -750,14 +743,13 @@ impl RenderTargetDescription for DefaultFramebufferRef<DefaultRGBBuffer, Default
         context: &mut EncodingContext,
     ) -> RenderTargetEncoding<Self::Framebuffer> {
         RenderTargetEncoding {
-            context_id: context.context_id,
-            render_pass_id: context.render_pass_id,
             framebuffer: Framebuffer {
                 color: DefaultRGBBuffer::new(context.render_pass_id),
                 depth_stencil: DefaultDepthBuffer::new(context.render_pass_id),
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
             },
+            context,
             data: RenderTargetEncodingData::Default,
         }
     }
@@ -771,14 +763,14 @@ impl RenderTargetDescription for DefaultFramebufferRef<DefaultRGBBuffer, Default
         context: &mut EncodingContext,
     ) -> RenderTargetEncoding<Self::Framebuffer> {
         RenderTargetEncoding {
-            context_id: context.context_id,
-            render_pass_id: context.render_pass_id,
+
             framebuffer: Framebuffer {
                 color: DefaultRGBBuffer::new(context.render_pass_id),
                 depth_stencil: DefaultStencilBuffer::new(context.render_pass_id),
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
             },
+            context,
             data: RenderTargetEncodingData::Default,
         }
     }
@@ -792,14 +784,13 @@ impl RenderTargetDescription for DefaultFramebufferRef<DefaultRGBABuffer, ()> {
         context: &mut EncodingContext,
     ) -> RenderTargetEncoding<Self::Framebuffer> {
         RenderTargetEncoding {
-            context_id: context.context_id,
-            render_pass_id: context.render_pass_id,
+
             framebuffer: Framebuffer {
                 color: DefaultRGBABuffer::new(context.render_pass_id),
                 depth_stencil: (),
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
-            },
+            },context,
             data: RenderTargetEncodingData::Default,
         }
     }
@@ -815,14 +806,13 @@ impl RenderTargetDescription
         context: &mut EncodingContext,
     ) -> RenderTargetEncoding<Self::Framebuffer> {
         RenderTargetEncoding {
-            context_id: context.context_id,
-            render_pass_id: context.render_pass_id,
+
             framebuffer: Framebuffer {
                 color: DefaultRGBABuffer::new(context.render_pass_id),
                 depth_stencil: DefaultDepthStencilBuffer::new(context.render_pass_id),
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
-            },
+            },context,
             data: RenderTargetEncodingData::Default,
         }
     }
@@ -836,14 +826,13 @@ impl RenderTargetDescription for DefaultFramebufferRef<DefaultRGBABuffer, Defaul
         context: &mut EncodingContext,
     ) -> RenderTargetEncoding<Self::Framebuffer> {
         RenderTargetEncoding {
-            context_id: context.context_id,
-            render_pass_id: context.render_pass_id,
+
             framebuffer: Framebuffer {
                 color: DefaultRGBABuffer::new(context.render_pass_id),
                 depth_stencil: DefaultDepthBuffer::new(context.render_pass_id),
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
-            },
+            },context,
             data: RenderTargetEncodingData::Default,
         }
     }
@@ -857,14 +846,13 @@ impl RenderTargetDescription for DefaultFramebufferRef<DefaultRGBABuffer, Defaul
         context: &mut EncodingContext,
     ) -> RenderTargetEncoding<Self::Framebuffer> {
         RenderTargetEncoding {
-            context_id: context.context_id,
-            render_pass_id: context.render_pass_id,
+
             framebuffer: Framebuffer {
                 color: DefaultRGBABuffer::new(context.render_pass_id),
                 depth_stencil: DefaultStencilBuffer::new(context.render_pass_id),
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
-            },
+            },context,
             data: RenderTargetEncodingData::Default,
         }
     }
@@ -1460,9 +1448,8 @@ pub struct EncodingContext {
     render_pass_id: usize,
 }
 
-pub struct RenderTargetEncoder<C, Ds> {
-    context_id: usize,
-    render_pass_id: usize,
+pub struct RenderTargetEncoder<'a, C, Ds> {
+    context: &'a mut EncodingContext,
     color: C,
     depth_stencil: Ds,
     data: FBOEncodingData,
@@ -1481,11 +1468,10 @@ struct FBOEncodingData {
     depth_stencil_attachment: DepthStencilAttachmentDescriptor,
 }
 
-impl RenderTargetEncoder<(), ()> {
-    pub fn new(context: &mut EncodingContext) -> Self {
+impl<'a> RenderTargetEncoder<'a, (), ()> {
+    pub fn new(context: &'a mut EncodingContext) -> Self {
         RenderTargetEncoder {
-            context_id: context.context_id,
-            render_pass_id: context.render_pass_id,
+            context,
             color: (),
             depth_stencil: (),
             data: FBOEncodingData {
@@ -1502,11 +1488,11 @@ impl RenderTargetEncoder<(), ()> {
     }
 }
 
-impl<C, Ds> RenderTargetEncoder<C, Ds> {
+impl<'a, C, Ds> RenderTargetEncoder<'a, C, Ds> {
     pub fn add_color_float_buffer<I>(
         mut self,
         attachment: FloatTarget<I>,
-    ) -> Result<RenderTargetEncoder<(FloatBuffer<I::Format>, C), Ds>, MaxColorAttachmentsExceeded>
+    ) -> Result<RenderTargetEncoder<'a, (FloatBuffer<I::Format>, C), Ds>, MaxColorAttachmentsExceeded>
     where
         I: IntoFramebufferAttachment,
         I::Format: FloatRenderable,
@@ -1526,12 +1512,11 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
             self.data.color_count += 1;
 
             Ok(RenderTargetEncoder {
-                context_id: self.context_id,
-                render_pass_id: self.render_pass_id,
                 color: (
-                    FloatBuffer::new(self.render_pass_id, c as i32, width, height),
+                    FloatBuffer::new(self.context.render_pass_id, c as i32, width, height),
                     self.color,
                 ),
+                context: self.context,
                 depth_stencil: self.depth_stencil,
                 data: self.data,
             })
@@ -1541,7 +1526,7 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
     pub fn add_color_integer_buffer<I>(
         mut self,
         attachment: IntegerTarget<I>,
-    ) -> Result<RenderTargetEncoder<(IntegerBuffer<I::Format>, C), Ds>, MaxColorAttachmentsExceeded>
+    ) -> Result<RenderTargetEncoder<'a, (IntegerBuffer<I::Format>, C), Ds>, MaxColorAttachmentsExceeded>
     where
         I: IntoFramebufferAttachment,
         I::Format: IntegerRenderable,
@@ -1561,12 +1546,12 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
             self.data.color_count += 1;
 
             Ok(RenderTargetEncoder {
-                context_id: self.context_id,
-                render_pass_id: self.render_pass_id,
+
                 color: (
-                    IntegerBuffer::new(self.render_pass_id, c as i32, width, height),
+                    IntegerBuffer::new(self.context.render_pass_id, c as i32, width, height),
                     self.color,
                 ),
+                context: self.context,
                 depth_stencil: self.depth_stencil,
                 data: self.data,
             })
@@ -1577,7 +1562,7 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
         mut self,
         attachment: UnsignedIntegerTarget<I>,
     ) -> Result<
-        RenderTargetEncoder<(UnsignedIntegerBuffer<I::Format>, C), Ds>,
+        RenderTargetEncoder<'a, (UnsignedIntegerBuffer<I::Format>, C), Ds>,
         MaxColorAttachmentsExceeded,
     >
     where
@@ -1599,12 +1584,11 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
             self.data.color_count += 1;
 
             Ok(RenderTargetEncoder {
-                context_id: self.context_id,
-                render_pass_id: self.render_pass_id,
+
                 color: (
-                    UnsignedIntegerBuffer::new(self.render_pass_id, c as i32, width, height),
+                    UnsignedIntegerBuffer::new(self.context.render_pass_id, c as i32, width, height),
                     self.color,
-                ),
+                ),context: self.context,
                 depth_stencil: self.depth_stencil,
                 data: self.data,
             })
@@ -1614,7 +1598,7 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
     pub fn set_depth_stencil_buffer<I>(
         mut self,
         attachment: DepthStencilTarget<I>,
-    ) -> RenderTargetEncoder<C, DepthStencilBuffer<I::Format>>
+    ) -> RenderTargetEncoder<'a, C, DepthStencilBuffer<I::Format>>
     where
         I: IntoFramebufferAttachment,
         I::Format: DepthStencilRenderable,
@@ -1629,18 +1613,17 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
             DepthStencilAttachmentDescriptor::DepthStencil(image_descriptor);
 
         RenderTargetEncoder {
-            context_id: self.context_id,
-            render_pass_id: self.render_pass_id,
+
             color: self.color,
-            depth_stencil: DepthStencilBuffer::new(self.render_pass_id, width, height),
-            data: self.data,
+            depth_stencil: DepthStencilBuffer::new(self.context.render_pass_id, width, height),
+            data: self.data,context: self.context,
         }
     }
 
     pub fn set_depth_stencil_depth_buffer<I>(
         mut self,
         attachment: DepthTarget<I>,
-    ) -> RenderTargetEncoder<C, DepthBuffer<I::Format>>
+    ) -> RenderTargetEncoder<'a, C, DepthBuffer<I::Format>>
     where
         I: IntoFramebufferAttachment,
         I::Format: DepthRenderable,
@@ -1655,18 +1638,17 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
             DepthStencilAttachmentDescriptor::Depth(image_descriptor);
 
         RenderTargetEncoder {
-            context_id: self.context_id,
-            render_pass_id: self.render_pass_id,
+
             color: self.color,
-            depth_stencil: DepthBuffer::new(self.render_pass_id, width, height),
-            data: self.data,
+            depth_stencil: DepthBuffer::new(self.context.render_pass_id, width, height),
+            data: self.data,context: self.context,
         }
     }
 
     pub fn set_depth_stencil_stencil_buffer<I>(
         mut self,
         attachment: StencilTarget<I>,
-    ) -> RenderTargetEncoder<C, StencilBuffer<I::Format>>
+    ) -> RenderTargetEncoder<'a, C, StencilBuffer<I::Format>>
     where
         I: IntoFramebufferAttachment,
         I::Format: StencilRenderable,
@@ -1681,11 +1663,10 @@ impl<C, Ds> RenderTargetEncoder<C, Ds> {
             DepthStencilAttachmentDescriptor::Stencil(image_descriptor);
 
         RenderTargetEncoder {
-            context_id: self.context_id,
-            render_pass_id: self.render_pass_id,
+
             color: self.color,
-            depth_stencil: StencilBuffer::new(self.render_pass_id, width, height),
-            data: self.data,
+            depth_stencil: StencilBuffer::new(self.context.render_pass_id, width, height),
+            data: self.data,context: self.context,
         }
     }
 }
@@ -1704,45 +1685,43 @@ macro_rules! nest_pairs_reverse {
 
 macro_rules! generate_encoder_finish {
     ($($C:ident),*) => {
-        impl<$($C),*> RenderTargetEncoder<nest_pairs_reverse!([(), $($C),*]), ()>
+        impl<'a, $($C),*> RenderTargetEncoder<'a, nest_pairs_reverse!([(), $($C),*]), ()>
             where $($C: Buffer),*
         {
-            pub fn finish(self) -> RenderTargetEncoding<Framebuffer<($($C),*), ()>> {
+            pub fn finish(self) -> RenderTargetEncoding<'a, Framebuffer<($($C),*), ()>> {
                 #[allow(non_snake_case)]
                 let nest_pairs_reverse!([_, $($C),*]) = self.color;
 
                 RenderTargetEncoding {
-                    context_id: self.context_id,
-                    render_pass_id: self.render_pass_id,
                     framebuffer: Framebuffer {
                         color: ($($C),*),
                         depth_stencil: (),
-                        context_id: self.context_id,
-                        render_pass_id: self.render_pass_id,
+                        context_id: self.context.context_id,
+                        render_pass_id: self.context.render_pass_id,
                     },
+                    context: self.context,
                     data: RenderTargetEncodingData::FBO(self.data),
                 }
             }
         }
 
-        impl<$($C),*, Ds> RenderTargetEncoder<nest_pairs_reverse!([(), $($C),*]), Ds>
+        impl<'a, $($C),*, Ds> RenderTargetEncoder<'a, nest_pairs_reverse!([(), $($C),*]), Ds>
         where
             $($C: Buffer),*,
             Ds: Buffer
         {
-            pub fn finish(self) -> RenderTargetEncoding<Framebuffer<($($C),*), Ds>> {
+            pub fn finish(self) -> RenderTargetEncoding<'a, Framebuffer<($($C),*), Ds>> {
                 #[allow(non_snake_case)]
                 let nest_pairs_reverse!([_, $($C),*]) = self.color;
 
                 RenderTargetEncoding {
-                    context_id: self.context_id,
-                    render_pass_id: self.render_pass_id,
                     framebuffer: Framebuffer {
                         color: ($($C),*),
                         depth_stencil: self.depth_stencil,
-                        context_id: self.context_id,
-                        render_pass_id: self.render_pass_id,
+                        context_id: self.context.context_id,
+                        render_pass_id: self.context.render_pass_id,
                     },
+                    context: self.context,
                     data: RenderTargetEncodingData::FBO(self.data),
                 }
             }
@@ -1767,18 +1746,17 @@ generate_encoder_finish!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, 
 generate_encoder_finish!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14);
 generate_encoder_finish!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15);
 
-pub struct RenderTargetEncoding<F> {
-    context_id: usize,
-    render_pass_id: usize,
+pub struct RenderTargetEncoding<'a, F> {
+    context: &'a mut EncodingContext,
     framebuffer: F,
     data: RenderTargetEncodingData,
 }
 
-impl<F> RenderTargetEncoding<Framebuffer<Vec<FloatBuffer<F>>, ()>>
+impl<'a, F> RenderTargetEncoding<'a, Framebuffer<Vec<FloatBuffer<F>>, ()>>
 where
     F: FloatRenderable,
 {
-    pub fn from_float_colors<C, I>(context: &mut EncodingContext, colors: C) -> Self
+    pub fn from_float_colors<C, I>(context: &'a mut EncodingContext, colors: C) -> Self
     where
         C: IntoIterator<Item = FloatTarget<I>>,
         I: IntoFramebufferAttachment<Format = F>,
@@ -1809,8 +1787,7 @@ where
         let color_count = buffers.len();
 
         RenderTargetEncoding {
-            context_id: context.context_id,
-            render_pass_id: context.render_pass_id,
+
             framebuffer: Framebuffer {
                 color: buffers,
                 depth_stencil: (),
@@ -1823,18 +1800,18 @@ where
                 color_count,
                 color_attachments,
                 depth_stencil_attachment: DepthStencilAttachmentDescriptor::None,
-            }),
+            }),context,
         }
     }
 }
 
-impl<F0, F1> RenderTargetEncoding<Framebuffer<Vec<FloatBuffer<F0>>, DepthStencilBuffer<F1>>>
+impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<FloatBuffer<F0>>, DepthStencilBuffer<F1>>>
 where
     F0: FloatRenderable,
     F1: DepthStencilRenderable,
 {
     pub fn from_float_colors_and_depth_stencil<C, I, Ds>(
-        context: &mut EncodingContext,
+        context: &'a mut EncodingContext,
         colors: C,
         depth_stencil: DepthStencilTarget<Ds>,
     ) -> Self
@@ -1874,8 +1851,7 @@ where
         let depth_stencil_attachment = depth_stencil.image.into_framebuffer_attachment();
 
         RenderTargetEncoding {
-            context_id: context.context_id,
-            render_pass_id: context.render_pass_id,
+
             framebuffer: Framebuffer {
                 color: buffers,
                 depth_stencil: DepthStencilBuffer::new(
@@ -1894,18 +1870,18 @@ where
                 depth_stencil_attachment: DepthStencilAttachmentDescriptor::DepthStencil(
                     depth_stencil_attachment,
                 ),
-            }),
+            }),context,
         }
     }
 }
 
-impl<F0, F1> RenderTargetEncoding<Framebuffer<Vec<FloatBuffer<F0>>, DepthBuffer<F1>>>
+impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<FloatBuffer<F0>>, DepthBuffer<F1>>>
 where
     F0: FloatRenderable,
     F1: DepthRenderable,
 {
     pub fn from_float_colors_and_depth<C, I, Ds>(
-        context: &mut EncodingContext,
+        context: &'a mut EncodingContext,
         colors: C,
         depth: DepthTarget<Ds>,
     ) -> Self
@@ -1945,8 +1921,7 @@ where
         let depth_attachment = depth.image.into_framebuffer_attachment();
 
         RenderTargetEncoding {
-            context_id: context.context_id,
-            render_pass_id: context.render_pass_id,
+
             framebuffer: Framebuffer {
                 color: buffers,
                 depth_stencil: DepthBuffer::new(
@@ -1963,18 +1938,18 @@ where
                 color_count,
                 color_attachments,
                 depth_stencil_attachment: DepthStencilAttachmentDescriptor::Depth(depth_attachment),
-            }),
+            }),context,
         }
     }
 }
 
-impl<F0, F1> RenderTargetEncoding<Framebuffer<Vec<FloatBuffer<F0>>, StencilBuffer<F1>>>
+impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<FloatBuffer<F0>>, StencilBuffer<F1>>>
 where
     F0: FloatRenderable,
     F1: StencilRenderable,
 {
     pub fn from_float_colors_and_stencil<C, I, Ds>(
-        context: &mut EncodingContext,
+        context: &'a mut EncodingContext,
         colors: C,
         stencil: StencilTarget<Ds>,
     ) -> Self
@@ -2014,8 +1989,7 @@ where
         let stencil_attachment = stencil.image.into_framebuffer_attachment();
 
         RenderTargetEncoding {
-            context_id: context.context_id,
-            render_pass_id: context.render_pass_id,
+
             framebuffer: Framebuffer {
                 color: buffers,
                 depth_stencil: StencilBuffer::new(
@@ -2034,16 +2008,16 @@ where
                 depth_stencil_attachment: DepthStencilAttachmentDescriptor::Stencil(
                     stencil_attachment,
                 ),
-            }),
+            }),context,
         }
     }
 }
 
-impl<F> RenderTargetEncoding<Framebuffer<Vec<IntegerBuffer<F>>, ()>>
+impl<'a, F> RenderTargetEncoding<'a, Framebuffer<Vec<IntegerBuffer<F>>, ()>>
 where
     F: IntegerRenderable,
 {
-    pub fn from_integer_colors<C, I>(context: &mut EncodingContext, colors: C) -> Self
+    pub fn from_integer_colors<C, I>(context: &'a mut EncodingContext, colors: C) -> Self
     where
         C: IntoIterator<Item = IntegerTarget<I>>,
         I: IntoFramebufferAttachment<Format = F>,
@@ -2074,8 +2048,7 @@ where
         let color_count = buffers.len();
 
         RenderTargetEncoding {
-            context_id: context.context_id,
-            render_pass_id: context.render_pass_id,
+
             framebuffer: Framebuffer {
                 color: buffers,
                 depth_stencil: (),
@@ -2088,18 +2061,18 @@ where
                 color_count,
                 color_attachments,
                 depth_stencil_attachment: DepthStencilAttachmentDescriptor::None,
-            }),
+            }),context,
         }
     }
 }
 
-impl<F0, F1> RenderTargetEncoding<Framebuffer<Vec<IntegerBuffer<F0>>, DepthStencilBuffer<F1>>>
+impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<IntegerBuffer<F0>>, DepthStencilBuffer<F1>>>
 where
     F0: IntegerRenderable,
     F1: DepthStencilRenderable,
 {
     pub fn from_integer_colors_and_depth_stencil<C, I, Ds>(
-        context: &mut EncodingContext,
+        context: &'a mut EncodingContext,
         colors: C,
         depth_stencil: DepthStencilTarget<Ds>,
     ) -> Self
@@ -2139,8 +2112,7 @@ where
         let depth_stencil_attachment = depth_stencil.image.into_framebuffer_attachment();
 
         RenderTargetEncoding {
-            context_id: context.context_id,
-            render_pass_id: context.render_pass_id,
+
             framebuffer: Framebuffer {
                 color: buffers,
                 depth_stencil: DepthStencilBuffer::new(
@@ -2159,18 +2131,18 @@ where
                 depth_stencil_attachment: DepthStencilAttachmentDescriptor::DepthStencil(
                     depth_stencil_attachment,
                 ),
-            }),
+            }),context,
         }
     }
 }
 
-impl<F0, F1> RenderTargetEncoding<Framebuffer<Vec<IntegerBuffer<F0>>, DepthBuffer<F1>>>
+impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<IntegerBuffer<F0>>, DepthBuffer<F1>>>
 where
     F0: IntegerRenderable,
     F1: DepthRenderable,
 {
     pub fn from_integer_colors_and_depth<C, I, Ds>(
-        context: &mut EncodingContext,
+        context: &'a mut EncodingContext,
         colors: C,
         depth: DepthTarget<Ds>,
     ) -> Self
@@ -2210,8 +2182,7 @@ where
         let depth_attachment = depth.image.into_framebuffer_attachment();
 
         RenderTargetEncoding {
-            context_id: context.context_id,
-            render_pass_id: context.render_pass_id,
+
             framebuffer: Framebuffer {
                 color: buffers,
                 depth_stencil: DepthBuffer::new(
@@ -2228,18 +2199,18 @@ where
                 color_count,
                 color_attachments,
                 depth_stencil_attachment: DepthStencilAttachmentDescriptor::Depth(depth_attachment),
-            }),
+            }),context,
         }
     }
 }
 
-impl<F0, F1> RenderTargetEncoding<Framebuffer<Vec<IntegerBuffer<F0>>, StencilBuffer<F1>>>
+impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<IntegerBuffer<F0>>, StencilBuffer<F1>>>
 where
     F0: IntegerRenderable,
     F1: StencilRenderable,
 {
     pub fn from_integer_colors_and_stencil<C, I, Ds>(
-        context: &mut EncodingContext,
+        context: &'a mut EncodingContext,
         colors: C,
         stencil: StencilTarget<Ds>,
     ) -> Self
@@ -2279,8 +2250,7 @@ where
         let stencil_attachment = stencil.image.into_framebuffer_attachment();
 
         RenderTargetEncoding {
-            context_id: context.context_id,
-            render_pass_id: context.render_pass_id,
+
             framebuffer: Framebuffer {
                 color: buffers,
                 depth_stencil: StencilBuffer::new(
@@ -2299,16 +2269,16 @@ where
                 depth_stencil_attachment: DepthStencilAttachmentDescriptor::Stencil(
                     stencil_attachment,
                 ),
-            }),
+            }),context,
         }
     }
 }
 
-impl<F> RenderTargetEncoding<Framebuffer<Vec<UnsignedIntegerBuffer<F>>, ()>>
+impl<'a, F> RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<F>>, ()>>
 where
     F: UnsignedIntegerRenderable,
 {
-    pub fn from_unsigned_integer_colors<C, I>(context: &mut EncodingContext, colors: C) -> Self
+    pub fn from_unsigned_integer_colors<C, I>(context: &'a mut EncodingContext, colors: C) -> Self
     where
         C: IntoIterator<Item = UnsignedIntegerTarget<I>>,
         I: IntoFramebufferAttachment<Format = F>,
@@ -2339,8 +2309,7 @@ where
         let color_count = buffers.len();
 
         RenderTargetEncoding {
-            context_id: context.context_id,
-            render_pass_id: context.render_pass_id,
+
             framebuffer: Framebuffer {
                 color: buffers,
                 depth_stencil: (),
@@ -2353,19 +2322,19 @@ where
                 color_count,
                 color_attachments,
                 depth_stencil_attachment: DepthStencilAttachmentDescriptor::None,
-            }),
+            }),context,
         }
     }
 }
 
-impl<F0, F1>
-    RenderTargetEncoding<Framebuffer<Vec<UnsignedIntegerBuffer<F0>>, DepthStencilBuffer<F1>>>
+impl<'a, F0, F1>
+    RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<F0>>, DepthStencilBuffer<F1>>>
 where
     F0: UnsignedIntegerRenderable,
     F1: DepthStencilRenderable,
 {
     pub fn from_unsigned_integer_colors_and_depth_stencil<C, I, Ds>(
-        context: &mut EncodingContext,
+        context: &'a mut EncodingContext,
         colors: C,
         depth_stencil: DepthStencilTarget<Ds>,
     ) -> Self
@@ -2405,8 +2374,7 @@ where
         let depth_stencil_attachment = depth_stencil.image.into_framebuffer_attachment();
 
         RenderTargetEncoding {
-            context_id: context.context_id,
-            render_pass_id: context.render_pass_id,
+
             framebuffer: Framebuffer {
                 color: buffers,
                 depth_stencil: DepthStencilBuffer::new(
@@ -2425,18 +2393,18 @@ where
                 depth_stencil_attachment: DepthStencilAttachmentDescriptor::DepthStencil(
                     depth_stencil_attachment,
                 ),
-            }),
+            }),context,
         }
     }
 }
 
-impl<F0, F1> RenderTargetEncoding<Framebuffer<Vec<UnsignedIntegerBuffer<F0>>, DepthBuffer<F1>>>
+impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<F0>>, DepthBuffer<F1>>>
 where
     F0: UnsignedIntegerRenderable,
     F1: DepthRenderable,
 {
     pub fn from_unsigned_integer_colors_and_depth<C, I, Ds>(
-        context: &mut EncodingContext,
+        context: &'a mut EncodingContext,
         colors: C,
         depth: DepthTarget<Ds>,
     ) -> Self
@@ -2476,8 +2444,7 @@ where
         let depth_attachment = depth.image.into_framebuffer_attachment();
 
         RenderTargetEncoding {
-            context_id: context.context_id,
-            render_pass_id: context.render_pass_id,
+
             framebuffer: Framebuffer {
                 color: buffers,
                 depth_stencil: DepthBuffer::new(
@@ -2494,18 +2461,18 @@ where
                 color_count,
                 color_attachments,
                 depth_stencil_attachment: DepthStencilAttachmentDescriptor::Depth(depth_attachment),
-            }),
+            }),context,
         }
     }
 }
 
-impl<F0, F1> RenderTargetEncoding<Framebuffer<Vec<UnsignedIntegerBuffer<F0>>, StencilBuffer<F1>>>
+impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<F0>>, StencilBuffer<F1>>>
 where
     F0: UnsignedIntegerRenderable,
     F1: StencilRenderable,
 {
     pub fn from_unsigned_integer_colors_and_stencil<C, I, Ds>(
-        context: &mut EncodingContext,
+        context: &'a mut EncodingContext,
         colors: C,
         stencil: StencilTarget<Ds>,
     ) -> Self
@@ -2545,8 +2512,7 @@ where
         let stencil_attachment = stencil.image.into_framebuffer_attachment();
 
         RenderTargetEncoding {
-            context_id: context.context_id,
-            render_pass_id: context.render_pass_id,
+
             framebuffer: Framebuffer {
                 color: buffers,
                 depth_stencil: StencilBuffer::new(
@@ -2565,7 +2531,7 @@ where
                 depth_stencil_attachment: DepthStencilAttachmentDescriptor::Stencil(
                     stencil_attachment,
                 ),
-            }),
+            }),context,
         }
     }
 }
