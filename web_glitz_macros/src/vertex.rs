@@ -22,6 +22,7 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
             position += 1;
         }
 
+        let len = vertex_attributes.len();
         let recurse = vertex_attributes.iter().map(|a| {
             let field_name = a
                 .ident
@@ -57,12 +58,12 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
         let impl_block = quote! {
             #[automatically_derived]
             impl #impl_generics #mod_path::Vertex for #struct_name #ty_generics #where_clause {
-                type InputAttributeDescriptors = Vec<#mod_path::VertexInputAttributeDescriptor>;
-
-                fn input_attribute_descriptors() -> Self::InputAttributeDescriptors {
-                    vec![
+                fn input_attribute_descriptors() -> &'static [VertexInputAttributeDescriptor] {
+                    static input_attribute_descrptors: [VertexInputAttributeDescriptor;#len] = [
                         #(#recurse),*
-                    ]
+                    ];
+
+                    &input_attribute_descriptors
                 }
             }
         };

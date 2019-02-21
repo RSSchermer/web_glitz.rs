@@ -128,7 +128,8 @@ where
         self.submit(DropCommand { id });
     }
 }
-struct BufferData {
+
+pub(crate) struct BufferData {
     id: Option<JsId>,
     context_id: usize,
     dropper: Box<BufferObjectDropper>,

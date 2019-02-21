@@ -253,7 +253,7 @@ impl BlitColorTarget for DefaultRGBABuffer {
 
 impl<C> BlitColorTarget for C
 where
-    C: Buffer,
+    C: RenderBuffer,
 {
     fn descriptor(&self) -> BlitTargetDescriptor {
         BlitTargetDescriptor {
@@ -725,7 +725,7 @@ impl DefaultStencilBuffer {
     }
 }
 
-pub trait Buffer {
+pub trait RenderBuffer {
     type Format: InternalFormat;
 
     fn width(&self) -> u32;
@@ -768,7 +768,7 @@ where
     }
 }
 
-impl<F> Buffer for FloatBuffer<F>
+impl<F> RenderBuffer for FloatBuffer<F>
 where
     F: FloatRenderable,
 {
@@ -821,7 +821,7 @@ where
         }
     }
 }
-impl<F> Buffer for IntegerBuffer<F>
+impl<F> RenderBuffer for IntegerBuffer<F>
 where
     F: IntegerRenderable,
 {
@@ -875,7 +875,7 @@ where
     }
 }
 
-impl<F> Buffer for UnsignedIntegerBuffer<F>
+impl<F> RenderBuffer for UnsignedIntegerBuffer<F>
 where
     F: UnsignedIntegerRenderable,
 {
@@ -944,7 +944,7 @@ where
     }
 }
 
-impl<F> Buffer for DepthStencilBuffer<F>
+impl<F> RenderBuffer for DepthStencilBuffer<F>
 where
     F: DepthStencilRenderable,
 {
@@ -991,7 +991,7 @@ where
     }
 }
 
-impl<F> Buffer for DepthBuffer<F>
+impl<F> RenderBuffer for DepthBuffer<F>
 where
     F: DepthRenderable,
 {
@@ -1038,7 +1038,7 @@ where
     }
 }
 
-impl<F> Buffer for StencilBuffer<F>
+impl<F> RenderBuffer for StencilBuffer<F>
 where
     F: StencilRenderable,
 {

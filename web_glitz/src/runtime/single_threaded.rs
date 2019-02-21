@@ -15,7 +15,7 @@ use crate::image::texture_3d::Texture3D;
 use crate::image::texture_cube::TextureCube;
 use crate::image::{MaxMipmapLevelsExceeded, MipmapLevels};
 use crate::render_pass::{
-    DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultFramebufferRef, DefaultRGBABuffer,
+    DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRenderTarget, DefaultRGBABuffer,
     DefaultRGBBuffer, DefaultStencilBuffer,
 };
 use crate::runtime::executor_job::job;
@@ -200,7 +200,7 @@ impl SingleThreadedExecutor {
     }
 }
 
-pub unsafe fn single_threaded<O>(canvas: &HtmlCanvasElement, options: &O) -> O::Output
+pub unsafe fn context<O>(canvas: &HtmlCanvasElement, options: &O) -> O::Output
 where
     O: Options,
 {
@@ -217,7 +217,7 @@ impl Options for ContextOptions<DefaultRGBABuffer, ()> {
     type Output = Result<
         (
             SingleThreadedContext,
-            DefaultFramebufferRef<DefaultRGBBuffer, ()>,
+            DefaultRenderTarget<DefaultRGBBuffer, ()>,
         ),
         String,
     >;
@@ -242,7 +242,7 @@ impl Options for ContextOptions<DefaultRGBABuffer, ()> {
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref = DefaultFramebufferRef::new(context.id());
+        let default_framebuffer_ref = DefaultRenderTarget::new(context.id());
 
         Ok((context, default_framebuffer_ref))
     }
@@ -252,7 +252,7 @@ impl Options for ContextOptions<DefaultRGBABuffer, DefaultDepthStencilBuffer> {
     type Output = Result<
         (
             SingleThreadedContext,
-            DefaultFramebufferRef<DefaultRGBBuffer, ()>,
+            DefaultRenderTarget<DefaultRGBBuffer, ()>,
         ),
         String,
     >;
@@ -277,7 +277,7 @@ impl Options for ContextOptions<DefaultRGBABuffer, DefaultDepthStencilBuffer> {
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref = DefaultFramebufferRef::new(context.id());
+        let default_framebuffer_ref = DefaultRenderTarget::new(context.id());
 
         Ok((context, default_framebuffer_ref))
     }
@@ -287,7 +287,7 @@ impl Options for ContextOptions<DefaultRGBABuffer, DefaultDepthBuffer> {
     type Output = Result<
         (
             SingleThreadedContext,
-            DefaultFramebufferRef<DefaultRGBBuffer, ()>,
+            DefaultRenderTarget<DefaultRGBBuffer, ()>,
         ),
         String,
     >;
@@ -312,7 +312,7 @@ impl Options for ContextOptions<DefaultRGBABuffer, DefaultDepthBuffer> {
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref = DefaultFramebufferRef::new(context.id());
+        let default_framebuffer_ref = DefaultRenderTarget::new(context.id());
 
         Ok((context, default_framebuffer_ref))
     }
@@ -322,7 +322,7 @@ impl Options for ContextOptions<DefaultRGBABuffer, DefaultStencilBuffer> {
     type Output = Result<
         (
             SingleThreadedContext,
-            DefaultFramebufferRef<DefaultRGBBuffer, ()>,
+            DefaultRenderTarget<DefaultRGBBuffer, ()>,
         ),
         String,
     >;
@@ -347,7 +347,7 @@ impl Options for ContextOptions<DefaultRGBABuffer, DefaultStencilBuffer> {
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref = DefaultFramebufferRef::new(context.id());
+        let default_framebuffer_ref = DefaultRenderTarget::new(context.id());
 
         Ok((context, default_framebuffer_ref))
     }
@@ -357,7 +357,7 @@ impl Options for ContextOptions<DefaultRGBBuffer, ()> {
     type Output = Result<
         (
             SingleThreadedContext,
-            DefaultFramebufferRef<DefaultRGBBuffer, ()>,
+            DefaultRenderTarget<DefaultRGBBuffer, ()>,
         ),
         String,
     >;
@@ -382,7 +382,7 @@ impl Options for ContextOptions<DefaultRGBBuffer, ()> {
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref = DefaultFramebufferRef::new(context.id());
+        let default_framebuffer_ref = DefaultRenderTarget::new(context.id());
 
         Ok((context, default_framebuffer_ref))
     }
@@ -392,7 +392,7 @@ impl Options for ContextOptions<DefaultRGBBuffer, DefaultDepthStencilBuffer> {
     type Output = Result<
         (
             SingleThreadedContext,
-            DefaultFramebufferRef<DefaultRGBBuffer, ()>,
+            DefaultRenderTarget<DefaultRGBBuffer, ()>,
         ),
         String,
     >;
@@ -417,7 +417,7 @@ impl Options for ContextOptions<DefaultRGBBuffer, DefaultDepthStencilBuffer> {
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref = DefaultFramebufferRef::new(context.id());
+        let default_framebuffer_ref = DefaultRenderTarget::new(context.id());
 
         Ok((context, default_framebuffer_ref))
     }
@@ -427,7 +427,7 @@ impl Options for ContextOptions<DefaultRGBBuffer, DefaultDepthBuffer> {
     type Output = Result<
         (
             SingleThreadedContext,
-            DefaultFramebufferRef<DefaultRGBBuffer, ()>,
+            DefaultRenderTarget<DefaultRGBBuffer, ()>,
         ),
         String,
     >;
@@ -452,7 +452,7 @@ impl Options for ContextOptions<DefaultRGBBuffer, DefaultDepthBuffer> {
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref = DefaultFramebufferRef::new(context.id());
+        let default_framebuffer_ref = DefaultRenderTarget::new(context.id());
 
         Ok((context, default_framebuffer_ref))
     }
@@ -462,7 +462,7 @@ impl Options for ContextOptions<DefaultRGBBuffer, DefaultStencilBuffer> {
     type Output = Result<
         (
             SingleThreadedContext,
-            DefaultFramebufferRef<DefaultRGBBuffer, ()>,
+            DefaultRenderTarget<DefaultRGBBuffer, ()>,
         ),
         String,
     >;
@@ -487,7 +487,7 @@ impl Options for ContextOptions<DefaultRGBBuffer, DefaultStencilBuffer> {
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref = DefaultFramebufferRef::new(context.id());
+        let default_framebuffer_ref = DefaultRenderTarget::new(context.id());
 
         Ok((context, default_framebuffer_ref))
     }
