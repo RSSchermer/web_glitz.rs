@@ -96,11 +96,11 @@ pub unsafe trait InterfaceBlockComponent: StableRepr {
     /// that is expected to be provided by this type, such that the first call to [Iterator::next]
     /// yields the first [MemoryUnitDescriptor] this type is expected to match. The implementation
     /// may expect the iterator to yield [MemoryUnitDescriptor]s in order of offset
-    /// ([MemoryUnitDescriptor::offset]). If the type does not contain memory matching the memory
-    /// unit's [UnitLayout] ([MemoryUnitDescriptor::layout]) at the memory unit's offset, then
-    /// [CheckCompatibility::Incompatible] must be returned. Note that the offset of any memory
+    /// ([MemoryUnitDescriptor::offset]). If the type does not contain a memory unit matching the
+    /// memory unit's [UnitLayout] ([MemoryUnitDescriptor::layout]) at the memory unit's offset,
+    /// then [CheckCompatibility::Incompatible] must be returned. Note that the offset of any memory
     /// units yielded by the iterator are relative to the start of the interface block, not relative
-    /// to the start of this component; given `internal_offset` an offset relative to the start of
+    /// to the start of this component: given `internal_offset` an offset relative to the start of
     /// the component, the offset relative to the start of the interface block may be computed as
     /// `component_offset + internal_offset`.
     ///
@@ -111,7 +111,7 @@ pub unsafe trait InterfaceBlockComponent: StableRepr {
     /// afterwards. If the iterator completes during this operation ([Iterator::next] returns
     /// [None]), then the implementation is expected to return [CheckCompatibility::Finished]
     /// (unless the component was found to be incompatible with a prior memory unit descriptor, in
-    /// which case [CheckCompatibility::Incompatible] should be returned as per the above).
+    /// which case [CheckCompatibility::Incompatible] should be returned).
     fn check_compatibility<I>(component_offset: usize, remainder: &mut I) -> CheckCompatibility where I: Iterator<Item=&MemoryUnitDescriptor>;
 }
 

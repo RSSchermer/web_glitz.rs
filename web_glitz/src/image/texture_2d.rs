@@ -23,6 +23,13 @@ use crate::runtime::{Connection, RenderingContext, TaskContextMismatch};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, identical, slice_make_mut, JsId};
 
+pub struct Texture2DDescriptor<F> where F: TextureFormat + 'static {
+    pub format: F,
+    pub width: u32,
+    pub height: u32,
+    pub levels: MipmapLevels
+}
+
 pub struct Texture2D<F> {
     data: Arc<Texture2DData>,
     _marker: marker::PhantomData<[F]>,
@@ -70,69 +77,16 @@ impl<F> Texture2D<F>
 where
     F: TextureFormat + 'static,
 {
-    pub(crate) fn new<Rc>(context: &Rc, width: u32, height: u32) -> Self
+    pub(crate) fn new<Rc>(context: &Rc, descriptor: &Texture2DDescriptor<F>) -> Result<Self, MaxMipmapLevelsExceeded>
     where
         Rc: RenderingContext + Clone + 'static,
     {
-        let data = Arc::new(Texture2DData {
-            id: None,
-            context_id: context.id(),
-            dropper: Box::new(context.clone()),
+        let Texture2DDescriptor {
             width,
             height,
-            levels: 1,
-            most_recent_unit: None,
-        });
-
-        context.submit(AllocateCommand::<F> {
-            data: data.clone(),
-            _marker: marker::PhantomData,
-        });
-
-        Texture2D {
-            data,
-            _marker: marker::PhantomData,
-        }
-    }
-
-    pub fn base_level(&self) -> Level<F> {
-        Level {
-            handle: self,
-            level: 0,
-        }
-    }
-
-    pub fn base_level_mut(&mut self) -> LevelMut<F> {
-        LevelMut {
-            inner: Level {
-                handle: self,
-                level: 0,
-            },
-        }
-    }
-
-    pub fn width(&self) -> u32 {
-        self.data.width
-    }
-
-    pub fn height(&self) -> u32 {
-        self.data.height
-    }
-}
-
-impl<F> Texture2D<F>
-where
-    F: TextureFormat + Filterable + 'static,
-{
-    pub(crate) fn new_mipmapped<Rc>(
-        context: &Rc,
-        width: u32,
-        height: u32,
-        levels: MipmapLevels,
-    ) -> Result<Self, MaxMipmapLevelsExceeded>
-    where
-        Rc: RenderingContext + Clone + 'static,
-    {
+            levels,
+            ..
+        } = *descriptor;
         let max_mipmap_levels = max_mipmap_levels(width, height);
 
         let levels = match levels {
@@ -170,6 +124,22 @@ where
         })
     }
 
+    pub fn base_level(&self) -> Level<F> {
+        Level {
+            handle: self,
+            level: 0,
+        }
+    }
+
+    pub fn base_level_mut(&mut self) -> LevelMut<F> {
+        LevelMut {
+            inner: Level {
+                handle: self,
+                level: 0,
+            },
+        }
+    }
+
     pub fn levels(&self) -> Levels<F> {
         Levels {
             handle: self,
@@ -188,6 +158,19 @@ where
         }
     }
 
+    pub fn width(&self) -> u32 {
+        self.data.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.data.height
+    }
+}
+
+impl<F> Texture2D<F>
+where
+    F: TextureFormat + Filterable + 'static,
+{
     pub fn generate_mipmap_command(&self) -> GenerateMipmapCommand {
         GenerateMipmapCommand {
             texture_data: self.data.clone(),

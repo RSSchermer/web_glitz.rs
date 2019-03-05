@@ -255,6 +255,14 @@ impl<T> BufferView<T>
 where
     T: ?Sized,
 {
+    pub(crate) fn buffer_data(&self) -> &Arc<BufferData> {
+        &self.data
+    }
+
+    pub(crate) fn offset_in_bytes(&self) -> usize {
+        self.offset_in_bytes
+    }
+
     pub fn usage_hint(&self) -> BufferUsage {
         self.data.usage_hint
     }

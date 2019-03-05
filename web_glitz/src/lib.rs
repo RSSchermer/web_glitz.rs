@@ -27,7 +27,5 @@ pub mod runtime;
 pub mod sampler;
 pub mod std_140;
 pub mod task;
-pub mod uniform;
-pub mod vertex_input;
 
 mod util;

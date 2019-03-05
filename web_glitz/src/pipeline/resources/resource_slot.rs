@@ -1,57 +1,64 @@
-use crate::pipeline::interface_block;
-use std::sync::Arc;
-use crate::sampler::SamplerData;
-use crate::buffer::BufferData;
-use std::ops::Range;
 use crate::pipeline::interface_block::MemoryUnitDescriptor;
-use crate::pipeline::interface_block::InterfaceBlock;
 use crate::pipeline::interface_block::MatrixOrder;
+use crate::pipeline::interface_block;
+use crate::pipeline::interface_block::InterfaceBlock;
+use fnv::FnvHasher;
+use std::hash::{Hash, Hasher};
+use std::fmt;
 
-pub unsafe trait PipelineResources {
-    type Bindings: ResourceBindings;
-
-    fn confirm_slot_bindings<C>(confirmer: &C, descriptors: &[PipelineResourceDescriptor]) -> Result<(), Incompatible> where C: SlotBindingConfirmer;
-
-    fn encode_resource_bindings(&self, context: &mut BindingsEncodingContext) -> BindingsEncoding<Self::Bindings>;
-}
-
-pub enum Incompatible {
-    MissingResource(Identifier),
-    ResourceTypeMismatch(Identifier),
-    InterfaceBlockLayoutMismatch(Identifier, interface_block::Incompatible)
-}
-
-pub enum ResourceBinding {
-    SampledTexture(SampledTextureBinding),
-    Buffer(BufferBinding)
-}
-
-pub struct SampledTextureBinding {
-    sampler_data: Arc<SamplerData>,
-    texture_data: Arc<TextureData>
-}
-
-pub struct BufferBinding {
-    buffer_data: Arc<BufferData>,
-    range: Option<Range<u32>>
-}
-
-pub struct PipelineResourceDescriptor {
+pub struct ResourceSlotDescriptor {
     identifier: Identifier,
-    slot: ResourceSlot
+    slot: Slot
 }
 
-impl PipelineResourceDescriptor {
+impl ResourceSlotDescriptor {
     pub fn identifier(&self) -> &Identifier {
         &self.identifier
     }
 
-    pub fn slot(&self) -> &ResourceSlot {
+    pub fn slot(&self) -> &Slot {
         &self.slot
     }
 }
 
-pub enum ResourceSlot {
+#[derive(Clone, Debug)]
+pub struct Identifier {
+    name: String,
+    hash_fnv64: u64
+}
+
+impl Identifier {
+    pub(crate) fn new(name: String) -> Self {
+        let mut hasher = FnvHasher::default();
+
+        name.hash(hasher);
+
+        let hash_fnv64 = hasher.finish();
+
+        Identifier {
+            name,
+            hash_fnv64
+        }
+    }
+
+    pub(crate) fn hash_fnv64(&self) -> u64 {
+        self.hash_fnv64
+    }
+}
+
+impl fmt::Display for Identifier {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, self.name)
+    }
+}
+
+impl PartialEq for Identifier {
+    fn eq(&self, other: &Self) -> bool {
+        self.hash_fnv64 == other.hash_fnv64
+    }
+}
+
+pub enum Slot {
     UniformBlock(UniformBlockSlot),
     TextureSampler(TextureSamplerSlot),
 }
@@ -499,6 +506,10 @@ impl UniformBlockSlot {
         }
     }
 
+    pub(crate) fn index(&self) -> u32 {
+        self.index
+    }
+
     pub fn compatibility<T>(&self) -> Result<(), interface_block::Incompatible> where T: InterfaceBlock {
         T::compatibility(&self.layout)
     }
@@ -509,6 +520,17 @@ pub struct TextureSamplerSlot {
     kind: SamplerKind
 }
 
+impl TextureSamplerSlot {
+    pub(crate) fn location(&self) -> &WebGlUniformLocation {
+        &self.location
+    }
+
+    pub fn kind(&self) -> SamplerKind {
+        self.kind
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum SamplerKind {
     FloatSampler2D,
     IntegerSampler2D,
@@ -527,11 +549,12 @@ pub enum SamplerKind {
     SamplerCubeShadow,
 }
 
+
 pub trait SlotBindingConfirmer {
-    fn confirm_slot_binding(&self, descriptor: &PipelineResourceDescriptor, binding: usize) -> Result<(), BindingMismatch>;
+    fn confirm_slot_binding(&self, descriptor: &ResourceSlotDescriptor, binding: usize) -> Result<(), SlotBindingMismatch>;
 }
 
-pub struct BindingMismatch {
+pub struct SlotBindingMismatch {
     expected: usize,
     actual: usize
 }
@@ -542,13 +565,13 @@ pub struct SlotBindingChecker<'a> {
 }
 
 impl SlotBindingConfirmer for SlotBindingChecker {
-    fn confirm_slot_binding(&self, descriptor: &PipelineResourceDescriptor, binding: usize) -> Result<(), BindingMismatch> {
+    fn confirm_slot_binding(&self, descriptor: &ResourceSlotDescriptor, binding: usize) -> Result<(), SlotBindingMismatch> {
         let initial_binding = match descriptor.slot() {
-            ResourceSlot::TextureSampler(slot) =>  {
-                self.gl.get_uniform(&self.program, &slot.location).as_f64() as usize
+            Slot::TextureSampler(slot) =>  {
+                self.gl.get_uniform(&self.program, slot.location()).as_f64() as usize
             },
-            ResourceSlot::UniformBlock(slot) => {
-                self.gl.get_active_uniform_block_parameter(&self.program, slot.index, Gl::UNIFORM_BLOCK_BINDING).unwrap().as_f64() as usize
+            Slot::UniformBlock(slot) => {
+                self.gl.get_active_uniform_block_parameter(&self.program, slot.index(), Gl::UNIFORM_BLOCK_BINDING).unwrap().as_f64() as usize
             }
         };
 
@@ -556,7 +579,7 @@ impl SlotBindingConfirmer for SlotBindingChecker {
         if initial_binding == binding {
             Ok(())
         } else {
-            Err(BindingMismatch {
+            Err(SlotBindingMismatch {
                 expected: binding,
                 actual: initial_binding
             })
@@ -570,13 +593,13 @@ pub struct SlotBindingUpdater<'a> {
 }
 
 impl SlotBindingConfirmer for SlotBindingUpdater {
-    fn confirm_slot_binding(&self, descriptor: &PipelineResourceDescriptor, binding: usize) -> Result<(), BindingMismatch> {
+    fn confirm_slot_binding(&self, descriptor: &ResourceSlotDescriptor, binding: usize) -> Result<(), SlotBindingMismatch> {
         match descriptor.slot() {
-            ResourceSlot::TextureSampler(slot) => {
-                self.gl.uniform1i(Some(&slot.location), binding as i32);
+            Slot::TextureSampler(slot) => {
+                self.gl.uniform1i(Some(slot.location()), binding as i32);
             },
-            ResourceSlot::UniformBlock(slot) => {
-                self.gl.uniform_block_binding(self.program, slot.index, binding as u32);
+            Slot::UniformBlock(slot) => {
+                self.gl.uniform_block_binding(self.program, slot.index(), binding as u32);
             }
         }
 

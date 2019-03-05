@@ -9,10 +9,10 @@ use web_sys::{HtmlCanvasElement, WebGl2RenderingContext as Gl};
 use crate::buffer::{Buffer, BufferUsage, IntoBuffer};
 use crate::image::format::{Filterable, RenderbufferFormat, TextureFormat};
 use crate::image::renderbuffer::Renderbuffer;
-use crate::image::texture_2d::Texture2D;
-use crate::image::texture_2d_array::Texture2DArray;
-use crate::image::texture_3d::Texture3D;
-use crate::image::texture_cube::TextureCube;
+use crate::image::texture_2d::{Texture2DDescriptor, Texture2D};
+use crate::image::texture_2d_array::{Texture2DArrayDescriptor, Texture2DArray};
+use crate::image::texture_3d::{Texture3DDescriptor, Texture3D};
+use crate::image::texture_cube::{TextureCubeDescriptor, TextureCube};
 use crate::image::{MaxMipmapLevelsExceeded, MipmapLevels};
 use crate::render_pass::{
     DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRenderTarget, DefaultRGBABuffer,
@@ -22,6 +22,7 @@ use crate::runtime::executor_job::job;
 use crate::runtime::fenced::JsTimeoutFencedTaskRunner;
 use crate::runtime::state::DynamicState;
 use crate::runtime::{Connection, ContextOptions, Execution, PowerPreference, RenderingContext};
+use crate::sampler::{SamplerDescriptor, Sampler, ShadowSamplerDescriptor, ShadowSampler};
 use crate::task::{GpuTask, Progress};
 
 thread_local!(static ID_GEN: IdGen = IdGen::new());
@@ -69,82 +70,49 @@ impl RenderingContext for SingleThreadedContext {
         Renderbuffer::new(self, width, height)
     }
 
-    fn create_texture_2d<F>(&self, width: u32, height: u32) -> Texture2D<F>
-    where
-        F: TextureFormat + 'static,
+    fn create_texture_2d<F>(&self, descriptor: &Texture2DDescriptor<F>) -> Result<Texture2D<F>, MaxMipmapLevelsExceeded>
+        where
+            F: TextureFormat + 'static,
     {
-        Texture2D::new(self, width, height)
+        Texture2D::new(self, descriptor)
     }
 
-    fn create_texture_2d_mipmapped<F>(
+    fn create_texture_2d_array<F>(
         &self,
-        width: u32,
-        height: u32,
-        levels: MipmapLevels,
-    ) -> Result<Texture2D<F>, MaxMipmapLevelsExceeded>
-    where
-        F: TextureFormat + Filterable + 'static,
-    {
-        Texture2D::new_mipmapped(self, width, height, levels)
-    }
-
-    fn create_texture_2d_array<F>(&self, width: u32, height: u32, depth: u32) -> Texture2DArray<F>
-    where
-        F: TextureFormat + 'static,
-    {
-        Texture2DArray::new(self, width, height, depth)
-    }
-
-    fn create_texture_2d_array_mipmapped<F>(
-        &self,
-        width: u32,
-        height: u32,
-        depth: u32,
-        levels: MipmapLevels,
+        descriptor: &Texture2DArrayDescriptor<F>
     ) -> Result<Texture2DArray<F>, MaxMipmapLevelsExceeded>
-    where
-        F: TextureFormat + Filterable + 'static,
+        where
+            F: TextureFormat + 'static,
     {
-        Texture2DArray::new_mipmapped(self, width, height, depth, levels)
+        Texture2DArray::new(self, descriptor)
     }
 
-    fn create_texture_3d<F>(&self, width: u32, height: u32, depth: u32) -> Texture3D<F>
-    where
-        F: TextureFormat + 'static,
-    {
-        Texture3D::new(self, width, height, depth)
-    }
-
-    fn create_texture_3d_mipmapped<F>(
+    fn create_texture_3d<F>(
         &self,
-        width: u32,
-        height: u32,
-        depth: u32,
-        levels: MipmapLevels,
+        descriptor: &Texture3DDescriptor<F>
     ) -> Result<Texture3D<F>, MaxMipmapLevelsExceeded>
-    where
-        F: TextureFormat + Filterable + 'static,
+        where
+            F: TextureFormat + 'static,
     {
-        Texture3D::new_mipmapped(self, width, height, depth, levels)
+        Texture3D::new(self, descriptor)
     }
 
-    fn create_texture_cube<F>(&self, width: u32, height: u32) -> TextureCube<F>
-    where
-        F: TextureFormat + 'static,
-    {
-        TextureCube::new(self, width, height)
-    }
-
-    fn create_texture_cube_mipmapped<F>(
+    fn create_texture_cube<F>(
         &self,
-        width: u32,
-        height: u32,
-        levels: MipmapLevels,
+        descriptor: &TextureCubeDescriptor<F>
     ) -> Result<TextureCube<F>, MaxMipmapLevelsExceeded>
-    where
-        F: TextureFormat + Filterable + 'static,
+        where
+            F: TextureFormat + 'static,
     {
-        TextureCube::new_mipmapped(self, width, height, levels)
+        TextureCube::new(self, descriptor)
+    }
+
+    fn create_sampler(&self, descriptor: &SamplerDescriptor) -> Sampler {
+        Sampler::new(self, descriptor)
+    }
+
+    fn create_shadow_sampler(&self, descriptor: &ShadowSamplerDescriptor) -> ShadowSampler {
+        ShadowSampler::new(self, descriptor)
     }
 
     fn submit<T>(&self, task: T) -> Execution<T::Output>

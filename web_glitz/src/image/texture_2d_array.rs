@@ -25,12 +25,24 @@ use crate::runtime::{Connection, RenderingContext, TaskContextMismatch};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, identical, JsId};
 
+pub struct Texture2DArrayDescriptor<F> where F: TextureFormat + 'static {
+    pub format: F,
+    pub width: u32,
+    pub height: u32,
+    pub depth: u32,
+    pub levels: MipmapLevels
+}
+
 pub struct Texture2DArray<F> {
     data: Arc<Texture2DArrayData>,
     _marker: marker::PhantomData<[F]>,
 }
 
 impl<F> Texture2DArray<F> {
+    pub(crate) fn data(&self) -> &Arc<Texture2DArrayData> {
+        &self.data
+    }
+
     pub(crate) fn bind(&self, connection: &mut Connection) -> u32 {
         let (gl, state) = unsafe { connection.unpack_mut() };
 
@@ -68,75 +80,17 @@ impl<F> Texture2DArray<F>
 where
     F: TextureFormat + 'static,
 {
-    pub(crate) fn new<Rc>(context: &Rc, width: u32, height: u32, depth: u32) -> Self
-    where
-        Rc: RenderingContext + Clone + 'static,
+    pub(crate) fn new<Rc>(context: &Rc, descriptor: &Texture2DArrayDescriptor<F>) -> Result<Self, MaxMipmapLevelsExceeded>
+        where
+            Rc: RenderingContext + Clone + 'static,
     {
-        let data = Arc::new(Texture2DArrayData {
-            id: None,
-            context_id: context.id(),
-            dropper: Box::new(context.clone()),
+        let Texture2DArrayDescriptor {
             width,
             height,
             depth,
-            levels: 1,
-            most_recent_unit: None,
-        });
-
-        context.submit(AllocateCommand::<F> {
-            data: data.clone(),
-            _marker: marker::PhantomData,
-        });
-
-        Texture2DArray {
-            data,
-            _marker: marker::PhantomData,
-        }
-    }
-
-    pub fn base_level(&self) -> Level<F> {
-        Level {
-            handle: self,
-            level: 0,
-        }
-    }
-
-    pub fn base_level_mut(&mut self) -> LevelMut<F> {
-        LevelMut {
-            inner: Level {
-                handle: self,
-                level: 0,
-            },
-        }
-    }
-
-    pub fn width(&self) -> u32 {
-        self.data.width
-    }
-
-    pub fn height(&self) -> u32 {
-        self.data.height
-    }
-
-    pub fn depth(&self) -> u32 {
-        self.data.depth
-    }
-}
-
-impl<F> Texture2DArray<F>
-where
-    F: TextureFormat + Filterable + 'static,
-{
-    pub(crate) fn new_mipmapped<Rc>(
-        context: &Rc,
-        width: u32,
-        height: u32,
-        depth: u32,
-        levels: MipmapLevels,
-    ) -> Result<Self, MaxMipmapLevelsExceeded>
-    where
-        Rc: RenderingContext + Clone + 'static,
-    {
+            levels,
+            ..
+        } = *descriptor;
         let max_mipmap_levels = max_mipmap_levels(width, height);
 
         let levels = match levels {
@@ -175,6 +129,22 @@ where
         })
     }
 
+    pub fn base_level(&self) -> Level<F> {
+        Level {
+            handle: self,
+            level: 0,
+        }
+    }
+
+    pub fn base_level_mut(&mut self) -> LevelMut<F> {
+        LevelMut {
+            inner: Level {
+                handle: self,
+                level: 0,
+            },
+        }
+    }
+
     pub fn levels(&self) -> Levels<F> {
         Levels {
             handle: self,
@@ -193,6 +163,23 @@ where
         }
     }
 
+    pub fn width(&self) -> u32 {
+        self.data.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.data.height
+    }
+
+    pub fn depth(&self) -> u32 {
+        self.data.depth
+    }
+}
+
+impl<F> Texture2DArray<F>
+where
+    F: TextureFormat + Filterable + 'static,
+{
     pub fn generate_mipmap_command(&self) -> GenerateMipmapCommand {
         GenerateMipmapCommand {
             texture_data: self.data.clone(),
