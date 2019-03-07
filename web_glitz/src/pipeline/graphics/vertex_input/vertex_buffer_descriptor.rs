@@ -129,7 +129,7 @@ pub struct VertexInputAttributeDescriptor {
 }
 
 impl VertexInputAttributeDescriptor {
-    pub(crate) fn apply(&self, gl: &Gl, stride_in_bytes: i32, base_offset_in_bytes: i32) {
+    pub(crate) fn apply(&self, gl: &Gl, stride_in_bytes: i32, base_offset_in_bytes: i32, input_rate: InputRate) {
         match self.format {
             AttributeFormat::Float_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -142,6 +142,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -154,6 +158,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -178,6 +186,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -190,6 +202,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -202,6 +218,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -214,6 +234,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -226,6 +250,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -238,6 +266,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float2_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -250,6 +282,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float2_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -262,6 +298,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float2_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -274,6 +314,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float2_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -286,6 +330,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float2_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -298,6 +346,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float2_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -310,6 +362,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float2_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -322,6 +378,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float2_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -334,6 +394,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float2_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -346,6 +410,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float3_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -358,6 +426,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float3_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -370,6 +442,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float3_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -382,6 +458,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float3_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -394,6 +474,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float3_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -406,6 +490,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float3_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -418,6 +506,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float3_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -430,6 +522,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float3_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -442,6 +538,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float3_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -454,6 +554,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float4_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -466,6 +570,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float4_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -478,6 +586,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float4_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -490,6 +602,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float4_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -502,6 +618,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float4_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -514,6 +634,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float4_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -526,6 +650,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float4_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -538,6 +666,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float4_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -550,6 +682,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float4_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -562,6 +698,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Float2x2_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -584,6 +724,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x2_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -606,6 +751,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x2_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -628,6 +778,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x2_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -650,6 +805,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x2_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -672,6 +832,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x2_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -694,6 +859,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x2_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -716,6 +886,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x2_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -738,6 +913,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x2_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -760,6 +940,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x3_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -782,6 +967,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x3_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -804,6 +994,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x3_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -826,6 +1021,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x3_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -848,6 +1048,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x3_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -870,6 +1075,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x3_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -892,6 +1102,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x3_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -914,6 +1129,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x3_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -936,6 +1156,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x3_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -958,6 +1183,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x4_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -980,6 +1210,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x4_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1002,6 +1237,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x4_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1024,6 +1264,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x4_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1046,6 +1291,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x4_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1068,6 +1318,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x4_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1090,6 +1345,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x4_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1112,6 +1372,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x4_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1134,6 +1399,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float2x4_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1156,6 +1426,11 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                }
             },
             AttributeFormat::Float3x2_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1188,6 +1463,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x2_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1220,6 +1501,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x2_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1252,6 +1539,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x2_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1284,6 +1577,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x2_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1316,6 +1615,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x2_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1348,6 +1653,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x2_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1380,6 +1691,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x2_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1412,6 +1729,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x2_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1444,6 +1767,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x3_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1476,6 +1805,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x3_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1508,6 +1843,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x3_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1540,6 +1881,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x3_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1572,6 +1919,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x3_i16_norm => {
                 l.vertex_attrib_pointer_with_i32(
@@ -1604,6 +1957,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x3_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1636,6 +1995,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x3_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1668,6 +2033,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x3_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1700,6 +2071,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x3_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1732,6 +2109,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x4_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1764,6 +2147,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x4_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1796,6 +2185,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x4_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1828,6 +2223,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x4_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1860,6 +2261,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x4_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1892,6 +2299,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x4_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1924,6 +2337,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x4_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1956,6 +2375,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x4_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -1988,6 +2413,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float3x4_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2020,6 +2451,12 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location);
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                }
             },
             AttributeFormat::Float4x2_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2062,6 +2499,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x2_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2104,6 +2548,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x2_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2146,6 +2597,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x2_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2188,6 +2646,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x2_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2230,6 +2695,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x2_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2272,6 +2744,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x2_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2314,6 +2793,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x2_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2356,6 +2842,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x2_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2398,6 +2891,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x3_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2440,6 +2940,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x3_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2482,6 +2989,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x3_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2524,6 +3038,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x3_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2566,6 +3087,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x3_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2608,6 +3136,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x3_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2650,6 +3185,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x3_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2692,6 +3234,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x3_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2734,6 +3283,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x3_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2776,6 +3332,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x4_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2818,6 +3381,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x4_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2860,6 +3430,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x4_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2902,6 +3479,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x4_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2944,6 +3528,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x4_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -2986,6 +3577,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x4_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -3028,6 +3626,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x4_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -3070,6 +3675,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x4_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -3112,6 +3724,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Float4x4_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
@@ -3154,6 +3773,13 @@ impl VertexInputAttributeDescriptor {
                 gl.enable_vertex_attrib_array(self.location + 1);
                 gl.enable_vertex_attrib_array(self.location + 2);
                 gl.enable_vertex_attrib_array(self.location + 3);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                    gl.vertex_attrib_divisor(self.location + 1, 1);
+                    gl.vertex_attrib_divisor(self.location + 2, 1);
+                    gl.vertex_attrib_divisor(self.location + 3, 1);
+                }
             },
             AttributeFormat::Integer_i8 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3165,6 +3791,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Integer_u8 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3176,6 +3806,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Integer_i16 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3187,6 +3821,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Integer_u16 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3198,6 +3836,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Integer_i32 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3209,6 +3851,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Integer_u32 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3220,6 +3866,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Integer2_i8 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3231,6 +3881,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Integer2_u8 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3242,6 +3896,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Integer2_i16 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3253,6 +3911,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Integer2_u16 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3264,6 +3926,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Integer2_i32 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3275,6 +3941,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Integer2_u32 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3286,6 +3956,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Integer3_i8 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3297,6 +3971,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Integer3_u8 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3308,6 +3986,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Integer3_i16 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3319,6 +4001,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Integer3_u16 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3330,6 +4016,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Integer3_i32 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3341,6 +4031,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Integer3_u32 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3352,6 +4046,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Integer4_i8 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3363,6 +4061,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Integer4_u8 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3374,6 +4076,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Integer4_i16 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3385,6 +4091,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Integer4_u16 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3396,6 +4106,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Integer4_i32 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3407,6 +4121,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
             AttributeFormat::Integer4_u32 => {
                 gl.vertex_attrib_i_pointer_with_i32(
@@ -3418,6 +4136,10 @@ impl VertexInputAttributeDescriptor {
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
+
+                if input_rate == InputRate::PerInstance {
+                    gl.vertex_attrib_divisor(self.location, 1);
+                }
             },
         }
     }

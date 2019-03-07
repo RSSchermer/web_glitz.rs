@@ -409,7 +409,8 @@ impl GpuTask<Connection> for VertexArrayAllocateCommand {
                 self.attribute_descriptors[i + buffer_descriptor.attribute_offset].apply(
                     gl,
                     buffer_descriptor.stride_in_bytes,
-                    buffer_descriptor.offset_in_bytes as i32
+                    buffer_descriptor.offset_in_bytes as i32,
+                    buffer_descriptor.input_rate
                 );
             }
         }
