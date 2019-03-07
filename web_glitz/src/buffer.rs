@@ -241,6 +241,7 @@ impl<T> Buffer<[T]> {
     }
 }
 
+#[derive(Clone)]
 pub struct BufferView<T>
 where
     T: ?Sized,
