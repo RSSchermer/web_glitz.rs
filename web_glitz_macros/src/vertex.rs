@@ -8,7 +8,7 @@ use crate::util::ErrorLog;
 pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> {
     if let Data::Struct(ref data) = input.data {
         let struct_name = &input.ident;
-        let mod_path = quote!(_web_glitz::vertex_input);
+        let mod_path = quote!(_web_glitz::pipeline::graphics::vertex_input);
         let mut log = ErrorLog::new();
 
         let mut position = 0;
@@ -31,23 +31,26 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
                 .unwrap_or(a.position.into_token_stream());
             let location = a.location;
             let ty = &a.ty;
-            let format = match a.format {
-                Some(ref format) => {
-                    let ident = Ident::new(format.as_str(), Span::call_site()).into_token_stream();
+            let span = a.span;
+            let format_kind = {
+                let ident = Ident::new(a.format.as_str(), Span::call_site()).into_token_stream();
 
-                    quote!(#mod_path::AttributeFormat::#ident)
-                }
-                None => {
-                    let span = ty.span();
+                quote_spanned!(span=> {
+                    trait AssertFormatCompatible<F>: #mod_path::FormatCompatible<F>
+                    where
+                        F: #mod_path::attribute_format::AttributeFormat
+                    {}
 
-                    quote_spanned!(span=> <#ty as #mod_path::VertexAttribute>::format())
-                }
+                    impl AssertFormatCompatible<#ident> for #ty {}
+
+                    <#ident as #mod_path::attribute_format::AttributeFormat>::kind()
+                })
             };
 
             quote! {
                 #mod_path::VertexInputAttributeDescriptor {
                     location: #location as u32,
-                    format: #format,
+                    format: #format_kind,
                     offset: offset_of!(#struct_name, #field_name) as u8
                 }
             }
@@ -183,22 +186,34 @@ impl VertexField {
                     }
                 }
 
-                if let Some(location) = location {
-                    VertexField::Attribute(AttributeField {
-                        ident: ast.ident.clone(),
-                        ty: ast.ty.clone(),
-                        position,
-                        location,
-                        format,
-                        span: ast.span(),
-                    })
-                } else {
+                if location.is_none() {
                     log.log_error(format!(
                         "Field `{}` is marked a vertex attribute, but does not declare a binding \
                          location.",
                         field_name
                     ));
+                }
 
+                if format.is_none() {
+                    log.log_error(format!(
+                        "Field `{}` is marked a vertex attribute, but does not declare a format.",
+                        field_name
+                    ));
+                }
+
+                if location.is_some() && format.is_some() {
+                    let location = location.unwrap();
+                    let format = format.unwrap();
+
+                    VertexField::Attribute(AttributeField {
+                        ident: ast.ident.clone(),
+                        ty: ast.ty.clone(),
+                        position,
+                        location: location.unwrap(),
+                        format: format.unwrap(),
+                        span: ast.span(),
+                    })
+                } else {
                     VertexField::Excluded
                 }
             }
@@ -219,7 +234,7 @@ struct AttributeField {
     ty: Type,
     position: usize,
     location: u64,
-    format: Option<String>,
+    format: String,
     span: Span,
 }
 
