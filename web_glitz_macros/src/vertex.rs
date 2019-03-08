@@ -36,11 +36,6 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
                 let ident = Ident::new(a.format.as_str(), Span::call_site()).into_token_stream();
 
                 quote_spanned!(span=> {
-                    trait AssertFormatCompatible<F>: #mod_path::FormatCompatible<F>
-                    where
-                        F: #mod_path::attribute_format::AttributeFormat
-                    {}
-
                     impl AssertFormatCompatible<#ident> for #ty {}
 
                     <#ident as #mod_path::attribute_format::AttributeFormat>::kind()
@@ -102,6 +97,11 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
                 #[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
                 #[allow(rust_2018_idioms)]
                 extern crate web_glitz as _web_glitz;
+
+                trait AssertFormatCompatible<F>: #mod_path::FormatCompatible<F>
+                where
+                    F: #mod_path::attribute_format::AttributeFormat
+                {}
 
                 #offset_of
                 #impl_block
