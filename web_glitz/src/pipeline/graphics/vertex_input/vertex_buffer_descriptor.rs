@@ -125,13 +125,13 @@ unsafe impl<T> VertexBufferDescription for PerInstance<BufferView<[T]>> where T:
 pub struct VertexInputAttributeDescriptor {
     pub location: u32,
     pub offset: u8,
-    pub format: AttributeFormat,
+    pub format: FormatKind,
 }
 
 impl VertexInputAttributeDescriptor {
     pub(crate) fn apply(&self, gl: &Gl, stride_in_bytes: i32, base_offset_in_bytes: i32, input_rate: InputRate) {
         match self.format {
-            AttributeFormat::Float_f32 => {
+            FormatKind::Float_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     1,
@@ -147,7 +147,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float_i8_fixed => {
+            FormatKind::Float_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     1,
@@ -163,7 +163,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float_i8_norm => {
+            FormatKind::Float_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     1,
@@ -175,7 +175,7 @@ impl VertexInputAttributeDescriptor {
 
                 gl.enable_vertex_attrib_array(self.location);
             },
-            AttributeFormat::Float_i16_fixed => {
+            FormatKind::Float_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     1,
@@ -191,7 +191,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float_i16_norm => {
+            FormatKind::Float_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     1,
@@ -207,7 +207,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float_u8_fixed => {
+            FormatKind::Float_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     1,
@@ -223,7 +223,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float_u8_norm => {
+            FormatKind::Float_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     1,
@@ -239,7 +239,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float_u16_fixed => {
+            FormatKind::Float_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     1,
@@ -255,7 +255,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float_u16_norm => {
+            FormatKind::Float_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     1,
@@ -271,7 +271,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float2_f32 => {
+            FormatKind::Float2_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -287,7 +287,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float2_i8_fixed => {
+            FormatKind::Float2_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -303,7 +303,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float2_i8_norm => {
+            FormatKind::Float2_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -319,7 +319,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float2_i16_fixed => {
+            FormatKind::Float2_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -335,7 +335,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float2_i16_norm => {
+            FormatKind::Float2_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -351,7 +351,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float2_u8_fixed => {
+            FormatKind::Float2_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -367,7 +367,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float2_u8_norm => {
+            FormatKind::Float2_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -383,7 +383,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float2_u16_fixed => {
+            FormatKind::Float2_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -399,7 +399,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float2_u16_norm => {
+            FormatKind::Float2_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -415,7 +415,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float3_f32 => {
+            FormatKind::Float3_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -431,7 +431,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float3_i8_fixed => {
+            FormatKind::Float3_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -447,7 +447,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float3_i8_norm => {
+            FormatKind::Float3_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -463,7 +463,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float3_i16_fixed => {
+            FormatKind::Float3_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -479,7 +479,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float3_i16_norm => {
+            FormatKind::Float3_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -495,7 +495,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float3_u8_fixed => {
+            FormatKind::Float3_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -511,7 +511,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float3_u8_norm => {
+            FormatKind::Float3_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -527,7 +527,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float3_u16_fixed => {
+            FormatKind::Float3_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -543,7 +543,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float3_u16_norm => {
+            FormatKind::Float3_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -559,7 +559,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float4_f32 => {
+            FormatKind::Float4_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -575,7 +575,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float4_i8_fixed => {
+            FormatKind::Float4_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -591,7 +591,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float4_i8_norm => {
+            FormatKind::Float4_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -607,7 +607,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float4_i16_fixed => {
+            FormatKind::Float4_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -623,7 +623,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float4_i16_norm => {
+            FormatKind::Float4_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -639,7 +639,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float4_u8_fixed => {
+            FormatKind::Float4_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -655,7 +655,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float4_u8_norm => {
+            FormatKind::Float4_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -671,7 +671,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float4_u16_fixed => {
+            FormatKind::Float4_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -687,7 +687,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float4_u16_norm => {
+            FormatKind::Float4_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -703,7 +703,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Float2x2_f32 => {
+            FormatKind::Float2x2_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -730,7 +730,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x2_i8_fixed => {
+            FormatKind::Float2x2_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -757,7 +757,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x2_i8_norm => {
+            FormatKind::Float2x2_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -784,7 +784,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x2_i16_fixed => {
+            FormatKind::Float2x2_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -811,7 +811,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x2_i16_norm => {
+            FormatKind::Float2x2_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -838,7 +838,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x2_u8_fixed => {
+            FormatKind::Float2x2_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -865,7 +865,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x2_u8_norm => {
+            FormatKind::Float2x2_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -892,7 +892,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x2_u16_fixed => {
+            FormatKind::Float2x2_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -919,7 +919,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x2_u16_norm => {
+            FormatKind::Float2x2_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -946,7 +946,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x3_f32 => {
+            FormatKind::Float2x3_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -973,7 +973,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x3_i8_fixed => {
+            FormatKind::Float2x3_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -1000,7 +1000,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x3_i8_norm => {
+            FormatKind::Float2x3_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -1027,7 +1027,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x3_i16_fixed => {
+            FormatKind::Float2x3_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -1054,7 +1054,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x3_i16_norm => {
+            FormatKind::Float2x3_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -1081,7 +1081,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x3_u8_fixed => {
+            FormatKind::Float2x3_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -1108,7 +1108,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x3_u8_norm => {
+            FormatKind::Float2x3_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -1135,7 +1135,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x3_u16_fixed => {
+            FormatKind::Float2x3_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -1162,7 +1162,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x3_u16_norm => {
+            FormatKind::Float2x3_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -1189,7 +1189,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x4_f32 => {
+            FormatKind::Float2x4_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -1216,7 +1216,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x4_i8_fixed => {
+            FormatKind::Float2x4_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -1243,7 +1243,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x4_i8_norm => {
+            FormatKind::Float2x4_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -1270,7 +1270,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x4_i16_fixed => {
+            FormatKind::Float2x4_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -1297,7 +1297,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x4_i16_norm => {
+            FormatKind::Float2x4_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -1324,7 +1324,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x4_u8_fixed => {
+            FormatKind::Float2x4_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -1351,7 +1351,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x4_u8_norm => {
+            FormatKind::Float2x4_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -1378,7 +1378,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x4_u16_fixed => {
+            FormatKind::Float2x4_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -1405,7 +1405,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float2x4_u16_norm => {
+            FormatKind::Float2x4_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -1432,7 +1432,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 1, 1);
                 }
             },
-            AttributeFormat::Float3x2_f32 => {
+            FormatKind::Float3x2_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -1470,7 +1470,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x2_i8_fixed => {
+            FormatKind::Float3x2_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -1508,7 +1508,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x2_i8_norm => {
+            FormatKind::Float3x2_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -1546,7 +1546,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x2_i16_fixed => {
+            FormatKind::Float3x2_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -1584,7 +1584,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x2_i16_norm => {
+            FormatKind::Float3x2_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -1622,7 +1622,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x2_u8_fixed => {
+            FormatKind::Float3x2_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -1660,7 +1660,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x2_u8_norm => {
+            FormatKind::Float3x2_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -1698,7 +1698,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x2_u16_fixed => {
+            FormatKind::Float3x2_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -1736,7 +1736,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x2_u16_norm => {
+            FormatKind::Float3x2_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -1774,7 +1774,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x3_f32 => {
+            FormatKind::Float3x3_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -1812,7 +1812,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x3_i8_fixed => {
+            FormatKind::Float3x3_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -1850,7 +1850,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x3_i8_norm => {
+            FormatKind::Float3x3_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -1888,7 +1888,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x3_i16_fixed => {
+            FormatKind::Float3x3_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -1926,7 +1926,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x3_i16_norm => {
+            FormatKind::Float3x3_i16_norm => {
                 l.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -1964,7 +1964,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x3_u8_fixed => {
+            FormatKind::Float3x3_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -2002,7 +2002,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x3_u8_norm => {
+            FormatKind::Float3x3_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -2040,7 +2040,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x3_u16_fixed => {
+            FormatKind::Float3x3_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -2078,7 +2078,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x3_u16_norm => {
+            FormatKind::Float3x3_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -2116,7 +2116,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x4_f32 => {
+            FormatKind::Float3x4_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -2154,7 +2154,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x4_i8_fixed => {
+            FormatKind::Float3x4_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -2192,7 +2192,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x4_i8_norm => {
+            FormatKind::Float3x4_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -2230,7 +2230,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x4_i16_fixed => {
+            FormatKind::Float3x4_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -2268,7 +2268,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x4_i16_norm => {
+            FormatKind::Float3x4_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -2306,7 +2306,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x4_u8_fixed => {
+            FormatKind::Float3x4_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -2344,7 +2344,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x4_u8_norm => {
+            FormatKind::Float3x4_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -2382,7 +2382,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x4_u16_fixed => {
+            FormatKind::Float3x4_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -2420,7 +2420,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float3x4_u16_norm => {
+            FormatKind::Float3x4_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -2458,7 +2458,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 2, 1);
                 }
             },
-            AttributeFormat::Float4x2_f32 => {
+            FormatKind::Float4x2_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -2507,7 +2507,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x2_i8_fixed => {
+            FormatKind::Float4x2_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -2556,7 +2556,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x2_i8_norm => {
+            FormatKind::Float4x2_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -2605,7 +2605,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x2_i16_fixed => {
+            FormatKind::Float4x2_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -2654,7 +2654,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x2_i16_norm => {
+            FormatKind::Float4x2_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -2703,7 +2703,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x2_u8_fixed => {
+            FormatKind::Float4x2_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -2752,7 +2752,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x2_u8_norm => {
+            FormatKind::Float4x2_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -2801,7 +2801,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x2_u16_fixed => {
+            FormatKind::Float4x2_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -2850,7 +2850,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x2_u16_norm => {
+            FormatKind::Float4x2_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     2,
@@ -2899,7 +2899,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x3_f32 => {
+            FormatKind::Float4x3_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -2948,7 +2948,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x3_i8_fixed => {
+            FormatKind::Float4x3_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -2997,7 +2997,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x3_i8_norm => {
+            FormatKind::Float4x3_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -3046,7 +3046,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x3_i16_fixed => {
+            FormatKind::Float4x3_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -3095,7 +3095,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x3_i16_norm => {
+            FormatKind::Float4x3_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -3144,7 +3144,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x3_u8_fixed => {
+            FormatKind::Float4x3_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -3193,7 +3193,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x3_u8_norm => {
+            FormatKind::Float4x3_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -3242,7 +3242,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x3_u16_fixed => {
+            FormatKind::Float4x3_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -3291,7 +3291,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x3_u16_norm => {
+            FormatKind::Float4x3_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
@@ -3340,7 +3340,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x4_f32 => {
+            FormatKind::Float4x4_f32 => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -3389,7 +3389,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x4_i8_fixed => {
+            FormatKind::Float4x4_i8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -3438,7 +3438,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x4_i8_norm => {
+            FormatKind::Float4x4_i8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -3487,7 +3487,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x4_i16_fixed => {
+            FormatKind::Float4x4_i16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -3536,7 +3536,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x4_i16_norm => {
+            FormatKind::Float4x4_i16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -3585,7 +3585,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x4_u8_fixed => {
+            FormatKind::Float4x4_u8_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -3634,7 +3634,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x4_u8_norm => {
+            FormatKind::Float4x4_u8_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -3683,7 +3683,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x4_u16_fixed => {
+            FormatKind::Float4x4_u16_fixed => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -3732,7 +3732,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Float4x4_u16_norm => {
+            FormatKind::Float4x4_u16_norm => {
                 gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     4,
@@ -3781,7 +3781,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location + 3, 1);
                 }
             },
-            AttributeFormat::Integer_i8 => {
+            FormatKind::Integer_i8 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     1,
@@ -3796,7 +3796,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Integer_u8 => {
+            FormatKind::Integer_u8 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     1,
@@ -3811,7 +3811,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Integer_i16 => {
+            FormatKind::Integer_i16 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     1,
@@ -3826,7 +3826,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Integer_u16 => {
+            FormatKind::Integer_u16 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     1,
@@ -3841,7 +3841,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Integer_i32 => {
+            FormatKind::Integer_i32 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     1,
@@ -3856,7 +3856,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Integer_u32 => {
+            FormatKind::Integer_u32 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     1,
@@ -3871,7 +3871,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Integer2_i8 => {
+            FormatKind::Integer2_i8 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     2,
@@ -3886,7 +3886,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Integer2_u8 => {
+            FormatKind::Integer2_u8 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     2,
@@ -3901,7 +3901,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Integer2_i16 => {
+            FormatKind::Integer2_i16 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     2,
@@ -3916,7 +3916,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Integer2_u16 => {
+            FormatKind::Integer2_u16 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     2,
@@ -3931,7 +3931,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Integer2_i32 => {
+            FormatKind::Integer2_i32 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     2,
@@ -3946,7 +3946,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Integer2_u32 => {
+            FormatKind::Integer2_u32 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     2,
@@ -3961,7 +3961,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Integer3_i8 => {
+            FormatKind::Integer3_i8 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     3,
@@ -3976,7 +3976,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Integer3_u8 => {
+            FormatKind::Integer3_u8 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     3,
@@ -3991,7 +3991,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Integer3_i16 => {
+            FormatKind::Integer3_i16 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     3,
@@ -4006,7 +4006,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Integer3_u16 => {
+            FormatKind::Integer3_u16 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     3,
@@ -4021,7 +4021,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Integer3_i32 => {
+            FormatKind::Integer3_i32 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     3,
@@ -4036,7 +4036,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Integer3_u32 => {
+            FormatKind::Integer3_u32 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     3,
@@ -4051,7 +4051,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Integer4_i8 => {
+            FormatKind::Integer4_i8 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     4,
@@ -4066,7 +4066,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Integer4_u8 => {
+            FormatKind::Integer4_u8 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     4,
@@ -4081,7 +4081,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Integer4_i16 => {
+            FormatKind::Integer4_i16 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     4,
@@ -4096,7 +4096,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Integer4_u16 => {
+            FormatKind::Integer4_u16 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     4,
@@ -4111,7 +4111,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Integer4_i32 => {
+            FormatKind::Integer4_i32 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     4,
@@ -4126,7 +4126,7 @@ impl VertexInputAttributeDescriptor {
                     gl.vertex_attrib_divisor(self.location, 1);
                 }
             },
-            AttributeFormat::Integer4_u32 => {
+            FormatKind::Integer4_u32 => {
                 gl.vertex_attrib_i_pointer_with_i32(
                     self.location,
                     4,
@@ -4147,7 +4147,7 @@ impl VertexInputAttributeDescriptor {
 
 #[derive(PartialEq, Debug)]
 #[allow(non_camel_case_types)]
-pub enum AttributeFormat {
+pub enum FormatKind {
     Float_f32,
     Float_i8_fixed,
     Float_i8_norm,
@@ -4291,150 +4291,150 @@ pub enum AttributeFormat {
     Integer4_u32,
 }
 
-impl AttributeFormat {
+impl FormatKind {
     pub fn is_compatible(&self, attribute_type: AttributeType) -> bool {
         match self {
-            AttributeFormat::Float_f32 => attribute_type == AttributeType::Float,
-            AttributeFormat::Float_i8_fixed => attribute_type == AttributeType::Float,
-            AttributeFormat::Float_i8_norm => attribute_type == AttributeType::Float,
-            AttributeFormat::Float_i16_fixed => attribute_type == AttributeType::Float,
-            AttributeFormat::Float_i16_norm => attribute_type == AttributeType::Float,
-            AttributeFormat::Float_u8_fixed => attribute_type == AttributeType::Float,
-            AttributeFormat::Float_u8_norm => attribute_type == AttributeType::Float,
-            AttributeFormat::Float_u16_fixed => attribute_type == AttributeType::Float,
-            AttributeFormat::Float_u16_norm => attribute_type == AttributeType::Float,
-            AttributeFormat::Float2_f32 => attribute_type == AttributeType::FloatVector2,
-            AttributeFormat::Float2_i8_fixed => attribute_type == AttributeType::FloatVector2,
-            AttributeFormat::Float2_i8_norm => attribute_type == AttributeType::FloatVector2,
-            AttributeFormat::Float2_i16_fixed => attribute_type == AttributeType::FloatVector2,
-            AttributeFormat::Float2_i16_norm => attribute_type == AttributeType::FloatVector2,
-            AttributeFormat::Float2_u8_fixed => attribute_type == AttributeType::FloatVector2,
-            AttributeFormat::Float2_u8_norm => attribute_type == AttributeType::FloatVector2,
-            AttributeFormat::Float2_u16_fixed => attribute_type == AttributeType::FloatVector2,
-            AttributeFormat::Float2_u16_norm => attribute_type == AttributeType::FloatVector2,
-            AttributeFormat::Float3_f32 => attribute_type == AttributeType::FloatVector3,
-            AttributeFormat::Float3_i8_fixed => attribute_type == AttributeType::FloatVector3,
-            AttributeFormat::Float3_i8_norm => attribute_type == AttributeType::FloatVector3,
-            AttributeFormat::Float3_i16_fixed => attribute_type == AttributeType::FloatVector3,
-            AttributeFormat::Float3_i16_norm => attribute_type == AttributeType::FloatVector3,
-            AttributeFormat::Float3_u8_fixed => attribute_type == AttributeType::FloatVector3,
-            AttributeFormat::Float3_u8_norm => attribute_type == AttributeType::FloatVector3,
-            AttributeFormat::Float3_u16_fixed => attribute_type == AttributeType::FloatVector3,
-            AttributeFormat::Float3_u16_norm => attribute_type == AttributeType::FloatVector3,
-            AttributeFormat::Float4_f32 => attribute_type == AttributeType::FloatVector4,
-            AttributeFormat::Float4_i8_fixed => attribute_type == AttributeType::FloatVector4,
-            AttributeFormat::Float4_i8_norm => attribute_type == AttributeType::FloatVector4,
-            AttributeFormat::Float4_i16_fixed => attribute_type == AttributeType::FloatVector4,
-            AttributeFormat::Float4_i16_norm => attribute_type == AttributeType::FloatVector4,
-            AttributeFormat::Float4_u8_fixed => attribute_type == AttributeType::FloatVector4,
-            AttributeFormat::Float4_u8_norm => attribute_type == AttributeType::FloatVector4,
-            AttributeFormat::Float4_u16_fixed => attribute_type == AttributeType::FloatVector4,
-            AttributeFormat::Float4_u16_norm => attribute_type == AttributeType::FloatVector4,
-            AttributeFormat::Float2x2_f32 => attribute_type == AttributeType::FloatMatrix2x2,
-            AttributeFormat::Float2x2_i8_fixed => attribute_type == AttributeType::FloatMatrix2x2,
-            AttributeFormat::Float2x2_i8_norm => attribute_type == AttributeType::FloatMatrix2x2,
-            AttributeFormat::Float2x2_i16_fixed => attribute_type == AttributeType::FloatMatrix2x2,
-            AttributeFormat::Float2x2_i16_norm => attribute_type == AttributeType::FloatMatrix2x2,
-            AttributeFormat::Float2x2_u8_fixed => attribute_type == AttributeType::FloatMatrix2x2,
-            AttributeFormat::Float2x2_u8_norm => attribute_type == AttributeType::FloatMatrix2x2,
-            AttributeFormat::Float2x2_u16_fixed => attribute_type == AttributeType::FloatMatrix2x2,
-            AttributeFormat::Float2x2_u16_norm => attribute_type == AttributeType::FloatMatrix2x2,
-            AttributeFormat::Float2x3_f32 => attribute_type == AttributeType::FloatMatrix2x3,
-            AttributeFormat::Float2x3_i8_fixed => attribute_type == AttributeType::FloatMatrix2x3,
-            AttributeFormat::Float2x3_i8_norm => attribute_type == AttributeType::FloatMatrix2x3,
-            AttributeFormat::Float2x3_i16_fixed => attribute_type == AttributeType::FloatMatrix2x3,
-            AttributeFormat::Float2x3_i16_norm => attribute_type == AttributeType::FloatMatrix2x3,
-            AttributeFormat::Float2x3_u8_fixed => attribute_type == AttributeType::FloatMatrix2x3,
-            AttributeFormat::Float2x3_u8_norm => attribute_type == AttributeType::FloatMatrix2x3,
-            AttributeFormat::Float2x3_u16_fixed => attribute_type == AttributeType::FloatMatrix2x3,
-            AttributeFormat::Float2x3_u16_norm => attribute_type == AttributeType::FloatMatrix2x3,
-            AttributeFormat::Float2x4_f32 => attribute_type == AttributeType::FloatMatrix2x4,
-            AttributeFormat::Float2x4_i8_fixed => attribute_type == AttributeType::FloatMatrix2x4,
-            AttributeFormat::Float2x4_i8_norm => attribute_type == AttributeType::FloatMatrix2x4,
-            AttributeFormat::Float2x4_i16_fixed => attribute_type == AttributeType::FloatMatrix2x4,
-            AttributeFormat::Float2x4_i16_norm => attribute_type == AttributeType::FloatMatrix2x4,
-            AttributeFormat::Float2x4_u8_fixed => attribute_type == AttributeType::FloatMatrix2x4,
-            AttributeFormat::Float2x4_u8_norm => attribute_type == AttributeType::FloatMatrix2x4,
-            AttributeFormat::Float2x4_u16_fixed => attribute_type == AttributeType::FloatMatrix2x4,
-            AttributeFormat::Float2x4_u16_norm => attribute_type == AttributeType::FloatMatrix2x4,
-            AttributeFormat::Float3x2_f32 => attribute_type == AttributeType::FloatMatrix3x2,
-            AttributeFormat::Float3x2_i8_fixed => attribute_type == AttributeType::FloatMatrix3x2,
-            AttributeFormat::Float3x2_i8_norm => attribute_type == AttributeType::FloatMatrix3x2,
-            AttributeFormat::Float3x2_i16_fixed => attribute_type == AttributeType::FloatMatrix3x2,
-            AttributeFormat::Float3x2_i16_norm => attribute_type == AttributeType::FloatMatrix3x2,
-            AttributeFormat::Float3x2_u8_fixed => attribute_type == AttributeType::FloatMatrix3x2,
-            AttributeFormat::Float3x2_u8_norm => attribute_type == AttributeType::FloatMatrix3x2,
-            AttributeFormat::Float3x2_u16_fixed => attribute_type == AttributeType::FloatMatrix3x2,
-            AttributeFormat::Float3x2_u16_norm => attribute_type == AttributeType::FloatMatrix3x2,
-            AttributeFormat::Float3x3_f32 => attribute_type == AttributeType::FloatMatrix3x3,
-            AttributeFormat::Float3x3_i8_fixed => attribute_type == AttributeType::FloatMatrix3x3,
-            AttributeFormat::Float3x3_i8_norm => attribute_type == AttributeType::FloatMatrix3x3,
-            AttributeFormat::Float3x3_i16_fixed => attribute_type == AttributeType::FloatMatrix3x3,
-            AttributeFormat::Float3x3_i16_norm => attribute_type == AttributeType::FloatMatrix3x3,
-            AttributeFormat::Float3x3_u8_fixed => attribute_type == AttributeType::FloatMatrix3x3,
-            AttributeFormat::Float3x3_u8_norm => attribute_type == AttributeType::FloatMatrix3x3,
-            AttributeFormat::Float3x3_u16_fixed => attribute_type == AttributeType::FloatMatrix3x3,
-            AttributeFormat::Float3x3_u16_norm => attribute_type == AttributeType::FloatMatrix3x3,
-            AttributeFormat::Float3x4_f32 => attribute_type == AttributeType::FloatMatrix3x4,
-            AttributeFormat::Float3x4_i8_fixed => attribute_type == AttributeType::FloatMatrix3x4,
-            AttributeFormat::Float3x4_i8_norm => attribute_type == AttributeType::FloatMatrix3x4,
-            AttributeFormat::Float3x4_i16_fixed => attribute_type == AttributeType::FloatMatrix3x4,
-            AttributeFormat::Float3x4_i16_norm => attribute_type == AttributeType::FloatMatrix3x4,
-            AttributeFormat::Float3x4_u8_fixed => attribute_type == AttributeType::FloatMatrix3x4,
-            AttributeFormat::Float3x4_u8_norm => attribute_type == AttributeType::FloatMatrix3x4,
-            AttributeFormat::Float3x4_u16_fixed => attribute_type == AttributeType::FloatMatrix3x4,
-            AttributeFormat::Float3x4_u16_norm => attribute_type == AttributeType::FloatMatrix3x4,
-            AttributeFormat::Float4x2_f32 => attribute_type == AttributeType::FloatMatrix4x2,
-            AttributeFormat::Float4x2_i8_fixed => attribute_type == AttributeType::FloatMatrix4x2,
-            AttributeFormat::Float4x2_i8_norm => attribute_type == AttributeType::FloatMatrix4x2,
-            AttributeFormat::Float4x2_i16_fixed => attribute_type == AttributeType::FloatMatrix4x2,
-            AttributeFormat::Float4x2_i16_norm => attribute_type == AttributeType::FloatMatrix4x2,
-            AttributeFormat::Float4x2_u8_fixed => attribute_type == AttributeType::FloatMatrix4x2,
-            AttributeFormat::Float4x2_u8_norm => attribute_type == AttributeType::FloatMatrix4x2,
-            AttributeFormat::Float4x2_u16_fixed => attribute_type == AttributeType::FloatMatrix4x2,
-            AttributeFormat::Float4x2_u16_norm => attribute_type == AttributeType::FloatMatrix4x2,
-            AttributeFormat::Float4x3_f32 => attribute_type == AttributeType::FloatMatrix4x3,
-            AttributeFormat::Float4x3_i8_fixed => attribute_type == AttributeType::FloatMatrix4x3,
-            AttributeFormat::Float4x3_i8_norm => attribute_type == AttributeType::FloatMatrix4x3,
-            AttributeFormat::Float4x3_i16_fixed => attribute_type == AttributeType::FloatMatrix4x3,
-            AttributeFormat::Float4x3_i16_norm => attribute_type == AttributeType::FloatMatrix4x3,
-            AttributeFormat::Float4x3_u8_fixed => attribute_type == AttributeType::FloatMatrix4x3,
-            AttributeFormat::Float4x3_u8_norm => attribute_type == AttributeType::FloatMatrix4x3,
-            AttributeFormat::Float4x3_u16_fixed => attribute_type == AttributeType::FloatMatrix4x3,
-            AttributeFormat::Float4x3_u16_norm => attribute_type == AttributeType::FloatMatrix4x3,
-            AttributeFormat::Float4x4_f32 => attribute_type == AttributeType::FloatMatrix4x4,
-            AttributeFormat::Float4x4_i8_fixed => attribute_type == AttributeType::FloatMatrix4x4,
-            AttributeFormat::Float4x4_i8_norm => attribute_type == AttributeType::FloatMatrix4x4,
-            AttributeFormat::Float4x4_i16_fixed => attribute_type == AttributeType::FloatMatrix4x4,
-            AttributeFormat::Float4x4_i16_norm => attribute_type == AttributeType::FloatMatrix4x4,
-            AttributeFormat::Float4x4_u8_fixed => attribute_type == AttributeType::FloatMatrix4x4,
-            AttributeFormat::Float4x4_u8_norm => attribute_type == AttributeType::FloatMatrix4x4,
-            AttributeFormat::Float4x4_u16_fixed => attribute_type == AttributeType::FloatMatrix4x4,
-            AttributeFormat::Float4x4_u16_norm => attribute_type == AttributeType::FloatMatrix4x4,
-            AttributeFormat::Integer_i8 => attribute_type == AttributeType::Integer,
-            AttributeFormat::Integer_u8 => attribute_type == AttributeType::UnsignedInteger,
-            AttributeFormat::Integer_i16 => attribute_type == AttributeType::Integer,
-            AttributeFormat::Integer_u16 => attribute_type == AttributeType::UnsignedInteger,
-            AttributeFormat::Integer_i32 => attribute_type == AttributeType::Integer,
-            AttributeFormat::Integer_u32 => attribute_type == AttributeType::UnsignedInteger,
-            AttributeFormat::Integer2_i8 => attribute_type == AttributeType::IntegerVector2,
-            AttributeFormat::Integer2_u8 => attribute_type == AttributeType::UnsignedIntegerVector2,
-            AttributeFormat::Integer2_i16 => attribute_type == AttributeType::IntegerVector2,
-            AttributeFormat::Integer2_u16 => attribute_type == AttributeType::UnsignedIntegerVector2,
-            AttributeFormat::Integer2_i32 => attribute_type == AttributeType::IntegerVector2,
-            AttributeFormat::Integer2_u32 => attribute_type == AttributeType::UnsignedIntegerVector2,
-            AttributeFormat::Integer3_i8 => attribute_type == AttributeType::IntegerVector3,
-            AttributeFormat::Integer3_u8 => attribute_type == AttributeType::UnsignedIntegerVector3,
-            AttributeFormat::Integer3_i16 => attribute_type == AttributeType::IntegerVector3,
-            AttributeFormat::Integer3_u16 => attribute_type == AttributeType::UnsignedIntegerVector3,
-            AttributeFormat::Integer3_i32 => attribute_type == AttributeType::IntegerVector3,
-            AttributeFormat::Integer3_u32 => attribute_type == AttributeType::UnsignedIntegerVector3,
-            AttributeFormat::Integer4_i8 => attribute_type == AttributeType::IntegerVector4,
-            AttributeFormat::Integer4_u8 => attribute_type == AttributeType::UnsignedIntegerVector4,
-            AttributeFormat::Integer4_i16 => attribute_type == AttributeType::IntegerVector4,
-            AttributeFormat::Integer4_u16 => attribute_type == AttributeType::UnsignedIntegerVector4,
-            AttributeFormat::Integer4_i32 => attribute_type == AttributeType::IntegerVector4,
-            AttributeFormat::Integer4_u32 => attribute_type == AttributeType::UnsignedIntegerVector4,
+            FormatKind::Float_f32 => attribute_type == AttributeType::Float,
+            FormatKind::Float_i8_fixed => attribute_type == AttributeType::Float,
+            FormatKind::Float_i8_norm => attribute_type == AttributeType::Float,
+            FormatKind::Float_i16_fixed => attribute_type == AttributeType::Float,
+            FormatKind::Float_i16_norm => attribute_type == AttributeType::Float,
+            FormatKind::Float_u8_fixed => attribute_type == AttributeType::Float,
+            FormatKind::Float_u8_norm => attribute_type == AttributeType::Float,
+            FormatKind::Float_u16_fixed => attribute_type == AttributeType::Float,
+            FormatKind::Float_u16_norm => attribute_type == AttributeType::Float,
+            FormatKind::Float2_f32 => attribute_type == AttributeType::FloatVector2,
+            FormatKind::Float2_i8_fixed => attribute_type == AttributeType::FloatVector2,
+            FormatKind::Float2_i8_norm => attribute_type == AttributeType::FloatVector2,
+            FormatKind::Float2_i16_fixed => attribute_type == AttributeType::FloatVector2,
+            FormatKind::Float2_i16_norm => attribute_type == AttributeType::FloatVector2,
+            FormatKind::Float2_u8_fixed => attribute_type == AttributeType::FloatVector2,
+            FormatKind::Float2_u8_norm => attribute_type == AttributeType::FloatVector2,
+            FormatKind::Float2_u16_fixed => attribute_type == AttributeType::FloatVector2,
+            FormatKind::Float2_u16_norm => attribute_type == AttributeType::FloatVector2,
+            FormatKind::Float3_f32 => attribute_type == AttributeType::FloatVector3,
+            FormatKind::Float3_i8_fixed => attribute_type == AttributeType::FloatVector3,
+            FormatKind::Float3_i8_norm => attribute_type == AttributeType::FloatVector3,
+            FormatKind::Float3_i16_fixed => attribute_type == AttributeType::FloatVector3,
+            FormatKind::Float3_i16_norm => attribute_type == AttributeType::FloatVector3,
+            FormatKind::Float3_u8_fixed => attribute_type == AttributeType::FloatVector3,
+            FormatKind::Float3_u8_norm => attribute_type == AttributeType::FloatVector3,
+            FormatKind::Float3_u16_fixed => attribute_type == AttributeType::FloatVector3,
+            FormatKind::Float3_u16_norm => attribute_type == AttributeType::FloatVector3,
+            FormatKind::Float4_f32 => attribute_type == AttributeType::FloatVector4,
+            FormatKind::Float4_i8_fixed => attribute_type == AttributeType::FloatVector4,
+            FormatKind::Float4_i8_norm => attribute_type == AttributeType::FloatVector4,
+            FormatKind::Float4_i16_fixed => attribute_type == AttributeType::FloatVector4,
+            FormatKind::Float4_i16_norm => attribute_type == AttributeType::FloatVector4,
+            FormatKind::Float4_u8_fixed => attribute_type == AttributeType::FloatVector4,
+            FormatKind::Float4_u8_norm => attribute_type == AttributeType::FloatVector4,
+            FormatKind::Float4_u16_fixed => attribute_type == AttributeType::FloatVector4,
+            FormatKind::Float4_u16_norm => attribute_type == AttributeType::FloatVector4,
+            FormatKind::Float2x2_f32 => attribute_type == AttributeType::FloatMatrix2x2,
+            FormatKind::Float2x2_i8_fixed => attribute_type == AttributeType::FloatMatrix2x2,
+            FormatKind::Float2x2_i8_norm => attribute_type == AttributeType::FloatMatrix2x2,
+            FormatKind::Float2x2_i16_fixed => attribute_type == AttributeType::FloatMatrix2x2,
+            FormatKind::Float2x2_i16_norm => attribute_type == AttributeType::FloatMatrix2x2,
+            FormatKind::Float2x2_u8_fixed => attribute_type == AttributeType::FloatMatrix2x2,
+            FormatKind::Float2x2_u8_norm => attribute_type == AttributeType::FloatMatrix2x2,
+            FormatKind::Float2x2_u16_fixed => attribute_type == AttributeType::FloatMatrix2x2,
+            FormatKind::Float2x2_u16_norm => attribute_type == AttributeType::FloatMatrix2x2,
+            FormatKind::Float2x3_f32 => attribute_type == AttributeType::FloatMatrix2x3,
+            FormatKind::Float2x3_i8_fixed => attribute_type == AttributeType::FloatMatrix2x3,
+            FormatKind::Float2x3_i8_norm => attribute_type == AttributeType::FloatMatrix2x3,
+            FormatKind::Float2x3_i16_fixed => attribute_type == AttributeType::FloatMatrix2x3,
+            FormatKind::Float2x3_i16_norm => attribute_type == AttributeType::FloatMatrix2x3,
+            FormatKind::Float2x3_u8_fixed => attribute_type == AttributeType::FloatMatrix2x3,
+            FormatKind::Float2x3_u8_norm => attribute_type == AttributeType::FloatMatrix2x3,
+            FormatKind::Float2x3_u16_fixed => attribute_type == AttributeType::FloatMatrix2x3,
+            FormatKind::Float2x3_u16_norm => attribute_type == AttributeType::FloatMatrix2x3,
+            FormatKind::Float2x4_f32 => attribute_type == AttributeType::FloatMatrix2x4,
+            FormatKind::Float2x4_i8_fixed => attribute_type == AttributeType::FloatMatrix2x4,
+            FormatKind::Float2x4_i8_norm => attribute_type == AttributeType::FloatMatrix2x4,
+            FormatKind::Float2x4_i16_fixed => attribute_type == AttributeType::FloatMatrix2x4,
+            FormatKind::Float2x4_i16_norm => attribute_type == AttributeType::FloatMatrix2x4,
+            FormatKind::Float2x4_u8_fixed => attribute_type == AttributeType::FloatMatrix2x4,
+            FormatKind::Float2x4_u8_norm => attribute_type == AttributeType::FloatMatrix2x4,
+            FormatKind::Float2x4_u16_fixed => attribute_type == AttributeType::FloatMatrix2x4,
+            FormatKind::Float2x4_u16_norm => attribute_type == AttributeType::FloatMatrix2x4,
+            FormatKind::Float3x2_f32 => attribute_type == AttributeType::FloatMatrix3x2,
+            FormatKind::Float3x2_i8_fixed => attribute_type == AttributeType::FloatMatrix3x2,
+            FormatKind::Float3x2_i8_norm => attribute_type == AttributeType::FloatMatrix3x2,
+            FormatKind::Float3x2_i16_fixed => attribute_type == AttributeType::FloatMatrix3x2,
+            FormatKind::Float3x2_i16_norm => attribute_type == AttributeType::FloatMatrix3x2,
+            FormatKind::Float3x2_u8_fixed => attribute_type == AttributeType::FloatMatrix3x2,
+            FormatKind::Float3x2_u8_norm => attribute_type == AttributeType::FloatMatrix3x2,
+            FormatKind::Float3x2_u16_fixed => attribute_type == AttributeType::FloatMatrix3x2,
+            FormatKind::Float3x2_u16_norm => attribute_type == AttributeType::FloatMatrix3x2,
+            FormatKind::Float3x3_f32 => attribute_type == AttributeType::FloatMatrix3x3,
+            FormatKind::Float3x3_i8_fixed => attribute_type == AttributeType::FloatMatrix3x3,
+            FormatKind::Float3x3_i8_norm => attribute_type == AttributeType::FloatMatrix3x3,
+            FormatKind::Float3x3_i16_fixed => attribute_type == AttributeType::FloatMatrix3x3,
+            FormatKind::Float3x3_i16_norm => attribute_type == AttributeType::FloatMatrix3x3,
+            FormatKind::Float3x3_u8_fixed => attribute_type == AttributeType::FloatMatrix3x3,
+            FormatKind::Float3x3_u8_norm => attribute_type == AttributeType::FloatMatrix3x3,
+            FormatKind::Float3x3_u16_fixed => attribute_type == AttributeType::FloatMatrix3x3,
+            FormatKind::Float3x3_u16_norm => attribute_type == AttributeType::FloatMatrix3x3,
+            FormatKind::Float3x4_f32 => attribute_type == AttributeType::FloatMatrix3x4,
+            FormatKind::Float3x4_i8_fixed => attribute_type == AttributeType::FloatMatrix3x4,
+            FormatKind::Float3x4_i8_norm => attribute_type == AttributeType::FloatMatrix3x4,
+            FormatKind::Float3x4_i16_fixed => attribute_type == AttributeType::FloatMatrix3x4,
+            FormatKind::Float3x4_i16_norm => attribute_type == AttributeType::FloatMatrix3x4,
+            FormatKind::Float3x4_u8_fixed => attribute_type == AttributeType::FloatMatrix3x4,
+            FormatKind::Float3x4_u8_norm => attribute_type == AttributeType::FloatMatrix3x4,
+            FormatKind::Float3x4_u16_fixed => attribute_type == AttributeType::FloatMatrix3x4,
+            FormatKind::Float3x4_u16_norm => attribute_type == AttributeType::FloatMatrix3x4,
+            FormatKind::Float4x2_f32 => attribute_type == AttributeType::FloatMatrix4x2,
+            FormatKind::Float4x2_i8_fixed => attribute_type == AttributeType::FloatMatrix4x2,
+            FormatKind::Float4x2_i8_norm => attribute_type == AttributeType::FloatMatrix4x2,
+            FormatKind::Float4x2_i16_fixed => attribute_type == AttributeType::FloatMatrix4x2,
+            FormatKind::Float4x2_i16_norm => attribute_type == AttributeType::FloatMatrix4x2,
+            FormatKind::Float4x2_u8_fixed => attribute_type == AttributeType::FloatMatrix4x2,
+            FormatKind::Float4x2_u8_norm => attribute_type == AttributeType::FloatMatrix4x2,
+            FormatKind::Float4x2_u16_fixed => attribute_type == AttributeType::FloatMatrix4x2,
+            FormatKind::Float4x2_u16_norm => attribute_type == AttributeType::FloatMatrix4x2,
+            FormatKind::Float4x3_f32 => attribute_type == AttributeType::FloatMatrix4x3,
+            FormatKind::Float4x3_i8_fixed => attribute_type == AttributeType::FloatMatrix4x3,
+            FormatKind::Float4x3_i8_norm => attribute_type == AttributeType::FloatMatrix4x3,
+            FormatKind::Float4x3_i16_fixed => attribute_type == AttributeType::FloatMatrix4x3,
+            FormatKind::Float4x3_i16_norm => attribute_type == AttributeType::FloatMatrix4x3,
+            FormatKind::Float4x3_u8_fixed => attribute_type == AttributeType::FloatMatrix4x3,
+            FormatKind::Float4x3_u8_norm => attribute_type == AttributeType::FloatMatrix4x3,
+            FormatKind::Float4x3_u16_fixed => attribute_type == AttributeType::FloatMatrix4x3,
+            FormatKind::Float4x3_u16_norm => attribute_type == AttributeType::FloatMatrix4x3,
+            FormatKind::Float4x4_f32 => attribute_type == AttributeType::FloatMatrix4x4,
+            FormatKind::Float4x4_i8_fixed => attribute_type == AttributeType::FloatMatrix4x4,
+            FormatKind::Float4x4_i8_norm => attribute_type == AttributeType::FloatMatrix4x4,
+            FormatKind::Float4x4_i16_fixed => attribute_type == AttributeType::FloatMatrix4x4,
+            FormatKind::Float4x4_i16_norm => attribute_type == AttributeType::FloatMatrix4x4,
+            FormatKind::Float4x4_u8_fixed => attribute_type == AttributeType::FloatMatrix4x4,
+            FormatKind::Float4x4_u8_norm => attribute_type == AttributeType::FloatMatrix4x4,
+            FormatKind::Float4x4_u16_fixed => attribute_type == AttributeType::FloatMatrix4x4,
+            FormatKind::Float4x4_u16_norm => attribute_type == AttributeType::FloatMatrix4x4,
+            FormatKind::Integer_i8 => attribute_type == AttributeType::Integer,
+            FormatKind::Integer_u8 => attribute_type == AttributeType::UnsignedInteger,
+            FormatKind::Integer_i16 => attribute_type == AttributeType::Integer,
+            FormatKind::Integer_u16 => attribute_type == AttributeType::UnsignedInteger,
+            FormatKind::Integer_i32 => attribute_type == AttributeType::Integer,
+            FormatKind::Integer_u32 => attribute_type == AttributeType::UnsignedInteger,
+            FormatKind::Integer2_i8 => attribute_type == AttributeType::IntegerVector2,
+            FormatKind::Integer2_u8 => attribute_type == AttributeType::UnsignedIntegerVector2,
+            FormatKind::Integer2_i16 => attribute_type == AttributeType::IntegerVector2,
+            FormatKind::Integer2_u16 => attribute_type == AttributeType::UnsignedIntegerVector2,
+            FormatKind::Integer2_i32 => attribute_type == AttributeType::IntegerVector2,
+            FormatKind::Integer2_u32 => attribute_type == AttributeType::UnsignedIntegerVector2,
+            FormatKind::Integer3_i8 => attribute_type == AttributeType::IntegerVector3,
+            FormatKind::Integer3_u8 => attribute_type == AttributeType::UnsignedIntegerVector3,
+            FormatKind::Integer3_i16 => attribute_type == AttributeType::IntegerVector3,
+            FormatKind::Integer3_u16 => attribute_type == AttributeType::UnsignedIntegerVector3,
+            FormatKind::Integer3_i32 => attribute_type == AttributeType::IntegerVector3,
+            FormatKind::Integer3_u32 => attribute_type == AttributeType::UnsignedIntegerVector3,
+            FormatKind::Integer4_i8 => attribute_type == AttributeType::IntegerVector4,
+            FormatKind::Integer4_u8 => attribute_type == AttributeType::UnsignedIntegerVector4,
+            FormatKind::Integer4_i16 => attribute_type == AttributeType::IntegerVector4,
+            FormatKind::Integer4_u16 => attribute_type == AttributeType::UnsignedIntegerVector4,
+            FormatKind::Integer4_i32 => attribute_type == AttributeType::IntegerVector4,
+            FormatKind::Integer4_u32 => attribute_type == AttributeType::UnsignedIntegerVector4,
         }
     }
 }
