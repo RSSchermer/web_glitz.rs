@@ -7,6 +7,15 @@ pub use self::vertex_buffer_descriptor::{
 };
 
 mod input_attribute_layout;
+pub use self::input_attribute_layout::{
+    AttributeSlotDescriptor, AttributeType, Incompatible, InputAttributeLayout,
+};
+
 mod vertex_array;
+pub use self::vertex_array::{
+    IndexBufferDescription, IndexBufferDescriptor, IndexFormat, InstancedVertexArraySlice,
+    VertexArray, VertexArraySlice, VertexBuffersDescription, VertexBuffersDescriptor,
+    VertexInputStreamDescription, VertexInputStreamDescriptor,
+};
 
 pub mod attribute_format;

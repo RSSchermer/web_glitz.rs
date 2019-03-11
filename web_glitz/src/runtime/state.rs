@@ -8,6 +8,9 @@ use web_sys::{
     WebGlSampler, WebGlSync, WebGlTexture, WebGlVertexArrayObject,
 };
 
+use crate::pipeline::graphics::{
+    BlendEquation, BlendFactor, DepthRange, PolygonOffset, StencilOperation, TestFunction,
+};
 use crate::render_pass::FramebufferAttachment;
 use crate::runtime::index_lru::IndexLRU;
 use crate::util::identical;
@@ -55,11 +58,31 @@ pub struct DynamicState {
     sample_coverage_enabled: bool,
     rasterizer_discard_enabled: bool,
     //    read_buffer: ReadBuffer,
-    //    blend_color: [f32;4],
-    //    blend_equation_rgb: BlendEquation,
-    //    blend_equation_alpha: BlendEquation,
-    //    blend_func_rgb: BlendFunc,
-    //    blend_func_alpha: BlendFunc,
+    depth_func: TestFunction,
+    depth_mask: bool,
+    depth_range: DepthRange,
+    polygon_offset: PolygonOffset,
+    stencil_func_front: TestFunction,
+    stencil_ref_front: i32,
+    stencil_test_mask_front: u32,
+    stencil_func_back: TestFunction,
+    stencil_ref_back: i32,
+    stencil_test_mask_back: u32,
+    stencil_op_fail_front: StencilOperation,
+    stencil_op_zfail_front: StencilOperation,
+    stencil_op_zpass_front: StencilOperation,
+    stencil_op_fail_back: StencilOperation,
+    stencil_op_zfail_back: StencilOperation,
+    stencil_op_zpass_back: StencilOperation,
+    stencil_write_mask_front: u32,
+    stencil_write_mask_back: u32,
+    blend_color: [f32; 4],
+    blend_equation_rgb: BlendEquation,
+    blend_equation_alpha: BlendEquation,
+    blend_func_source_rgb: BlendFactor,
+    blend_func_source_alpha: BlendFactor,
+    blend_func_destination_rgb: BlendFactor,
+    blend_func_destination_alpha: BlendFactor,
     //    color_mask: [bool;4],
     //    cull_face: CullFace,
     //    front_face: FrontFace,
@@ -928,6 +951,352 @@ impl DynamicState {
             None
         }
     }
+
+    pub fn depth_func(&self) -> TestFunction {
+        self.depth_func
+    }
+
+    pub fn set_depth_func(&mut self, depth_func: TestFunction) -> impl ContextUpdate<'static, ()> {
+        if self.depth_func != depth_func {
+            self.depth_func = depth_func;
+
+            Some(move |context: &Gl| {
+                context.depth_func(depth_func.id());
+
+                Ok(())
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn depth_mask(&self) -> bool {
+        self.depth_mask
+    }
+
+    pub fn set_depth_mask(&mut self, depth_mask: bool) -> impl ContextUpdate<'static, ()> {
+        if self.depth_mask != depth_mask {
+            self.depth_mask = depth_mask;
+
+            Some(move |context: &Gl| {
+                context.depth_mask(depth_mask);
+
+                Ok(())
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn depth_range(&self) -> &DepthRange {
+        &self.depth_range
+    }
+
+    pub fn set_depth_range(&mut self, depth_range: DepthRange) -> impl ContextUpdate<'static, ()> {
+        if self.depth_range != &depth_range {
+            self.depth_range = depth_range;
+
+            Some(move |context: &Gl| {
+                context.depth_range(depth_range.near(), depth_range.far());
+
+                Ok(())
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn polygon_offset(&self) -> &PolygonOffset {
+        &self.polygon_offset
+    }
+
+    pub fn set_polygon_offset(
+        &mut self,
+        polygon_offset: PolygonOffset,
+    ) -> impl ContextUpdate<'static, ()> {
+        if self.polygon_offset != &polygon_offset {
+            self.polygon_offset = polygon_offset;
+
+            Some(move |context: &Gl| {
+                context.depth_range(polygon_offset.factor, polygon_offset.units);
+
+                Ok(())
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn stencil_func_front(&self) -> TestFunction {
+        self.stencil_func_front
+    }
+
+    pub fn stencil_ref_front(&self) -> i32 {
+        self.stencil_ref_front
+    }
+
+    pub fn stencil_test_mask_front(&self) -> u32 {
+        self.stencil_test_mask_front
+    }
+
+    pub fn set_stencil_func_front(
+        &mut self,
+        func: TestFunction,
+        reference: i32,
+        mask: u32,
+    ) -> impl ContextUpdate<'static, ()> {
+        if self.stencil_func_front != func
+            || self.stencil_ref_front != reference
+            || self.stencil_test_mask_front != mask
+        {
+            self.stencil_func_front = func;
+            self.stencil_ref_front = reference;
+            self.stencil_test_mask_front = mask;
+
+            Some(move |context: &Gl| {
+                context.stencil_func_separate(Gl::FRONT, func.id(), reference, mask);
+
+                Ok(())
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn stencil_func_back(&self) -> TestFunction {
+        self.stencil_func_back
+    }
+
+    pub fn stencil_ref_back(&self) -> i32 {
+        self.stencil_ref_back
+    }
+
+    pub fn stencil_test_mask_back(&self) -> u32 {
+        self.stencil_test_mask_back
+    }
+
+    pub fn set_stencil_func_back(
+        &mut self,
+        func: TestFunction,
+        reference: i32,
+        mask: u32,
+    ) -> impl ContextUpdate<'static, ()> {
+        if self.stencil_func_back != func
+            || self.stencil_ref_back != reference
+            || self.stencil_test_mask_back != mask
+        {
+            self.stencil_func_back = func;
+            self.stencil_ref_back = reference;
+            self.stencil_test_mask_back = mask;
+
+            Some(move |context: &Gl| {
+                context.stencil_func_separate(Gl::BACK, func.id(), reference, mask);
+
+                Ok(())
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn stencil_op_fail_front(&self) -> StencilOperation {
+        self.stencil_op_fail_front
+    }
+
+    pub fn stencil_op_zfail_front(&self) -> StencilOperation {
+        self.stencil_op_zfail_front
+    }
+
+    pub fn stencil_op_zpass_front(&self) -> StencilOperation {
+        self.stencil_op_zpass_front
+    }
+
+    pub fn set_stencil_op_front(
+        &mut self,
+        fail: StencilOperation,
+        zfail: StencilOperation,
+        zpass: StencilOperation,
+    ) -> impl ContextUpdate<'static, ()> {
+        if self.stencil_op_fail_front != fail
+            || self.stencil_op_zfail_front != zfail
+            || self.stencil_op_zpass_front != zpass
+        {
+            self.stencil_op_fail_front = fail;
+            self.stencil_op_zfail_front = zfail;
+            self.stencil_op_zpass_front = zpass;
+
+            Some(move |context: &Gl| {
+                context.stencil_op_separate(Gl::FRONT, fail.id(), zfail.id(), zpass.id());
+
+                Ok(())
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn stencil_op_fail_back(&self) -> StencilOperation {
+        self.stencil_op_fail_back
+    }
+
+    pub fn stencil_op_zfail_back(&self) -> StencilOperation {
+        self.stencil_op_zfail_back
+    }
+
+    pub fn stencil_op_zpass_back(&self) -> StencilOperation {
+        self.stencil_op_zpass_back
+    }
+
+    pub fn set_stencil_op_back(
+        &mut self,
+        fail: StencilOperation,
+        zfail: StencilOperation,
+        zpass: StencilOperation,
+    ) -> impl ContextUpdate<'static, ()> {
+        if self.stencil_op_fail_back != fail
+            || self.stencil_op_zfail_back != zfail
+            || self.stencil_op_zpass_back != zpass
+        {
+            self.stencil_op_fail_back = fail;
+            self.stencil_op_zfail_back = zfail;
+            self.stencil_op_zpass_back = zpass;
+
+            Some(move |context: &Gl| {
+                context.stencil_op_separate(Gl::BACK, fail.id(), zfail.id(), zpass.id());
+
+                Ok(())
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn stencil_write_mask_front(&self) -> u32 {
+        self.stencil_write_mask_front
+    }
+
+    pub fn set_stencil_write_mask_front(&mut self, mask: u32) -> impl ContextUpdate<'static, ()> {
+        if self.stencil_write_mask_front != mask {
+            self.stencil_write_mask_front = mask;
+
+            Some(move |context: &Gl| {
+                context.stencil_mask_separate(Gl::FRONT, mask);
+
+                Ok(())
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn stencil_write_mask_back(&self) -> u32 {
+        self.stencil_write_mask_back
+    }
+
+    pub fn set_stencil_write_mask_back(&mut self, mask: u32) -> impl ContextUpdate<'static, ()> {
+        if self.stencil_write_mask_back != mask {
+            self.stencil_write_mask_back = mask;
+
+            Some(move |context: &Gl| {
+                context.stencil_mask_separate(Gl::BACK, mask);
+
+                Ok(())
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn blend_color(&self) -> [f32; 4] {
+        self.blend_color
+    }
+
+    pub fn set_blend_color(&mut self, blend_color: [f32; 4]) -> impl ContextUpdate<'static, ()> {
+        if self.blend_color != blend_color {
+            self.blend_color = blend_color;
+
+            Some(move |context: &Gl| {
+                let [r, g, b, a] = blend_color;
+
+                context.blend_collor(r, g, b, a);
+
+                Ok(())
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn blend_equation_rgb(&self) -> BlendEquation {
+        self.blend_equation_rgb
+    }
+
+    pub fn blend_equation_alpha(&self) -> BlendEquation {
+        self.blend_equation_alpha
+    }
+
+    pub fn set_blend_equations(
+        &mut self,
+        rgb: BlendEquation,
+        alpha: BlendEquation,
+    ) -> impl ContextUpdate<'static, ()> {
+        if self.blend_equation_rgb != rgb || self.blend_equation_alpha != alpha {
+            self.blend_equation_rgb = rgb;
+            self.blend_equation_alpha = alpha;
+
+            Some(move |context: &Gl| {
+                context.blend_equation_separate(rgb.id(), alpha.id());
+
+                Ok(())
+            })
+        }
+    }
+
+    pub fn blend_func_source_rgb(&self) -> BlendFactor {
+        self.blend_func_source_rgb
+    }
+
+    pub fn blend_func_source_alpha(&self) -> BlendFactor {
+        self.blend_func_source_alpha
+    }
+
+    pub fn blend_func_destination_rgb(&self) -> BlendFactor {
+        self.blend_func_destination_rgb
+    }
+
+    pub fn blend_func_destination_alpha(&self) -> BlendFactor {
+        self.blend_func_destination_alpha
+    }
+
+    pub fn set_blend_func(
+        &mut self,
+        source_rgb: BlendFactor,
+        destination_rgb: BlendFactor,
+        source_alpha: BlendFactor,
+        destination_alpha: BlendFactor,
+    ) -> impl ContextUpdate<'static, ()> {
+        if self.blend_func_source_rgb != source_rgb
+            || self.blend_func_source_alpha != source_alpha
+            || self.blend_func_destination_rgb != destination_rgb
+            || self.blend_func_destination_alpha != destination_alpha
+        {
+            self.blend_func_source_rgb = source_rgb;
+            self.blend_func_source_alpha = source_alpha;
+            self.blend_func_destination_rgb = destination_rgb;
+            self.blend_func_destination_alpha = destination_alpha;
+
+            Some(move |context: &Gl| {
+                context.blend_func_separate(
+                    source_rgb.id(),
+                    destination_rgb.id(),
+                    source_alpha.id(),
+                    destination_alpha.id(),
+                );
+
+                Ok(())
+            })
+        }
+    }
 }
 
 impl DynamicState {
@@ -1006,6 +1375,31 @@ impl DynamicState {
             sample_coverage_enabled: false,
             rasterizer_discard_enabled: false,
             scissor: (0, 0, 0, 0),
+            depth_func: TestFunction::Less,
+            depth_mask: true,
+            depth_range: DepthRange::default(),
+            polygon_offset: PolygonOffset::default(),
+            stencil_func_front: TestFunction::AlwaysPass,
+            stencil_ref_front: 0,
+            stencil_test_mask_front: 0xffffffff,
+            stencil_func_back: TestFunction::AlwaysPass,
+            stencil_ref_back: 0,
+            stencil_test_mask_back: 0xffffffff,
+            stencil_op_fail_front: StencilOperation::Keep,
+            stencil_op_zfail_front: StencilOperation::Keep,
+            stencil_op_zpass_front: StencilOperation::Keep,
+            stencil_op_fail_back: StencilOperation::Keep,
+            stencil_op_zfail_back: StencilOperation::Keep,
+            stencil_op_zpass_back: StencilOperation::Keep,
+            stencil_write_mask_front: 0xffffffff,
+            stencil_write_mask_back: 0xffffffff,
+            blend_color: [0.0; 4],
+            blend_equation_rgb: BlendEquation::Addition,
+            blend_equation_alpha: BlendEquation::Addition,
+            blend_func_source_rgb: BlendFactor::One,
+            blend_func_source_alpha: BlendFactor::One,
+            blend_func_destination_rgb: BlendFactor::Zero,
+            blend_func_destination_alpha: BlendFactor::Zero,
         }
     }
 }

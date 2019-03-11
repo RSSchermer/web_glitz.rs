@@ -1,21 +1,19 @@
 use super::Vertex;
 
 pub unsafe trait InputAttributeLayout {
-    fn check_compatibility(slot_descriptors: &[AttributeSlotDescriptor]) -> Result<(), Incompatible>;
+    fn check_compatibility(
+        slot_descriptors: &[AttributeSlotDescriptor],
+    ) -> Result<(), Incompatible>;
 }
 
 pub enum Incompatible {
-    MissingAttribute {
-        location: u32
-    },
-    TypeMismatch {
-        location: u32
-    }
+    MissingAttribute { location: u32 },
+    TypeMismatch { location: u32 },
 }
 
 pub struct AttributeSlotDescriptor {
     location: u32,
-    attribute_type: AttributeType
+    attribute_type: AttributeType,
 }
 
 impl AttributeSlotDescriptor {

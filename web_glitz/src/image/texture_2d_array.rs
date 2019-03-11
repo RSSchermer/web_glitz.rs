@@ -25,12 +25,15 @@ use crate::runtime::{Connection, RenderingContext, TaskContextMismatch};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, identical, JsId};
 
-pub struct Texture2DArrayDescriptor<F> where F: TextureFormat + 'static {
+pub struct Texture2DArrayDescriptor<F>
+where
+    F: TextureFormat + 'static,
+{
     pub format: F,
     pub width: u32,
     pub height: u32,
     pub depth: u32,
-    pub levels: MipmapLevels
+    pub levels: MipmapLevels,
 }
 
 pub struct Texture2DArray<F> {
@@ -80,9 +83,12 @@ impl<F> Texture2DArray<F>
 where
     F: TextureFormat + 'static,
 {
-    pub(crate) fn new<Rc>(context: &Rc, descriptor: &Texture2DArrayDescriptor<F>) -> Result<Self, MaxMipmapLevelsExceeded>
-        where
-            Rc: RenderingContext + Clone + 'static,
+    pub(crate) fn new<Rc>(
+        context: &Rc,
+        descriptor: &Texture2DArrayDescriptor<F>,
+    ) -> Result<Self, MaxMipmapLevelsExceeded>
+    where
+        Rc: RenderingContext + Clone + 'static,
     {
         let Texture2DArrayDescriptor {
             width,

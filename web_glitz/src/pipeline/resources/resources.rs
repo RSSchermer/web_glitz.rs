@@ -1,12 +1,30 @@
-use crate::pipeline::resources::binding::{Binding, BufferBinding, FloatSampler2DBinding, FloatSampler2DArrayBinding, FloatSampler3DBinding, FloatSamplerCubeBinding, IntegerSampler2DBinding, IntegerSampler2DArrayBinding, IntegerSampler3DBinding, IntegerSamplerCubeBinding, UnsignedIntegerSampler2DBinding, UnsignedIntegerSampler2DArrayBinding, UnsignedIntegerSampler3DBinding, UnsignedIntegerSamplerCubeBinding, ShadowSampler2DBinding, ShadowSampler2DArrayBinding, ShadowSamplerCubeBinding};
 use crate::buffer::{Buffer, BufferView};
-use crate::pipeline::interface_block::InterfaceBlock;
-use std::mem;
-use crate::sampler::{FloatSampledTexture2D, FloatSampledTexture2DArray, FloatSampledTexture3D, FloatSampledTextureCube, IntegerSampledTexture2D, IntegerSampledTexture2DArray, IntegerSampledTexture3D, IntegerSampledTextureCube, UnsignedIntegerSampledTexture2D, UnsignedIntegerSampledTexture2DArray, UnsignedIntegerSampledTexture3D, UnsignedIntegerSampledTextureCube, ShadowSampledTexture2D, ShadowSampledTexture2DArray, ShadowSampledTextureCube};
-use std::borrow::Borrow;
-use crate::pipeline::resources::bind_group_encoding::{BindingDescriptor, BindGroupEncodingContext, BindGroupEncoding};
-use crate::pipeline::resources::resource_slot::{ResourceSlotDescriptor, Slot, SlotBindingConfirmer, Identifier};
 use crate::pipeline::interface_block;
+use crate::pipeline::interface_block::InterfaceBlock;
+use crate::pipeline::resources::bind_group_encoding::{
+    BindGroupEncoding, BindGroupEncodingContext, BindingDescriptor,
+};
+use crate::pipeline::resources::binding::{
+    Binding, BufferBinding, FloatSampler2DArrayBinding, FloatSampler2DBinding,
+    FloatSampler3DBinding, FloatSamplerCubeBinding, IntegerSampler2DArrayBinding,
+    IntegerSampler2DBinding, IntegerSampler3DBinding, IntegerSamplerCubeBinding,
+    ShadowSampler2DArrayBinding, ShadowSampler2DBinding, ShadowSamplerCubeBinding,
+    UnsignedIntegerSampler2DArrayBinding, UnsignedIntegerSampler2DBinding,
+    UnsignedIntegerSampler3DBinding, UnsignedIntegerSamplerCubeBinding,
+};
+use crate::pipeline::resources::resource_slot::{
+    Identifier, ResourceSlotDescriptor, Slot, SlotBindingConfirmer,
+};
+use crate::sampler::{
+    FloatSampledTexture2D, FloatSampledTexture2DArray, FloatSampledTexture3D,
+    FloatSampledTextureCube, IntegerSampledTexture2D, IntegerSampledTexture2DArray,
+    IntegerSampledTexture3D, IntegerSampledTextureCube, ShadowSampledTexture2D,
+    ShadowSampledTexture2DArray, ShadowSampledTextureCube, UnsignedIntegerSampledTexture2D,
+    UnsignedIntegerSampledTexture2DArray, UnsignedIntegerSampledTexture3D,
+    UnsignedIntegerSampledTextureCube,
+};
+use std::borrow::Borrow;
+use std::mem;
 
 /// Provides a group of resources (uniform block buffers, sampled textures) that may be bound to a
 /// pipeline, such that the pipeline may access these resources during execution.
@@ -112,17 +130,25 @@ pub unsafe trait Resources {
     /// If this function does not return an error, then calling [encode_bind_group] for any instance
     /// of the type will return a [BindGroupEncoding] that can be safely used with any pipeline
     /// described by the [descriptors].
-    fn confirm_slot_bindings<C>(confirmer: &C, descriptors: &[ResourceSlotDescriptor]) -> Result<(), Incompatible> where C: SlotBindingConfirmer;
+    fn confirm_slot_bindings<C>(
+        confirmer: &C,
+        descriptors: &[ResourceSlotDescriptor],
+    ) -> Result<(), Incompatible>
+    where
+        C: SlotBindingConfirmer;
 
     /// Encodes these [Resources] into a bind group, so that they can be bound to specific `binding`
     /// indices efficiently before a pipeline is executed.
-    fn encode_bind_group<'a>(&self, context: &'a mut BindGroupEncodingContext) -> BindGroupEncoding<'a, Self::Bindings>;
+    fn encode_bind_group<'a>(
+        &self,
+        context: &'a mut BindGroupEncodingContext,
+    ) -> BindGroupEncoding<'a, Self::Bindings>;
 }
 
 pub enum Incompatible {
     MissingResource(Identifier),
     ResourceTypeMismatch(Identifier),
-    IncompatibleBlockLayout(Identifier, interface_block::Incompatible)
+    IncompatibleBlockLayout(Identifier, interface_block::Incompatible),
 }
 
 pub trait Resource {
@@ -131,26 +157,32 @@ pub trait Resource {
     fn into_binding(self, index: u32) -> Self::Binding;
 }
 
-impl<'a, T> Resource for &'a Buffer<T> where T: InterfaceBlock {
+impl<'a, T> Resource for &'a Buffer<T>
+where
+    T: InterfaceBlock,
+{
     type Binding = BufferBinding<'a, T>;
 
     fn into_binding(self, index: u32) -> Self::Binding {
         BufferBinding {
             index,
             buffer_view: self.view(),
-            size_in_bytes: mem::size_of::<T>()
+            size_in_bytes: mem::size_of::<T>(),
         }
     }
 }
 
-impl<'a, T> Resource for &'a BufferView<T> where T: InterfaceBlock {
+impl<'a, T> Resource for &'a BufferView<T>
+where
+    T: InterfaceBlock,
+{
     type Binding = BufferBinding<'a, T>;
 
     fn into_binding(self, index: u32) -> Self::Binding {
         BufferBinding {
             index,
             buffer_view: self,
-            size_in_bytes: mem::size_of::<T>()
+            size_in_bytes: mem::size_of::<T>(),
         }
     }
 }

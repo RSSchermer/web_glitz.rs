@@ -3,8 +3,8 @@ use std::marker;
 use serde::Serialize;
 
 use crate::render_pass::{
-    DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRenderTarget, DefaultRGBABuffer,
-    DefaultRGBBuffer, DefaultStencilBuffer,
+    DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
+    DefaultRenderTarget, DefaultStencilBuffer,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]

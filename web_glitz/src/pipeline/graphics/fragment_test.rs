@@ -1,3 +1,6 @@
+use crate::runtime::Connection;
+use std::ops::RangeInclusive;
+
 /// Enumerates the test functions that may be used with [DepthTest] and [StencilTest].
 ///
 /// See the documentation for [DepthTest] and [StencilTest] for details.
@@ -10,7 +13,22 @@ pub enum TestFunction {
     LessOrEqual,
     GreaterOrEqual,
     NeverPass,
-    AlwaysPass
+    AlwaysPass,
+}
+
+impl TestFunction {
+    pub(crate) fn id(&self) -> u32 {
+        match self {
+            TestFunction::Equal => Gl::EQUAL,
+            TestFunction::NotEqual => Gl::NOTEQUAL,
+            TestFunction::Less => Gl::LESS,
+            TestFunction::Greater => Gl::GREATER,
+            TestFunction::LessOrEqual => Gl::LEQUAL,
+            TestFunction::GreaterOrEqual => Gl::GEQUAL,
+            TestFunction::NeverPass => Gl::NEVER,
+            TestFunction::AlwaysPass => Gl::ALWAYS,
+        }
+    }
 }
 
 /// Provides instructions on how depth testing should be performed.
@@ -62,10 +80,12 @@ pub enum TestFunction {
 /// An instance of for the default depth test options may be obtained via [Default]:
 ///
 /// ```
+/// use web_glitz::pipeline::graphics::{DepthTest, TestFunction, DepthRange};
+///
 /// assert_eq!(DepthTest::default(), DepthTest {
 ///     test: TestFunction::Less,
 ///     write: true,
-///     depth_range: 0.0..=1.0,
+///     depth_range: DepthRange::default(),
 ///     polygon_offset: None
 /// });
 /// ```
@@ -94,7 +114,43 @@ pub struct DepthTest {
     /// See [PolygonOffset] for details.
     ///
     /// Defaults to `None`, in which case no polygon offset will be applied.
-    pub polygon_offset: Option<PolygonOffset>
+    pub polygon_offset: Option<PolygonOffset>,
+}
+
+impl Option<DepthTest> {
+    pub(crate) fn apply(&self, connection: &mut Connection) {
+        let (gl, state) = unsafe { connection.unpack_mut() };
+
+        match self {
+            Some(depth_test) => {
+                state.set_depth_test_enabled(true).apply(gl).unwrap();
+                state.set_depth_func(depth_test.test).apply(gl).unwrap();
+                state
+                    .set_depth_range(depth_test.depth_range.clone())
+                    .apply(gl)
+                    .unwrap();
+                state.set_depth_mask(depth_test.write).apply(gl).unwrap();
+
+                match &depth_test.polygon_offset {
+                    Some(polygon_offset) => {
+                        state
+                            .set_polygon_offset_fill_enabled(true)
+                            .apply(gl)
+                            .unwrap();
+                        state
+                            .set_polygon_offset(polygon_offset.clone())
+                            .apply(gl)
+                            .unwrap();
+                    }
+                    _ => state
+                        .set_polygon_offset_fill_enabled(false)
+                        .apply(gl)
+                        .unwrap(),
+                }
+            }
+            _ => state.set_depth_test_enabled(false).apply(gl).unwrap(),
+        }
+    }
 }
 
 impl Default for DepthTest {
@@ -103,7 +159,7 @@ impl Default for DepthTest {
             test: TestFunction::Less,
             write: true,
             depth_range: DepthRange::default(),
-            polygon_offset: None
+            polygon_offset: None,
         }
     }
 }
@@ -118,6 +174,8 @@ impl Default for DepthTest {
 /// Can be constructed from a [RangeInclusive<f32>] via [TryFrom]:
 ///
 /// ```
+/// use web_glitz::pipeline::graphics::DepthRange;
+///
 /// let depth_range = DepthRange::try_from(0.2..=0.8)?;
 /// ```
 ///
@@ -128,21 +186,24 @@ impl Default for DepthTest {
 /// A default depth range may be obtained through [Default]:
 ///
 /// ```
+/// use web_glitz::pipeline::graphics::DepthRange;
+///
 /// assert_eq!(DepthRange::default(), DepthRange::try_from(0.0..=1.0).unwrap());
 /// ```
+#[derive(Clone, PartialEq, Debug)]
 pub struct DepthRange {
     range_near: f32,
-    range_far: f32
+    range_far: f32,
 }
 
 impl DepthRange {
     /// The lower bound of this range that will be mapped onto the near plane at `0.0`.
-    fn near(&self) -> f32 {
+    pub fn near(&self) -> f32 {
         self.range_near
     }
 
     /// The upper bound of this range that will be mapped onto the far plane at `1.0`.
-    fn far(&self) -> f32 {
+    pub fn far(&self) -> f32 {
         self.range_far
     }
 }
@@ -151,7 +212,7 @@ impl Default for DepthRange {
     fn default() -> Self {
         DepthRange {
             range_near: 0.0,
-            range_far: 1.0
+            range_far: 1.0,
         }
     }
 }
@@ -186,6 +247,8 @@ pub struct InvalidDepthRange(RangeInclusive<f32>);
 /// May be instantiated with default values through [Default]:
 ///
 /// ```
+/// use web_glitz::pipeline::graphics::PolygonOffset;
+///
 /// assert_eq!(PolygonOffset::default(), PolygonOffset {
 ///     factor: 0.0,
 ///     units: 0.0,
@@ -221,7 +284,22 @@ pub enum StencilOperation {
     WrappingIncrement,
     Decrement,
     WrappingDecrement,
-    Invert
+    Invert,
+}
+
+impl StencilOperation {
+    pub(crate) fn id(&self) -> u32 {
+        match self {
+            StencilOperation::Keep => Gl::KEEP,
+            StencilOperation::Zero => Gl::ZERO,
+            StencilOperation::Replace => Gl::REPLACE,
+            StencilOperation::Increment => Gl::INCREMENT,
+            StencilOperation::WrappingIncrement => Gl::WRAPPING_INCREMENT,
+            StencilOperation::Decrement => Gl::DECREMENT,
+            StencilOperation::WrappingDecrement => Gl::WRAPPING_DECREMENT,
+            StencilOperation::Invert => Gl::INVERT,
+        }
+    }
 }
 
 /// Provides instructions on how stencil testing should be performed.
@@ -241,11 +319,13 @@ pub enum StencilOperation {
 /// The stencil test is performed for each fragment. [test_function_front] specifies the function
 /// that is used to test front-facing fragments; [test_function_back] specifies the function that is
 /// used to test back-facing fragments. For each fragment sampled from a primitive (a point, line or
-/// triangle) the [reference_value] may be compared to the current `stencil_value` for this fragment
-/// in the stencil buffer. The bitmask defined by [test_mask] will be applied to both the
-/// [reference_value] and the `stencil_value` with the bitwise `AND` operation (`&`), before the
-/// test function is evaluated; this allows masking off certain bits, reserving them for different
-/// conditional tests. The following test functions are available:
+/// triangle) a reference value ([reference_value_front] or [reference_value_back], for front- and
+/// back-facing fragments respectively) may be compared to the current `stencil_value` for this
+/// fragment in the stencil buffer. A bitmask ([test_mask_front] or [test_mask_back], for front- and
+/// back-facing fragments respectively) will be applied to both the reference value and the
+/// `stencil_value` with the bitwise `AND` operation (`&`), before the test function is evaluated;
+/// this allows masking off certain bits, reserving them for different conditional tests. The
+/// following test functions are available:
 ///
 /// - [TestFunction::Equal]: the test passes if `reference_value & test_mask` is equal to
 ///   `stencil_value & test_mask`.
@@ -300,17 +380,20 @@ pub enum StencilOperation {
 /// - [StencilOperation::Invert]: inverts the bits of the stencil value in the stencil buffer (for
 ///   example: `10110011` becomes `01001100`).
 ///
-/// Finally, the bitmask specified by [write_mask] controls which individual bits can be written
-/// too. Suppose an 8-bit stencil buffer and a [write_mask] of `0000011`, then only the final two
-/// bits will be updated; where `0` appears, the bits are write-protected.
+/// Finally, the bitmask specified by [write_mask_front] (when testing a front-facing fragment) or
+/// [write_mask_back] (when testing a back-facing fragment) controls which individual bits can be
+/// written too. Suppose an 8-bit stencil buffer and a write mask of `0000011`, then only the final
+/// two bits will be updated; where `0` appears, the bits are write-protected.
 ///
-/// Note that [reference_value], [test_mask] and [write_mask] are declared here as `u32` values,
+/// Note that reference values, test masks and write masks are declared here as `u32` values,
 /// but when testing only the bottom `X` values are used, where `X` is the bit-depth of the stencil
 /// buffer.
 ///
 /// A [StencilTest] may be instantiated with the default configuration via [Default]:
 ///
 /// ```
+/// use web_glitz::pipeline::graphics::{StencilTest, TestFunction, StencilOperation};
+///
 /// assert_eq!(StencilTest::default, StencilTest {
 ///     test_function_front: TestFunction::AlwaysPass,
 ///     fail_operation_front: StencilOperation::Keep,
@@ -320,9 +403,12 @@ pub enum StencilOperation {
 ///     fail_operation_back: StencilOperation::Keep,
 ///     pass_depth_fail_operation_back: StencilOperation::Keep,
 ///     pass_operation_back: StencilOperation::Keep,
-///     reference_value: 0,
-///     test_mask: 0xffffffff,
-///     write_mask: 0xffffffff,
+///     reference_value_front: 0,
+///     test_mask_front: 0xffffffff,
+///     reference_value_back: 0,
+///     test_mask_back: 0xffffffff,
+///     write_mask_front: 0xffffffff,
+///     write_mask_back: 0xffffffff,
 /// });
 /// ```
 #[derive(PartialEq, Clone, Debug)]
@@ -391,28 +477,111 @@ pub struct StencilTest {
     /// instead.
     pub pass_operation_back: StencilOperation,
 
-    /// The value that is compared to a fragment's stencil values in the stencil buffer, in order to
-    /// decide if the fragment passes the stencil test.
+    /// The value that is compared to a front-facing fragment's stencil value in the stencil buffer,
+    /// in order to decide if the fragment passes the stencil test.
     ///
     /// See the type documentation for [StencilTest] for details on how this value is used when
     /// stencil testing.
-    pub reference_value: u32,
+    pub reference_value_front: u32,
 
-    /// The bitmask that is applied to both the [reference_value] and the stencil value in the
-    /// stencil buffer to which it is compared, before the stencil test is evaluated.
+    /// The bitmask that is applied to both the [reference_value_front] and the stencil value in the
+    /// stencil buffer to which it is compared, before the stencil test is evaluated on a
+    /// front-facing fragment.
     ///
     /// Can be used to mask off certain bits, reserving them for different conditional tests.
     ///
     /// See the type documentation for [StencilTest] for details on how the [test_mask] is applied.
-    pub test_mask: u32,
+    pub test_mask_front: u32,
 
+    /// The value that is compared to a back-facing fragment's stencil value in the stencil buffer,
+    /// in order to decide if the fragment passes the stencil test.
+    ///
+    /// See the type documentation for [StencilTest] for details on how this value is used when
+    /// stencil testing.
+    pub reference_value_back: u32,
+
+    /// The bitmask that is applied to both the [reference_value_back] and the stencil value in the
+    /// stencil buffer to which it is compared, before the stencil test is evaluated on a
+    /// back-facing fragment.
+    ///
+    /// Can be used to mask off certain bits, reserving them for different conditional tests.
+    ///
+    /// See the type documentation for [StencilTest] for details on how the [test_mask_back] is
+    /// applied.
+    pub test_mask_back: u32,
 
     /// The bitmask that controls which of a stencil value's individual bits may be updated in the
-    /// stencil buffer.
+    /// stencil buffer when testing a front-facing fragment.
     ///
-    /// Suppose an 8-bit stencil buffer and a [writeMask] of `0000011`, then only the final two bits
-    /// will be updated; where `0` appears, the bits are write-protected.
-    pub write_mask: u32,
+    /// Suppose an 8-bit stencil buffer and a [write_mask] of `0000011`, then only the final two
+    /// bits will be updated; where `0` appears, the bits are write-protected.
+    pub write_mask_front: u32,
+
+    /// The bitmask that controls which of a stencil value's individual bits may be updated in the
+    /// stencil buffer when testing a back-facing fragment.
+    ///
+    /// Suppose an 8-bit stencil buffer and a [write_mask] of `0000011`, then only the final two
+    /// bits will be updated; where `0` appears, the bits are write-protected.
+    pub write_mask_back: u32,
+}
+
+impl Option<StencilTest> {
+    pub(crate) fn apply(&self, connection: &mut Connection) {
+        let (gl, state) = unsafe { connection.unpack_mut() };
+
+        match self {
+            Some(stencil_test) => {
+                state.set_stencil_test_enabled(true).apply(gl).unwrap();
+
+                state
+                    .set_stencil_func_front(
+                        stencil_test.test_function_front,
+                        stencil_test.reference_value_front as i32,
+                        stencil_test.test_mask_front,
+                    )
+                    .apply(gl)
+                    .unwrap();
+
+                state
+                    .set_stencil_op_front(
+                        stencil_test.fail_operation_front,
+                        stencil_test.pass_depth_fail_operation_front,
+                        stencil_test.pass_operation_front,
+                    )
+                    .apply(gl)
+                    .unwrap();
+
+                state
+                    .set_stencil_write_mask_front(stencil_test.write_mask_front)
+                    .apply(gl)
+                    .unwrap();
+
+                state
+                    .set_stencil_func_back(
+                        stencil_test.test_function_back,
+                        stencil_test.reference_value_back as i32,
+                        stencil_test.test_mask_back,
+                    )
+                    .apply(gl)
+                    .unwrap();
+
+                state
+                    .set_stencil_op_back(
+                        stencil_test.fail_operation_back,
+                        stencil_test.pass_depth_fail_operation_back,
+                        stencil_test.pass_operation_back,
+                    )
+                    .apply(gl)
+                    .unwrap();
+
+                state
+                    .set_stencil_write_mask_back(stencil_test.write_mask_back)
+                    .apply(gl)
+                    .unwrap();
+            }
+            _ => state.set_stencil_test_enabled(false).apply(gl).unwrap(),
+        }
+    }
 }
 
 impl Default for StencilTest {
@@ -426,9 +595,12 @@ impl Default for StencilTest {
             fail_operation_back: StencilOperation::Keep,
             pass_depth_fail_operation_back: StencilOperation::Keep,
             pass_operation_back: StencilOperation::Keep,
-            reference_value: 0,
-            test_mask: 0xffffffff,
-            write_mask: 0xffffffff,
+            reference_value_front: 0,
+            test_mask_front: 0xffffffff,
+            reference_value_back: 0,
+            test_mask_back: 0xffffffff,
+            write_mask_front: 0xffffffff,
+            write_mask_back: 0xffffffff,
         }
     }
 }

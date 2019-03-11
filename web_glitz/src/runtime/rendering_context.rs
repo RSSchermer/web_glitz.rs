@@ -8,13 +8,17 @@ use web_sys::WebGl2RenderingContext as Gl;
 use crate::buffer::{Buffer, BufferUsage, IntoBuffer};
 use crate::image::format::{Filterable, RenderbufferFormat, TextureFormat};
 use crate::image::renderbuffer::Renderbuffer;
-use crate::image::texture_2d::{Texture2DDescriptor, Texture2D};
-use crate::image::texture_2d_array::{Texture2DArrayDescriptor, Texture2DArray};
-use crate::image::texture_3d::{Texture3DDescriptor, Texture3D};
-use crate::image::texture_cube::{TextureCubeDescriptor, TextureCube};
+use crate::image::texture_2d::{Texture2D, Texture2DDescriptor};
+use crate::image::texture_2d_array::{Texture2DArray, Texture2DArrayDescriptor};
+use crate::image::texture_3d::{Texture3D, Texture3DDescriptor};
+use crate::image::texture_cube::{TextureCube, TextureCubeDescriptor};
 use crate::image::{MaxMipmapLevelsExceeded, MipmapLevels};
+use crate::pipeline::graphics::vertex_input::{
+    Incompatible as IncompatibleInputAttributeLayout, InputAttributeLayout,
+};
+use crate::pipeline::resources::{Incompatible as IncompatibleResourceLayout, Resources};
 use crate::runtime::state::DynamicState;
-use crate::sampler::{SamplerDescriptor, Sampler, ShadowSamplerDescriptor, ShadowSampler};
+use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
 use crate::task::GpuTask;
 
 pub trait RenderingContext {
@@ -28,27 +32,39 @@ pub trait RenderingContext {
     where
         F: RenderbufferFormat + 'static;
 
-    fn create_texture_2d<F>(&self, descriptor: &Texture2DDescriptor<F>) -> Result<Texture2D<F>, MaxMipmapLevelsExceeded>
+    fn create_graphics_pipeline<Il, R, Tf>(
+        &self,
+        descriptor: &GraphicsPipelineDescriptor<Il, R, Tf>,
+    ) -> Result<GraphicsPipeline<Il, R, Tf>, CreateGraphicsPipelineError>
+    where
+        Il: InputAttributeLayout,
+        R: Resources,
+        Tf: TransformFeedbackVaryings;
+
+    fn create_texture_2d<F>(
+        &self,
+        descriptor: &Texture2DDescriptor<F>,
+    ) -> Result<Texture2D<F>, MaxMipmapLevelsExceeded>
     where
         F: TextureFormat + 'static;
 
     fn create_texture_2d_array<F>(
         &self,
-        descriptor: &Texture2DArrayDescriptor<F>
+        descriptor: &Texture2DArrayDescriptor<F>,
     ) -> Result<Texture2DArray<F>, MaxMipmapLevelsExceeded>
     where
         F: TextureFormat + 'static;
 
     fn create_texture_3d<F>(
         &self,
-        descriptor: &Texture3DDescriptor<F>
+        descriptor: &Texture3DDescriptor<F>,
     ) -> Result<Texture3D<F>, MaxMipmapLevelsExceeded>
     where
         F: TextureFormat + 'static;
 
     fn create_texture_cube<F>(
         &self,
-        descriptor: &TextureCubeDescriptor<F>
+        descriptor: &TextureCubeDescriptor<F>,
     ) -> Result<TextureCube<F>, MaxMipmapLevelsExceeded>
     where
         F: TextureFormat + 'static;
@@ -60,6 +76,15 @@ pub trait RenderingContext {
     fn submit<T>(&self, task: T) -> Execution<T::Output>
     where
         T: GpuTask<Connection> + 'static;
+}
+
+pub enum CreateGraphicsPipelineError {
+    VertexShaderContextMismatch,
+    FragmentShaderContextMismatch,
+    LinkingError(String),
+    IncompatibleInputAttributeLayout(IncompatibleInputAttributeLayout),
+    IncompatibleResourceLayout(IncompatibleResourceLayout),
+    IncompatibleTransformFeedbackVaryings(IncompatibleTransformFeedbackVaryings),
 }
 
 pub enum SubmitError {

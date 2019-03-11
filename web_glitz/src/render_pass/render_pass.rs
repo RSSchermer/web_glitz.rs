@@ -29,7 +29,7 @@ use crate::render_pass::framebuffer::DefaultRGBABuffer;
 use crate::render_pass::framebuffer::DefaultRGBBuffer;
 use crate::render_pass::framebuffer::DefaultStencilBuffer;
 use crate::render_pass::framebuffer::{
-    RenderBuffer, DepthBuffer, DepthStencilBuffer, FloatBuffer, Framebuffer, IntegerBuffer,
+    DepthBuffer, DepthStencilBuffer, FloatBuffer, Framebuffer, IntegerBuffer, RenderBuffer,
     StencilBuffer, UnsignedIntegerBuffer,
 };
 use crate::runtime::state::{
@@ -713,9 +713,7 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, ()> {
     }
 }
 
-impl RenderTargetDescription
-    for DefaultRenderTarget<DefaultRGBBuffer, DefaultDepthStencilBuffer>
-{
+impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, DefaultDepthStencilBuffer> {
     type Framebuffer = Framebuffer<DefaultRGBBuffer, DefaultDepthStencilBuffer>;
 
     fn into_encoding(
@@ -795,9 +793,7 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, ()> {
     }
 }
 
-impl RenderTargetDescription
-    for DefaultRenderTarget<DefaultRGBABuffer, DefaultDepthStencilBuffer>
-{
+impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, DefaultDepthStencilBuffer> {
     type Framebuffer = Framebuffer<DefaultRGBABuffer, DefaultDepthStencilBuffer>;
 
     fn into_encoding(

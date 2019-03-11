@@ -23,11 +23,14 @@ use crate::runtime::{Connection, RenderingContext, TaskContextMismatch};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, identical, JsId};
 
-pub struct TextureCubeDescriptor<F> where F: TextureFormat + 'static {
+pub struct TextureCubeDescriptor<F>
+where
+    F: TextureFormat + 'static,
+{
     pub format: F,
     pub width: u32,
     pub height: u32,
-    pub levels: MipmapLevels
+    pub levels: MipmapLevels,
 }
 
 pub struct TextureCube<F> {
@@ -77,9 +80,12 @@ impl<F> TextureCube<F>
 where
     F: TextureFormat + 'static,
 {
-    pub(crate) fn new<Rc>(context: &Rc, descriptor: &TextureCubeDescriptor<F>) -> Result<Self, MaxMipmapLevelsExceeded>
-        where
-            Rc: RenderingContext + Clone + 'static,
+    pub(crate) fn new<Rc>(
+        context: &Rc,
+        descriptor: &TextureCubeDescriptor<F>,
+    ) -> Result<Self, MaxMipmapLevelsExceeded>
+    where
+        Rc: RenderingContext + Clone + 'static,
     {
         let TextureCubeDescriptor {
             width,

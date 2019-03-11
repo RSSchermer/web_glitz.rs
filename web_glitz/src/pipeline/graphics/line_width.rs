@@ -15,7 +15,7 @@
 /// ```
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct LineWidth {
-    value: f32
+    value: f32,
 }
 
 impl TryFrom<f32> for LineWidth {
@@ -27,18 +27,14 @@ impl TryFrom<f32> for LineWidth {
         } else if value < 0 {
             Err(InvalidWidth::Negative)
         } else {
-            Ok(LineWidth {
-                value
-            })
+            Ok(LineWidth { value })
         }
     }
 }
 
 impl Default for LineWidth {
     fn default() -> Self {
-        LineWidth {
-            value: 1.0
-        }
+        LineWidth { value: 1.0 }
     }
 }
 
@@ -53,5 +49,5 @@ impl Deref for LineWidth {
 /// Error returned when trying to construct a [LineWidth] from an invalid value.
 pub enum InvalidLineWidth {
     NaN,
-    Negative
+    Negative,
 }

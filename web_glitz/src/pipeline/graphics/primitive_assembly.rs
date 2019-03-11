@@ -1,10 +1,11 @@
+#[derive(Clone, PartialEq, Debug)]
 pub struct PrimitiveAssembly {
     pub topology: Topology,
     pub winding_order: WindingOrder,
-    pub face_culling: CullingMode
+    pub face_culling: CullingMode,
 }
 
-
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Topology {
     Point,
     Line,
@@ -12,7 +13,7 @@ pub enum Topology {
     LineStrip,
     LineLoop,
     TriangleStrip,
-    TriangleFan
+    TriangleFan,
 }
 
 /// Enumerates the possible winding orders for triangles that may be used by a [Rasterizer].
@@ -41,9 +42,9 @@ pub enum Topology {
 /// winding order is defined to be [WindingOrder::CounterClockwise], then we are looking at the
 /// back-face of this triangle.
 #[derive(Clone, Copy, PartialEq, Hash, Debug)]
-enum WindingOrder {
+pub enum WindingOrder {
     ClockWise,
-    CounterClockwise
+    CounterClockwise,
 }
 
 /// Enumerates the face-culling modes that may be used by a [Rasterizer].
@@ -68,9 +69,9 @@ enum WindingOrder {
 /// rasterizer to discard triangles that would not have been visible anyway, before the expensive
 /// rasterization and fragment shader operations are performed.
 #[derive(Clone, Copy, PartialEq, Hash, Debug)]
-enum CullingMode {
+pub enum CullingMode {
     None,
     Front,
     Back,
-    Both
+    Both,
 }

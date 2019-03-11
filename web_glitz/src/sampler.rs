@@ -1,32 +1,32 @@
 use std::sync::Arc;
 
+use crate::image::format::Filterable;
+use crate::image::format::InvalidMagnificationFilter;
+use crate::image::format::InvalidMinificationFilter;
 use crate::image::format::{
     FloatSamplable, IntegerSamplable, ShadowSamplable, TextureFormat, UnsignedIntegerSamplable,
 };
 use crate::image::texture_2d::Texture2D;
+use crate::image::texture_2d::Texture2DData;
 use crate::image::texture_2d_array::Texture2DArray;
+use crate::image::texture_2d_array::Texture2DArrayData;
 use crate::image::texture_3d::Texture3D;
+use crate::image::texture_3d::Texture3DData;
 use crate::image::texture_cube::TextureCube;
+use crate::image::texture_cube::TextureCubeData;
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
-use crate::util::{arc_get_mut_unchecked, identical, JsId};
 use crate::task::GpuTask;
 use crate::task::Progress;
-use crate::image::format::Filterable;
-use crate::image::format::InvalidMinificationFilter;
-use crate::image::format::InvalidMagnificationFilter;
-use std::ops::RangeInclusive;
+use crate::util::{arc_get_mut_unchecked, identical, JsId};
 use std::convert::TryFrom;
-use crate::image::texture_2d::Texture2DData;
 use std::marker;
-use crate::image::texture_cube::TextureCubeData;
-use crate::image::texture_3d::Texture3DData;
-use crate::image::texture_2d_array::Texture2DArrayData;
+use std::ops::RangeInclusive;
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum MagnificationFilter {
     Nearest = Gl::NEAREST,
-    Linear = Gl::LINEAR
+    Linear = Gl::LINEAR,
 }
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -43,20 +43,20 @@ pub enum MinificationFilter {
 pub enum Wrap {
     ClampToEdge = Gl::CLAMP_TO_EDGE,
     MirroredRepeat = Gl::MIRRORED_REPEAT,
-    Repeat = Gl::REPEAT
+    Repeat = Gl::REPEAT,
 }
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub struct LODRange {
     min: f32,
-    max: f32
+    max: f32,
 }
 
 impl Default for LODRange {
     fn default() -> Self {
         LODRange {
             min: -1000.0,
-            max: 1000.0
+            max: 1000.0,
         }
     }
 }
@@ -85,11 +85,14 @@ impl Default for SamplerDescriptor {
 
 pub struct Sampler {
     data: Arc<SamplerData>,
-    descriptor: SamplerDescriptor
+    descriptor: SamplerDescriptor,
 }
 
 impl Sampler {
-    pub(crate) fn new<Rc>(context: &Rc, descriptor: &SamplerDescriptor) -> Sampler where Rc: RenderingContext + Clone + 'static {
+    pub(crate) fn new<Rc>(context: &Rc, descriptor: &SamplerDescriptor) -> Sampler
+    where
+        Rc: RenderingContext + Clone + 'static,
+    {
         let data = Arc::new(SamplerData {
             id: None,
             context_id: context.id(),
@@ -98,12 +101,12 @@ impl Sampler {
 
         context.submit(SamplerAllocateCommand {
             data: data.clone(),
-            descriptor: descriptor.clone()
+            descriptor: descriptor.clone(),
         });
 
         Sampler {
             data,
-            descriptor: descriptor.clone()
+            descriptor: descriptor.clone(),
         }
     }
 
@@ -143,7 +146,7 @@ impl Sampler {
 pub enum IncompatibleSampler {
     ContextMismatch,
     InvalidMagnificationFilter(InvalidMagnificationFilter),
-    InvalidMinificationFilter(InvalidMinificationFilter)
+    InvalidMinificationFilter(InvalidMinificationFilter),
 }
 
 impl From<InvalidMagnificationFilter> for IncompatibleSampler {
@@ -191,11 +194,14 @@ impl Default for ShadowSamplerDescriptor {
 
 pub struct ShadowSampler {
     data: Arc<SamplerData>,
-    descriptor: ShadowSamplerDescriptor
+    descriptor: ShadowSamplerDescriptor,
 }
 
 impl ShadowSampler {
-    pub(crate) fn new<Rc>(context: &Rc, descriptor: &ShadowSamplerDescriptor) -> ShadowSampler where Rc: RenderingContext + Clone + 'static {
+    pub(crate) fn new<Rc>(context: &Rc, descriptor: &ShadowSamplerDescriptor) -> ShadowSampler
+    where
+        Rc: RenderingContext + Clone + 'static,
+    {
         let data = Arc::new(SamplerData {
             id: None,
             context_id: context.id(),
@@ -204,12 +210,12 @@ impl ShadowSampler {
 
         context.submit(ShadowSamplerAllocateCommand {
             data: data.clone(),
-            descriptor: descriptor.clone()
+            descriptor: descriptor.clone(),
         });
 
         ShadowSampler {
             data,
-            descriptor: descriptor.clone()
+            descriptor: descriptor.clone(),
         }
     }
 
@@ -243,8 +249,8 @@ trait SamplerObjectDropper {
 }
 
 impl<T> SamplerObjectDropper for T
-    where
-        T: RenderingContext,
+where
+    T: RenderingContext,
 {
     fn drop_sampler_object(&self, id: JsId) {
         self.submit(SamplerDropCommand { id });
@@ -273,7 +279,7 @@ impl Drop for SamplerData {
 
 struct SamplerAllocateCommand {
     data: Arc<SamplerData>,
-    descriptor: SamplerDescriptor
+    descriptor: SamplerDescriptor,
 }
 
 impl GpuTask<Connection> for SamplerAllocateCommand {
@@ -286,11 +292,19 @@ impl GpuTask<Connection> for SamplerAllocateCommand {
         let descriptor = &self.descriptor;
 
         if descriptor.minification_filter != MinificationFilter::NearestMipmapLinear {
-            gl.sampler_parameteri(&object, Gl::TEXTURE_MAG_FILTER, descriptor.minification_filter as i32);
+            gl.sampler_parameteri(
+                &object,
+                Gl::TEXTURE_MAG_FILTER,
+                descriptor.minification_filter as i32,
+            );
         }
 
         if descriptor.magnification_filter != MagnificationFilter::Linear {
-            gl.sampler_parameteri(&object, Gl::TEXTURE_MAG_FILTER, descriptor.magnification_filter as i32);
+            gl.sampler_parameteri(
+                &object,
+                Gl::TEXTURE_MAG_FILTER,
+                descriptor.magnification_filter as i32,
+            );
         }
 
         if descriptor.lod_range.min != -1000.0 {
@@ -321,7 +335,7 @@ impl GpuTask<Connection> for SamplerAllocateCommand {
 
 struct ShadowSamplerAllocateCommand {
     data: Arc<SamplerData>,
-    descriptor: ShadowSamplerDescriptor
+    descriptor: ShadowSamplerDescriptor,
 }
 
 impl GpuTask<Connection> for ShadowSamplerAllocateCommand {
@@ -376,15 +390,21 @@ impl GpuTask<Connection> for SamplerDropCommand {
 pub struct FloatSampledTexture2D<'a> {
     pub sampler_data: Arc<SamplerData>,
     pub texture_data: Arc<Texture2DData>,
-    _marker: marker::PhantomData<&'a ()>
+    _marker: marker::PhantomData<&'a ()>,
 }
 
 impl<'a> FloatSampledTexture2D<'a> {
-    pub fn new<F>(texture: &'a Texture2D<F>, sampler: &'a Sampler) -> Result<Self, IncompatibleSampler> where F: TextureFormat + FloatSamplable + 'static {
+    pub fn new<F>(
+        texture: &'a Texture2D<F>,
+        sampler: &'a Sampler,
+    ) -> Result<Self, IncompatibleSampler>
+    where
+        F: TextureFormat + FloatSamplable + 'static,
+    {
         let context = sampler.context();
 
         if texture.data().context_id() != sampler.context().id() {
-            return Err(IncompatibleSampler::ContextMismatch)
+            return Err(IncompatibleSampler::ContextMismatch);
         }
 
         F::validate_minification_filter(context, sampler.minification_filter())?;
@@ -393,7 +413,7 @@ impl<'a> FloatSampledTexture2D<'a> {
         Ok(FloatSampledTexture2D {
             sampler_data: sampler.data().clone(),
             texture_data: texture.data().clone(),
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         })
     }
 }
@@ -402,15 +422,21 @@ impl<'a> FloatSampledTexture2D<'a> {
 pub struct IntegerSampledTexture2D<'a> {
     pub sampler_data: Arc<SamplerData>,
     pub texture_data: Arc<Texture2DData>,
-    _marker: marker::PhantomData<&'a ()>
+    _marker: marker::PhantomData<&'a ()>,
 }
 
 impl<'a> IntegerSampledTexture2D<'a> {
-    pub fn new<F>(texture: &'a Texture2D<F>, sampler: &'a Sampler) -> Result<Self, IncompatibleSampler> where F: TextureFormat + IntegerSamplable + 'static {
+    pub fn new<F>(
+        texture: &'a Texture2D<F>,
+        sampler: &'a Sampler,
+    ) -> Result<Self, IncompatibleSampler>
+    where
+        F: TextureFormat + IntegerSamplable + 'static,
+    {
         let context = sampler.context();
 
         if texture.data().context_id() != sampler.context().id() {
-            return Err(IncompatibleSampler::ContextMismatch)
+            return Err(IncompatibleSampler::ContextMismatch);
         }
 
         F::validate_minification_filter(context, sampler.minification_filter())?;
@@ -419,7 +445,7 @@ impl<'a> IntegerSampledTexture2D<'a> {
         Ok(IntegerSampledTexture2D {
             sampler_data: sampler.data().clone(),
             texture_data: texture.data().clone(),
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         })
     }
 }
@@ -428,15 +454,21 @@ impl<'a> IntegerSampledTexture2D<'a> {
 pub struct UnsignedIntegerSampledTexture2D<'a> {
     pub sampler_data: Arc<SamplerData>,
     pub texture_data: Arc<Texture2DData>,
-    _marker: marker::PhantomData<&'a ()>
+    _marker: marker::PhantomData<&'a ()>,
 }
 
 impl<'a> UnsignedIntegerSampledTexture2D<'a> {
-    pub fn new<F>(texture: &'a Texture2D<F>, sampler: &'a Sampler) -> Result<Self, IncompatibleSampler> where F: TextureFormat + UnsignedIntegerSamplable + 'static {
+    pub fn new<F>(
+        texture: &'a Texture2D<F>,
+        sampler: &'a Sampler,
+    ) -> Result<Self, IncompatibleSampler>
+    where
+        F: TextureFormat + UnsignedIntegerSamplable + 'static,
+    {
         let context = sampler.context();
 
         if texture.data().context_id() != sampler.context().id() {
-            return Err(IncompatibleSampler::ContextMismatch)
+            return Err(IncompatibleSampler::ContextMismatch);
         }
 
         F::validate_minification_filter(context, sampler.minification_filter())?;
@@ -445,7 +477,7 @@ impl<'a> UnsignedIntegerSampledTexture2D<'a> {
         Ok(UnsignedIntegerSampledTexture2D {
             sampler_data: sampler.data().clone(),
             texture_data: texture.data().clone(),
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         })
     }
 }
@@ -454,21 +486,27 @@ impl<'a> UnsignedIntegerSampledTexture2D<'a> {
 pub struct ShadowSampledTexture2D<'a> {
     pub sampler_data: Arc<SamplerData>,
     pub texture_data: Arc<Texture2DData>,
-    _marker: marker::PhantomData<&'a ()>
+    _marker: marker::PhantomData<&'a ()>,
 }
 
 impl<'a> ShadowSampledTexture2D<'a> {
-    pub fn new<F>(texture: &'a Texture2D<F>, sampler: &'a ShadowSampler) -> Result<Self, ContextMismatch> where F: TextureFormat + ShadowSamplable + 'static {
+    pub fn new<F>(
+        texture: &'a Texture2D<F>,
+        sampler: &'a ShadowSampler,
+    ) -> Result<Self, ContextMismatch>
+    where
+        F: TextureFormat + ShadowSamplable + 'static,
+    {
         let context = sampler.context();
 
         if texture.data().context_id() != sampler.context().id() {
-            return Err(IncompatibleSampler::ContextMismatch)
+            return Err(IncompatibleSampler::ContextMismatch);
         }
 
         Ok(ShadowSampledTexture2D {
             sampler_data: sampler.data().clone(),
             texture_data: texture.data().clone(),
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         })
     }
 }
@@ -477,15 +515,21 @@ impl<'a> ShadowSampledTexture2D<'a> {
 pub struct FloatSampledTexture2DArray<'a> {
     pub sampler_data: Arc<SamplerData>,
     pub texture_data: Arc<Texture2DArrayData>,
-    _marker: marker::PhantomData<&'a ()>
+    _marker: marker::PhantomData<&'a ()>,
 }
 
 impl<'a> FloatSampledTexture2DArray<'a> {
-    pub fn new<F>(texture: &'a Texture2DArray<F>, sampler: &'a Sampler) -> Result<Self, IncompatibleSampler> where F: TextureFormat + FloatSamplable + 'static {
+    pub fn new<F>(
+        texture: &'a Texture2DArray<F>,
+        sampler: &'a Sampler,
+    ) -> Result<Self, IncompatibleSampler>
+    where
+        F: TextureFormat + FloatSamplable + 'static,
+    {
         let context = sampler.context();
 
         if texture.data().context_id() != sampler.context().id() {
-            return Err(IncompatibleSampler::ContextMismatch)
+            return Err(IncompatibleSampler::ContextMismatch);
         }
 
         F::validate_minification_filter(context, sampler.minification_filter())?;
@@ -494,7 +538,7 @@ impl<'a> FloatSampledTexture2DArray<'a> {
         Ok(FloatSampledTexture2DArray {
             sampler_data: sampler.data().clone(),
             texture_data: texture.data().clone(),
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         })
     }
 }
@@ -503,15 +547,21 @@ impl<'a> FloatSampledTexture2DArray<'a> {
 pub struct IntegerSampledTexture2DArray<'a> {
     pub sampler_data: Arc<SamplerData>,
     pub texture_data: Arc<Texture2DArrayData>,
-    _marker: marker::PhantomData<&'a ()>
+    _marker: marker::PhantomData<&'a ()>,
 }
 
 impl<'a> IntegerSampledTexture2DArray<'a> {
-    pub fn new<F>(texture: &'a Texture2DArray<F>, sampler: &'a Sampler) -> Result<Self, IncompatibleSampler> where F: TextureFormat + IntegerSamplable + 'static {
+    pub fn new<F>(
+        texture: &'a Texture2DArray<F>,
+        sampler: &'a Sampler,
+    ) -> Result<Self, IncompatibleSampler>
+    where
+        F: TextureFormat + IntegerSamplable + 'static,
+    {
         let context = sampler.context();
 
         if texture.data().context_id() != sampler.context().id() {
-            return Err(IncompatibleSampler::ContextMismatch)
+            return Err(IncompatibleSampler::ContextMismatch);
         }
 
         F::validate_minification_filter(context, sampler.minification_filter())?;
@@ -520,7 +570,7 @@ impl<'a> IntegerSampledTexture2DArray<'a> {
         Ok(IntegerSampledTexture2DArray {
             sampler_data: sampler.data().clone(),
             texture_data: texture.data().clone(),
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         })
     }
 }
@@ -529,15 +579,21 @@ impl<'a> IntegerSampledTexture2DArray<'a> {
 pub struct UnsignedIntegerSampledTexture2DArray<'a> {
     pub sampler_data: Arc<SamplerData>,
     pub texture_data: Arc<Texture2DArrayData>,
-    _marker: marker::PhantomData<&'a ()>
+    _marker: marker::PhantomData<&'a ()>,
 }
 
 impl<'a> UnsignedIntegerSampledTexture2DArray<'a> {
-    pub fn new<F>(texture: &'a Texture2DArray<F>, sampler: &'a Sampler) -> Result<Self, IncompatibleSampler> where F: TextureFormat + UnsignedIntegerSamplable + 'static {
+    pub fn new<F>(
+        texture: &'a Texture2DArray<F>,
+        sampler: &'a Sampler,
+    ) -> Result<Self, IncompatibleSampler>
+    where
+        F: TextureFormat + UnsignedIntegerSamplable + 'static,
+    {
         let context = sampler.context();
 
         if texture.data().context_id() != sampler.context().id() {
-            return Err(IncompatibleSampler::ContextMismatch)
+            return Err(IncompatibleSampler::ContextMismatch);
         }
 
         F::validate_minification_filter(context, sampler.minification_filter())?;
@@ -546,7 +602,7 @@ impl<'a> UnsignedIntegerSampledTexture2DArray<'a> {
         Ok(UnsignedIntegerSampledTexture2DArray {
             sampler_data: sampler.data().clone(),
             texture_data: texture.data().clone(),
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         })
     }
 }
@@ -555,21 +611,27 @@ impl<'a> UnsignedIntegerSampledTexture2DArray<'a> {
 pub struct ShadowSampledTexture2DArray<'a> {
     pub sampler_data: Arc<SamplerData>,
     pub texture_data: Arc<Texture2DArrayData>,
-    _marker: marker::PhantomData<&'a ()>
+    _marker: marker::PhantomData<&'a ()>,
 }
 
 impl<'a> ShadowSampledTexture2DArray<'a> {
-    pub fn new<F>(texture: &'a Texture2DArray<F>, sampler: &'a ShadowSampler) -> Result<Self, ContextMismatch> where F: TextureFormat + ShadowSamplable + 'static {
+    pub fn new<F>(
+        texture: &'a Texture2DArray<F>,
+        sampler: &'a ShadowSampler,
+    ) -> Result<Self, ContextMismatch>
+    where
+        F: TextureFormat + ShadowSamplable + 'static,
+    {
         let context = sampler.context();
 
         if texture.data().context_id() != sampler.context().id() {
-            return Err(IncompatibleSampler::ContextMismatch)
+            return Err(IncompatibleSampler::ContextMismatch);
         }
 
         Ok(ShadowSampledTexture2DArray {
             sampler_data: sampler.data().clone(),
             texture_data: texture.data().clone(),
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         })
     }
 }
@@ -578,15 +640,21 @@ impl<'a> ShadowSampledTexture2DArray<'a> {
 pub struct FloatSampledTexture3D<'a> {
     pub sampler_data: Arc<SamplerData>,
     pub texture_data: Arc<Texture3DData>,
-    _marker: marker::PhantomData<&'a ()>
+    _marker: marker::PhantomData<&'a ()>,
 }
 
 impl<'a> FloatSampledTexture3D<'a> {
-    pub fn new<F>(texture: &'a Texture3D<F>, sampler: &'a Sampler) -> Result<Self, IncompatibleSampler> where F: TextureFormat + FloatSamplable + 'static {
+    pub fn new<F>(
+        texture: &'a Texture3D<F>,
+        sampler: &'a Sampler,
+    ) -> Result<Self, IncompatibleSampler>
+    where
+        F: TextureFormat + FloatSamplable + 'static,
+    {
         let context = sampler.context();
 
         if texture.data().context_id() != sampler.context().id() {
-            return Err(IncompatibleSampler::ContextMismatch)
+            return Err(IncompatibleSampler::ContextMismatch);
         }
 
         F::validate_minification_filter(context, sampler.minification_filter())?;
@@ -595,7 +663,7 @@ impl<'a> FloatSampledTexture3D<'a> {
         Ok(FloatSampledTexture3D {
             sampler_data: sampler.data().clone(),
             texture_data: texture.data().clone(),
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         })
     }
 }
@@ -604,15 +672,21 @@ impl<'a> FloatSampledTexture3D<'a> {
 pub struct IntegerSampledTexture3D<'a> {
     pub sampler_data: Arc<SamplerData>,
     pub texture_data: Arc<Texture3DData>,
-    _marker: marker::PhantomData<&'a ()>
+    _marker: marker::PhantomData<&'a ()>,
 }
 
 impl<'a> IntegerSampledTexture3D<'a> {
-    pub fn new<F>(texture: &'a Texture3D<F>, sampler: &'a Sampler) -> Result<Self, IncompatibleSampler> where F: TextureFormat + IntegerSamplable + 'static {
+    pub fn new<F>(
+        texture: &'a Texture3D<F>,
+        sampler: &'a Sampler,
+    ) -> Result<Self, IncompatibleSampler>
+    where
+        F: TextureFormat + IntegerSamplable + 'static,
+    {
         let context = sampler.context();
 
         if texture.data().context_id() != sampler.context().id() {
-            return Err(IncompatibleSampler::ContextMismatch)
+            return Err(IncompatibleSampler::ContextMismatch);
         }
 
         F::validate_minification_filter(context, sampler.minification_filter())?;
@@ -621,7 +695,7 @@ impl<'a> IntegerSampledTexture3D<'a> {
         Ok(IntegerSampledTexture3D {
             sampler_data: sampler.data().clone(),
             texture_data: texture.data().clone(),
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         })
     }
 }
@@ -630,15 +704,21 @@ impl<'a> IntegerSampledTexture3D<'a> {
 pub struct UnsignedIntegerSampledTexture3D<'a> {
     pub sampler_data: Arc<SamplerData>,
     pub texture_data: Arc<Texture3DData>,
-    _marker: marker::PhantomData<&'a ()>
+    _marker: marker::PhantomData<&'a ()>,
 }
 
 impl<'a> UnsignedIntegerSampledTexture3D<'a> {
-    pub fn new<F>(texture: &'a Texture3D<F>, sampler: &'a Sampler) -> Result<Self, IncompatibleSampler> where F: TextureFormat + UnsignedIntegerSamplable + 'static {
+    pub fn new<F>(
+        texture: &'a Texture3D<F>,
+        sampler: &'a Sampler,
+    ) -> Result<Self, IncompatibleSampler>
+    where
+        F: TextureFormat + UnsignedIntegerSamplable + 'static,
+    {
         let context = sampler.context();
 
         if texture.data().context_id() != sampler.context().id() {
-            return Err(IncompatibleSampler::ContextMismatch)
+            return Err(IncompatibleSampler::ContextMismatch);
         }
 
         F::validate_minification_filter(context, sampler.minification_filter())?;
@@ -647,7 +727,7 @@ impl<'a> UnsignedIntegerSampledTexture3D<'a> {
         Ok(UnsignedIntegerSampledTexture3D {
             sampler_data: sampler.data().clone(),
             texture_data: texture.data().clone(),
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         })
     }
 }
@@ -656,15 +736,21 @@ impl<'a> UnsignedIntegerSampledTexture3D<'a> {
 pub struct FloatSampledTextureCube<'a> {
     pub sampler_data: Arc<SamplerData>,
     pub texture_data: Arc<TextureCubeData>,
-    _marker: marker::PhantomData<&'a ()>
+    _marker: marker::PhantomData<&'a ()>,
 }
 
 impl<'a> FloatSampledTextureCube<'a> {
-    pub fn new<F>(texture: &'a TextureCube<F>, sampler: &'a Sampler) -> Result<Self, IncompatibleSampler> where F: TextureFormat + FloatSamplable + 'static {
+    pub fn new<F>(
+        texture: &'a TextureCube<F>,
+        sampler: &'a Sampler,
+    ) -> Result<Self, IncompatibleSampler>
+    where
+        F: TextureFormat + FloatSamplable + 'static,
+    {
         let context = sampler.context();
 
         if texture.data().context_id() != sampler.context().id() {
-            return Err(IncompatibleSampler::ContextMismatch)
+            return Err(IncompatibleSampler::ContextMismatch);
         }
 
         F::validate_minification_filter(context, sampler.minification_filter())?;
@@ -673,7 +759,7 @@ impl<'a> FloatSampledTextureCube<'a> {
         Ok(FloatSampledTextureCube {
             sampler_data: sampler.data().clone(),
             texture_data: texture.data().clone(),
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         })
     }
 }
@@ -682,15 +768,21 @@ impl<'a> FloatSampledTextureCube<'a> {
 pub struct IntegerSampledTextureCube<'a> {
     pub sampler_data: Arc<SamplerData>,
     pub texture_data: Arc<TextureCubeData>,
-    _marker: marker::PhantomData<&'a ()>
+    _marker: marker::PhantomData<&'a ()>,
 }
 
 impl<'a> IntegerSampledTextureCube<'a> {
-    pub fn new<F>(texture: &'a TextureCube<F>, sampler: &'a Sampler) -> Result<Self, IncompatibleSampler> where F: TextureFormat + IntegerSamplable + 'static {
+    pub fn new<F>(
+        texture: &'a TextureCube<F>,
+        sampler: &'a Sampler,
+    ) -> Result<Self, IncompatibleSampler>
+    where
+        F: TextureFormat + IntegerSamplable + 'static,
+    {
         let context = sampler.context();
 
         if texture.data().context_id() != sampler.context().id() {
-            return Err(IncompatibleSampler::ContextMismatch)
+            return Err(IncompatibleSampler::ContextMismatch);
         }
 
         F::validate_minification_filter(context, sampler.minification_filter())?;
@@ -699,7 +791,7 @@ impl<'a> IntegerSampledTextureCube<'a> {
         Ok(IntegerSampledTextureCube {
             sampler_data: sampler.data().clone(),
             texture_data: texture.data().clone(),
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         })
     }
 }
@@ -708,15 +800,21 @@ impl<'a> IntegerSampledTextureCube<'a> {
 pub struct UnsignedIntegerSampledTextureCube<'a> {
     pub sampler_data: Arc<SamplerData>,
     pub texture_data: Arc<TextureCubeData>,
-    _marker: marker::PhantomData<&'a ()>
+    _marker: marker::PhantomData<&'a ()>,
 }
 
 impl<'a> UnsignedIntegerSampledTextureCube<'a> {
-    pub fn new<F>(texture: &'a TextureCube<F>, sampler: &'a Sampler) -> Result<Self, IncompatibleSampler> where F: TextureFormat + UnsignedIntegerSamplable + 'static {
+    pub fn new<F>(
+        texture: &'a TextureCube<F>,
+        sampler: &'a Sampler,
+    ) -> Result<Self, IncompatibleSampler>
+    where
+        F: TextureFormat + UnsignedIntegerSamplable + 'static,
+    {
         let context = sampler.context();
 
         if texture.data().context_id() != sampler.context().id() {
-            return Err(IncompatibleSampler::ContextMismatch)
+            return Err(IncompatibleSampler::ContextMismatch);
         }
 
         F::validate_minification_filter(context, sampler.minification_filter())?;
@@ -725,7 +823,7 @@ impl<'a> UnsignedIntegerSampledTextureCube<'a> {
         Ok(UnsignedIntegerSampledTextureCube {
             sampler_data: sampler.data().clone(),
             texture_data: texture.data().clone(),
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         })
     }
 }
@@ -734,21 +832,27 @@ impl<'a> UnsignedIntegerSampledTextureCube<'a> {
 pub struct ShadowSampledTextureCube<'a> {
     pub sampler_data: Arc<SamplerData>,
     pub texture_data: Arc<TextureCubeData>,
-    _marker: marker::PhantomData<&'a ()>
+    _marker: marker::PhantomData<&'a ()>,
 }
 
 impl<'a> ShadowSampledTextureCube<'a> {
-    pub fn new<F>(texture: &'a TextureCube<F>, sampler: &'a ShadowSampler) -> Result<Self, ContextMismatch> where F: TextureFormat + ShadowSamplable + 'static {
+    pub fn new<F>(
+        texture: &'a TextureCube<F>,
+        sampler: &'a ShadowSampler,
+    ) -> Result<Self, ContextMismatch>
+    where
+        F: TextureFormat + ShadowSamplable + 'static,
+    {
         let context = sampler.context();
 
         if texture.data().context_id() != sampler.context().id() {
-            return Err(IncompatibleSampler::ContextMismatch)
+            return Err(IncompatibleSampler::ContextMismatch);
         }
 
         Ok(ShadowSampledTextureCube {
             sampler_data: sampler.data().clone(),
             texture_data: texture.data().clone(),
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         })
     }
 }

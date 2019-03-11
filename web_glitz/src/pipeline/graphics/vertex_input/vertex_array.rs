@@ -1,13 +1,15 @@
-use fnv::FnvHasher;
+use crate::buffer::{Buffer, BufferData, BufferView};
 use crate::pipeline::graphics::vertex_input::input_attribute_layout::InputAttributeLayout;
-use std::sync::Arc;
-use crate::buffer::{BufferData, Buffer, BufferView};
-use crate::pipeline::graphics::vertex_input::{InputRate, VertexInputAttributeDescriptor, VertexBufferDescription};
-use crate::util::JsId;
-use std::{marker, mem};
-use crate::runtime::{RenderingContext, Connection};
+use crate::pipeline::graphics::vertex_input::{
+    InputRate, VertexBufferDescription, VertexInputAttributeDescriptor,
+};
+use crate::runtime::{Connection, RenderingContext};
 use crate::task::{GpuTask, Progress};
+use crate::util::{arc_get_mut_unchecked, JsId};
+use fnv::FnvHasher;
 use js_sys::buffer;
+use std::sync::Arc;
+use std::{marker, mem};
 
 struct VertexBufferDescriptor {
     buffer_data: Arc<BufferData>,
@@ -16,12 +18,12 @@ struct VertexBufferDescriptor {
     size_in_bytes: u32,
     input_rate: InputRate,
     attribute_offset: usize,
-    attribute_count: usize
+    attribute_count: usize,
 }
 
 pub struct VertexBuffersDescriptor {
     buffer_descriptors: Vec<VertexBufferDescriptor>,
-    attribute_descriptors: Vec<VertexInputAttributeDescriptor>
+    attribute_descriptors: Vec<VertexInputAttributeDescriptor>,
 }
 
 pub unsafe trait VertexBuffersDescription {
@@ -97,7 +99,9 @@ impl_vertex_buffers_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T1
 impl_vertex_buffers_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
 impl_vertex_buffers_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13);
 impl_vertex_buffers_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14);
-impl_vertex_buffers_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15);
+impl_vertex_buffers_description!(
+    T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15
+);
 
 pub unsafe trait IndexFormat {
     fn id() -> u32;
@@ -131,10 +135,13 @@ pub struct IndexBufferDescriptor {
     buffer_data: Arc<Bufferdata>,
     format_id: u32,
     offset: u32,
-    len: u32
+    len: u32,
 }
 
-unsafe impl<F> IndexBufferDescription for Buffer<[F]> where F: IndexFormat {
+unsafe impl<F> IndexBufferDescription for Buffer<[F]>
+where
+    F: IndexFormat,
+{
     type Format = F;
 
     fn descriptor(&self) -> IndexBufferDescriptor {
@@ -142,12 +149,15 @@ unsafe impl<F> IndexBufferDescription for Buffer<[F]> where F: IndexFormat {
             buffer_data: self.data().clone(),
             format_id: F::id(),
             offset: 0,
-            len: self.len() as u32
+            len: self.len() as u32,
         }
     }
 }
 
-unsafe impl<F> IndexBufferDescription for BufferView<[F]> where F: IndexFormat {
+unsafe impl<F> IndexBufferDescription for BufferView<[F]>
+where
+    F: IndexFormat,
+{
     type Format = F;
 
     fn descriptor(&self) -> IndexBufferDescriptor {
@@ -155,20 +165,24 @@ unsafe impl<F> IndexBufferDescription for BufferView<[F]> where F: IndexFormat {
             buffer_data: self.data().clone(),
             format_id: F::id(),
             offset: (self.offset_in_bytes() / mem::size_of::<F>()) as u32,
-            len: self.len() as u32
+            len: self.len() as u32,
         }
     }
 }
 
-pub struct VertexArrayDescriptor<V, I> where V: VertexBufferDescription, I: IndexBufferDescription {
+pub struct VertexArrayDescriptor<V, I>
+where
+    V: VertexBufferDescription,
+    I: IndexBufferDescription,
+{
     pub vertex_buffers: V,
-    pub index_buffer: Option<I>
+    pub index_buffer: Option<I>,
 }
 
 pub struct VertexArray<L> {
     data: Arc<VertexArrayData>,
     len: usize,
-    _marker: marker::PhantomData<L>
+    _marker: marker::PhantomData<L>,
 }
 
 trait VertexArrayObjectDropper {
@@ -176,8 +190,8 @@ trait VertexArrayObjectDropper {
 }
 
 impl<T> VertexArrayObjectDropper for T
-    where
-        T: RenderingContext,
+where
+    T: RenderingContext,
 {
     fn drop_vertex_array_object(&self, id: JsId) {
         self.submit(VertexArrayDropCommand { id });
@@ -188,7 +202,7 @@ struct VertexArrayData {
     id: Option<JsId>,
     dropper: Box<VertexArrayObjectDropper>,
     vertex_buffer_pointers: Vec<Arc<BufferData>>,
-    index_buffer_pointer: Option<Arc<BufferData>>
+    index_buffer_pointer: Option<Arc<BufferData>>,
 }
 
 impl Drop for VertexArrayData {
@@ -200,15 +214,20 @@ impl Drop for VertexArrayData {
 }
 
 impl<L> VertexArray<L> {
-    pub(crate) fn new<Rc, V, I>(context: Rc, descriptor: VertexArrayDescriptor<V, I>) -> Self where Rc: RenderingContext + Clone + 'static, V: VertexBuffersDescription<Layout=L>, I: IndexBufferDescription {
+    pub(crate) fn new<Rc, V, I>(context: Rc, descriptor: VertexArrayDescriptor<V, I>) -> Self
+    where
+        Rc: RenderingContext + Clone + 'static,
+        V: VertexBuffersDescription<Layout = L>,
+        I: IndexBufferDescription,
+    {
         let VertexArrayDescriptor {
             vertex_buffers,
-            index_buffer
+            index_buffer,
         } = descriptor;
 
         let VertexBuffersDescriptor {
             buffer_descriptors,
-            attribute_descriptors
+            attribute_descriptors,
         } = vertex_buffers.descriptor();
 
         let mut buffer_pointers = Vec::with_capacity(buffer_descriptors.len());
@@ -234,7 +253,7 @@ impl<L> VertexArray<L> {
             id: None,
             dropper: Box::new(context.clone()),
             vertex_buffer_pointers: buffer_pointers,
-            index_buffer_pointer: index_buffer_descriptor.map(|d| d.buffer_data.clone())
+            index_buffer_pointer: index_buffer_descriptor.map(|d| d.buffer_data.clone()),
         });
 
         let len = if let Some(descriptor) = index_buffer_descriptor {
@@ -247,13 +266,13 @@ impl<L> VertexArray<L> {
             data: data.clone(),
             buffer_descriptors,
             attribute_descriptors,
-            index_buffer_descriptor
+            index_buffer_descriptor,
         });
 
         VertexArray {
             data,
             len,
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 
@@ -261,7 +280,10 @@ impl<L> VertexArray<L> {
         self.len
     }
 
-    pub fn range<R>(&self, range: R) -> Option<VertexArraySlice<L>> where R: VertexArrayRange {
+    pub fn range<R>(&self, range: R) -> Option<VertexArraySlice<L>>
+    where
+        R: VertexArrayRange,
+    {
         rante.range(VertexArraySlice {
             vertex_array: self,
             offset: 0,
@@ -269,7 +291,10 @@ impl<L> VertexArray<L> {
         })
     }
 
-    pub unsafe fn range_unchecked<R>(&self, range: R) -> Option<VertexArraySlice<L>> where R: VertexArrayRange {
+    pub unsafe fn range_unchecked<R>(&self, range: R) -> Option<VertexArraySlice<L>>
+    where
+        R: VertexArrayRange,
+    {
         rante.range_unchecked(VertexArraySlice {
             vertex_array: self,
             offset: 0,
@@ -283,7 +308,7 @@ impl<L> VertexArray<L> {
                 vertex_array: self,
                 offset: 0,
                 len: self.len,
-            }
+            },
         }
     }
 }
@@ -291,7 +316,10 @@ impl<L> VertexArray<L> {
 pub trait VertexArrayRange {
     fn range<'a, L>(self, vertex_array: VertexArraySlice<L>) -> Option<VertexArraySlice<L>>;
 
-    unsafe fn range_unchecked<'a, V, I>(self, vertex_array: VertexArraySlice<L>) -> VertexArraySlice<L>;
+    unsafe fn range_unchecked<'a, V, I>(
+        self,
+        vertex_array: VertexArraySlice<L>,
+    ) -> VertexArraySlice<L>;
 }
 
 #[derive(Clone, Copy)]
@@ -306,11 +334,17 @@ impl<L> VertexArraySlice<L> {
         self.len
     }
 
-    pub fn range<R>(&self, range: R) -> Option<VertexArraySlice<L>> where R: VertexArrayRange {
+    pub fn range<R>(&self, range: R) -> Option<VertexArraySlice<L>>
+    where
+        R: VertexArrayRange,
+    {
         range.range(self)
     }
 
-    pub unsafe fn range_unchecked<R>(&self, range: R) -> Option<VertexArraySlice<L>> where R: VertexArrayRange {
+    pub unsafe fn range_unchecked<R>(&self, range: R) -> Option<VertexArraySlice<L>>
+    where
+        R: VertexArrayRange,
+    {
         range.range_unchecked(self)
     }
 
@@ -319,7 +353,7 @@ impl<L> VertexArraySlice<L> {
             vertex_array: self,
             offset: self.offset,
             len: self.len,
-            instance_count: usize
+            instance_count: usize,
         }
     }
 }
@@ -342,7 +376,7 @@ pub struct VertexInputStreamDescriptor {
     vertex_array_id: Arc<Option<JsId>>,
     offset: usize,
     count: usize,
-    instance_count: usize
+    instance_count: usize,
 }
 
 impl<L> VertexInputStreamDescription for VertexArray<L> {
@@ -353,7 +387,7 @@ impl<L> VertexInputStreamDescription for VertexArray<L> {
             vertex_array_id: self.id.clone(),
             offset: 0,
             count: self.len,
-            instance_count: 1
+            instance_count: 1,
         }
     }
 }
@@ -366,7 +400,7 @@ impl<'a, L> VertexInputStreamDescription for VertexArraySlice<'a, L> {
             vertex_array_id: self.id.clone(),
             offset: self.offset,
             count: self.len,
-            instance_count: 1
+            instance_count: 1,
         }
     }
 }
@@ -379,7 +413,7 @@ impl<'a, L> VertexInputStreamDescription for InstancedVertexArraySlice<'a, L> {
             vertex_array_id: self.id.clone(),
             offset: self.offset,
             count: self.len,
-            instance_count: self.instance_count
+            instance_count: self.instance_count,
         }
     }
 }
@@ -388,7 +422,7 @@ struct VertexArrayAllocateCommand {
     data: Arc<VertexArrayData>,
     buffer_descriptors: Vec<VertexBufferDescriptor>,
     attribute_descriptors: Vec<VertexInputAttributeDescriptor>,
-    index_buffer_descriptor: Option<IndexBufferDescriptor>
+    index_buffer_descriptor: Option<IndexBufferDescriptor>,
 }
 
 impl GpuTask<Connection> for VertexArrayAllocateCommand {
@@ -396,30 +430,47 @@ impl GpuTask<Connection> for VertexArrayAllocateCommand {
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, state) = unsafe { connection.unpack_mut() };
+        let mut data = unsafe { arc_get_mut_unchecked(&mut self.data) };
         let vao = gl.create_vertex_array().unwrap();
 
         state.set_bound_vertex_array(Some(&vao)).apply(gl).unwrap();
 
         for buffer_descriptor in self.buffer_descriptors.iter() {
-            buffer_descriptor.buffer_data.id().unwrap().with_value(|buffer| {
-                state.set_bound_array_buffer(Some(buffer)).apply(gl).unwrap();
-            });
+            buffer_descriptor
+                .buffer_data
+                .id()
+                .unwrap()
+                .with_value(|buffer| {
+                    state
+                        .set_bound_array_buffer(Some(buffer))
+                        .apply(gl)
+                        .unwrap();
+                });
 
             for i in 0..buffer_descriptor.attribute_count {
                 self.attribute_descriptors[i + buffer_descriptor.attribute_offset].apply(
                     gl,
                     buffer_descriptor.stride_in_bytes,
                     buffer_descriptor.offset_in_bytes as i32,
-                    buffer_descriptor.input_rate
+                    buffer_descriptor.input_rate,
                 );
             }
         }
 
         if let Some(index_buffer_descriptor) = &self.index_buffer_descriptor {
-            index_buffer_descriptor.buffer_data.id().unwrap().with_value(|buffer| {
-                state.set_bound_element_array_buffer(Some(buffer)).apply(gl).unwrap();
-            });
+            index_buffer_descriptor
+                .buffer_data
+                .id()
+                .unwrap()
+                .with_value(|buffer| {
+                    state
+                        .set_bound_element_array_buffer(Some(buffer))
+                        .apply(gl)
+                        .unwrap();
+                });
         }
+
+        data.id = Some(JsId::from_value(vao.into()));
 
         Progress::Finished(())
     }

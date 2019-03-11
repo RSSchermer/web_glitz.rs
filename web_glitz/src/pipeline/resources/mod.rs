@@ -1,6 +1,6 @@
 mod resources;
-pub use self::resources::{Resources, Resource};
+pub use self::resources::{Incompatible, Resource, Resources};
 
-pub mod binding;
 pub mod bind_group_encoding;
+pub mod binding;
 pub mod resource_slot;

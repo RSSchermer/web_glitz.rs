@@ -25,7 +25,12 @@ impl GpuTask<Connection> for TextureDropCommand {
     type Output = ();
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        let (gl, _) = unsafe { connection.unpack() };
+        let (gl, state) = unsafe { connection.unpack_mut() };
+
+        state
+            .framebuffer_cache_mut()
+            .remove_attachment_dependents(self.id, gl);
+
         let value = unsafe { JsId::into_value(self.id) };
 
         gl.delete_texture(Some(&value.unchecked_into()));

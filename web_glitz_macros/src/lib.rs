@@ -31,8 +31,11 @@ pub fn repr_std140(args: TokenStream, input: TokenStream) -> TokenStream {
     let args = args.to_string();
     let mut input = input.to_string();
 
-    assert!(args.starts_with("= \""), "`#[panics_note]` requires an argument of the form \
-                                       `#[panics_note = \"panic note here\"]`");
+    assert!(
+        args.starts_with("= \""),
+        "`#[panics_note]` requires an argument of the form \
+         `#[panics_note = \"panic note here\"]`"
+    );
 
     // Get just the bare note string
     let panics_note = args.trim_matches(&['=', ' ', '"'][..]);

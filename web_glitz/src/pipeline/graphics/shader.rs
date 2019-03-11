@@ -1,14 +1,23 @@
+use crate::runtime::{Connection, RenderingContext};
+use crate::task::{GpuTask, Progress};
+use crate::util::{arc_get_mut_unchecked, JsId};
+use std::borrow::Borrow;
+use std::sync::Arc;
+
 pub struct VertexShader {
     data: Arc<ShaderData>,
 }
 
 impl VertexShader {
     pub(crate) fn new<S, Rc>(context: &Rc, source: S) -> Self
-        where
-            S: Borrow<str> + 'static,
-            Rc: RenderingContext,
+    where
+        S: Borrow<str> + 'static,
+        Rc: RenderingContext,
     {
-        let data = Arc::new(ShaderData { id: None, dropper: Box::new(context.clone()) });
+        let data = Arc::new(ShaderData {
+            id: None,
+            dropper: Box::new(context.clone()),
+        });
 
         context.submit(ShaderAllocateCommand {
             data: data.clone(),
@@ -26,11 +35,14 @@ pub struct FragmentShader {
 
 impl FragmentShader {
     pub(crate) fn new<S, Rc>(context: &Rc, source: S) -> Self
-        where
-            S: Borrow<str> + 'static,
-            Rc: RenderingContext,
+    where
+        S: Borrow<str> + 'static,
+        Rc: RenderingContext,
     {
-        let data = Arc::new(ShaderData { id: None, dropper: Box::new(context.clone()) });
+        let data = Arc::new(ShaderData {
+            id: None,
+            dropper: Box::new(context.clone()),
+        });
 
         context.submit(ShaderAllocateCommand {
             data: data.clone(),
@@ -42,9 +54,15 @@ impl FragmentShader {
     }
 }
 
-struct ShaderData {
+pub(crate) struct ShaderData {
     id: Option<JsId>,
     dropper: Box<ShaderObjectDropper>,
+}
+
+impl ShaderData {
+    pub(crate) fn id(&self) -> Option<JsId> {
+        self.id
+    }
 }
 
 trait ShaderObjectDropper {
@@ -52,8 +70,8 @@ trait ShaderObjectDropper {
 }
 
 impl<T> ShaderObjectDropper for T
-    where
-        T: RenderingContext,
+where
+    T: RenderingContext,
 {
     fn drop_shader_object(&self, id: JsId) {
         self.submit(ShaderDropCommand { id });
@@ -75,8 +93,8 @@ struct ShaderAllocateCommand<S> {
 }
 
 impl<S> GpuTask<Connection> for ShaderAllocateCommand<S>
-    where
-        S: Borrow<str>,
+where
+    S: Borrow<str>,
 {
     type Output = ();
 

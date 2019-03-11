@@ -112,7 +112,9 @@ pub unsafe trait InterfaceBlockComponent: StableRepr {
     /// [None]), then the implementation is expected to return [CheckCompatibility::Finished]
     /// (unless the component was found to be incompatible with a prior memory unit descriptor, in
     /// which case [CheckCompatibility::Incompatible] should be returned).
-    fn check_compatibility<I>(component_offset: usize, remainder: &mut I) -> CheckCompatibility where I: Iterator<Item=&MemoryUnitDescriptor>;
+    fn check_compatibility<I>(component_offset: usize, remainder: &mut I) -> CheckCompatibility
+    where
+        I: Iterator<Item = &MemoryUnitDescriptor>;
 }
 
 /// Marker trait for types that are guaranteed have a stable memory representation across builds.
@@ -149,28 +151,25 @@ unsafe impl<T> StableRepr for T where T: ReprStd140 {}
 
 pub enum Incompatible {
     MissingUnit(MemoryUnitDescriptor),
-    UnitLayoutMismatch(MemoryUnitDescriptor, UnitLayout)
+    UnitLayoutMismatch(MemoryUnitDescriptor, UnitLayout),
 }
 
 pub enum CheckCompatibility {
     Continue,
     Finished,
-    Incompatible(Incompatible)
+    Incompatible(Incompatible),
 }
 
 /// Describes a memory unit in an interface block at which it occurs, and its [UnitLayout].
 #[derive(PartialEq, Clone)]
 pub struct MemoryUnitDescriptor {
     offset: usize,
-    layout: UnitLayout
+    layout: UnitLayout,
 }
 
 impl MemoryUnitDescriptor {
     pub(crate) fn new(offset: usize, layout: UnitLayout) -> Self {
-        MemoryUnitDescriptor {
-            offset,
-            layout
-        }
+        MemoryUnitDescriptor { offset, layout }
     }
 
     /// The offset at which this [MemoryUnitDescriptor] occurs within the interface block.
@@ -196,7 +195,7 @@ impl MemoryUnitDescriptor {
 /// left to right, then the values in the second row, then the values in the third row, etc.
 pub enum MatrixOrder {
     ColumnMajor,
-    RowMajor
+    RowMajor,
 }
 
 /// Enumerates the kinds of memory unit layouts that can occur within an interface block.
@@ -205,171 +204,171 @@ pub enum UnitLayout {
     Float,
     FloatArray {
         stride: u8,
-        len: usize
+        len: usize,
     },
     FloatVector2,
     FloatVector2Array {
         stride: u8,
-        len: usize
+        len: usize,
     },
     FloatVector3,
     FloatVector3Array {
         stride: u8,
-        len: usize
+        len: usize,
     },
     FloatVector4,
     FloatVector4Array {
         stride: u8,
-        len: usize
+        len: usize,
     },
     Integer,
     IntegerArray {
         stride: u8,
-        len: usize
+        len: usize,
     },
     IntegerVector2,
     IntegerVector2Array {
         stride: u8,
-        len: usize
+        len: usize,
     },
     IntegerVector3,
     IntegerVector3Array {
         stride: u8,
-        len: usize
+        len: usize,
     },
     IntegerVector4,
     IntegerVector4Array {
         stride: u8,
-        len: usize
+        len: usize,
     },
     UnsignedInteger,
     UnsignedIntegerArray {
         stride: u8,
-        len: usize
+        len: usize,
     },
     UnsignedIntegerVector2,
     UnsignedIntegerVector2Array {
         stride: u8,
-        len: usize
+        len: usize,
     },
     UnsignedIntegerVector3,
     UnsignedIntegerVector3Array {
         stride: u8,
-        len: usize
+        len: usize,
     },
     UnsignedIntegerVector4,
     UnsignedIntegerVector4Array {
         stride: u8,
-        len: usize
+        len: usize,
     },
     Bool,
     BoolArray {
         stride: u8,
-        len: usize
+        len: usize,
     },
     BoolVector2,
     BoolVector2Array {
         stride: u8,
-        len: usize
+        len: usize,
     },
     BoolVector3,
     BoolVector3Array {
         stride: u8,
-        len: usize
+        len: usize,
     },
     BoolVector4,
     BoolVector4Array {
         stride: u8,
-        len: usize
+        len: usize,
     },
     Matrix2x2 {
         order: MatrixOrder,
-        matrix_stride: u8
+        matrix_stride: u8,
     },
     Matrix2x2Array {
         order: MatrixOrder,
         matrix_stride: u8,
         array_stride: u8,
-        len: usize
+        len: usize,
     },
-    Matrix2x3{
+    Matrix2x3 {
         order: MatrixOrder,
-        matrix_stride: u8
+        matrix_stride: u8,
     },
     Matrix2x3Array {
         order: MatrixOrder,
         matrix_stride: u8,
         array_stride: u8,
-        len: usize
+        len: usize,
     },
     Matrix2x4 {
         order: MatrixOrder,
-        matrix_stride: u8
+        matrix_stride: u8,
     },
     Matrix2x4Array {
         order: MatrixOrder,
         matrix_stride: u8,
         array_stride: u8,
-        len: usize
+        len: usize,
     },
     Matrix3x2 {
         order: MatrixOrder,
-        matrix_stride: u8
+        matrix_stride: u8,
     },
     Matrix3x2Array {
         order: MatrixOrder,
         matrix_stride: u8,
         array_stride: u8,
-        len: usize
+        len: usize,
     },
     Matrix3x3 {
         order: MatrixOrder,
-        matrix_stride: u8
+        matrix_stride: u8,
     },
     Matrix3x3Array {
         order: MatrixOrder,
         matrix_stride: u8,
         array_stride: u8,
-        len: usize
+        len: usize,
     },
     Matrix3x4 {
         order: MatrixOrder,
-        matrix_stride: u8
+        matrix_stride: u8,
     },
     Matrix3x4Array {
         order: MatrixOrder,
         matrix_stride: u8,
         array_stride: u8,
-        len: usize
+        len: usize,
     },
     Matrix4x2 {
         order: MatrixOrder,
-        matrix_stride: u8
+        matrix_stride: u8,
     },
     Matrix4x2Array {
         order: MatrixOrder,
         matrix_stride: u8,
         array_stride: u8,
-        len: usize
+        len: usize,
     },
     Matrix4x3 {
         order: MatrixOrder,
-        matrix_stride: u8
+        matrix_stride: u8,
     },
     Matrix4x3Array {
         order: MatrixOrder,
         matrix_stride: u8,
         array_stride: u8,
-        len: usize
+        len: usize,
     },
     Matrix4x4 {
         order: MatrixOrder,
-        matrix_stride: u8
+        matrix_stride: u8,
     },
     Matrix4x4Array {
         order: MatrixOrder,
         matrix_stride: u8,
         array_stride: u8,
-        len: usize
+        len: usize,
     },
 }

@@ -23,11 +23,14 @@ use crate::runtime::{Connection, RenderingContext, TaskContextMismatch};
 use crate::task::{GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, identical, slice_make_mut, JsId};
 
-pub struct Texture2DDescriptor<F> where F: TextureFormat + 'static {
+pub struct Texture2DDescriptor<F>
+where
+    F: TextureFormat + 'static,
+{
     pub format: F,
     pub width: u32,
     pub height: u32,
-    pub levels: MipmapLevels
+    pub levels: MipmapLevels,
 }
 
 pub struct Texture2D<F> {
@@ -77,7 +80,10 @@ impl<F> Texture2D<F>
 where
     F: TextureFormat + 'static,
 {
-    pub(crate) fn new<Rc>(context: &Rc, descriptor: &Texture2DDescriptor<F>) -> Result<Self, MaxMipmapLevelsExceeded>
+    pub(crate) fn new<Rc>(
+        context: &Rc,
+        descriptor: &Texture2DDescriptor<F>,
+    ) -> Result<Self, MaxMipmapLevelsExceeded>
     where
         Rc: RenderingContext + Clone + 'static,
     {

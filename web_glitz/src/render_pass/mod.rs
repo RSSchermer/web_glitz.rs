@@ -1,8 +1,8 @@
 mod framebuffer;
 pub use self::framebuffer::{
-    RenderBuffer, DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
+    DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
     DefaultStencilBuffer, DepthBuffer, DepthStencilBuffer, FloatBuffer, Framebuffer, IntegerBuffer,
-    StencilBuffer, UnsignedIntegerBuffer,
+    RenderBuffer, StencilBuffer, UnsignedIntegerBuffer,
 };
 
 mod render_pass;
