@@ -16,6 +16,7 @@ impl VertexShader {
     {
         let data = Arc::new(ShaderData {
             id: None,
+            context_id: context.id(),
             dropper: Box::new(context.clone()),
         });
 
@@ -41,6 +42,7 @@ impl FragmentShader {
     {
         let data = Arc::new(ShaderData {
             id: None,
+            context_id: context.id(),
             dropper: Box::new(context.clone()),
         });
 
@@ -56,12 +58,17 @@ impl FragmentShader {
 
 pub(crate) struct ShaderData {
     id: Option<JsId>,
+    context_id: usize,
     dropper: Box<ShaderObjectDropper>,
 }
 
 impl ShaderData {
     pub(crate) fn id(&self) -> Option<JsId> {
         self.id
+    }
+
+    pub(crate) fn context_id(&self) -> usize {
+        self.context_id
     }
 }
 

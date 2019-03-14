@@ -1,3 +1,5 @@
+use crate::runtime::Connection;
+
 #[derive(Clone, PartialEq, Debug)]
 pub struct PrimitiveAssembly {
     pub topology: Topology,
@@ -45,6 +47,12 @@ pub enum Topology {
 pub enum WindingOrder {
     ClockWise,
     CounterClockwise,
+}
+
+impl WindingOrder {
+    pub(crate) fn apply(&self, connection: &mut Connection) {
+        let (gl, state) = unsafe { connection.unpack_mut() };
+    }
 }
 
 /// Enumerates the face-culling modes that may be used by a [Rasterizer].

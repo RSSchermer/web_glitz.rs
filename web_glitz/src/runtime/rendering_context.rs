@@ -20,6 +20,7 @@ use crate::pipeline::resources::{Incompatible as IncompatibleResourceLayout, Res
 use crate::runtime::state::DynamicState;
 use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
 use crate::task::GpuTask;
+use crate::pipeline::graphics::{GraphicsPipelineDescriptor, GraphicsPipeline};
 
 pub trait RenderingContext {
     fn id(&self) -> usize;
@@ -79,8 +80,6 @@ pub trait RenderingContext {
 }
 
 pub enum CreateGraphicsPipelineError {
-    VertexShaderContextMismatch,
-    FragmentShaderContextMismatch,
     LinkingError(String),
     IncompatibleInputAttributeLayout(IncompatibleInputAttributeLayout),
     IncompatibleResourceLayout(IncompatibleResourceLayout),

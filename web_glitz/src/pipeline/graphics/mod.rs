@@ -11,6 +11,11 @@ pub use self::fragment_test::{
     DepthRange, DepthTest, PolygonOffset, StencilOperation, StencilTest, TestFunction,
 };
 
+mod graphics_pipeline;
+pub use self::graphics_pipeline::{
+    ActiveGraphicsPipeline, DrawCommand, GraphicsPipeline, ShaderLinkingError,
+};
+
 mod line_width;
 pub use self::line_width::LineWidth;
 

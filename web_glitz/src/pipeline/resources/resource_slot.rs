@@ -12,6 +12,10 @@ pub struct ResourceSlotDescriptor {
 }
 
 impl ResourceSlotDescriptor {
+    pub(crate) fn new(identifier: Identifier, slot: Slot) -> Self {
+        ResourceSlotDescriptor { identifier, slot }
+    }
+
     pub fn identifier(&self) -> &Identifier {
         &self.identifier
     }
@@ -66,7 +70,7 @@ pub struct UniformBlockSlot {
 }
 
 impl UniformBlockSlot {
-    fn new(gl: &Gl, program: &WebGlProgram, index: usize) -> Self {
+    pub(crate) fn new(gl: &Gl, program: &WebGlProgram, index: usize) -> Self {
         let index = index as u32;
         let unit_count = gl
             .get_active_uniform_block_parameter(program, index, Gl.UNIFORM_BLOCK_ACTIVE_UNIFORMS)
@@ -509,6 +513,10 @@ pub struct TextureSamplerSlot {
 }
 
 impl TextureSamplerSlot {
+    pub(crate) fn new(location: WebGlUniformLocation, kind: SamplerKind) -> Self {
+        TextureSamplerSlot { location, kind }
+    }
+
     pub(crate) fn location(&self) -> &WebGlUniformLocation {
         &self.location
     }
@@ -555,6 +563,12 @@ pub struct SlotBindingChecker<'a> {
     program: &'a WebGlProgram,
 }
 
+impl<'a> SlotBindingChecker<'a> {
+    pub(crate) fn new(gl: &'a Gl, program: &'a WebGlProgram) -> Self {
+        SlotBindingChecker { gl, program }
+    }
+}
+
 impl SlotBindingConfirmer for SlotBindingChecker {
     fn confirm_slot_binding(
         &self,
@@ -590,6 +604,12 @@ impl SlotBindingConfirmer for SlotBindingChecker {
 pub struct SlotBindingUpdater<'a> {
     gl: &'a Gl,
     program: &'a WebGlProgram,
+}
+
+impl<'a> SlotBindingUpdater<'a> {
+    pub(crate) fn new(gl: &'a Gl, program: &'a WebGlProgram) -> Self {
+        SlotBindingUpdater { gl, program }
+    }
 }
 
 impl SlotBindingConfirmer for SlotBindingUpdater {

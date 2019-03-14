@@ -1,8 +1,14 @@
+use crate::runtime::Connection;
+use std::convert::TryFrom;
+use std::ops::Deref;
+
 /// Defines the line width used by a [Rasterizer].
 ///
 /// Can be constructed from an `f32` via [TryFrom]:
 ///
 /// ```
+/// use web_glitz::pipeline::graphics::LineWidth;
+///
 /// let line_width = LineWidth::try_from(2.0)?;
 /// ```
 ///
@@ -11,11 +17,21 @@
 /// A [LineWidth] may be instantiated with the default value through [Default]:
 ///
 /// ```
+/// use web_glitz::pipeline::graphics::LineWidth;
+///
 /// assert_eq!(LineWidth::default(), LineWidth::try_from(1.0).unwrap());
 /// ```
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct LineWidth {
     value: f32,
+}
+
+impl LineWidth {
+    pub(crate) fn apply(&self, connection: &mut Connection) {
+        let (gl, state) = unsafe { connection.unpack_mut() };
+
+        state.set_line_width(self.value).apply(gl).unwrap();
+    }
 }
 
 impl TryFrom<f32> for LineWidth {
