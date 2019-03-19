@@ -20,7 +20,7 @@ use crate::image::{Image2DSource, Region2D};
 use crate::image::{MaxMipmapLevelsExceeded, MipmapLevels};
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext, TaskContextMismatch};
-use crate::task::{GpuTask, Progress};
+use crate::task::{GpuTask, Progress, ContextId};
 use crate::util::{arc_get_mut_unchecked, identical, JsId};
 
 pub struct TextureCubeDescriptor<F>
@@ -1018,11 +1018,15 @@ struct AllocateCommand<F> {
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> GpuTask<Connection> for AllocateCommand<F>
+unsafe impl<F> GpuTask<Connection> for AllocateCommand<F>
 where
     F: TextureFormat,
 {
     type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Id(self.data.context_id)
+    }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, state) = unsafe { connection.unpack_mut() };
@@ -1063,19 +1067,19 @@ pub struct UploadCommand<D, T, F> {
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<D, T, F> GpuTask<Connection> for UploadCommand<D, T, F>
+unsafe impl<D, T, F> GpuTask<Connection> for UploadCommand<D, T, F>
 where
     D: Borrow<[T]>,
     T: ClientFormat<F>,
     F: TextureFormat,
 {
-    type Output = Result<(), TaskContextMismatch>;
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Id(self.texture_data.context_id)
+    }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        if self.texture_data.context_id != connection.context_id() {
-            return Progress::Finished(Err(TaskContextMismatch));
-        }
-
         let mut width = region_2d_overlap_width(self.texture_data.width, self.level, &self.region);
         let height = region_2d_overlap_height(self.texture_data.height, self.level, &self.region);
 
@@ -1156,7 +1160,7 @@ where
             }
         }
 
-        Progress::Finished(Ok(()))
+        Progress::Finished(())
     }
 }
 
@@ -1164,14 +1168,14 @@ pub struct GenerateMipmapCommand {
     texture_data: Arc<TextureCubeData>,
 }
 
-impl GpuTask<Connection> for GenerateMipmapCommand {
-    type Output = Result<(), TaskContextMismatch>;
+unsafe impl GpuTask<Connection> for GenerateMipmapCommand {
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Id(self.texture_data.context_id)
+    }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        if self.texture_data.context_id != connection.context_id() {
-            return Progress::Finished(Err(TaskContextMismatch));
-        }
-
         let (gl, state) = unsafe { connection.unpack_mut() };
 
         unsafe {
@@ -1185,6 +1189,6 @@ impl GpuTask<Connection> for GenerateMipmapCommand {
 
         gl.generate_mipmap(Gl::TEXTURE_CUBE_MAP);
 
-        Progress::Finished(Ok(()))
+        Progress::Finished(())
     }
 }

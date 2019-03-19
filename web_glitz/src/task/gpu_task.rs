@@ -5,25 +5,38 @@ pub enum Progress<T> {
     ContinueFenced,
 }
 
-pub trait GpuTask<Ec> {
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum ContextId {
+    Any,
+    Id(usize)
+}
+
+impl ContextId {
+    pub fn combine(&self, other: ContextId) -> Result<ContextId, IncompatibleContextIds> {
+        match self {
+            ContextId::Any => Ok(other),
+            ContextId::Id(id) => {
+                if other == ContextId::Any || other == ContextId::Id(*id) {
+                    self
+                } else {
+                    Err(IncompatibleContextIds(*self, other))
+                }
+            }
+        }
+    }
+}
+
+pub struct IncompatibleContextIds(ContextId, ContextId);
+
+pub unsafe trait GpuTask<Ec> {
     type Output;
+
+    fn context_id(&self) -> ContextId;
 
     fn progress(&mut self, execution_context: &mut Ec) -> Progress<Self::Output>;
 }
 
 pub trait GpuTaskExt<Ec>: GpuTask<Ec> {
-    fn map<B, F>(self, f: F) -> Map<Self, F, Ec>
-    where
-        F: FnOnce(Self::Output) -> B,
-        B: 'static,
-        Self: Sized;
-
-    fn then<B, F>(self, f: F) -> Then<Self, B, F, Ec>
-    where
-        B: GpuTask<Ec>,
-        F: FnOnce(Self::Output) -> B,
-        Self: Sized;
-
     fn join<B>(self, b: B) -> Join<Self, B, Ec>
     where
         B: GpuTask<Ec>,
@@ -81,22 +94,6 @@ impl<T, Ec> GpuTaskExt<Ec> for T
 where
     T: GpuTask<Ec>,
 {
-    fn map<B, F>(self, f: F) -> Map<T, F, Ec>
-    where
-        F: FnOnce(T::Output) -> B,
-        B: 'static,
-    {
-        Map::new(self, f)
-    }
-
-    fn then<B, F>(self, f: F) -> Then<T, B, F, Ec>
-    where
-        B: GpuTask<Ec>,
-        F: FnOnce(T::Output) -> B,
-    {
-        Then::new(self, f)
-    }
-
     fn join<B>(self, b: B) -> Join<T, B, Ec>
     where
         B: GpuTask<Ec>,

@@ -11,13 +11,21 @@ macro_rules! generate {
         $(#[$doc])*
         pub struct $Sequence<A, $($B),*, Ec> where A: GpuTask<Ec>, $($B: GpuTask<Ec>),*
         {
+            id: ContextId,
             a: MaybeDone<A, A::Output, Ec>,
             $($B: MaybeDone<$B, $B::Output, Ec>),*
         }
 
         impl<A, $($B),*, Ec> $Sequence<A, $($B),*, Ec> where A: GpuTask<Ec>, $($B: GpuTask<Ec>),* {
             pub fn new(a: A, $($B: $B),*) -> Self {
+                let mut id = a.context_id();
+
+                $(
+                    id = id.combine($B.context_id()).unwrap();
+                )*
+
                 $Sequence {
+                    id,
                     a: maybe_done(a),
                     $($B: maybe_done($B)),*
                 }
@@ -26,6 +34,10 @@ macro_rules! generate {
 
         impl<A, $($B),*, Ec> GpuTask<Ec> for $Sequence<A, $($B),*, Ec> where A: GpuTask<Ec>, $($B: GpuTask<Ec>),* {
             type Output = (A::Output, $($B::Output),*);
+
+            fn context_id(&self) -> ContextId {
+                self.context_id
+            }
 
             fn progress(&mut self, execution_context: &mut Ec) -> Progress<Self::Output> {
                 let mut all_done = self.a.progress(execution_context);

@@ -1,3 +1,5 @@
+use web_sys::WebGl2RenderingContext as Gl;
+
 use crate::runtime::Connection;
 
 #[derive(Clone, PartialEq, Debug)]
@@ -16,6 +18,20 @@ pub enum Topology {
     LineLoop,
     TriangleStrip,
     TriangleFan,
+}
+
+impl Topology {
+    pub(crate) fn id(&self) -> u32 {
+        match self {
+            Topology::Point => Gl::POINTS,
+            Topology::Line => Gl::LINES,
+            Topology::Triangle => Gl::TRIANGLES,
+            Topology::LineStrip => Gl::LINE_STRIP,
+            Topology::LineLoop => Gl::LINE_LOOP,
+            Topology::TriangleStrip => Gl::TRIANGLE_STRIP,
+            Topology::TriangleFan => Gl::TRIANGLE_FAN,
+        }
+    }
 }
 
 /// Enumerates the possible winding orders for triangles that may be used by a [Rasterizer].

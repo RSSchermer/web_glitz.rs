@@ -11,7 +11,7 @@ pub use self::input_attribute_layout::{
     AttributeSlotDescriptor, AttributeType, Incompatible, InputAttributeLayout,
 };
 
-mod vertex_array;
+pub(crate) mod vertex_array;
 pub use self::vertex_array::{
     IndexBufferDescription, IndexBufferDescriptor, IndexFormat, InstancedVertexArraySlice,
     VertexArray, VertexArraySlice, VertexBuffersDescription, VertexBuffersDescriptor,

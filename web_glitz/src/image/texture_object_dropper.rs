@@ -1,7 +1,7 @@
 use wasm_bindgen::JsCast;
 
 use crate::runtime::{Connection, RenderingContext};
-use crate::task::{GpuTask, Progress};
+use crate::task::{GpuTask, Progress, ContextId};
 use crate::util::JsId;
 
 pub(super) trait TextureObjectDropper {
@@ -21,8 +21,12 @@ struct TextureDropCommand {
     id: JsId,
 }
 
-impl GpuTask<Connection> for TextureDropCommand {
+unsafe impl GpuTask<Connection> for TextureDropCommand {
     type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Any
+    }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, state) = unsafe { connection.unpack_mut() };

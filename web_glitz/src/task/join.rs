@@ -11,21 +11,33 @@ macro_rules! generate {
         $(#[$doc])*
         pub struct $Join<A, $($B),*, Ec> where A: GpuTask<Ec>, $($B: GpuTask<Ec>),*
         {
+            id: ContextId,
             a: MaybeDone<A, A::Output, Ec>,
             $($B: MaybeDone<$B, $B::Output, Ec>),*
         }
 
         impl<A, $($B),*, Ec> $Join<A, $($B),*, Ec> where A: GpuTask<Ec>, $($B: GpuTask<Ec>),* {
             pub fn new(a: A, $($B: $B),*) -> Self {
+                let mut id = a.context_id();
+
+                $(
+                    id = id.combine($B.context_id()).unwrap();
+                )*
+
                 $Join {
+                    id,
                     a: maybe_done(a),
                     $($B: maybe_done($B)),*
                 }
             }
         }
 
-        impl<A, $($B),*, Ec> GpuTask<Ec> for $Join<A, $($B),*, Ec> where A: GpuTask<Ec>, $($B: GpuTask<Ec>),* {
+        unsafe impl<A, $($B),*, Ec> GpuTask<Ec> for $Join<A, $($B),*, Ec> where A: GpuTask<Ec>, $($B: GpuTask<Ec>),* {
             type Output = (A::Output, $($B::Output),*);
+
+            fn context_id(&self) -> ContextId {
+                self.context_id
+            }
 
             fn progress(&mut self, execution_context: &mut Ec) -> Progress<Self::Output> {
                 let mut all_done = self.a.progress(execution_context);

@@ -10,7 +10,7 @@ use web_sys::{WebGl2RenderingContext as GL, WebGlBuffer};
 
 use crate::runtime::state::{BufferRange, ContextUpdate};
 use crate::runtime::{Connection, RenderingContext, TaskContextMismatch};
-use crate::task::{GpuTask, Progress};
+use crate::task::{GpuTask, Progress, ContextId};
 use crate::util::{arc_get_mut_unchecked, slice_make_mut, JsId};
 
 #[derive(Clone, Copy, Debug)]
@@ -137,6 +137,12 @@ pub(crate) struct BufferData {
     size_in_bytes: usize,
     usage_hint: BufferUsage,
     recent_uniform_binding: Option<u32>,
+}
+
+impl BufferData {
+    pub(crate) fn id(&self) -> Option<JsId> {
+        self.id
+    }
 }
 
 impl Drop for BufferData {
@@ -661,11 +667,15 @@ where
     _marker: marker::PhantomData<T>,
 }
 
-impl<D, T> GpuTask<Connection> for AllocateCommand<D, T>
+unsafe impl<D, T> GpuTask<Connection> for AllocateCommand<D, T>
 where
     D: Borrow<T>,
 {
     type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Any
+    }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, state) = unsafe { connection.unpack_mut() };
@@ -697,11 +707,15 @@ where
     }
 }
 
-impl<D, T> GpuTask<Connection> for AllocateCommand<D, [T]>
+unsafe impl<D, T> GpuTask<Connection> for AllocateCommand<D, [T]>
 where
     D: Borrow<[T]>,
 {
     type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Any
+    }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, state) = unsafe { connection.unpack_mut() };
@@ -736,8 +750,12 @@ struct DropCommand {
     id: JsId,
 }
 
-impl GpuTask<Connection> for DropCommand {
+unsafe impl GpuTask<Connection> for DropCommand {
     type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Any
+    }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, _) = unsafe { connection.unpack() };
@@ -760,11 +778,15 @@ where
     _marker: marker::PhantomData<T>,
 }
 
-impl<T, D> GpuTask<Connection> for UploadCommand<T, D>
+unsafe impl<T, D> GpuTask<Connection> for UploadCommand<T, D>
 where
     D: Borrow<T>,
 {
     type Output = Result<(), TaskContextMismatch>;
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Id(self.buffer_data.context_id)
+    }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         if self.buffer_data.context_id != connection.context_id() {
@@ -802,11 +824,15 @@ where
     }
 }
 
-impl<T, D> GpuTask<Connection> for UploadCommand<[T], D>
+unsafe impl<T, D> GpuTask<Connection> for UploadCommand<[T], D>
 where
     D: Borrow<[T]>,
 {
     type Output = Result<(), TaskContextMismatch>;
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Id(self.buffer_data.context_id)
+    }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         if self.buffer_data.context_id != connection.context_id() {
@@ -865,8 +891,12 @@ enum DownloadState {
     Copied(Option<WebGlBuffer>),
 }
 
-impl<T> GpuTask<Connection> for DownloadCommand<T> {
+unsafe impl<T> GpuTask<Connection> for DownloadCommand<T> {
     type Output = Result<Box<T>, TaskContextMismatch>;
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Id(self.buffer_data.context_id)
+    }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         if self.data.context_id != connection.context_id() {
@@ -939,8 +969,12 @@ impl<T> GpuTask<Connection> for DownloadCommand<T> {
     }
 }
 
-impl<T> GpuTask<Connection> for DownloadCommand<[T]> {
+unsafe impl<T> GpuTask<Connection> for DownloadCommand<[T]> {
     type Output = Result<Box<[T]>, TaskContextMismatch>;
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Id(self.buffer_data.context_id)
+    }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         if self.data.context_id != connection.context_id() {

@@ -14,6 +14,8 @@ use crate::pipeline::resources::binding::{
 use crate::sampler::SamplerData;
 use std::borrow::Borrow;
 use std::sync::Arc;
+use crate::runtime::Connection;
+use crate::runtime::state::BufferRange;
 
 pub struct BindGroupEncoding<'a, B>
 where
@@ -25,6 +27,62 @@ where
 
 pub struct BindingDescriptor {
     internal: BindingDescriptorInternal,
+}
+
+impl BindingDescriptor {
+    pub(crate) fn bind(&self, connection: &mut Connection) {
+        let (gl, state) = unsafe { connection.unpack_mut() };
+
+        match self.internal {
+            BindingDescriptorInternal::BufferView { index, buffer_data, offset, size} => {
+                unsafe {
+                    buffer_data.id().unwrap().with_value_unchecked(|buffer_object| {
+                        state.set_bound_uniform_buffer_range(BufferRange::OffsetSize(buffer_object, offset as u32, size as u32)).apply(gl).unwrap();
+                    });
+                }
+            }
+            BindingDescriptorInternal::SampledTexture { unit, sampler_data, texture_data} => {
+                state.set_active_texture(unit).apply(gl).unwrap();
+
+                match texture_data {
+                    TextureData::Texture2D(data) => {
+                        unsafe {
+                            data.id().unwrap().with_value_unchecked(|texture_object| {
+                                state.set_bound_texture_2d(Some(texture_object)).apply(gl).unwrap();
+                            });
+                        }
+                    },
+                    TextureData::Texture2DArray(data) => {
+                        unsafe {
+                            data.id().unwrap().with_value_unchecked(|texture_object| {
+                                state.set_bound_texture_2d_array(Some(texture_object)).apply(gl).unwrap();
+                            });
+                        }
+                    },
+                    TextureData::Texture3D(data) => {
+                        unsafe {
+                            data.id().unwrap().with_value_unchecked(|texture_object| {
+                                state.set_bound_texture_3d(Some(texture_object)).apply(gl).unwrap();
+                            });
+                        }
+                    },
+                    TextureData::TextureCube(data) => {
+                        unsafe {
+                            data.id().unwrap().with_value_unchecked(|texture_object| {
+                                state.set_bound_texture_cube_map(Some(texture_object)).apply(gl).unwrap();
+                            });
+                        }
+                    }
+                }
+
+                unsafe {
+                    sampler_data.id().unwrap().with_value_unchecked(|sampler_object| {
+                        state.set_bound_sampler(unit, Some(sampler_object)).apply(gl).unwrap();
+                    });
+                }
+            }
+        }
+    }
 }
 
 enum BindingDescriptorInternal {

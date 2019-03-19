@@ -86,10 +86,6 @@ pub enum CreateGraphicsPipelineError {
     IncompatibleTransformFeedbackVaryings(IncompatibleTransformFeedbackVaryings),
 }
 
-pub enum SubmitError {
-    Cancelled,
-}
-
 impl From<Canceled> for SubmitError {
     fn from(_: Canceled) -> Self {
         SubmitError::Cancelled
@@ -104,7 +100,7 @@ pub enum Execution<O> {
 impl<O> Future for Execution<O> {
     type Item = O;
 
-    type Error = SubmitError;
+    type Error = ();
 
     fn poll(&mut self) -> Poll<O, SubmitError> {
         match self {

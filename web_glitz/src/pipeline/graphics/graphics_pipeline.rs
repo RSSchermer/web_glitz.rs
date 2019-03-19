@@ -1,4 +1,4 @@
-use crate::pipeline::graphics::vertex_input::{InputAttributeLayout, VertexInputStreamDescription};
+use crate::pipeline::graphics::vertex_input::{InputAttributeLayout, VertexInputStreamDescription, VertexInputAttributeDescriptor, VertexInputStreamDescriptor};
 use crate::pipeline::graphics::{
     vertex_input, BindingStrategy, GraphicsPipelineDescriptor, Topology,
 };
@@ -10,12 +10,13 @@ use crate::pipeline::resources::resource_slot::{
 use crate::pipeline::resources::Resources;
 use crate::runtime::state::{Program, ProgramKey};
 use crate::runtime::{Connection, RenderingContext};
-use crate::task::GpuTask;
+use crate::task::{GpuTask, ContextId, Progress};
 use std::any::TypeId;
 use std::borrow::Borrow;
 use std::marker;
 use std::sync::Arc;
 use crate::pipeline::graphics::shader::ShaderData;
+use crate::pipeline::graphics::vertex_input::vertex_array::VertexArrayData;
 
 pub struct GraphicsPipeline<Il, R, Tf> {
     _input_attribute_layout_marker: marker::PhantomData<Il>,
@@ -114,8 +115,6 @@ pub struct ShaderLinkingError {
 }
 
 pub enum CreateGraphicsPipelineError {
-    VertexShaderContextMismatch,
-    FragmentShaderContextMismatch,
     ShaderLinkingError(ShaderLinkingError),
     IncompatibleInputAttributeLayout(vertex_input::Incompatible),
     IncompatibleResources(resources::Incompatible),
@@ -139,7 +138,12 @@ impl From<resources::Incompatible> for CreateGraphicsPipelineError {
     }
 }
 
+pub struct PipelineTaskContext<'a> {
+    connection: &'a mut Connection
+}
+
 pub struct ActiveGraphicsPipeline<Il, R> {
+    pipeline_task_id: usize,
     _input_attribute_layout_marker: marker::PhantomData<Il>,
     _resources_marker: marker::PhantomData<R>,
 }
@@ -167,13 +171,68 @@ where
 }
 
 pub struct DrawCommand<B> {
+    pipeline_task_id: usize,
+    vertex_input_stream_descriptor: VertexInputStreamDescriptor,
     topology: Topology,
     binding_group: B,
 }
 
-impl<B> GpuTask<Connection> for DrawCommand<B>
+unsafe impl<'a, B> GpuTask<PipelineTaskContext<'a>> for DrawCommand<B>
 where
     B: Borrow<[BindingDescriptor]>,
 {
     type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Id(self.pipeline_task_id)
+    }
+
+    fn progress(&self, context: &mut PipelineTaskContext<'a>) -> Progress<Self::Output> {
+        let (gl, state) = unsafe { context.connection.unpack_mut() };
+
+        unsafe {
+            self.vertex_input_stream_descriptor.vertex_array_data.id().unwrap().with_value_unchecked(|vao| {
+                state.set_bound_vertex_array(Some(vao)).apply(gl).unwrap();
+            })
+        }
+
+        for descriptor in self.binding_group.borrow().iter() {
+            descriptor.bind(context.connection);
+        }
+
+        let (gl, _) = unsafe { context.connection.unpack_mut() };
+
+
+        if let Some(format) = self.vertex_input_stream_descriptor.index_format_kind() {
+            let VertexInputStreamDescriptor {
+                offset,
+                count,
+                instance_count,
+                ..
+            } = self.vertex_input_stream_descriptor;
+
+            let offset = offset * format.size_in_bytes();
+
+            if instance_count == 1 {
+                gl.draw_elements_with_i32(self.topology.id(), count as i32, format.id(), offset as i32);
+            } else {
+                gl.draw_elements_instanced_with_i32(self.topology.id(), count as i32, format.id(), offset as i32, instance_count as i32);
+            }
+        } else {
+            let VertexInputStreamDescriptor {
+                offset,
+                count,
+                instance_count,
+                ..
+            } = self.vertex_input_stream_descriptor;
+
+            if instance_count == 1 {
+                gl.draw_arrays(self.topology.id(), offset as i32, count as i32);
+            } else {
+                gl.draw_arrays_instanced(self.topology.id(), offset as i32, count as i32, instance_count as i32);
+            }
+        }
+
+        Progress::Finished(())
+    }
 }

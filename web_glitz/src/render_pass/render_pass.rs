@@ -37,7 +37,7 @@ use crate::runtime::state::{
 };
 use crate::runtime::Connection;
 use crate::runtime::TaskContextMismatch;
-use crate::task::{GpuTask, Progress, TryGpuTask, TryGpuTaskExt};
+use crate::task::{GpuTask, Progress, TryGpuTask, TryGpuTaskExt, ContextId};
 use crate::util::{slice_make_mut, JsId};
 use std::marker;
 
@@ -68,26 +68,21 @@ impl<'a> RenderPassContext<'a> {
     }
 }
 
-pub enum RenderPassError<E> {
-    ContextMismatch,
-    TaskError(E),
-}
-
 pub struct RenderPassMismatch;
 
-impl<Fb, F, T, O, E> GpuTask<Connection> for RenderPass<Fb, F>
+unsafe impl<Fb, F, T, O, E> GpuTask<Connection> for RenderPass<Fb, F>
 where
     F: FnOnce(&Fb) -> T,
-    for<'a> T: TryGpuTask<RenderPassContext<'a>, Ok = O, Error = E>,
+    for<'a> T: GpuTask<RenderPassContext<'a>, Output = O>,
     E: 'static,
 {
-    type Output = Result<O, RenderPassError<E>>;
+    type Output = O;
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Id(self.context_id)
+    }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        if self.context_id != connection.context_id() {
-            return Progress::Finished(Err(RenderPassError::ContextMismatch));
-        }
-
         let (gl, state) = unsafe { connection.unpack_mut() };
 
         match &self.render_target_encoding {
@@ -96,9 +91,7 @@ where
 
                 let f = self.f.take().expect("Can only execute render pass once");
 
-                f(&self.framebuffer)
-                    .map_err(|e| RenderPassError::TaskError(e))
-                    .progress(&mut RenderPassContext {
+                f(&self.framebuffer).progress(&mut RenderPassContext {
                         connection,
                         render_pass_id: self.id,
                     })
@@ -120,7 +113,6 @@ where
                 let f = self.f.take().expect("Can only execute render pass once");
 
                 let output = f(&self.framebuffer)
-                    .map_err(|e| RenderPassError::TaskError(e))
                     .progress(&mut RenderPassContext {
                         connection,
                         render_pass_id: self.id,

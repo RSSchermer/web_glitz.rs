@@ -7,7 +7,7 @@ use web_sys::WebGl2RenderingContext as Gl;
 use crate::image::format::RenderbufferFormat;
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
-use crate::task::{GpuTask, Progress};
+use crate::task::{GpuTask, Progress, ContextId};
 use crate::util::{arc_get_mut_unchecked, JsId};
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -120,11 +120,15 @@ struct RenderbufferAllocateCommand<F> {
     _marker: marker::PhantomData<[F]>,
 }
 
-impl<F> GpuTask<Connection> for RenderbufferAllocateCommand<F>
+unsafe impl<F> GpuTask<Connection> for RenderbufferAllocateCommand<F>
 where
     F: RenderbufferFormat,
 {
     type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Any
+    }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, state) = unsafe { connection.unpack_mut() };
@@ -153,8 +157,12 @@ struct RenderbufferDropCommand {
     id: JsId,
 }
 
-impl GpuTask<Connection> for RenderbufferDropCommand {
+unsafe impl GpuTask<Connection> for RenderbufferDropCommand {
     type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Any
+    }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, _) = unsafe { connection.unpack() };

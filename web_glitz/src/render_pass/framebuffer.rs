@@ -23,7 +23,7 @@ use crate::render_pass::{
     FramebufferAttachment, IntoFramebufferAttachment, RenderPassContext, RenderPassMismatch,
 };
 use crate::runtime::state::ContextUpdate;
-use crate::task::{GpuTask, Progress};
+use crate::task::{GpuTask, Progress, ContextId};
 use crate::util::slice_make_mut;
 
 pub struct BlitSourceContextMismatch;
@@ -557,14 +557,14 @@ pub struct BlitCommand {
     source: BlitSourceDescriptor,
 }
 
-impl<'a> GpuTask<RenderPassContext<'a>> for BlitCommand {
-    type Output = Result<(), RenderPassMismatch>;
+unsafe impl<'a> GpuTask<RenderPassContext<'a>> for BlitCommand {
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Id(self.render_pass_id)
+    }
 
     fn progress(&mut self, context: &mut RenderPassContext) -> Progress<Self::Output> {
-        if self.render_pass_id != context.render_pass_id() {
-            return Progress::Finished(Err(RenderPassMismatch));
-        }
-
         let (gl, state) = unsafe { context.unpack_mut() };
 
         state.bind_read_framebuffer(gl);
@@ -607,7 +607,7 @@ impl<'a> GpuTask<RenderPassContext<'a>> for BlitCommand {
             self.filter,
         );
 
-        Progress::Finished(Ok(()))
+        Progress::Finished(())
     }
 }
 
@@ -1060,14 +1060,14 @@ pub struct ClearFloatCommand {
     region: Region2D,
 }
 
-impl<'a> GpuTask<RenderPassContext<'a>> for ClearFloatCommand {
-    type Output = Result<(), RenderPassMismatch>;
+unsafe impl<'a> GpuTask<RenderPassContext<'a>> for ClearFloatCommand {
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Id(self.render_pass_id)
+    }
 
     fn progress(&mut self, context: &mut RenderPassContext) -> Progress<Self::Output> {
-        if self.render_pass_id != context.render_pass_id() {
-            return Progress::Finished(Err(RenderPassMismatch));
-        }
-
         let (gl, state) = unsafe { context.unpack_mut() };
 
         match self.region {
@@ -1085,7 +1085,7 @@ impl<'a> GpuTask<RenderPassContext<'a>> for ClearFloatCommand {
             slice_make_mut(&self.clear_value)
         });
 
-        Progress::Finished(Ok(()))
+        Progress::Finished(())
     }
 }
 
@@ -1096,14 +1096,14 @@ pub struct ClearIntegerCommand {
     region: Region2D,
 }
 
-impl<'a> GpuTask<RenderPassContext<'a>> for ClearIntegerCommand {
-    type Output = Result<(), RenderPassMismatch>;
+unsafe impl<'a> GpuTask<RenderPassContext<'a>> for ClearIntegerCommand {
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Id(self.render_pass_id)
+    }
 
     fn progress(&mut self, context: &mut RenderPassContext) -> Progress<Self::Output> {
-        if self.render_pass_id != context.render_pass_id() {
-            return Progress::Finished(Err(RenderPassMismatch));
-        }
-
         let (gl, state) = unsafe { context.unpack_mut() };
 
         match self.region {
@@ -1121,7 +1121,7 @@ impl<'a> GpuTask<RenderPassContext<'a>> for ClearIntegerCommand {
             slice_make_mut(&self.clear_value)
         });
 
-        Progress::Finished(Ok(()))
+        Progress::Finished(())
     }
 }
 
@@ -1132,14 +1132,14 @@ pub struct ClearUnsignedIntegerCommand {
     region: Region2D,
 }
 
-impl<'a> GpuTask<RenderPassContext<'a>> for ClearUnsignedIntegerCommand {
-    type Output = Result<(), RenderPassMismatch>;
+unsafe impl<'a> GpuTask<RenderPassContext<'a>> for ClearUnsignedIntegerCommand {
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Id(self.render_pass_id)
+    }
 
     fn progress(&mut self, context: &mut RenderPassContext) -> Progress<Self::Output> {
-        if self.render_pass_id != context.render_pass_id() {
-            return Progress::Finished(Err(RenderPassMismatch));
-        }
-
         let (gl, state) = unsafe { context.unpack_mut() };
 
         match self.region {
@@ -1157,7 +1157,7 @@ impl<'a> GpuTask<RenderPassContext<'a>> for ClearUnsignedIntegerCommand {
             slice_make_mut(&self.clear_value)
         });
 
-        Progress::Finished(Ok(()))
+        Progress::Finished(())
     }
 }
 
@@ -1168,14 +1168,14 @@ pub struct ClearDepthStencilCommand {
     region: Region2D,
 }
 
-impl<'a> GpuTask<RenderPassContext<'a>> for ClearDepthStencilCommand {
-    type Output = Result<(), RenderPassMismatch>;
+unsafe impl<'a> GpuTask<RenderPassContext<'a>> for ClearDepthStencilCommand {
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Id(self.render_pass_id)
+    }
 
     fn progress(&mut self, context: &mut RenderPassContext) -> Progress<Self::Output> {
-        if self.render_pass_id != context.render_pass_id() {
-            return Progress::Finished(Err(RenderPassMismatch));
-        }
-
         let (gl, state) = unsafe { context.unpack_mut() };
 
         match self.region {
@@ -1191,7 +1191,7 @@ impl<'a> GpuTask<RenderPassContext<'a>> for ClearDepthStencilCommand {
 
         gl.clear_bufferfi(Gl::DEPTH_STENCIL, 0, self.depth, self.stencil);
 
-        Progress::Finished(Ok(()))
+        Progress::Finished(())
     }
 }
 
@@ -1201,14 +1201,14 @@ pub struct ClearDepthCommand {
     region: Region2D,
 }
 
-impl<'a> GpuTask<RenderPassContext<'a>> for ClearDepthCommand {
-    type Output = Result<(), RenderPassMismatch>;
+unsafe impl<'a> GpuTask<RenderPassContext<'a>> for ClearDepthCommand {
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Id(self.render_pass_id)
+    }
 
     fn progress(&mut self, context: &mut RenderPassContext) -> Progress<Self::Output> {
-        if self.render_pass_id != context.render_pass_id() {
-            return Progress::Finished(Err(RenderPassMismatch));
-        }
-
         let (gl, state) = unsafe { context.unpack_mut() };
 
         match self.region {
@@ -1224,7 +1224,7 @@ impl<'a> GpuTask<RenderPassContext<'a>> for ClearDepthCommand {
 
         gl.clear_bufferfv_with_f32_array(Gl::DEPTH, 0, unsafe { slice_make_mut(&[self.depth]) });
 
-        Progress::Finished(Ok(()))
+        Progress::Finished(())
     }
 }
 
@@ -1234,14 +1234,14 @@ pub struct ClearStencilCommand {
     region: Region2D,
 }
 
-impl<'a> GpuTask<RenderPassContext<'a>> for ClearStencilCommand {
-    type Output = Result<(), RenderPassMismatch>;
+unsafe impl<'a> GpuTask<RenderPassContext<'a>> for ClearStencilCommand {
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Id(self.render_pass_id)
+    }
 
     fn progress(&mut self, context: &mut RenderPassContext) -> Progress<Self::Output> {
-        if self.render_pass_id != context.render_pass_id() {
-            return Progress::Finished(Err(RenderPassMismatch));
-        }
-
         let (gl, state) = unsafe { context.unpack_mut() };
 
         match self.region {
@@ -1259,6 +1259,6 @@ impl<'a> GpuTask<RenderPassContext<'a>> for ClearStencilCommand {
             slice_make_mut(&[self.stencil])
         });
 
-        Progress::Finished(Ok(()))
+        Progress::Finished(())
     }
 }

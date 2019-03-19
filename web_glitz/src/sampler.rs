@@ -16,7 +16,7 @@ use crate::image::texture_cube::TextureCube;
 use crate::image::texture_cube::TextureCubeData;
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
-use crate::task::GpuTask;
+use crate::task::{GpuTask, ContextId};
 use crate::task::Progress;
 use crate::util::{arc_get_mut_unchecked, identical, JsId};
 use std::convert::TryFrom;
@@ -61,6 +61,7 @@ impl Default for LODRange {
     }
 }
 
+#[derive(Clone, PartialEq, Debug)]
 pub struct SamplerDescriptor {
     pub minification_filter: MinificationFilter,
     pub magnification_filter: MagnificationFilter,
@@ -282,8 +283,12 @@ struct SamplerAllocateCommand {
     descriptor: SamplerDescriptor,
 }
 
-impl GpuTask<Connection> for SamplerAllocateCommand {
+unsafe impl GpuTask<Connection> for SamplerAllocateCommand {
     type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Any
+    }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, state) = unsafe { connection.unpack_mut() };
@@ -338,8 +343,12 @@ struct ShadowSamplerAllocateCommand {
     descriptor: ShadowSamplerDescriptor,
 }
 
-impl GpuTask<Connection> for ShadowSamplerAllocateCommand {
+unsafe impl GpuTask<Connection> for ShadowSamplerAllocateCommand {
     type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Any
+    }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, state) = unsafe { connection.unpack_mut() };
@@ -373,8 +382,12 @@ struct SamplerDropCommand {
     id: JsId,
 }
 
-impl GpuTask<Connection> for SamplerDropCommand {
+unsafe impl GpuTask<Connection> for SamplerDropCommand {
     type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Any
+    }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, _) = unsafe { connection.unpack() };

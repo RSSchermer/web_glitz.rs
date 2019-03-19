@@ -4,7 +4,7 @@ use crate::pipeline::graphics::vertex_input::{
     InputRate, VertexBufferDescription, VertexInputAttributeDescriptor,
 };
 use crate::runtime::{Connection, RenderingContext};
-use crate::task::{GpuTask, Progress};
+use crate::task::{GpuTask, Progress, ContextId};
 use crate::util::{arc_get_mut_unchecked, JsId};
 use fnv::FnvHasher;
 use js_sys::buffer;
@@ -104,24 +104,49 @@ impl_vertex_buffers_description!(
 );
 
 pub unsafe trait IndexFormat {
-    fn id() -> u32;
+    fn kind() -> IndexFormatKind;
 }
 
 unsafe impl IndexFormat for u8 {
-    fn id() -> u32 {
-        Gl::UNSIGNED_BYTE
+    fn kind() -> IndexFormatKind {
+        IndexFormatKind::UnsignedByte
     }
 }
 
 unsafe impl IndexFormat for u16 {
-    fn id() -> u32 {
-        Gl::UNSIGNED_SHORT
+    fn kind() -> IndexFormatKind {
+        IndexFormatKind::UnsignedShort
     }
 }
 
 unsafe impl IndexFormat for u32 {
-    fn id() -> u32 {
-        Gl::UNSIGNED_INT
+    fn kind() -> IndexFormatKind {
+        IndexFormatKind::UnsignedInt
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum IndexFormatKind {
+    UnsignedByte,
+    UnsignedShort,
+    UnsignedInt
+}
+
+impl IndexFormatKind {
+    pub(crate) fn id(&self) -> u32 {
+        match self {
+            IndexFormatKind::UnsignedByte => Gl::UNSIGNED_BYTE,
+            IndexFormatKind::UnsignedShort => Gl::UNSIGNED_SHORT,
+            IndexFormatKind::UnsignedInt => Gl::UNSIGNED_INT,
+        }
+    }
+
+    pub(crate) fn size_in_bytes(&self) -> u32 {
+        match self {
+            IndexFormatKind::UnsignedByte => 1,
+            IndexFormatKind::UnsignedShort => 2,
+            IndexFormatKind::UnsignedInt => 4,
+        }
     }
 }
 
@@ -198,11 +223,23 @@ where
     }
 }
 
-struct VertexArrayData {
+pub(crate) struct VertexArrayData {
     id: Option<JsId>,
+    context_id: usize,
     dropper: Box<VertexArrayObjectDropper>,
     vertex_buffer_pointers: Vec<Arc<BufferData>>,
     index_buffer_pointer: Option<Arc<BufferData>>,
+    index_format_kind: Option<IndexFormatKind>,
+}
+
+impl VertexArrayData {
+    pub(crate) fn id(&self) -> Option<JsId> {
+        self.id
+    }
+
+    pub(crate) fn context_id(&self) -> usize {
+        self.context_id
+    }
 }
 
 impl Drop for VertexArrayData {
@@ -251,9 +288,11 @@ impl<L> VertexArray<L> {
 
         let data = Arc::new(VertexArrayData {
             id: None,
+            context_id: context.id(),
             dropper: Box::new(context.clone()),
             vertex_buffer_pointers: buffer_pointers,
             index_buffer_pointer: index_buffer_descriptor.map(|d| d.buffer_data.clone()),
+            index_format_kind: index_buffer_descriptor.map(|d| <I::Format as IndexFormat>::kind()),
         });
 
         let len = if let Some(descriptor) = index_buffer_descriptor {
@@ -372,11 +411,18 @@ pub trait VertexInputStreamDescription {
     fn descriptor(&self) -> VertexInputStreamDescriptor;
 }
 
+#[derive(Clone)]
 pub struct VertexInputStreamDescriptor {
-    vertex_array_id: Arc<Option<JsId>>,
-    offset: usize,
-    count: usize,
-    instance_count: usize,
+    pub(crate) vertex_array_data: Arc<VertexArrayData>,
+    pub(crate) offset: usize,
+    pub(crate) count: usize,
+    pub(crate) instance_count: usize,
+}
+
+impl VertexInputStreamDescriptor {
+    pub(crate) fn index_format_kind(&self) -> Option<IndexFormatKind> {
+        self.vertex_array_data.index_format_kind
+    }
 }
 
 impl<L> VertexInputStreamDescription for VertexArray<L> {
@@ -384,7 +430,7 @@ impl<L> VertexInputStreamDescription for VertexArray<L> {
 
     fn descriptor(&self) -> VertexInputStreamDescriptor {
         VertexInputStreamDescriptor {
-            vertex_array_id: self.id.clone(),
+            vertex_array_data: self.data.clone(),
             offset: 0,
             count: self.len,
             instance_count: 1,
@@ -397,7 +443,7 @@ impl<'a, L> VertexInputStreamDescription for VertexArraySlice<'a, L> {
 
     fn descriptor(&self) -> VertexInputStreamDescriptor {
         VertexInputStreamDescriptor {
-            vertex_array_id: self.id.clone(),
+            vertex_array_data: self.vertex_array.data.clone(),
             offset: self.offset,
             count: self.len,
             instance_count: 1,
@@ -410,7 +456,7 @@ impl<'a, L> VertexInputStreamDescription for InstancedVertexArraySlice<'a, L> {
 
     fn descriptor(&self) -> VertexInputStreamDescriptor {
         VertexInputStreamDescriptor {
-            vertex_array_id: self.id.clone(),
+            vertex_array_data: self.vertex_array.data.clone(),
             offset: self.offset,
             count: self.len,
             instance_count: self.instance_count,
@@ -425,8 +471,12 @@ struct VertexArrayAllocateCommand {
     index_buffer_descriptor: Option<IndexBufferDescriptor>,
 }
 
-impl GpuTask<Connection> for VertexArrayAllocateCommand {
+unsafe impl GpuTask<Connection> for VertexArrayAllocateCommand {
     type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Any
+    }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, state) = unsafe { connection.unpack_mut() };
@@ -480,8 +530,12 @@ struct VertexArrayDropCommand {
     id: JsId,
 }
 
-impl GpuTask<Connection> for VertexArrayDropCommand {
+unsafe impl GpuTask<Connection> for VertexArrayDropCommand {
     type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Any
+    }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, _) = unsafe { connection.unpack() };
