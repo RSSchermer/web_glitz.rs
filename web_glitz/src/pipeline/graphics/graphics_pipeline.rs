@@ -1,7 +1,5 @@
 use crate::pipeline::graphics::vertex_input::{InputAttributeLayout, VertexInputStreamDescription, VertexInputAttributeDescriptor, VertexInputStreamDescriptor};
-use crate::pipeline::graphics::{
-    vertex_input, BindingStrategy, GraphicsPipelineDescriptor, Topology,
-};
+use crate::pipeline::graphics::{vertex_input, BindingStrategy, GraphicsPipelineDescriptor, Topology, DepthTest, StencilTest, Blending, LineWidth, Viewport};
 use crate::pipeline::resources;
 use crate::pipeline::resources::bind_group_encoding::BindingDescriptor;
 use crate::pipeline::resources::resource_slot::{
@@ -15,15 +13,59 @@ use std::any::TypeId;
 use std::borrow::Borrow;
 use std::marker;
 use std::sync::Arc;
-use crate::pipeline::graphics::shader::ShaderData;
+use crate::pipeline::graphics::shader::{VertexShaderData, FragmentShaderData};
 use crate::pipeline::graphics::vertex_input::vertex_array::VertexArrayData;
+use crate::image::Region2D;
+use crate::util::JsId;
+
+trait ProgramObjectDropper {
+    fn drop_program_object(&self, id: JsId);
+}
+
+impl<T> RenderbufferObjectDropper for T
+    where
+        T: RenderingContext,
+{
+    fn drop_program_object(&self, id: JsId) {
+        self.submit(ProgramObjectDropCommand {
+            id
+        });
+    }
+}
+
+struct ProgramObjectDropCommand {
+    id: JsId,
+}
+
+unsafe impl GpuTask<Connection> for RenderbufferDropCommand {
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Any
+    }
+
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
+        unsafe { JsId::into_value(self.id) };
+
+        Progress::Finished(())
+    }
+}
 
 pub struct GraphicsPipeline<Il, R, Tf> {
     _input_attribute_layout_marker: marker::PhantomData<Il>,
     _resources_marker: marker::PhantomData<R>,
     _transform_feedback_varyings_marker: marker::PhantomData<Tf>,
-    vertex_shader: Arc<ShaderData>,
-    fragment_shader: Arc<ShaderData>,
+    context_id: usize,
+    dropper: Box<ProgramObjectDropper>,
+    vertex_shader_data: Arc<VertexShaderData>,
+    fragment_shader_data: Arc<FragmentShaderData>,
+    program_id: JsId,
+    depth_test: Option<DepthTest>,
+    stencil_test: Option<StencilTest>,
+    scissor_test: Option<Region2D>,
+    blending: Option<Blending>,
+    line_width: LineWidth,
+    viewport: Viewport,
 }
 
 impl<Il, R, Tf> GraphicsPipeline<Il, R, Tf>
@@ -41,17 +83,17 @@ where
     {
         let (gl, state) = unsafe { connection.unpack_mut() };
 
-        if descriptor.vertex_shader.context_id() != context.id() {
+        if descriptor.vertex_shader_data.context_id() != context.id() {
             panic!("Vertex shader does not belong to the context.");
         }
 
-        if descriptor.fragment_shader.context_id() != context.id() {
+        if descriptor.fragment_shader_data.context_id() != context.id() {
             panic!("Fragment shader does not belong to the context.");
         }
 
         let program = state.program_cache_mut().get_or_create(ProgramKey {
-            vertex_shader_id: descriptor.vertex_shader.id().unwrap(),
-            fragment_shader_id: descriptor.fragment_shader.id().unwrap(),
+            vertex_shader_id: descriptor.vertex_shader_data.id().unwrap(),
+            fragment_shader_id: descriptor.fragment_shader_data.id().unwrap(),
             resources_type_id: TypeId::of::<R>(),
         }, gl)?;
 
@@ -68,9 +110,46 @@ where
             _input_attribute_layout_marker: marker::PhantomData,
             _resources_marker: marker::PhantomData,
             _transform_feedback_varyings_marker: marker::PhantomData,
-            vertex_shader: descriptor.vertex_shader.data().clone(),
-            fragment_shader: descriptor.fragment_shader.data().clone(),
+            context_id: context.id(),
+            dropper: Box::new(context.clone()),
+            vertex_shader_data: descriptor.vertex_shader_data.clone(),
+            fragment_shader_data: descriptor.fragment_shader_data.clone(),
+            program_id: JsId::from_value(program.gl_object()),
+            depth_test: descriptor.depth_test.clone(),
+            stencil_test: descriptor.stencil_test.clone(),
+            scissor_test: descriptor.scissor_test.clone(),
+            blending: descriptor.blending.clone(),
+            line_width: descriptor.line_width.clone(),
+            viewport: descriptor.viewport.clone(),
         }
+    }
+
+    pub(crate) fn program_id(&self) -> JsId {
+        self.program_id
+    }
+
+    pub(crate) fn depth_test(&self) -> &Option<DepthTest> {
+        &self.depth_test
+    }
+
+    pub(crate) fn stencil_test(&self) -> &Option<StencilTest> {
+        &self.stencil_test
+    }
+
+    pub(crate) fn scissor_test(&self) -> &Option<Region2D> {
+        &self.scissor_test
+    }
+
+    pub(crate) fn blending(&self) -> &Option<Blending> {
+        &self.blending
+    }
+
+    pub(crate) fn line_width(&self) -> &LineWidth {
+        &self.line_width
+    }
+
+    pub(crate) fn viewport(&self) -> &Viewport {
+        &self.viewport
     }
 
 //    pub(crate) fn create_unchecked<Rc>(
@@ -110,6 +189,12 @@ where
 //    }
 }
 
+impl<Il, R, Tf> Drop for GraphicsPipeline<Il, R, Tf> {
+    fn drop(&mut self) {
+        self.dropper.drop_program_object(self.program_id);
+    }
+}
+
 pub struct ShaderLinkingError {
     error: String,
 }
@@ -135,104 +220,5 @@ impl From<vertex_input::Incompatible> for CreateGraphicsPipelineError {
 impl From<resources::Incompatible> for CreateGraphicsPipelineError {
     fn from(error: resources::Incompatible) -> Self {
         CreateGraphicsPipelineError::IncompatibleResources(error)
-    }
-}
-
-pub struct PipelineTaskContext<'a> {
-    connection: &'a mut Connection
-}
-
-pub struct ActiveGraphicsPipeline<Il, R> {
-    pipeline_task_id: usize,
-    _input_attribute_layout_marker: marker::PhantomData<Il>,
-    _resources_marker: marker::PhantomData<R>,
-}
-
-impl<Il, R> ActiveGraphicsPipeline<Il, R>
-where
-    Il: InputAttributeLayout,
-    R: Resources,
-{
-    /// Creates a [DrawCommand] that will execute this [ActiveGraphicsPipeline] on the
-    /// [vertex_input_stream] with the [resources] bound to the pipeline's resource slots.
-    ///
-    /// # Panic
-    ///
-    /// - Panics when [vertex_input_stream] uses a [VertexArray] that belongs to a different context
-    ///   than this [ActiveGraphicsPipeline].
-    /// - Panics when [resources] specifies a resource that belongs to a different context than this
-    ///   [ActiveGraphicsPipeline].
-    pub fn draw_command<V>(&self, vertex_input_stream: V, resources: R) -> DrawCommand<R::Bindings>
-    where
-        V: VertexInputStreamDescription<Layout = Il>,
-    {
-        unimplemented!()
-    }
-}
-
-pub struct DrawCommand<B> {
-    pipeline_task_id: usize,
-    vertex_input_stream_descriptor: VertexInputStreamDescriptor,
-    topology: Topology,
-    binding_group: B,
-}
-
-unsafe impl<'a, B> GpuTask<PipelineTaskContext<'a>> for DrawCommand<B>
-where
-    B: Borrow<[BindingDescriptor]>,
-{
-    type Output = ();
-
-    fn context_id(&self) -> ContextId {
-        ContextId::Id(self.pipeline_task_id)
-    }
-
-    fn progress(&self, context: &mut PipelineTaskContext<'a>) -> Progress<Self::Output> {
-        let (gl, state) = unsafe { context.connection.unpack_mut() };
-
-        unsafe {
-            self.vertex_input_stream_descriptor.vertex_array_data.id().unwrap().with_value_unchecked(|vao| {
-                state.set_bound_vertex_array(Some(vao)).apply(gl).unwrap();
-            })
-        }
-
-        for descriptor in self.binding_group.borrow().iter() {
-            descriptor.bind(context.connection);
-        }
-
-        let (gl, _) = unsafe { context.connection.unpack_mut() };
-
-
-        if let Some(format) = self.vertex_input_stream_descriptor.index_format_kind() {
-            let VertexInputStreamDescriptor {
-                offset,
-                count,
-                instance_count,
-                ..
-            } = self.vertex_input_stream_descriptor;
-
-            let offset = offset * format.size_in_bytes();
-
-            if instance_count == 1 {
-                gl.draw_elements_with_i32(self.topology.id(), count as i32, format.id(), offset as i32);
-            } else {
-                gl.draw_elements_instanced_with_i32(self.topology.id(), count as i32, format.id(), offset as i32, instance_count as i32);
-            }
-        } else {
-            let VertexInputStreamDescriptor {
-                offset,
-                count,
-                instance_count,
-                ..
-            } = self.vertex_input_stream_descriptor;
-
-            if instance_count == 1 {
-                gl.draw_arrays(self.topology.id(), offset as i32, count as i32);
-            } else {
-                gl.draw_arrays_instanced(self.topology.id(), offset as i32, count as i32, instance_count as i32);
-            }
-        }
-
-        Progress::Finished(())
     }
 }

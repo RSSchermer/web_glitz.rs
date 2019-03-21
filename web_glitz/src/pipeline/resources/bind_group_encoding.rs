@@ -25,6 +25,12 @@ where
     descriptors: B,
 }
 
+impl<'a, B> BindGroupEncoding<'a, B> {
+    pub(crate) fn into_descriptors(self) -> B {
+        self.descriptors
+    }
+}
+
 pub struct BindingDescriptor {
     internal: BindingDescriptorInternal,
 }
@@ -108,6 +114,14 @@ enum TextureData {
 
 pub struct BindGroupEncodingContext {
     context_id: usize,
+}
+
+impl BindGroupEncodingContext {
+    pub(crate) fn new(context_id: usize) -> Self {
+        BindGroupEncodingContext {
+            context_id
+        }
+    }
 }
 
 pub struct BindGroupEncoder<'a, B> {

@@ -110,7 +110,7 @@ pub struct DynamicState {
     //    pixel_unpack_skip_images: u32,
     //    sample_coverage: SampleCoverage,
     scissor: (i32, i32, u32, u32),
-    //    viewport: Region,
+    viewport: (i32, i32, i32, i32),
     //    stencil_func_rgb: StencilFunc,
     //    stencil_func_alpha: StencilFunc,
     //    stencil_mask_rgb: u32,
@@ -1310,6 +1310,22 @@ impl DynamicState {
             })
         }
     }
+
+    pub fn viewport(&self) -> &(i32, i32, i32, i32) {
+        &self.viewport
+    }
+
+    pub fn set_viewport(&mut self, x: i32, y: i32, width: i32, height: i32)-> impl ContextUpdate<'static, ()> {
+        if self.viewport != (x, y, width, height) {
+            self.viewport = (x, y, width, height);
+
+            Some(move |context: &Gl| {
+                context.viewport(x, y, width, height);
+
+                Ok(())
+            })
+        }
+    }
 }
 
 impl DynamicState {
@@ -1389,6 +1405,7 @@ impl DynamicState {
             sample_coverage_enabled: false,
             rasterizer_discard_enabled: false,
             scissor: (0, 0, 0, 0),
+            viewport: (0, 0, context.drawing_buffer_width(), context.drawing_buffer_height()),
             depth_func: TestFunction::Less,
             depth_mask: true,
             depth_range: DepthRange::default(),

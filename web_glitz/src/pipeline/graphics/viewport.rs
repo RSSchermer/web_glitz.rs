@@ -1,3 +1,5 @@
+use crate::runtime::Connection;
+
 /// Describes the viewport used by by a [GraphicsPipeline].
 ///
 /// The viewport defines the affine transformation of `X` and `Y` from normalized device coordinates
@@ -30,7 +32,25 @@
 ///    exactly. Note that the width and height of the [RenderTarget] are determined by the attached
 ///    images with the smallest width and height respectively.
 ///
+#[derive(Clone, PartialEq, Debug)]
 pub enum Viewport {
     Region((i32, i32), u32, u32),
     Auto,
+}
+
+impl Viewport {
+    pub(crate) fn apply(&self, connection: &mut Connection, auto_dimensions: (u32, u32)) {
+        let (gl, state) = unsafe { connection.unpack_mut() };
+
+        let (x, y, width, height) = match self {
+            Viewport::Region((x, y), width, height) => (x, y, width, height),
+            Viewport::Auto => {
+                let (width, height) = auto_dimensions;
+
+                (0, 0, width, height)
+            }
+        };
+
+        state.set_viewport(*x, *y, *width as i32, *height as i32).apply(gl).unwrap();
+    }
 }

@@ -5,7 +5,7 @@ use crate::image::Region2D;
 use crate::pipeline::graphics::fragment_test::{DepthTest, StencilTest};
 use crate::pipeline::graphics::line_width::LineWidth;
 use crate::pipeline::graphics::primitive_assembly::PrimitiveAssembly;
-use crate::pipeline::graphics::shader::{FragmentShader, ShaderData, VertexShader};
+use crate::pipeline::graphics::shader::{FragmentShader, VertexShader, VertexShaderData, FragmentShaderData};
 use crate::pipeline::graphics::vertex_input::InputAttributeLayout;
 use crate::pipeline::graphics::viewport::Viewport;
 use crate::pipeline::graphics::Blending;
@@ -15,8 +15,8 @@ pub struct GraphicsPipelineDescriptor<Il, R, Tf> {
     _vertex_input_layout: marker::PhantomData<Il>,
     _resource_layout: marker::PhantomData<R>,
     _transform_feedback: marker::PhantomData<Tf>,
-    pub(crate) vertex_shader: Arc<ShaderData>,
-    pub(crate) fragment_shader: Arc<ShaderData>,
+    pub(crate) vertex_shader_data: Arc<VertexShaderData>,
+    pub(crate) fragment_shader_data: Arc<FragmentShaderData>,
     pub(crate) primitive_assembly: PrimitiveAssembly,
     pub(crate) depth_test: Option<DepthTest>,
     pub(crate) stencil_test: Option<StencilTest>,
@@ -63,8 +63,8 @@ pub struct GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R, Tf> {
     _transform_feedback: marker::PhantomData<Tf>,
     _vertex_input_layout: marker::PhantomData<Il>,
     _resource_layout: marker::PhantomData<R>,
-    vertex_shader: Option<Arc<ShaderData>>,
-    fragment_shader: Option<Arc<ShaderData>>,
+    vertex_shader: Option<Arc<VertexShaderData>>,
+    fragment_shader: Option<Arc<FragmentShaderData>>,
     primitive_assembly: Option<PrimitiveAssembly>,
     depth_test: Option<DepthTest>,
     stencil_test: Option<StencilTest>,
@@ -278,8 +278,8 @@ where
             _vertex_input_layout: marker::PhantomData,
             _resource_layout: marker::PhantomData,
             _transform_feedback: marker::PhantomData,
-            vertex_shader: self.vertex_shader.unwrap(),
-            fragment_shader: self.fragment_shader.unwrap(),
+            vertex_shader_data: self.vertex_shader.unwrap(),
+            fragment_shader_data: self.fragment_shader.unwrap(),
             primitive_assembly: self.primitive_assembly.unwrap(),
             depth_test: self.depth_test,
             stencil_test: self.stencil_test,

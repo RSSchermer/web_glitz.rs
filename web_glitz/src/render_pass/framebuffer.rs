@@ -24,21 +24,71 @@ use crate::render_pass::{
 };
 use crate::runtime::state::ContextUpdate;
 use crate::task::{GpuTask, Progress, ContextId};
-use crate::util::slice_make_mut;
+use crate::util::{slice_make_mut, JsId};
+use crate::pipeline::graphics::{GraphicsPipeline, ActiveGraphicsPipeline, Topology, DepthTest, StencilTest, Blending, LineWidth, Viewport};
+use crate::pipeline::graphics::vertex_input::{InputAttributeLayout, VertexInputStreamDescriptor, VertexInputStreamDescription};
+use crate::pipeline::resources::bind_group_encoding::{BindingDescriptor, BindGroupEncodingContext};
+use std::borrow::Borrow;
+use crate::pipeline::resources::Resources;
+use crate::runtime::Connection;
+use fnv::FnvHasher;
+use std::hash::{Hash, Hasher};
+use crate::sampler::IncompatibleSampler::ContextMismatch;
 
 pub struct BlitSourceContextMismatch;
 
 pub struct Framebuffer<C, Ds> {
     pub color: C,
     pub depth_stencil: Ds,
+    pub(crate) dimensions: Option<(u32, u32)>,
     pub(crate) context_id: usize,
     pub(crate) render_pass_id: usize,
+    last_id: usize
 }
 
 impl<C, Ds> Framebuffer<C, Ds>
 where
     C: BlitColorTarget,
 {
+    pub fn pipeline_task<Vl, R, Tf, F, T>(&mut self, pipeline: &GraphicsPipeline<Vl, R, Tf>, f: F) -> PipelineTask<T>
+        where F: Fn(&ActiveGraphicsPipeline<Vl, R>) -> T, for<'a> T: GpuTask<PipelineTaskContext<'a>>
+    {
+        let id = self.last_id;
+
+        self.last_id += 1;
+
+        let mut hasher = FnvHasher::default();
+
+        (self.render_pass_id, id).hash(&mut hasher);
+
+        let pipeline_task_id = hasher.finish() as usize;
+
+        let task = f(&ActiveGraphicsPipeline {
+            context_id: self.context_id,
+            topology: pipeline.topology(),
+            pipeline_task_id,
+            _input_attribute_layout_marker: marker::PhantomData,
+            _resources_marker: marker::PhantomData
+        });
+
+        if task.context_id() != ContextId::Id(pipeline_task_id) {
+            panic!("Task does not belong to the pipeline task context.")
+        }
+
+        PipelineTask {
+            render_pass_id: self.render_pass_id,
+            task,
+            program_id: pipeline.program_id(),
+            depth_test: pipeline.depth_test().clone(),
+            stencil_test: pipeline.stencil_test().clone(),
+            scissor_test: pipeline.scissor_test().clone(),
+            blending: pipeline.blending().clone(),
+            line_width: pipeline.line_width().clone(),
+            viewport: pipeline.viewport().clone(),
+            framebuffer_dimensions: self.dimensions
+        }
+    }
+
     pub fn blit_color_command<S>(
         &self,
         region: Region2D,
@@ -228,6 +278,161 @@ where
             target: self.depth_stencil.descriptor(),
             source: source_descriptor,
         })
+    }
+}
+
+pub struct PipelineTaskContext<'a> {
+    connection: &'a mut Connection
+}
+
+pub struct PipelineTask<T> {
+    render_pass_id: usize,
+    task: T,
+    program_id: JsId,
+    depth_test: Option<DepthTest>,
+    stencil_test: Option<StencilTest>,
+    scissor_test: Option<Region2D>,
+    blending: Option<Blending>,
+    line_width: LineWidth,
+    viewport: Viewport,
+    framebuffer_dimensions: Option<(u32, u32)>
+}
+
+unsafe impl<'a, T> GpuTask<RenderPassContext<'a>> for PipelineTask<T> where for <'b> T: GpuTask<PipelineTaskContext<'b>> {
+    type Output = T::Output;
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Id(self.render_pass_id)
+    }
+
+    fn progress(&mut self, context: &mut RenderPassContext<'a>) -> Progress<Self::Output> {
+        let (gl, state) = unsafe { context.unpack_mut() };
+
+        unsafe {
+            self.program_id.with_value_unchecked(|program_object| {
+                state.set_active_program(Some(program_object)).apply(gl).unwrap();
+            })
+        };
+
+        let framebuffer_dimensions = self.framebuffer_dimensions.unwrap_or_else(|| {
+            (gl.drawing_buffer_width(), gl.drawing_buffer_height())
+        });
+
+        let connection = context.connection_mut();
+
+        self.depth_test.apply(connection);
+        self.stencil_test.apply(connection);
+        self.scissor_test.apply(connection);
+        self.blending.apply(connection);
+        self.line_width.apply(connection);
+        self.viewport.apply(connection, framebuffer_dimensions);
+
+        self.task.progress(&mut PipelineTaskContext {
+            connection: context.connection_mut()
+        })
+    }
+}
+
+pub struct ActiveGraphicsPipeline<Il, R> {
+    context_id: usize,
+    topology: Topology,
+    pipeline_task_id: usize,
+    _input_attribute_layout_marker: marker::PhantomData<Il>,
+    _resources_marker: marker::PhantomData<R>,
+}
+
+impl<Il, R> ActiveGraphicsPipeline<Il, R>
+    where
+        Il: InputAttributeLayout,
+        R: Resources,
+{
+    /// Creates a [DrawCommand] that will execute this [ActiveGraphicsPipeline] on the
+    /// [vertex_input_stream] with the [resources] bound to the pipeline's resource slots.
+    ///
+    /// # Panic
+    ///
+    /// - Panics when [vertex_input_stream] uses a [VertexArray] that belongs to a different context
+    ///   than this [ActiveGraphicsPipeline].
+    /// - Panics when [resources] specifies a resource that belongs to a different context than this
+    ///   [ActiveGraphicsPipeline].
+    pub fn draw_command<V>(&self, vertex_input_stream: &V, resources: &R) -> DrawCommand<R::Bindings>
+        where
+            V: VertexInputStreamDescription<Layout = Il>,
+            R: Resources
+    {
+        DrawCommand {
+            pipeline_task_id: self.pipeline_task_id,
+            vertex_input_stream_descriptor: vertex_input_stream.descriptor(),
+            topology: self.topology,
+            binding_group: resources.encode_bind_group(&mut BindGroupEncodingContext::new(self.context_id)).into_descriptors()
+        }
+    }
+}
+
+pub struct DrawCommand<B> {
+    pipeline_task_id: usize,
+    vertex_input_stream_descriptor: VertexInputStreamDescriptor,
+    topology: Topology,
+    binding_group: B,
+}
+
+unsafe impl<'a, B> GpuTask<PipelineTaskContext<'a>> for DrawCommand<B>
+    where
+        B: Borrow<[BindingDescriptor]>,
+{
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Id(self.pipeline_task_id)
+    }
+
+    fn progress(&self, context: &mut PipelineTaskContext<'a>) -> Progress<Self::Output> {
+        let (gl, state) = unsafe { context.connection.unpack_mut() };
+
+        unsafe {
+            self.vertex_input_stream_descriptor.vertex_array_data.id().unwrap().with_value_unchecked(|vao| {
+                state.set_bound_vertex_array(Some(vao)).apply(gl).unwrap();
+            })
+        }
+
+        for descriptor in self.binding_group.borrow().iter() {
+            descriptor.bind(context.connection);
+        }
+
+        let (gl, _) = unsafe { context.connection.unpack_mut() };
+
+
+        if let Some(format) = self.vertex_input_stream_descriptor.index_format_kind() {
+            let VertexInputStreamDescriptor {
+                offset,
+                count,
+                instance_count,
+                ..
+            } = self.vertex_input_stream_descriptor;
+
+            let offset = offset * format.size_in_bytes();
+
+            if instance_count == 1 {
+                gl.draw_elements_with_i32(self.topology.id(), count as i32, format.id(), offset as i32);
+            } else {
+                gl.draw_elements_instanced_with_i32(self.topology.id(), count as i32, format.id(), offset as i32, instance_count as i32);
+            }
+        } else {
+            let VertexInputStreamDescriptor {
+                offset,
+                count,
+                instance_count,
+                ..
+            } = self.vertex_input_stream_descriptor;
+
+            if instance_count == 1 {
+                gl.draw_arrays(self.topology.id(), offset as i32, count as i32);
+            } else {
+                gl.draw_arrays_instanced(self.topology.id(), offset as i32, count as i32, instance_count as i32);
+            }
+        }
+
+        Progress::Finished(())
     }
 }
 

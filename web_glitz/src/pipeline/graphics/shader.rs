@@ -1,11 +1,11 @@
 use crate::runtime::{Connection, RenderingContext};
-use crate::task::{GpuTask, Progress};
+use crate::task::{GpuTask, Progress, ContextId};
 use crate::util::{arc_get_mut_unchecked, JsId};
 use std::borrow::Borrow;
 use std::sync::Arc;
 
 pub struct VertexShader {
-    data: Arc<ShaderData>,
+    data: Arc<VertexShaderData>,
 }
 
 impl VertexShader {
@@ -14,7 +14,7 @@ impl VertexShader {
         S: Borrow<str> + 'static,
         Rc: RenderingContext,
     {
-        let data = Arc::new(ShaderData {
+        let data = Arc::new(VertexShaderData {
             id: None,
             context_id: context.id(),
             dropper: Box::new(context.clone()),
@@ -28,10 +28,14 @@ impl VertexShader {
 
         VertexShader { data }
     }
+
+    pub(crate) fn data(&self) -> &Arc<VertexShaderData> {
+        &self.data
+    }
 }
 
 pub struct FragmentShader {
-    data: Arc<ShaderData>,
+    data: Arc<FragmentShaderData>,
 }
 
 impl FragmentShader {
@@ -40,7 +44,7 @@ impl FragmentShader {
         S: Borrow<str> + 'static,
         Rc: RenderingContext,
     {
-        let data = Arc::new(ShaderData {
+        let data = Arc::new(FragmentShaderData {
             id: None,
             context_id: context.id(),
             dropper: Box::new(context.clone()),
@@ -54,15 +58,19 @@ impl FragmentShader {
 
         FragmentShader { data }
     }
+
+    pub(crate) fn data(&self) -> &Arc<FragmentShaderData> {
+        &self.data
+    }
 }
 
-pub(crate) struct ShaderData {
+pub(crate) struct VertexShaderData {
     id: Option<JsId>,
     context_id: usize,
-    dropper: Box<ShaderObjectDropper>,
+    dropper: Box<VertexShaderObjectDropper>,
 }
 
-impl ShaderData {
+impl VertexShaderData {
     pub(crate) fn id(&self) -> Option<JsId> {
         self.id
     }
@@ -72,20 +80,57 @@ impl ShaderData {
     }
 }
 
-trait ShaderObjectDropper {
+pub(crate) struct FragmentShaderData {
+    id: Option<JsId>,
+    context_id: usize,
+    dropper: Box<FragmentShaderObjectDropper>,
+}
+
+impl FragmentShaderData {
+    pub(crate) fn id(&self) -> Option<JsId> {
+        self.id
+    }
+
+    pub(crate) fn context_id(&self) -> usize {
+        self.context_id
+    }
+}
+
+trait VertexShaderObjectDropper {
     fn drop_shader_object(&self, id: JsId);
 }
 
-impl<T> ShaderObjectDropper for T
+impl<T> VertexShaderObjectDropper for T
 where
     T: RenderingContext,
 {
     fn drop_shader_object(&self, id: JsId) {
-        self.submit(ShaderDropCommand { id });
+        self.submit(VertexShaderDropCommand { id });
     }
 }
 
-impl Drop for ShaderData {
+impl Drop for VertexShaderData {
+    fn drop(&mut self) {
+        if let Some(id) = self.id {
+            self.dropper.drop_shader_object(id);
+        }
+    }
+}
+
+trait FragmentShaderObjectDropper {
+    fn drop_shader_object(&self, id: JsId);
+}
+
+impl<T> FragmentShaderObjectDropper for T
+    where
+        T: RenderingContext,
+{
+    fn drop_shader_object(&self, id: JsId) {
+        self.submit(FragmentShaderDropCommand { id });
+    }
+}
+
+impl Drop for FragmentShaderData {
     fn drop(&mut self) {
         if let Some(id) = self.id {
             self.dropper.drop_shader_object(id);
@@ -99,11 +144,15 @@ struct ShaderAllocateCommand<S> {
     source: S,
 }
 
-impl<S> GpuTask<Connection> for ShaderAllocateCommand<S>
+unsafe impl<S> GpuTask<Connection> for ShaderAllocateCommand<S>
 where
     S: Borrow<str>,
 {
     type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Any
+    }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, _) = unsafe { connection.unpack_mut() };
@@ -120,17 +169,44 @@ where
     }
 }
 
-struct ShaderDropCommand {
+struct VertexShaderDropCommand {
     id: JsId,
 }
 
-impl GpuTask<Connection> for ShaderDropCommand {
+unsafe impl GpuTask<Connection> for VertexShaderDropCommand {
     type Output = ();
 
+    fn context_id(&self) -> ContextId {
+        ContextId::Any
+    }
+
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        let (gl, _) = unsafe { connection.unpack() };
+        let (gl, state) = unsafe { connection.unpack_mut() };
         let value = unsafe { JsId::into_value(self.id) };
 
+        state.program_cache_mut().remove_vertex_shader_dependent(self.id);
+        gl.delete_shader(Some(&value.unchecked_into()));
+
+        Progress::Finished(())
+    }
+}
+
+struct FragmentShaderDropCommand {
+    id: JsId,
+}
+
+unsafe impl GpuTask<Connection> for FragmentShaderDropCommand {
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Any
+    }
+
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
+        let (gl, state) = unsafe { connection.unpack_mut() };
+        let value = unsafe { JsId::into_value(self.id) };
+
+        state.program_cache_mut().remove_fragment_shader_dependent(self.id);
         gl.delete_shader(Some(&value.unchecked_into()));
 
         Progress::Finished(())
