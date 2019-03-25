@@ -1,6 +1,7 @@
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::runtime::Connection;
+use crate::runtime::state::ContextUpdate;
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct PrimitiveAssembly {
@@ -61,13 +62,15 @@ impl Topology {
 /// back-face of this triangle.
 #[derive(Clone, Copy, PartialEq, Hash, Debug)]
 pub enum WindingOrder {
-    ClockWise,
+    Clockwise,
     CounterClockwise,
 }
 
 impl WindingOrder {
     pub(crate) fn apply(&self, connection: &mut Connection) {
         let (gl, state) = unsafe { connection.unpack_mut() };
+
+        state.set_front_face(*self).apply(gl).unwrap();
     }
 }
 
@@ -98,4 +101,12 @@ pub enum CullingMode {
     Front,
     Back,
     Both,
+}
+
+impl CullingMode {
+    pub(crate) fn apply(&self, connection: &mut Connection) {
+        let (gl, state) = unsafe { connection.unpack_mut() };
+
+        state.set_cull_face(*self).apply(gl).unwrap();
+    }
 }

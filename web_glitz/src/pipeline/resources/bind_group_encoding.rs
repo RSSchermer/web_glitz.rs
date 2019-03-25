@@ -17,6 +17,8 @@ use std::sync::Arc;
 use crate::runtime::Connection;
 use crate::runtime::state::BufferRange;
 
+use crate::runtime::state::ContextUpdate;
+
 pub struct BindGroupEncoding<'a, B>
 where
     B: Borrow<[BindingDescriptor]> + 'static,
@@ -25,7 +27,8 @@ where
     descriptors: B,
 }
 
-impl<'a, B> BindGroupEncoding<'a, B> {
+impl<'a, B> BindGroupEncoding<'a, B> where
+    B: Borrow<[BindingDescriptor]> + 'static,{
     pub(crate) fn into_descriptors(self) -> B {
         self.descriptors
     }
@@ -39,16 +42,16 @@ impl BindingDescriptor {
     pub(crate) fn bind(&self, connection: &mut Connection) {
         let (gl, state) = unsafe { connection.unpack_mut() };
 
-        match self.internal {
+        match &self.internal {
             BindingDescriptorInternal::BufferView { index, buffer_data, offset, size} => {
                 unsafe {
                     buffer_data.id().unwrap().with_value_unchecked(|buffer_object| {
-                        state.set_bound_uniform_buffer_range(BufferRange::OffsetSize(buffer_object, offset as u32, size as u32)).apply(gl).unwrap();
+                        state.set_bound_uniform_buffer_range(BufferRange::OffsetSize(buffer_object, *offset as u32, *size as u32)).apply(gl).unwrap();
                     });
                 }
             }
             BindingDescriptorInternal::SampledTexture { unit, sampler_data, texture_data} => {
-                state.set_active_texture(unit).apply(gl).unwrap();
+                state.set_active_texture(*unit).apply(gl).unwrap();
 
                 match texture_data {
                     TextureData::Texture2D(data) => {
@@ -83,7 +86,7 @@ impl BindingDescriptor {
 
                 unsafe {
                     sampler_data.id().unwrap().with_value_unchecked(|sampler_object| {
-                        state.set_bound_sampler(unit, Some(sampler_object)).apply(gl).unwrap();
+                        state.set_bound_sampler(*unit, Some(sampler_object)).apply(gl).unwrap();
                     });
                 }
             }
@@ -143,7 +146,7 @@ impl<'a, B> BindGroupEncoder<'a, B> {
                     offset: binding.buffer_view.offset_in_bytes(),
                     size: binding.size_in_bytes,
                 },
-            }),
+            }, self.bindings),
         }
     }
 
@@ -155,11 +158,11 @@ impl<'a, B> BindGroupEncoder<'a, B> {
             context: self.context,
             bindings: (BindingDescriptor {
                 internal: BindingDescriptorInternal::SampledTexture {
-                    unit: binding.index,
+                    unit: binding.texture_unit,
                     sampler_data: binding.resource.sampler_data.clone(),
                     texture_data: TextureData::Texture2D(binding.resource.texture_data.clone()),
                 },
-            }),
+            }, self.bindings),
         }
     }
 
@@ -171,13 +174,13 @@ impl<'a, B> BindGroupEncoder<'a, B> {
             context: self.context,
             bindings: (BindingDescriptor {
                 internal: BindingDescriptorInternal::SampledTexture {
-                    unit: binding.index,
+                    unit: binding.texture_unit,
                     sampler_data: binding.resource.sampler_data.clone(),
                     texture_data: TextureData::Texture2DArray(
                         binding.resource.texture_data.clone(),
                     ),
                 },
-            }),
+            }, self.bindings),
         }
     }
 
@@ -189,11 +192,11 @@ impl<'a, B> BindGroupEncoder<'a, B> {
             context: self.context,
             bindings: (BindingDescriptor {
                 internal: BindingDescriptorInternal::SampledTexture {
-                    unit: binding.index,
+                    unit: binding.texture_unit,
                     sampler_data: binding.resource.sampler_data.clone(),
                     texture_data: TextureData::Texture3D(binding.resource.texture_data.clone()),
                 },
-            }),
+            }, self.bindings),
         }
     }
 
@@ -205,11 +208,11 @@ impl<'a, B> BindGroupEncoder<'a, B> {
             context: self.context,
             bindings: (BindingDescriptor {
                 internal: BindingDescriptorInternal::SampledTexture {
-                    unit: binding.index,
+                    unit: binding.texture_unit,
                     sampler_data: binding.resource.sampler_data.clone(),
                     texture_data: TextureData::TextureCube(binding.resource.texture_data.clone()),
                 },
-            }),
+            }, self.bindings),
         }
     }
 
@@ -221,11 +224,11 @@ impl<'a, B> BindGroupEncoder<'a, B> {
             context: self.context,
             bindings: (BindingDescriptor {
                 internal: BindingDescriptorInternal::SampledTexture {
-                    unit: binding.index,
+                    unit: binding.texture_unit,
                     sampler_data: binding.resource.sampler_data.clone(),
                     texture_data: TextureData::Texture2D(binding.resource.texture_data.clone()),
                 },
-            }),
+            }, self.bindings),
         }
     }
 
@@ -237,13 +240,13 @@ impl<'a, B> BindGroupEncoder<'a, B> {
             context: self.context,
             bindings: (BindingDescriptor {
                 internal: BindingDescriptorInternal::SampledTexture {
-                    unit: binding.index,
+                    unit: binding.texture_unit,
                     sampler_data: binding.resource.sampler_data.clone(),
                     texture_data: TextureData::Texture2DArray(
                         binding.resource.texture_data.clone(),
                     ),
                 },
-            }),
+            }, self.bindings),
         }
     }
 
@@ -255,11 +258,11 @@ impl<'a, B> BindGroupEncoder<'a, B> {
             context: self.context,
             bindings: (BindingDescriptor {
                 internal: BindingDescriptorInternal::SampledTexture {
-                    unit: binding.index,
+                    unit: binding.texture_unit,
                     sampler_data: binding.resource.sampler_data.clone(),
                     texture_data: TextureData::Texture3D(binding.resource.texture_data.clone()),
                 },
-            }),
+            }, self.bindings),
         }
     }
 
@@ -271,11 +274,11 @@ impl<'a, B> BindGroupEncoder<'a, B> {
             context: self.context,
             bindings: (BindingDescriptor {
                 internal: BindingDescriptorInternal::SampledTexture {
-                    unit: binding.index,
+                    unit: binding.texture_unit,
                     sampler_data: binding.resource.sampler_data.clone(),
                     texture_data: TextureData::TextureCube(binding.resource.texture_data.clone()),
                 },
-            }),
+            }, self.bindings),
         }
     }
 
@@ -287,11 +290,11 @@ impl<'a, B> BindGroupEncoder<'a, B> {
             context: self.context,
             bindings: (BindingDescriptor {
                 internal: BindingDescriptorInternal::SampledTexture {
-                    unit: binding.index,
+                    unit: binding.texture_unit,
                     sampler_data: binding.resource.sampler_data.clone(),
                     texture_data: TextureData::Texture2D(binding.resource.texture_data.clone()),
                 },
-            }),
+            }, self.bindings),
         }
     }
 
@@ -303,13 +306,13 @@ impl<'a, B> BindGroupEncoder<'a, B> {
             context: self.context,
             bindings: (BindingDescriptor {
                 internal: BindingDescriptorInternal::SampledTexture {
-                    unit: binding.index,
+                    unit: binding.texture_unit,
                     sampler_data: binding.resource.sampler_data.clone(),
                     texture_data: TextureData::Texture2DArray(
                         binding.resource.texture_data.clone(),
                     ),
                 },
-            }),
+            }, self.bindings),
         }
     }
 
@@ -321,11 +324,11 @@ impl<'a, B> BindGroupEncoder<'a, B> {
             context: self.context,
             bindings: (BindingDescriptor {
                 internal: BindingDescriptorInternal::SampledTexture {
-                    unit: binding.index,
+                    unit: binding.texture_unit,
                     sampler_data: binding.resource.sampler_data.clone(),
                     texture_data: TextureData::Texture3D(binding.resource.texture_data.clone()),
                 },
-            }),
+            }, self.bindings),
         }
     }
 
@@ -337,11 +340,11 @@ impl<'a, B> BindGroupEncoder<'a, B> {
             context: self.context,
             bindings: (BindingDescriptor {
                 internal: BindingDescriptorInternal::SampledTexture {
-                    unit: binding.index,
+                    unit: binding.texture_unit,
                     sampler_data: binding.resource.sampler_data.clone(),
                     texture_data: TextureData::TextureCube(binding.resource.texture_data.clone()),
                 },
-            }),
+            }, self.bindings),
         }
     }
 
@@ -353,11 +356,11 @@ impl<'a, B> BindGroupEncoder<'a, B> {
             context: self.context,
             bindings: (BindingDescriptor {
                 internal: BindingDescriptorInternal::SampledTexture {
-                    unit: binding.index,
+                    unit: binding.texture_unit,
                     sampler_data: binding.resource.sampler_data.clone(),
                     texture_data: TextureData::Texture2D(binding.resource.texture_data.clone()),
                 },
-            }),
+            }, self.bindings),
         }
     }
 
@@ -369,13 +372,13 @@ impl<'a, B> BindGroupEncoder<'a, B> {
             context: self.context,
             bindings: (BindingDescriptor {
                 internal: BindingDescriptorInternal::SampledTexture {
-                    unit: binding.index,
+                    unit: binding.texture_unit,
                     sampler_data: binding.resource.sampler_data.clone(),
                     texture_data: TextureData::Texture2DArray(
                         binding.resource.texture_data.clone(),
                     ),
                 },
-            }),
+            }, self.bindings),
         }
     }
 
@@ -387,11 +390,11 @@ impl<'a, B> BindGroupEncoder<'a, B> {
             context: self.context,
             bindings: (BindingDescriptor {
                 internal: BindingDescriptorInternal::SampledTexture {
-                    unit: binding.index,
+                    unit: binding.texture_unit,
                     sampler_data: binding.resource.sampler_data.clone(),
                     texture_data: TextureData::TextureCube(binding.resource.texture_data.clone()),
                 },
-            }),
+            }, self.bindings),
         }
     }
 }
@@ -420,189 +423,189 @@ macro_rules! nest_pairs_reverse {
 }
 
 macro_rules! generate_encoder_finish {
-    ($n:tt, $($C:ident),*) => {
+    ($n:tt, $($C:ident|$I:ident),*) => {
         impl<'a> BindGroupEncoder<'a, nest_pairs_reverse!([(), $($C),*])> {
             pub fn finish(self) -> BindGroupEncoding<'a, [BindingDescriptor;$n]> {
-                let nest_pairs_reverse!([_, $($C),*]) = self.bindings;
+                let nest_pairs_reverse!([_, $($I),*]) = self.bindings;
 
                 BindGroupEncoding {
                     context: self.context,
-                    descriptors: [$($C),*]
+                    descriptors: [$($I),*]
                 }
             }
         }
     }
 }
 
-generate_encoder_finish!(1, BindingDescriptor);
-generate_encoder_finish!(2, BindingDescriptor, BindingDescriptor);
-generate_encoder_finish!(3, BindingDescriptor, BindingDescriptor, BindingDescriptor);
+generate_encoder_finish!(1, BindingDescriptor|b0);
+generate_encoder_finish!(2, BindingDescriptor|b0, BindingDescriptor|b1);
+generate_encoder_finish!(3, BindingDescriptor|b0, BindingDescriptor|b1, BindingDescriptor|b2);
 generate_encoder_finish!(
     4,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor
+    BindingDescriptor|b0,
+    BindingDescriptor|b1,
+    BindingDescriptor|b2,
+    BindingDescriptor|b3
 );
 generate_encoder_finish!(
     5,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
+    BindingDescriptor|b0,
+    BindingDescriptor|b1,
+    BindingDescriptor|b2,
+    BindingDescriptor|b3,
+    BindingDescriptor|b4
 );
 generate_encoder_finish!(
     6,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
+    BindingDescriptor|b0,
+    BindingDescriptor|b1,
+    BindingDescriptor|b2,
+    BindingDescriptor|b3,
+    BindingDescriptor|b4,
+    BindingDescriptor|b5
 );
 generate_encoder_finish!(
     7,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
+    BindingDescriptor|b0,
+    BindingDescriptor|b1,
+    BindingDescriptor|b2,
+    BindingDescriptor|b3,
+    BindingDescriptor|b4,
+    BindingDescriptor|b5,
+    BindingDescriptor|b6
 );
 generate_encoder_finish!(
     8,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
+    BindingDescriptor|b0,
+    BindingDescriptor|b1,
+    BindingDescriptor|b2,
+    BindingDescriptor|b3,
+    BindingDescriptor|b4,
+    BindingDescriptor|b5,
+    BindingDescriptor|b6,
+    BindingDescriptor|b7
 );
 generate_encoder_finish!(
     9,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
+    BindingDescriptor|b0,
+    BindingDescriptor|b1,
+    BindingDescriptor|b2,
+    BindingDescriptor|b3,
+    BindingDescriptor|b4,
+    BindingDescriptor|b5,
+    BindingDescriptor|b6,
+    BindingDescriptor|b7,
+    BindingDescriptor|b8
 );
 generate_encoder_finish!(
     10,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
+    BindingDescriptor|b0,
+    BindingDescriptor|b1,
+    BindingDescriptor|b2,
+    BindingDescriptor|b3,
+    BindingDescriptor|b4,
+    BindingDescriptor|b5,
+    BindingDescriptor|b6,
+    BindingDescriptor|b7,
+    BindingDescriptor|b8,
+    BindingDescriptor|b9
 );
 generate_encoder_finish!(
     11,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
+    BindingDescriptor|b0,
+    BindingDescriptor|b1,
+    BindingDescriptor|b2,
+    BindingDescriptor|b3,
+    BindingDescriptor|b4,
+    BindingDescriptor|b5,
+    BindingDescriptor|b6,
+    BindingDescriptor|b7,
+    BindingDescriptor|b8,
+    BindingDescriptor|b9,
+    BindingDescriptor|b10
 );
 generate_encoder_finish!(
     12,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
+    BindingDescriptor|b0,
+    BindingDescriptor|b1,
+    BindingDescriptor|b2,
+    BindingDescriptor|b3,
+    BindingDescriptor|b4,
+    BindingDescriptor|b5,
+    BindingDescriptor|b6,
+    BindingDescriptor|b7,
+    BindingDescriptor|b8,
+    BindingDescriptor|b9,
+    BindingDescriptor|b10,
+    BindingDescriptor|b11
 );
 generate_encoder_finish!(
     13,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
+    BindingDescriptor|b0,
+    BindingDescriptor|b1,
+    BindingDescriptor|b2,
+    BindingDescriptor|b3,
+    BindingDescriptor|b4,
+    BindingDescriptor|b5,
+    BindingDescriptor|b6,
+    BindingDescriptor|b7,
+    BindingDescriptor|b8,
+    BindingDescriptor|b9,
+    BindingDescriptor|b10,
+    BindingDescriptor|b11,
+    BindingDescriptor|b12
 );
 generate_encoder_finish!(
     14,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
+    BindingDescriptor|b0,
+    BindingDescriptor|b1,
+    BindingDescriptor|b2,
+    BindingDescriptor|b3,
+    BindingDescriptor|b4,
+    BindingDescriptor|b5,
+    BindingDescriptor|b6,
+    BindingDescriptor|b7,
+    BindingDescriptor|b8,
+    BindingDescriptor|b9,
+    BindingDescriptor|b10,
+    BindingDescriptor|b11,
+    BindingDescriptor|b12,
+    BindingDescriptor|b13
 );
 generate_encoder_finish!(
     15,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
+    BindingDescriptor|b0,
+    BindingDescriptor|b1,
+    BindingDescriptor|b2,
+    BindingDescriptor|b3,
+    BindingDescriptor|b4,
+    BindingDescriptor|b5,
+    BindingDescriptor|b6,
+    BindingDescriptor|b7,
+    BindingDescriptor|b8,
+    BindingDescriptor|b9,
+    BindingDescriptor|b10,
+    BindingDescriptor|b11,
+    BindingDescriptor|b12,
+    BindingDescriptor|b13,
+    BindingDescriptor|b14
 );
 generate_encoder_finish!(
     16,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
-    BindingDescriptor,
+    BindingDescriptor|b0,
+    BindingDescriptor|b1,
+    BindingDescriptor|b2,
+    BindingDescriptor|b3,
+    BindingDescriptor|b4,
+    BindingDescriptor|b5,
+    BindingDescriptor|b6,
+    BindingDescriptor|b7,
+    BindingDescriptor|b8,
+    BindingDescriptor|b9,
+    BindingDescriptor|b10,
+    BindingDescriptor|b11,
+    BindingDescriptor|b12,
+    BindingDescriptor|b13,
+    BindingDescriptor|b14,
+    BindingDescriptor|b15
 );

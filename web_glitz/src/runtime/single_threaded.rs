@@ -24,6 +24,10 @@ use crate::runtime::state::DynamicState;
 use crate::runtime::{Connection, ContextOptions, Execution, PowerPreference, RenderingContext};
 use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
 use crate::task::{GpuTask, Progress};
+use crate::pipeline::graphics::{GraphicsPipelineDescriptor, GraphicsPipeline};
+use crate::runtime::rendering_context::{CreateGraphicsPipelineError, TransformFeedbackVaryings, Extensions};
+use crate::pipeline::graphics::vertex_input::InputAttributeLayout;
+use crate::pipeline::resources::Resources;
 
 thread_local!(static ID_GEN: IdGen = IdGen::new());
 
@@ -49,11 +53,16 @@ impl IdGen {
 pub struct SingleThreadedContext {
     executor: Rc<RefCell<SingleThreadedExecutor>>,
     id: usize,
+    extensions: Extensions
 }
 
 impl RenderingContext for SingleThreadedContext {
     fn id(&self) -> usize {
         self.id
+    }
+
+    fn extensions(&self) -> &Extensions {
+        &self.extensions
     }
 
     fn create_buffer<D, T>(&self, data: D, usage_hint: BufferUsage) -> Buffer<T>
@@ -70,6 +79,19 @@ impl RenderingContext for SingleThreadedContext {
         Renderbuffer::new(self, width, height)
     }
 
+    fn create_graphics_pipeline<Il, R, Tf>(
+        &self,
+        descriptor: &GraphicsPipelineDescriptor<Il, R, Tf>,
+    ) -> Result<GraphicsPipeline<Il, R, Tf>, CreateGraphicsPipelineError>
+        where
+            Il: InputAttributeLayout,
+            R: Resources + 'static,
+            Tf: TransformFeedbackVaryings {
+        let mut executor = self.executor.borrow_mut();
+        let mut connection = executor.connection.borrow_mut();
+
+        GraphicsPipeline::create(self, &mut connection, descriptor)
+    }
     fn create_texture_2d<F>(
         &self,
         descriptor: &Texture2DDescriptor<F>,
@@ -134,6 +156,7 @@ impl SingleThreadedContext {
             executor: RefCell::new(SingleThreadedExecutor::new(Connection::new(id, gl, state)))
                 .into(),
             id,
+            extensions: Extensions::default()
         }
     }
 }

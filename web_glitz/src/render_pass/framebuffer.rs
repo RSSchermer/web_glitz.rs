@@ -25,7 +25,7 @@ use crate::render_pass::{
 use crate::runtime::state::ContextUpdate;
 use crate::task::{GpuTask, Progress, ContextId};
 use crate::util::{slice_make_mut, JsId};
-use crate::pipeline::graphics::{GraphicsPipeline, ActiveGraphicsPipeline, Topology, DepthTest, StencilTest, Blending, LineWidth, Viewport};
+use crate::pipeline::graphics::{GraphicsPipeline, Topology, DepthTest, StencilTest, Blending, LineWidth, Viewport, PrimitiveAssembly};
 use crate::pipeline::graphics::vertex_input::{InputAttributeLayout, VertexInputStreamDescriptor, VertexInputStreamDescription};
 use crate::pipeline::resources::bind_group_encoding::{BindingDescriptor, BindGroupEncodingContext};
 use std::borrow::Borrow;
@@ -43,13 +43,10 @@ pub struct Framebuffer<C, Ds> {
     pub(crate) dimensions: Option<(u32, u32)>,
     pub(crate) context_id: usize,
     pub(crate) render_pass_id: usize,
-    last_id: usize
+    pub(crate) last_id: usize
 }
 
-impl<C, Ds> Framebuffer<C, Ds>
-where
-    C: BlitColorTarget,
-{
+impl<C, Ds> Framebuffer<C, Ds> {
     pub fn pipeline_task<Vl, R, Tf, F, T>(&mut self, pipeline: &GraphicsPipeline<Vl, R, Tf>, f: F) -> PipelineTask<T>
         where F: Fn(&ActiveGraphicsPipeline<Vl, R>) -> T, for<'a> T: GpuTask<PipelineTaskContext<'a>>
     {
@@ -65,7 +62,7 @@ where
 
         let task = f(&ActiveGraphicsPipeline {
             context_id: self.context_id,
-            topology: pipeline.topology(),
+            topology: pipeline.primitive_assembly().topology,
             pipeline_task_id,
             _input_attribute_layout_marker: marker::PhantomData,
             _resources_marker: marker::PhantomData
@@ -79,16 +76,22 @@ where
             render_pass_id: self.render_pass_id,
             task,
             program_id: pipeline.program_id(),
+            primitive_assembly: pipeline.primitive_assembly().clone(),
             depth_test: pipeline.depth_test().clone(),
             stencil_test: pipeline.stencil_test().clone(),
-            scissor_test: pipeline.scissor_test().clone(),
+            scissor_region: pipeline.scissor_region().clone(),
             blending: pipeline.blending().clone(),
             line_width: pipeline.line_width().clone(),
             viewport: pipeline.viewport().clone(),
             framebuffer_dimensions: self.dimensions
         }
     }
+}
 
+impl<C, Ds> Framebuffer<C, Ds>
+where
+    C: BlitColorTarget,
+{
     pub fn blit_color_command<S>(
         &self,
         region: Region2D,
@@ -289,17 +292,18 @@ pub struct PipelineTask<T> {
     render_pass_id: usize,
     task: T,
     program_id: JsId,
+    primitive_assembly: PrimitiveAssembly,
     depth_test: Option<DepthTest>,
     stencil_test: Option<StencilTest>,
-    scissor_test: Option<Region2D>,
+    scissor_region: Region2D,
     blending: Option<Blending>,
     line_width: LineWidth,
     viewport: Viewport,
     framebuffer_dimensions: Option<(u32, u32)>
 }
 
-unsafe impl<'a, T> GpuTask<RenderPassContext<'a>> for PipelineTask<T> where for <'b> T: GpuTask<PipelineTaskContext<'b>> {
-    type Output = T::Output;
+unsafe impl<'a, T, O> GpuTask<RenderPassContext<'a>> for PipelineTask<T> where for <'b> T: GpuTask<PipelineTaskContext<'b>, Output=O> {
+    type Output = O;
 
     fn context_id(&self) -> ContextId {
         ContextId::Id(self.render_pass_id)
@@ -315,15 +319,30 @@ unsafe impl<'a, T> GpuTask<RenderPassContext<'a>> for PipelineTask<T> where for 
         };
 
         let framebuffer_dimensions = self.framebuffer_dimensions.unwrap_or_else(|| {
-            (gl.drawing_buffer_width(), gl.drawing_buffer_height())
+            (gl.drawing_buffer_width() as u32, gl.drawing_buffer_height() as u32)
         });
+
+        match self.scissor_region {
+            Region2D::Area((x, y), width, height) => {
+                let (gl, state) = unsafe { context.unpack_mut() };
+
+                state.set_scissor_test_enabled(true).apply(gl).unwrap();
+                state.set_scissor_rect((x as i32, y as i32, width, height)).apply(gl).unwrap();
+            },
+            Region2D::Fill => {
+                state.set_scissor_test_enabled(false).apply(gl).unwrap();
+            }
+        }
 
         let connection = context.connection_mut();
 
-        self.depth_test.apply(connection);
-        self.stencil_test.apply(connection);
-        self.scissor_test.apply(connection);
-        self.blending.apply(connection);
+        self.primitive_assembly.face_culling.apply(connection);
+        self.primitive_assembly.winding_order.apply(connection);
+
+        DepthTest::apply(&self.depth_test, connection);
+        StencilTest::apply(&self.stencil_test, connection);
+        Blending::apply(&self.blending, connection);
+
         self.line_width.apply(connection);
         self.viewport.apply(connection, framebuffer_dimensions);
 
@@ -386,7 +405,7 @@ unsafe impl<'a, B> GpuTask<PipelineTaskContext<'a>> for DrawCommand<B>
         ContextId::Id(self.pipeline_task_id)
     }
 
-    fn progress(&self, context: &mut PipelineTaskContext<'a>) -> Progress<Self::Output> {
+    fn progress(&mut self, context: &mut PipelineTaskContext<'a>) -> Progress<Self::Output> {
         let (gl, state) = unsafe { context.connection.unpack_mut() };
 
         unsafe {
@@ -410,7 +429,7 @@ unsafe impl<'a, B> GpuTask<PipelineTaskContext<'a>> for DrawCommand<B>
                 ..
             } = self.vertex_input_stream_descriptor;
 
-            let offset = offset * format.size_in_bytes();
+            let offset = offset as u32 * format.size_in_bytes();
 
             if instance_count == 1 {
                 gl.draw_elements_with_i32(self.topology.id(), count as i32, format.id(), offset as i32);
@@ -474,8 +493,8 @@ macro_rules! impl_blit_color_target {
     ($C0:ident, $($C:ident),*) => {
         impl<$C0, $($C),*> BlitColorTarget for ($C0, $($C),*)
         where
-            $C0: Buffer,
-            $($C: Buffer),*
+            $C0: RenderBuffer,
+            $($C: RenderBuffer),*
         {
             fn descriptor(&self) -> BlitTargetDescriptor {
                 #[allow(non_snake_case)]

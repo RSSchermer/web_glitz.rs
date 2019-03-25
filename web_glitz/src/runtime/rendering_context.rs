@@ -17,13 +17,17 @@ use crate::pipeline::graphics::vertex_input::{
     Incompatible as IncompatibleInputAttributeLayout, InputAttributeLayout,
 };
 use crate::pipeline::resources::{Incompatible as IncompatibleResourceLayout, Resources};
-use crate::runtime::state::DynamicState;
+use crate::runtime::state::{DynamicState, CreateProgramError};
 use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
 use crate::task::GpuTask;
-use crate::pipeline::graphics::{GraphicsPipelineDescriptor, GraphicsPipeline};
+use crate::pipeline::graphics::{GraphicsPipelineDescriptor, GraphicsPipeline, ShaderLinkingError, vertex_input};
+use crate::pipeline::resources::resource_slot::Identifier;
+use crate::pipeline::resources;
 
 pub trait RenderingContext {
     fn id(&self) -> usize;
+
+    fn extensions(&self) -> &Extensions;
 
     fn create_buffer<D, T>(&self, data: D, usage_hint: BufferUsage) -> Buffer<T>
     where
@@ -39,7 +43,7 @@ pub trait RenderingContext {
     ) -> Result<GraphicsPipeline<Il, R, Tf>, CreateGraphicsPipelineError>
     where
         Il: InputAttributeLayout,
-        R: Resources,
+        R: Resources + 'static,
         Tf: TransformFeedbackVaryings;
 
     fn create_texture_2d<F>(
@@ -79,16 +83,78 @@ pub trait RenderingContext {
         T: GpuTask<Connection> + 'static;
 }
 
-pub enum CreateGraphicsPipelineError {
-    LinkingError(String),
-    IncompatibleInputAttributeLayout(IncompatibleInputAttributeLayout),
-    IncompatibleResourceLayout(IncompatibleResourceLayout),
-    IncompatibleTransformFeedbackVaryings(IncompatibleTransformFeedbackVaryings),
+#[derive(Clone)]
+pub struct Extensions {
+    texture_float_linear: ExtensionState,
 }
 
-impl From<Canceled> for SubmitError {
-    fn from(_: Canceled) -> Self {
-        SubmitError::Cancelled
+impl Extensions {
+    pub fn texture_float_linear(&self) -> ExtensionState {
+        self.texture_float_linear
+    }
+}
+
+impl Default for Extensions {
+    fn default() -> Self {
+        Extensions {
+            texture_float_linear: ExtensionState::Disabled
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum ExtensionState {
+    Enabled,
+    Disabled
+}
+
+impl ExtensionState {
+    pub fn is_enabled(&self) -> bool {
+        *self == ExtensionState::Enabled
+    }
+
+    pub fn is_disabled(&self) -> bool {
+        *self == ExtensionState::Disabled
+    }
+}
+
+pub unsafe trait TransformFeedbackVaryings {}
+
+pub enum IncompatibleTransformFeedbackVaryings {}
+
+pub enum CreateGraphicsPipelineError {
+    ShaderLinkingError(ShaderLinkingError),
+    UnsupportedUniformType(Identifier, &'static str),
+    IncompatibleInputAttributeLayout(vertex_input::Incompatible),
+    IncompatibleResources(resources::Incompatible),
+}
+
+impl From<CreateProgramError> for CreateGraphicsPipelineError {
+    fn from(err: CreateProgramError) -> Self {
+        match err {
+            CreateProgramError::ShaderLinkingError(error) => CreateGraphicsPipelineError::ShaderLinkingError(ShaderLinkingError {
+                error
+            }),
+            CreateProgramError::UnsupportedUniformType(identifier, error) => CreateGraphicsPipelineError::UnsupportedUniformType(identifier, error)
+        }
+    }
+}
+
+impl From<ShaderLinkingError> for CreateGraphicsPipelineError {
+    fn from(error: ShaderLinkingError) -> Self {
+        CreateGraphicsPipelineError::ShaderLinkingError(error)
+    }
+}
+
+impl From<vertex_input::Incompatible> for CreateGraphicsPipelineError {
+    fn from(error: vertex_input::Incompatible) -> Self {
+        CreateGraphicsPipelineError::IncompatibleInputAttributeLayout(error)
+    }
+}
+
+impl From<resources::Incompatible> for CreateGraphicsPipelineError {
+    fn from(error: resources::Incompatible) -> Self {
+        CreateGraphicsPipelineError::IncompatibleResources(error)
     }
 }
 
@@ -102,7 +168,7 @@ impl<O> Future for Execution<O> {
 
     type Error = ();
 
-    fn poll(&mut self) -> Poll<O, SubmitError> {
+    fn poll(&mut self) -> Poll<O, ()> {
         match self {
             Execution::Ready(ref mut output) => {
                 let output = output
@@ -114,7 +180,7 @@ impl<O> Future for Execution<O> {
             Execution::Pending(ref mut recv) => match recv.poll() {
                 Ok(Async::Ready(output)) => Ok(Async::Ready(output)),
                 Ok(Async::NotReady) => Ok(Async::NotReady),
-                Err(Canceled) => Err(SubmitError::Cancelled),
+                Err(Canceled) => unreachable!(),
             },
         }
     }

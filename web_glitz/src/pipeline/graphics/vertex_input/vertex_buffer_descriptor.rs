@@ -4,20 +4,22 @@ use crate::pipeline::graphics::vertex_input::Vertex;
 use std::mem;
 use std::sync::Arc;
 
+use web_sys::WebGl2RenderingContext as Gl;
+
 pub unsafe trait VertexBufferDescription {
-    type Vertex;
+    type Vertex: Vertex;
 
-    fn buffer_view(&self) -> BufferView<[Self::Vertex]>;
-
-    fn stride_in_bytes(&self) -> u8;
-
-    fn size_in_bytes(&self) -> usize;
-
-    fn input_rate(&self) -> InputRate;
-
-    fn input_attribute_descriptors(&self) -> &[VertexInputAttributeDescriptor];
+    fn descriptor(&self) -> VertexBufferDescriptor;
 }
 
+pub struct VertexBufferDescriptor {
+    pub(crate) buffer_data: Arc<BufferData>,
+    pub(crate) offset_in_bytes: u32,
+    pub(crate) size_in_bytes: u32,
+    pub(crate) input_rate: InputRate,
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum InputRate {
     PerVertex,
     PerInstance,
@@ -29,51 +31,45 @@ where
 {
     type Vertex = T;
 
-    fn buffer_view(&self) -> BufferView<[T]> {
-        self.view()
-    }
-
-    fn stride_in_bytes(&self) -> u8 {
-        mem::size_of::<T>() as u8
-    }
-
-    fn size_in_bytes(&self) -> usize {
-        mem::size_of::<T>() * self.len()
-    }
-
-    fn input_rate(&self) -> InputRate {
-        InputRate::PerVertex
-    }
-
-    fn input_attribute_descriptors(&self) -> &[VertexInputAttributeDescriptor] {
-        T::input_attribute_descriptors()
+    fn descriptor(&self) -> VertexBufferDescriptor {
+        VertexBufferDescriptor {
+            buffer_data: self.data().clone(),
+            offset_in_bytes: 0,
+            size_in_bytes: (mem::size_of::<T>() * self.len()) as u32,
+            input_rate: InputRate::PerVertex
+        }
     }
 }
 
-unsafe impl<T> VertexBufferDescription for BufferView<[T]>
+unsafe impl<'a, T> VertexBufferDescription for &'a Buffer<[T]>
+    where
+        T: Vertex,
+{
+    type Vertex = T;
+
+    fn descriptor(&self) -> VertexBufferDescriptor {
+        VertexBufferDescriptor {
+            buffer_data: self.data().clone(),
+            offset_in_bytes: 0,
+            size_in_bytes: (mem::size_of::<T>() * self.len()) as u32,
+            input_rate: InputRate::PerVertex
+        }
+    }
+}
+
+unsafe impl<'a, T> VertexBufferDescription for BufferView<'a, [T]>
 where
     T: Vertex,
 {
     type Vertex = T;
 
-    fn buffer_view(&self) -> BufferView<[T]> {
-        self.clone()
-    }
-
-    fn stride_in_bytes(&self) -> u8 {
-        mem::size_of::<T>() as u8
-    }
-
-    fn size_in_bytes(&self) -> usize {
-        mem::size_of::<T>() * self.len()
-    }
-
-    fn input_rate(&self) -> InputRate {
-        InputRate::PerVertex
-    }
-
-    fn input_attribute_descriptors(&self) -> &[VertexInputAttributeDescriptor] {
-        T::input_attribute_descriptors()
+    fn descriptor(&self) -> VertexBufferDescriptor {
+        VertexBufferDescriptor {
+            buffer_data: self.buffer_data().clone(),
+            offset_in_bytes: self.offset_in_bytes as u32,
+            size_in_bytes: (mem::size_of::<T>() * self.len()) as u32,
+            input_rate: InputRate::PerVertex
+        }
     }
 }
 
@@ -85,55 +81,49 @@ where
 {
     type Vertex = T;
 
-    fn buffer_view(&self) -> BufferView<[T]> {
-        self.0.view()
-    }
-
-    fn stride_in_bytes(&self) -> u8 {
-        mem::size_of::<T>() as u8
-    }
-
-    fn size_in_bytes(&self) -> usize {
-        mem::size_of::<T>() * self.0.len()
-    }
-
-    fn input_rate(&self) -> InputRate {
-        InputRate::PerInstance
-    }
-
-    fn input_attribute_descriptors(&self) -> &[VertexInputAttributeDescriptor] {
-        T::input_attribute_descriptors()
+    fn descriptor(&self) -> VertexBufferDescriptor {
+        VertexBufferDescriptor {
+            buffer_data: self.0.data().clone(),
+            offset_in_bytes: 0,
+            size_in_bytes: (mem::size_of::<T>() * self.0.len()) as u32,
+            input_rate: InputRate::PerInstance
+        }
     }
 }
 
-unsafe impl<T> VertexBufferDescription for PerInstance<BufferView<[T]>>
+unsafe impl<'a, T> VertexBufferDescription for PerInstance<&'a Buffer<[T]>>
+    where
+        T: Vertex,
+{
+    type Vertex = T;
+
+    fn descriptor(&self) -> VertexBufferDescriptor {
+        VertexBufferDescriptor {
+            buffer_data: self.0.data().clone(),
+            offset_in_bytes: 0,
+            size_in_bytes: (mem::size_of::<T>() * self.0.len()) as u32,
+            input_rate: InputRate::PerInstance
+        }
+    }
+}
+
+unsafe impl<'a, T> VertexBufferDescription for PerInstance<BufferView<'a, [T]>>
 where
     T: Vertex,
 {
     type Vertex = T;
 
-    fn buffer_view(&self) -> BufferView<[T]> {
-        self.0.clone()
-    }
-
-    fn stride_in_bytes(&self) -> u8 {
-        mem::size_of::<T>() as u8
-    }
-
-    fn size_in_bytes(&self) -> usize {
-        mem::size_of::<T>() * self.0.len()
-    }
-
-    fn input_rate(&self) -> InputRate {
-        InputRate::PerInstance
-    }
-
-    fn input_attribute_descriptors(&self) -> &[VertexInputAttributeDescriptor] {
-        T::input_attribute_descriptors()
+    fn descriptor(&self) -> VertexBufferDescriptor {
+        VertexBufferDescriptor {
+            buffer_data: self.0.buffer_data().clone(),
+            offset_in_bytes: self.0.offset_in_bytes as u32,
+            size_in_bytes: (mem::size_of::<T>() * self.0.len()) as u32,
+            input_rate: InputRate::PerInstance
+        }
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 #[allow(non_camel_case_types)]
 pub enum FormatKind {
     Float_f32,
@@ -427,7 +417,7 @@ impl FormatKind {
     }
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct VertexInputAttributeDescriptor {
     pub location: u32,
     pub offset: u8,
@@ -450,7 +440,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32 as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -466,7 +456,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -482,7 +472,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -494,7 +484,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -510,7 +500,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -526,7 +516,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -542,7 +532,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -558,7 +548,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -574,7 +564,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -590,7 +580,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -606,7 +596,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -622,7 +612,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -638,7 +628,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -654,7 +644,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -670,7 +660,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -686,7 +676,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -702,7 +692,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -718,7 +708,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -734,7 +724,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -750,7 +740,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -766,7 +756,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -782,7 +772,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -798,7 +788,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -814,7 +804,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -830,7 +820,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -846,7 +836,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -862,7 +852,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -878,7 +868,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -894,7 +884,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -910,7 +900,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -926,7 +916,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -942,7 +932,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -958,7 +948,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -974,7 +964,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -990,7 +980,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1006,7 +996,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1022,7 +1012,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1031,7 +1021,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 4 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 4 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1049,7 +1039,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1058,7 +1048,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1076,7 +1066,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1085,7 +1075,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1103,7 +1093,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1112,7 +1102,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1130,7 +1120,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1139,7 +1129,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1157,7 +1147,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1166,7 +1156,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1184,7 +1174,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1193,7 +1183,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1211,7 +1201,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1220,7 +1210,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1238,7 +1228,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1247,7 +1237,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1265,7 +1255,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1274,7 +1264,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 4 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 4 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1292,7 +1282,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1301,7 +1291,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1319,7 +1309,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1328,7 +1318,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1346,7 +1336,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1355,7 +1345,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1373,7 +1363,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1382,7 +1372,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1400,7 +1390,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1409,7 +1399,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1427,7 +1417,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1436,7 +1426,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1454,7 +1444,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1463,7 +1453,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1481,7 +1471,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1490,7 +1480,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1508,7 +1498,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1517,7 +1507,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 4 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 4 * 4,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1535,7 +1525,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1544,7 +1534,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1562,7 +1552,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1571,7 +1561,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1589,7 +1579,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1598,7 +1588,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1616,7 +1606,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1625,7 +1615,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1643,7 +1633,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1652,7 +1642,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1670,7 +1660,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1679,7 +1669,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1697,7 +1687,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1706,7 +1696,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1724,7 +1714,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1733,7 +1723,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1751,7 +1741,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1760,7 +1750,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 4 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 4 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1769,7 +1759,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 4 * 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 4 * 2 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1789,7 +1779,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1798,7 +1788,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1807,7 +1797,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1827,7 +1817,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1836,7 +1826,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1845,7 +1835,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1865,7 +1855,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1874,7 +1864,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1883,7 +1873,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1903,7 +1893,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1912,7 +1902,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1921,7 +1911,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1941,7 +1931,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1950,7 +1940,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1959,7 +1949,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -1979,7 +1969,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1988,7 +1978,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -1997,7 +1987,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2017,7 +2007,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2026,7 +2016,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2035,7 +2025,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2055,7 +2045,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2064,7 +2054,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2073,7 +2063,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2093,7 +2083,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2102,7 +2092,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 4 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 4 * 3,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2111,7 +2101,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 4 * 3 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 4 * 3 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2131,7 +2121,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2140,7 +2130,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2149,7 +2139,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2169,7 +2159,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2178,7 +2168,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2187,7 +2177,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2207,7 +2197,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2216,7 +2206,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2225,7 +2215,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2239,13 +2229,13 @@ impl VertexInputAttributeDescriptor {
                 }
             }
             FormatKind::Float3x3_i16_norm => {
-                l.vertex_attrib_pointer_with_i32(
+                gl.vertex_attrib_pointer_with_i32(
                     self.location,
                     3,
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2254,7 +2244,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2263,7 +2253,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2283,7 +2273,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2292,7 +2282,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2301,7 +2291,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2321,7 +2311,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2330,7 +2320,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2339,7 +2329,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2359,7 +2349,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2368,7 +2358,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2377,7 +2367,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2397,7 +2387,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2406,7 +2396,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2415,7 +2405,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2435,7 +2425,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2444,7 +2434,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 4 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 4 * 4,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2453,7 +2443,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 4 * 4 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 4 * 4 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2473,7 +2463,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2482,7 +2472,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2491,7 +2481,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2511,7 +2501,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2520,7 +2510,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2529,7 +2519,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2549,7 +2539,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2558,7 +2548,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2567,7 +2557,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2587,7 +2577,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2596,7 +2586,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2605,7 +2595,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2625,7 +2615,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2634,7 +2624,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2643,7 +2633,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2663,7 +2653,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2672,7 +2662,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2681,7 +2671,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2701,7 +2691,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2710,7 +2700,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2719,7 +2709,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2739,7 +2729,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2748,7 +2738,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2757,7 +2747,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4 * 2,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2777,7 +2767,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2786,7 +2776,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 4 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 4 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2795,7 +2785,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 4 * 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 4 * 2 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2804,7 +2794,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 4 * 2 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 4 * 2 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2826,7 +2816,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2835,7 +2825,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2844,7 +2834,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2853,7 +2843,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2875,7 +2865,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2884,7 +2874,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2893,7 +2883,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2902,7 +2892,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2924,7 +2914,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2933,7 +2923,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2942,7 +2932,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2951,7 +2941,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -2973,7 +2963,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2982,7 +2972,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -2991,7 +2981,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3000,7 +2990,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -3022,7 +3012,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3031,7 +3021,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3040,7 +3030,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3049,7 +3039,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -3071,7 +3061,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3080,7 +3070,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3089,7 +3079,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3098,7 +3088,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 2 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 2 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -3120,7 +3110,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3129,7 +3119,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3138,7 +3128,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3147,7 +3137,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -3169,7 +3159,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3178,7 +3168,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3187,7 +3177,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3196,7 +3186,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 2 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 2 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -3218,7 +3208,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3227,7 +3217,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 4 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 4 * 3,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3236,7 +3226,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 4 * 3 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 4 * 3 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3245,7 +3235,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 4 * 3 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 4 * 3 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -3267,7 +3257,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3276,7 +3266,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3285,7 +3275,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3294,7 +3284,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -3316,7 +3306,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3325,7 +3315,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3334,7 +3324,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3343,7 +3333,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -3365,7 +3355,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3374,7 +3364,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3383,7 +3373,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3392,7 +3382,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -3414,7 +3404,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3423,7 +3413,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3432,7 +3422,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3441,7 +3431,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -3463,7 +3453,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3472,7 +3462,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3481,7 +3471,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3490,7 +3480,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -3512,7 +3502,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3521,7 +3511,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3530,7 +3520,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3539,7 +3529,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 3 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 3 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -3561,7 +3551,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3570,7 +3560,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3579,7 +3569,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3588,7 +3578,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -3610,7 +3600,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3619,7 +3609,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3628,7 +3618,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3637,7 +3627,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 3 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 3 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -3659,7 +3649,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3668,7 +3658,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 4 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 4 * 4,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3677,7 +3667,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 4 * 4 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 4 * 4 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3686,7 +3676,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::FLOAT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 4 * 4 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 4 * 4 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -3708,7 +3698,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3717,7 +3707,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3726,7 +3716,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3735,7 +3725,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -3757,7 +3747,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3766,7 +3756,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3775,7 +3765,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3784,7 +3774,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -3806,7 +3796,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3815,7 +3805,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3824,7 +3814,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3833,7 +3823,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -3855,7 +3845,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3864,7 +3854,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3873,7 +3863,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3882,7 +3872,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -3904,7 +3894,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3913,7 +3903,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3922,7 +3912,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3931,7 +3921,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -3953,7 +3943,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3962,7 +3952,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3971,7 +3961,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -3980,7 +3970,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_BYTE,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 1 * 4 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 1 * 4 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4002,7 +3992,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -4011,7 +4001,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -4020,7 +4010,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -4029,7 +4019,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     false,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4051,7 +4041,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -4060,7 +4050,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -4069,7 +4059,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4 * 2,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4 * 2,
                 );
 
                 gl.vertex_attrib_pointer_with_i32(
@@ -4078,7 +4068,7 @@ impl VertexInputAttributeDescriptor {
                     Gl::UNSIGNED_SHORT,
                     true,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset + 2 * 4 * 3,
+                    base_offset_in_bytes + self.offset as i32 + 2 * 4 * 3,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4099,7 +4089,7 @@ impl VertexInputAttributeDescriptor {
                     1,
                     Gl::BYTE,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4114,7 +4104,7 @@ impl VertexInputAttributeDescriptor {
                     1,
                     Gl::UNSIGNED_BYTE,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4129,7 +4119,7 @@ impl VertexInputAttributeDescriptor {
                     1,
                     Gl::SHORT,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4144,7 +4134,7 @@ impl VertexInputAttributeDescriptor {
                     1,
                     Gl::UNSIGNED_SHORT,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4159,7 +4149,7 @@ impl VertexInputAttributeDescriptor {
                     1,
                     Gl::INT,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4174,7 +4164,7 @@ impl VertexInputAttributeDescriptor {
                     1,
                     Gl::UNSIGNED_INT,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4189,7 +4179,7 @@ impl VertexInputAttributeDescriptor {
                     2,
                     Gl::BYTE,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4204,7 +4194,7 @@ impl VertexInputAttributeDescriptor {
                     2,
                     Gl::UNSIGNED_BYTE,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4219,7 +4209,7 @@ impl VertexInputAttributeDescriptor {
                     2,
                     Gl::SHORT,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4234,7 +4224,7 @@ impl VertexInputAttributeDescriptor {
                     2,
                     Gl::UNSIGNED_SHORT,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4249,7 +4239,7 @@ impl VertexInputAttributeDescriptor {
                     2,
                     Gl::INT,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4264,7 +4254,7 @@ impl VertexInputAttributeDescriptor {
                     2,
                     Gl::UNSIGNED_INT,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4279,7 +4269,7 @@ impl VertexInputAttributeDescriptor {
                     3,
                     Gl::BYTE,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4294,7 +4284,7 @@ impl VertexInputAttributeDescriptor {
                     3,
                     Gl::UNSIGNED_BYTE,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4309,7 +4299,7 @@ impl VertexInputAttributeDescriptor {
                     3,
                     Gl::SHORT,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4324,7 +4314,7 @@ impl VertexInputAttributeDescriptor {
                     3,
                     Gl::UNSIGNED_SHORT,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4339,7 +4329,7 @@ impl VertexInputAttributeDescriptor {
                     3,
                     Gl::INT,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4354,7 +4344,7 @@ impl VertexInputAttributeDescriptor {
                     3,
                     Gl::UNSIGNED_INT,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4369,7 +4359,7 @@ impl VertexInputAttributeDescriptor {
                     4,
                     Gl::BYTE,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4384,7 +4374,7 @@ impl VertexInputAttributeDescriptor {
                     4,
                     Gl::UNSIGNED_BYTE,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4399,7 +4389,7 @@ impl VertexInputAttributeDescriptor {
                     4,
                     Gl::SHORT,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4414,7 +4404,7 @@ impl VertexInputAttributeDescriptor {
                     4,
                     Gl::UNSIGNED_SHORT,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4429,7 +4419,7 @@ impl VertexInputAttributeDescriptor {
                     4,
                     Gl::INT,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);
@@ -4444,7 +4434,7 @@ impl VertexInputAttributeDescriptor {
                     4,
                     Gl::UNSIGNED_INT,
                     stride_in_bytes,
-                    base_offset_in_bytes + self.offset,
+                    base_offset_in_bytes + self.offset as i32,
                 );
 
                 gl.enable_vertex_attrib_array(self.location);

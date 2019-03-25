@@ -6,6 +6,9 @@ use fnv::FnvHasher;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
+use js_sys::{Uint8Array, Uint32Array};
+use web_sys::{WebGlProgram, WebGlUniformLocation, WebGl2RenderingContext as Gl};
+
 pub struct ResourceSlotDescriptor {
     identifier: Identifier,
     slot: Slot,
@@ -35,7 +38,7 @@ impl Identifier {
     pub(crate) fn new(name: String) -> Self {
         let mut hasher = FnvHasher::default();
 
-        name.hash(hasher);
+        name.hash(&mut hasher);
 
         let hash_fnv64 = hasher.finish();
 
@@ -49,7 +52,7 @@ impl Identifier {
 
 impl fmt::Display for Identifier {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, self.name)
+        write!(f, "{}", self.name)
     }
 }
 
@@ -64,6 +67,18 @@ pub enum Slot {
     TextureSampler(TextureSamplerSlot),
 }
 
+impl From<UniformBlockSlot> for Slot {
+    fn from(slot: UniformBlockSlot) -> Self {
+        Slot::UniformBlock(slot)
+    }
+}
+
+impl From<TextureSamplerSlot> for Slot {
+    fn from(slot: TextureSamplerSlot) -> Self {
+        Slot::TextureSampler(slot)
+    }
+}
+
 pub struct UniformBlockSlot {
     layout: Vec<MemoryUnitDescriptor>,
     index: u32,
@@ -73,7 +88,7 @@ impl UniformBlockSlot {
     pub(crate) fn new(gl: &Gl, program: &WebGlProgram, index: usize) -> Self {
         let index = index as u32;
         let unit_count = gl
-            .get_active_uniform_block_parameter(program, index, Gl.UNIFORM_BLOCK_ACTIVE_UNIFORMS)
+            .get_active_uniform_block_parameter(program, index, Gl::UNIFORM_BLOCK_ACTIVE_UNIFORMS)
             .unwrap()
             .as_f64()
             .unwrap() as usize;
@@ -90,25 +105,25 @@ impl UniformBlockSlot {
             .get_active_uniform_block_parameter(
                 program,
                 index,
-                Gl.UNIFORM_BLOCK_ACTIVE_UNIFORM_INDICES,
+                Gl::UNIFORM_BLOCK_ACTIVE_UNIFORM_INDICES,
             )
             .unwrap();
 
-        let js_types_array = gl.get_active_uniforms(program, &js_indices_array, Gl.UNIFORM_TYPE);
+        let js_types_array = gl.get_active_uniforms(program, &js_indices_array, Gl::UNIFORM_TYPE);
 
-        let js_sizes_array = gl.get_active_uniforms(program, &js_indices_array, Gl.UNIFORM_SIZE);
+        let js_sizes_array = gl.get_active_uniforms(program, &js_indices_array, Gl::UNIFORM_SIZE);
 
         let js_offsets_array =
-            gl.get_active_uniforms(program, &js_indices_array, Gl.UNIFORM_OFFSET);
+            gl.get_active_uniforms(program, &js_indices_array, Gl::UNIFORM_OFFSET);
 
         let js_array_strides_array =
-            gl.get_active_uniforms(program, &js_indices_array, Gl.UNIFORM_ARRAY_STRIDE);
+            gl.get_active_uniforms(program, &js_indices_array, Gl::UNIFORM_ARRAY_STRIDE);
 
         let js_matrix_strides_array =
-            gl.get_active_uniforms(program, &js_indices_array, Gl.UNIFORM_MATRIX_STRIDE);
+            gl.get_active_uniforms(program, &js_indices_array, Gl::UNIFORM_MATRIX_STRIDE);
 
         let js_matrix_orientations_array =
-            gl.get_active_uniforms(program, &js_indices_array, Gl.UNIFORM_IS_ROW_MAJOR);
+            gl.get_active_uniforms(program, &js_indices_array, Gl::UNIFORM_IS_ROW_MAJOR);
 
         Uint32Array::new(&js_indices_array).copy_to(&mut indices);
         Uint32Array::new(&js_types_array).copy_to(&mut types);
@@ -125,7 +140,7 @@ impl UniformBlockSlot {
 
             let size = sizes[i];
 
-            let layout = match types[i] {
+            let unit = match types[i] {
                 Gl::INT => {
                     if size == 1 {
                         Integer
@@ -353,7 +368,7 @@ impl UniformBlockSlot {
                         }
                     }
                 }
-                Gl::FLOAT_MAT2x3 => {
+                Gl::FLOAT_MAT2X3 => {
                     let matrix_stride = matrix_strides[i] as u8;
                     let order = if matrix_orientations[i] == 0 {
                         MatrixOrder::ColumnMajor
@@ -375,7 +390,7 @@ impl UniformBlockSlot {
                         }
                     }
                 }
-                Gl::FLOAT_MAT2x4 => {
+                Gl::FLOAT_MAT2X4 => {
                     let matrix_stride = matrix_strides[i] as u8;
                     let order = if matrix_orientations[i] == 0 {
                         MatrixOrder::ColumnMajor
@@ -397,7 +412,7 @@ impl UniformBlockSlot {
                         }
                     }
                 }
-                Gl::FLOAT_MAT3x2 => {
+                Gl::FLOAT_MAT3X2 => {
                     let matrix_stride = matrix_strides[i] as u8;
                     let order = if matrix_orientations[i] == 0 {
                         MatrixOrder::ColumnMajor
@@ -419,7 +434,7 @@ impl UniformBlockSlot {
                         }
                     }
                 }
-                Gl::FLOAT_MAT3x4 => {
+                Gl::FLOAT_MAT3X4 => {
                     let matrix_stride = matrix_strides[i] as u8;
                     let order = if matrix_orientations[i] == 0 {
                         MatrixOrder::ColumnMajor
@@ -441,7 +456,7 @@ impl UniformBlockSlot {
                         }
                     }
                 }
-                Gl::FLOAT_MAT4x2 => {
+                Gl::FLOAT_MAT4X2 => {
                     let matrix_stride = matrix_strides[i] as u8;
                     let order = if matrix_orientations[i] == 0 {
                         MatrixOrder::ColumnMajor
@@ -463,7 +478,7 @@ impl UniformBlockSlot {
                         }
                     }
                 }
-                Gl::FLOAT_MAT4x3 => {
+                Gl::FLOAT_MAT4X3 => {
                     let matrix_stride = matrix_strides[i] as u8;
                     let order = if matrix_orientations[i] == 0 {
                         MatrixOrder::ColumnMajor
@@ -484,10 +499,11 @@ impl UniformBlockSlot {
                             len: size as usize,
                         }
                     }
-                }
+                },
+                _ => unreachable!()
             };
 
-            layout.push(MemoryUnitDescriptor::new(offsets[i] as usize, layout));
+            layout.push(MemoryUnitDescriptor::new(offsets[i] as usize, unit));
         }
 
         layout.sort_unstable_by_key(|unit| unit.offset());
@@ -569,7 +585,7 @@ impl<'a> SlotBindingChecker<'a> {
     }
 }
 
-impl SlotBindingConfirmer for SlotBindingChecker {
+impl<'a> SlotBindingConfirmer for SlotBindingChecker<'a> {
     fn confirm_slot_binding(
         &self,
         descriptor: &ResourceSlotDescriptor,
@@ -577,7 +593,7 @@ impl SlotBindingConfirmer for SlotBindingChecker {
     ) -> Result<(), SlotBindingMismatch> {
         let initial_binding = match descriptor.slot() {
             Slot::TextureSampler(slot) => {
-                self.gl.get_uniform(&self.program, slot.location()).as_f64() as usize
+                self.gl.get_uniform(&self.program, slot.location()).as_f64().unwrap() as usize
             }
             Slot::UniformBlock(slot) => self
                 .gl
@@ -587,7 +603,7 @@ impl SlotBindingConfirmer for SlotBindingChecker {
                     Gl::UNIFORM_BLOCK_BINDING,
                 )
                 .unwrap()
-                .as_f64() as usize,
+                .as_f64().unwrap() as usize,
         };
 
         if initial_binding == binding {
@@ -612,7 +628,7 @@ impl<'a> SlotBindingUpdater<'a> {
     }
 }
 
-impl SlotBindingConfirmer for SlotBindingUpdater {
+impl<'a> SlotBindingConfirmer for SlotBindingUpdater<'a> {
     fn confirm_slot_binding(
         &self,
         descriptor: &ResourceSlotDescriptor,

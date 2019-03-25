@@ -1,13 +1,13 @@
 use crate::pipeline::graphics::vertex_input::{InputAttributeLayout, VertexInputStreamDescription, VertexInputAttributeDescriptor, VertexInputStreamDescriptor};
-use crate::pipeline::graphics::{vertex_input, BindingStrategy, GraphicsPipelineDescriptor, Topology, DepthTest, StencilTest, Blending, LineWidth, Viewport};
+use crate::pipeline::graphics::{vertex_input, BindingStrategy, GraphicsPipelineDescriptor, Topology, DepthTest, StencilTest, Blending, LineWidth, Viewport, PrimitiveAssembly};
 use crate::pipeline::resources;
 use crate::pipeline::resources::bind_group_encoding::BindingDescriptor;
 use crate::pipeline::resources::resource_slot::{
     Identifier, SlotBindingChecker, SlotBindingUpdater,
 };
 use crate::pipeline::resources::Resources;
-use crate::runtime::state::{Program, ProgramKey};
-use crate::runtime::{Connection, RenderingContext};
+use crate::runtime::state::{Program, ProgramKey, CreateProgramError};
+use crate::runtime::{Connection, RenderingContext, CreateGraphicsPipelineError};
 use crate::task::{GpuTask, ContextId, Progress};
 use std::any::TypeId;
 use std::borrow::Borrow;
@@ -22,7 +22,7 @@ trait ProgramObjectDropper {
     fn drop_program_object(&self, id: JsId);
 }
 
-impl<T> RenderbufferObjectDropper for T
+impl<T> ProgramObjectDropper for T
     where
         T: RenderingContext,
 {
@@ -37,7 +37,7 @@ struct ProgramObjectDropCommand {
     id: JsId,
 }
 
-unsafe impl GpuTask<Connection> for RenderbufferDropCommand {
+unsafe impl GpuTask<Connection> for ProgramObjectDropCommand {
     type Output = ();
 
     fn context_id(&self) -> ContextId {
@@ -59,19 +59,54 @@ pub struct GraphicsPipeline<Il, R, Tf> {
     dropper: Box<ProgramObjectDropper>,
     vertex_shader_data: Arc<VertexShaderData>,
     fragment_shader_data: Arc<FragmentShaderData>,
+    primitive_assembly: PrimitiveAssembly,
     program_id: JsId,
     depth_test: Option<DepthTest>,
     stencil_test: Option<StencilTest>,
-    scissor_test: Option<Region2D>,
+    scissor_region: Region2D,
     blending: Option<Blending>,
     line_width: LineWidth,
     viewport: Viewport,
 }
 
+impl<Il, R, Tf> GraphicsPipeline<Il, R, Tf> {
+    pub(crate) fn program_id(&self) -> JsId {
+        self.program_id
+    }
+
+    pub(crate) fn primitive_assembly(&self) -> &PrimitiveAssembly {
+        &self.primitive_assembly
+    }
+
+    pub(crate) fn depth_test(&self) -> &Option<DepthTest> {
+        &self.depth_test
+    }
+
+    pub(crate) fn stencil_test(&self) -> &Option<StencilTest> {
+        &self.stencil_test
+    }
+
+    pub(crate) fn scissor_region(&self) -> &Region2D {
+        &self.scissor_region
+    }
+
+    pub(crate) fn blending(&self) -> &Option<Blending> {
+        &self.blending
+    }
+
+    pub(crate) fn line_width(&self) -> &LineWidth {
+        &self.line_width
+    }
+
+    pub(crate) fn viewport(&self) -> &Viewport {
+        &self.viewport
+    }
+}
+
 impl<Il, R, Tf> GraphicsPipeline<Il, R, Tf>
 where
     Il: InputAttributeLayout,
-    R: Resources,
+    R: Resources + 'static,
 {
     pub(crate) fn create<Rc>(
         context: &Rc,
@@ -91,7 +126,8 @@ where
             panic!("Fragment shader does not belong to the context.");
         }
 
-        let program = state.program_cache_mut().get_or_create(ProgramKey {
+        let mut program_cache = state.program_cache_mut();
+        let program = program_cache.get_or_create(ProgramKey {
             vertex_shader_id: descriptor.vertex_shader_data.id().unwrap(),
             fragment_shader_id: descriptor.fragment_shader_data.id().unwrap(),
             resources_type_id: TypeId::of::<R>(),
@@ -99,14 +135,22 @@ where
 
         Il::check_compatibility(program.attribute_slot_descriptors())?;
 
-        let bindings_confirmer = match descriptor.binding_strategy {
-            BindingStrategy::Check => SlotBindingChecker::new(gl, program.gl_object()),
-            BindingStrategy::Update => SlotBindingUpdater::new(gl, program.gl_object()),
+        match descriptor.binding_strategy {
+            BindingStrategy::Check => {
+                let confirmer = SlotBindingChecker::new(gl, program.gl_object());
+
+                R::confirm_slot_bindings(&confirmer, program.resource_slot_descriptors())?;
+            },
+            BindingStrategy::Update => {
+                let confirmer = SlotBindingUpdater::new(gl, program.gl_object());
+
+                R::confirm_slot_bindings(&confirmer, program.resource_slot_descriptors())?;
+            }
         };
 
-        R::confirm_slot_bindings(&bindings_confirmer, program.resource_slot_descriptors())?;
 
-        GraphicsPipeline {
+
+        Ok(GraphicsPipeline {
             _input_attribute_layout_marker: marker::PhantomData,
             _resources_marker: marker::PhantomData,
             _transform_feedback_varyings_marker: marker::PhantomData,
@@ -114,42 +158,15 @@ where
             dropper: Box::new(context.clone()),
             vertex_shader_data: descriptor.vertex_shader_data.clone(),
             fragment_shader_data: descriptor.fragment_shader_data.clone(),
-            program_id: JsId::from_value(program.gl_object()),
+            primitive_assembly: descriptor.primitive_assembly.clone(),
+            program_id: JsId::from_value(program.gl_object().into()),
             depth_test: descriptor.depth_test.clone(),
             stencil_test: descriptor.stencil_test.clone(),
-            scissor_test: descriptor.scissor_test.clone(),
+            scissor_region: descriptor.scissor_region.clone(),
             blending: descriptor.blending.clone(),
             line_width: descriptor.line_width.clone(),
             viewport: descriptor.viewport.clone(),
-        }
-    }
-
-    pub(crate) fn program_id(&self) -> JsId {
-        self.program_id
-    }
-
-    pub(crate) fn depth_test(&self) -> &Option<DepthTest> {
-        &self.depth_test
-    }
-
-    pub(crate) fn stencil_test(&self) -> &Option<StencilTest> {
-        &self.stencil_test
-    }
-
-    pub(crate) fn scissor_test(&self) -> &Option<Region2D> {
-        &self.scissor_test
-    }
-
-    pub(crate) fn blending(&self) -> &Option<Blending> {
-        &self.blending
-    }
-
-    pub(crate) fn line_width(&self) -> &LineWidth {
-        &self.line_width
-    }
-
-    pub(crate) fn viewport(&self) -> &Viewport {
-        &self.viewport
+        })
     }
 
 //    pub(crate) fn create_unchecked<Rc>(
@@ -196,29 +213,5 @@ impl<Il, R, Tf> Drop for GraphicsPipeline<Il, R, Tf> {
 }
 
 pub struct ShaderLinkingError {
-    error: String,
-}
-
-pub enum CreateGraphicsPipelineError {
-    ShaderLinkingError(ShaderLinkingError),
-    IncompatibleInputAttributeLayout(vertex_input::Incompatible),
-    IncompatibleResources(resources::Incompatible),
-}
-
-impl From<ShaderLinkingError> for CreateGraphicsPipelineError {
-    fn from(error: ShaderLinkingError) -> Self {
-        CreateGraphicsPipelineError::ShaderLinkingError(error)
-    }
-}
-
-impl From<vertex_input::Incompatible> for CreateGraphicsPipelineError {
-    fn from(error: vertex_input::Incompatible) -> Self {
-        CreateGraphicsPipelineError::IncompatibleInputAttributeLayout(error)
-    }
-}
-
-impl From<resources::Incompatible> for CreateGraphicsPipelineError {
-    fn from(error: resources::Incompatible) -> Self {
-        CreateGraphicsPipelineError::IncompatibleResources(error)
-    }
+    pub(crate) error: String,
 }

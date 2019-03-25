@@ -112,9 +112,9 @@ pub unsafe trait InterfaceBlockComponent: StableRepr {
     /// [None]), then the implementation is expected to return [CheckCompatibility::Finished]
     /// (unless the component was found to be incompatible with a prior memory unit descriptor, in
     /// which case [CheckCompatibility::Incompatible] should be returned).
-    fn check_compatibility<I>(component_offset: usize, remainder: &mut I) -> CheckCompatibility
+    fn check_compatibility<'a, I>(component_offset: usize, remainder: &'a mut I) -> CheckCompatibility
     where
-        I: Iterator<Item = &MemoryUnitDescriptor>;
+        I: Iterator<Item = &'a MemoryUnitDescriptor>;
 }
 
 /// Marker trait for types that are guaranteed have a stable memory representation across builds.
@@ -193,6 +193,7 @@ impl MemoryUnitDescriptor {
 ///
 /// When [RowMajor], values are ordered such that first the values in the first row are stored from
 /// left to right, then the values in the second row, then the values in the third row, etc.
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum MatrixOrder {
     ColumnMajor,
     RowMajor,

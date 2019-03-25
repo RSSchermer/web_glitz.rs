@@ -13,7 +13,7 @@ pub use self::fragment_test::{
 
 mod graphics_pipeline;
 pub use self::graphics_pipeline::{
-    ActiveGraphicsPipeline, DrawCommand, GraphicsPipeline, ShaderLinkingError,
+    GraphicsPipeline, ShaderLinkingError,
 };
 
 mod line_width;

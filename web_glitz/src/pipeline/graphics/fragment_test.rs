@@ -1,6 +1,10 @@
 use crate::runtime::Connection;
 use std::ops::RangeInclusive;
 
+use web_sys::WebGl2RenderingContext as Gl;
+
+use crate::runtime::state::ContextUpdate;
+
 /// Enumerates the test functions that may be used with [DepthTest] and [StencilTest].
 ///
 /// See the documentation for [DepthTest] and [StencilTest] for details.
@@ -89,6 +93,7 @@ impl TestFunction {
 ///     polygon_offset: None
 /// });
 /// ```
+#[derive(Clone, PartialEq, Debug)]
 pub struct DepthTest {
     /// The [TestFunction] used to decide if the [DepthTest] passes or fails.
     ///
@@ -117,11 +122,11 @@ pub struct DepthTest {
     pub polygon_offset: Option<PolygonOffset>,
 }
 
-impl Option<DepthTest> {
-    pub(crate) fn apply(&self, connection: &mut Connection) {
+impl DepthTest {
+    pub(crate) fn apply(option: &Option<Self>, connection: &mut Connection) {
         let (gl, state) = unsafe { connection.unpack_mut() };
 
-        match self {
+        match option {
             Some(depth_test) => {
                 state.set_depth_test_enabled(true).apply(gl).unwrap();
                 state.set_depth_func(depth_test.test).apply(gl).unwrap();
@@ -293,10 +298,10 @@ impl StencilOperation {
             StencilOperation::Keep => Gl::KEEP,
             StencilOperation::Zero => Gl::ZERO,
             StencilOperation::Replace => Gl::REPLACE,
-            StencilOperation::Increment => Gl::INCREMENT,
-            StencilOperation::WrappingIncrement => Gl::WRAPPING_INCREMENT,
-            StencilOperation::Decrement => Gl::DECREMENT,
-            StencilOperation::WrappingDecrement => Gl::WRAPPING_DECREMENT,
+            StencilOperation::Increment => Gl::INCR,
+            StencilOperation::WrappingIncrement => Gl::INCR_WRAP,
+            StencilOperation::Decrement => Gl::DECR,
+            StencilOperation::WrappingDecrement => Gl::DECR_WRAP,
             StencilOperation::Invert => Gl::INVERT,
         }
     }
@@ -525,11 +530,11 @@ pub struct StencilTest {
     pub write_mask_back: u32,
 }
 
-impl Option<StencilTest> {
-    pub(crate) fn apply(&self, connection: &mut Connection) {
+impl StencilTest {
+    pub(crate) fn apply(option: &Option<Self>, connection: &mut Connection) {
         let (gl, state) = unsafe { connection.unpack_mut() };
 
-        match self {
+        match option {
             Some(stencil_test) => {
                 state.set_stencil_test_enabled(true).apply(gl).unwrap();
 

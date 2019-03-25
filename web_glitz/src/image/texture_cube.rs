@@ -92,20 +92,20 @@ where
             height,
             levels,
             ..
-        } = *descriptor;
-        let max_mipmap_levels = max_mipmap_levels(width, height);
+        } = descriptor;
+        let max_mipmap_levels = max_mipmap_levels(*width, *height);
 
         let levels = match levels {
             MipmapLevels::Auto => max_mipmap_levels,
             MipmapLevels::Manual(levels) => {
-                if levels > max_mipmap_levels {
+                if *levels > max_mipmap_levels {
                     return Err(MaxMipmapLevelsExceeded {
-                        given: levels,
+                        given: *levels,
                         max: max_mipmap_levels,
                     });
                 }
 
-                levels
+                *levels
             }
         };
 
@@ -113,8 +113,8 @@ where
             id: None,
             context_id: context.id(),
             dropper: Box::new(context.clone()),
-            width,
-            height,
+            width: *width,
+            height: *height,
             levels,
             most_recent_unit: None,
         });
@@ -1084,7 +1084,7 @@ where
         let height = region_2d_overlap_height(self.texture_data.height, self.level, &self.region);
 
         if width == 0 || height == 0 {
-            return Progress::Finished(Ok(()));
+            return Progress::Finished(());
         }
 
         let (gl, state) = unsafe { connection.unpack_mut() };

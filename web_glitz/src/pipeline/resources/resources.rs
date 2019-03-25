@@ -172,7 +172,7 @@ where
     }
 }
 
-impl<'a, T> Resource for &'a BufferView<T>
+impl<'a, T> Resource for BufferView<'a, T>
 where
     T: InterfaceBlock,
 {

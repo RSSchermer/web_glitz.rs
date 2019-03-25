@@ -96,20 +96,20 @@ where
             depth,
             levels,
             ..
-        } = *descriptor;
-        let max_mipmap_levels = max_mipmap_levels(width, height);
+        } = descriptor;
+        let max_mipmap_levels = max_mipmap_levels(*width, *height);
 
         let levels = match levels {
             MipmapLevels::Auto => max_mipmap_levels,
             MipmapLevels::Manual(levels) => {
-                if levels > max_mipmap_levels {
+                if *levels > max_mipmap_levels {
                     return Err(MaxMipmapLevelsExceeded {
-                        given: levels,
+                        given: *levels,
                         max: max_mipmap_levels,
                     });
                 }
 
-                levels
+                *levels
             }
         };
 
@@ -117,9 +117,9 @@ where
             id: None,
             context_id: context.id(),
             dropper: Box::new(context.clone()),
-            width,
-            height,
-            depth,
+            width: *width,
+            height: *height,
+            depth: *depth,
             levels,
             most_recent_unit: None,
         });
@@ -1860,7 +1860,7 @@ where
     T: ClientFormat<F>,
     F: TextureFormat,
 {
-    type Output = Result<(), TaskContextMismatch>;
+    type Output = ();
 
     fn context_id(&self) -> ContextId {
         ContextId::Id(self.texture_data.context_id)
@@ -1873,7 +1873,7 @@ where
         let depth = region_3d_overlap_depth(self.texture_data.height, &self.region);
 
         if width == 0 || height == 0 || depth == 0 {
-            return Progress::Finished(Ok(()));
+            return Progress::Finished(());
         }
 
         let (gl, state) = unsafe { connection.unpack_mut() };
@@ -1994,7 +1994,7 @@ where
         let height = region_2d_overlap_height(self.texture_data.height, self.level, &self.region);
 
         if width == 0 || height == 0 {
-            return Progress::Finished(Ok(()));
+            return Progress::Finished(());
         }
 
         let (gl, state) = unsafe { connection.unpack_mut() };
@@ -2080,7 +2080,7 @@ pub struct GenerateMipmapCommand {
     texture_data: Arc<Texture2DArrayData>,
 }
 
-impl GpuTask<Connection> for GenerateMipmapCommand {
+unsafe impl GpuTask<Connection> for GenerateMipmapCommand {
     type Output = ();
 
     fn context_id(&self) -> ContextId {

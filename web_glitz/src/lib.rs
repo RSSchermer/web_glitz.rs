@@ -1,5 +1,6 @@
 #![feature(unboxed_closures)]
 #![feature(fn_traits)]
+#![feature(try_from)]
 
 extern crate fnv;
 extern crate futures;

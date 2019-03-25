@@ -1,6 +1,7 @@
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::runtime::Connection;
+use crate::runtime::state::ContextUpdate;
 
 /// Enumerates the possible blending factors that can be applied to color values during [Blending].
 ///
@@ -34,15 +35,15 @@ impl BlendFactor {
             BlendFactor::OneMinusConstantColor => Gl::ONE_MINUS_CONSTANT_COLOR,
             BlendFactor::ConstantAlpha => Gl::CONSTANT_ALPHA,
             BlendFactor::OneMinusConstantAlpha => Gl::ONE_MINUS_CONSTANT_ALPHA,
-            BlendFactor::SourceColor => Gl::SOURCE_COLOR,
-            BlendFactor::OneMinusSourceColor => Gl::ONE_MINUS_SOURCE_COLOR,
-            BlendFactor::DestinationColor => Gl::DESTINATION_COLOR,
-            BlendFactor::OneMinusDestinationColor => Gl::ONE_MINUS_DESTINATION_COLOR,
-            BlendFactor::SourceAlpha => Gl::SOURCE_ALPHA,
-            BlendFactor::OneMinusSourceAlpha => Gl::ONE_MINUS_SOURCE_ALPHA,
-            BlendFactor::DestinationAlpha => Gl::DESTINATION_ALPHA,
-            BlendFactor::OneMinusDestinationAlpha => Gl::ONE_MINUS_DESTINATION_ALPHA,
-            BlendFactor::SourceAlphaSaturate => GL::SOURCE_ALPHA_SATURATE,
+            BlendFactor::SourceColor => Gl::SRC_COLOR,
+            BlendFactor::OneMinusSourceColor => Gl::ONE_MINUS_SRC_COLOR,
+            BlendFactor::DestinationColor => Gl::DST_COLOR,
+            BlendFactor::OneMinusDestinationColor => Gl::ONE_MINUS_DST_COLOR,
+            BlendFactor::SourceAlpha => Gl::SRC_ALPHA,
+            BlendFactor::OneMinusSourceAlpha => Gl::ONE_MINUS_SRC_ALPHA,
+            BlendFactor::DestinationAlpha => Gl::DST_ALPHA,
+            BlendFactor::OneMinusDestinationAlpha => Gl::ONE_MINUS_DST_ALPHA,
+            BlendFactor::SourceAlphaSaturate => Gl::SRC_ALPHA_SATURATE,
         }
     }
 }
@@ -147,6 +148,7 @@ impl BlendEquation {
 ///     alpha_equation: BlendEquation::Addition
 /// });
 /// ```
+#[derive(Clone, PartialEq, Debug)]
 pub struct Blending {
     /// The color used as the constant color when [BlendFactor::ConstantColor],
     /// [BlendFactor::OneMinusConstantColor], [BlendFactor::ConstantAlpha] or
@@ -178,11 +180,11 @@ pub struct Blending {
     pub alpha_equation: BlendEquation,
 }
 
-impl Option<Blending> {
-    pub(crate) fn apply(&self, connection: &mut Connection) {
+impl Blending {
+    pub(crate) fn apply(option: &Option<Self>, connection: &mut Connection) {
         let (gl, state) = unsafe { connection.unpack_mut() };
 
-        match self {
+        match option {
             Some(blend) => {
                 state.set_blend_enabled(true).apply(gl).unwrap();
                 state

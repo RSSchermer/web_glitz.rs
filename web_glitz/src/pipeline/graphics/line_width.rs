@@ -2,6 +2,8 @@ use crate::runtime::Connection;
 use std::convert::TryFrom;
 use std::ops::Deref;
 
+use crate::runtime::state::ContextUpdate;
+
 /// Defines the line width used by a [Rasterizer].
 ///
 /// Can be constructed from an `f32` via [TryFrom]:
@@ -35,13 +37,13 @@ impl LineWidth {
 }
 
 impl TryFrom<f32> for LineWidth {
-    type Error = NegativeWidth;
+    type Error = InvalidLineWidth;
 
     fn try_from(value: f32) -> Result<Self, Self::Error> {
-        if value == f32::NAN {
-            Err(InvalidWidth::NaN)
-        } else if value < 0 {
-            Err(InvalidWidth::Negative)
+        if value == std::f32::NAN {
+            Err(InvalidLineWidth::NaN)
+        } else if value < 0.0 {
+            Err(InvalidLineWidth::Negative)
         } else {
             Ok(LineWidth { value })
         }

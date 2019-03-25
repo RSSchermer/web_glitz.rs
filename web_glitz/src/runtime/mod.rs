@@ -3,7 +3,7 @@ pub use self::context_options::{ContextOptions, ContextOptionsBuilder, PowerPref
 
 mod rendering_context;
 pub use self::rendering_context::{
-    Connection, Execution, RenderingContext, SubmitError, TaskContextMismatch,
+    Connection, Execution, RenderingContext, TaskContextMismatch, CreateGraphicsPipelineError, Extensions, ExtensionState
 };
 
 pub mod single_threaded;

@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
 use super::maybe_done::{maybe_done, MaybeDone};
-use super::{GpuTask, Progress};
+use super::{GpuTask, Progress, ContextId};
 
 macro_rules! generate {
     ($(
@@ -32,11 +32,11 @@ macro_rules! generate {
             }
         }
 
-        impl<A, $($B),*, Ec> GpuTask<Ec> for $Sequence<A, $($B),*, Ec> where A: GpuTask<Ec>, $($B: GpuTask<Ec>),* {
+        unsafe impl<A, $($B),*, Ec> GpuTask<Ec> for $Sequence<A, $($B),*, Ec> where A: GpuTask<Ec>, $($B: GpuTask<Ec>),* {
             type Output = (A::Output, $($B::Output),*);
 
             fn context_id(&self) -> ContextId {
-                self.context_id
+                self.id
             }
 
             fn progress(&mut self, execution_context: &mut Ec) -> Progress<Self::Output> {

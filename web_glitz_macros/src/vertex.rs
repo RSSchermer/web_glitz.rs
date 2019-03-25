@@ -209,8 +209,8 @@ impl VertexField {
                         ident: ast.ident.clone(),
                         ty: ast.ty.clone(),
                         position,
-                        location: location.unwrap(),
-                        format: format.unwrap(),
+                        location,
+                        format,
                         span: ast.span(),
                     })
                 } else {

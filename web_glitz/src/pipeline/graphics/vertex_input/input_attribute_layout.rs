@@ -1,5 +1,7 @@
 use super::Vertex;
 
+use web_sys::WebGl2RenderingContext as Gl;
+
 pub unsafe trait InputAttributeLayout {
     fn check_compatibility(
         slot_descriptors: &[AttributeSlotDescriptor],
@@ -12,8 +14,8 @@ pub enum Incompatible {
 }
 
 pub struct AttributeSlotDescriptor {
-    location: u32,
-    attribute_type: AttributeType,
+    pub(crate) location: u32,
+    pub(crate) attribute_type: AttributeType,
 }
 
 impl AttributeSlotDescriptor {
@@ -61,12 +63,12 @@ impl AttributeType {
             Gl::FLOAT_MAT2 => AttributeType::FloatMatrix2x2,
             Gl::FLOAT_MAT3 => AttributeType::FloatMatrix3x3,
             Gl::FLOAT_MAT4 => AttributeType::FloatMatrix4x4,
-            Gl::FLOAT_MAT2x3 => AttributeType::FloatMatrix2x3,
-            Gl::FLOAT_MAT2x4 => AttributeType::FloatMatrix2x4,
-            Gl::FLOAT_MAT3x2 => AttributeType::FloatMatrix3x2,
-            Gl::FLOAT_MAT3x4 => AttributeType::FloatMatrix3x4,
-            Gl::FLOAT_MAT4x2 => AttributeType::FloatMatrix4x2,
-            Gl::FLOAT_MAT4x3 => AttributeType::FloatMatrix4x3,
+            Gl::FLOAT_MAT2X3 => AttributeType::FloatMatrix2x3,
+            Gl::FLOAT_MAT2X4 => AttributeType::FloatMatrix2x4,
+            Gl::FLOAT_MAT3X2 => AttributeType::FloatMatrix3x2,
+            Gl::FLOAT_MAT3X4 => AttributeType::FloatMatrix3x4,
+            Gl::FLOAT_MAT4X2 => AttributeType::FloatMatrix4x2,
+            Gl::FLOAT_MAT4X3 => AttributeType::FloatMatrix4x3,
             Gl::INT => AttributeType::Integer,
             Gl::INT_VEC2 => AttributeType::IntegerVector2,
             Gl::INT_VEC3 => AttributeType::IntegerVector3,

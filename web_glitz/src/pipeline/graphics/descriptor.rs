@@ -20,7 +20,7 @@ pub struct GraphicsPipelineDescriptor<Il, R, Tf> {
     pub(crate) primitive_assembly: PrimitiveAssembly,
     pub(crate) depth_test: Option<DepthTest>,
     pub(crate) stencil_test: Option<StencilTest>,
-    pub(crate) scissor_test: Option<Region2D>,
+    pub(crate) scissor_region: Region2D,
     pub(crate) blending: Option<Blending>,
     pub(crate) line_width: LineWidth,
     pub(crate) viewport: Viewport,
@@ -47,11 +47,11 @@ impl GraphicsPipelineDescriptor<(), (), ()> {
             primitive_assembly: None,
             depth_test: None,
             stencil_test: None,
-            scissor_test: None,
+            scissor_region: Region2D::Fill,
             blending: None,
             line_width: LineWidth::default(),
             viewport: Viewport::Auto,
-            binding_strategy: BindingStrategy,
+            binding_strategy: BindingStrategy::Check,
         }
     }
 }
@@ -68,7 +68,7 @@ pub struct GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R, Tf> {
     primitive_assembly: Option<PrimitiveAssembly>,
     depth_test: Option<DepthTest>,
     stencil_test: Option<StencilTest>,
-    scissor_test: Option<Region2D>,
+    scissor_region: Region2D,
     blending: Option<Blending>,
     line_width: LineWidth,
     viewport: Viewport,
@@ -92,7 +92,7 @@ impl<Vs, Pa, Fs, Il, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R,
             fragment_shader: self.fragment_shader,
             depth_test: self.depth_test,
             stencil_test: self.stencil_test,
-            scissor_test: self.scissor_test,
+            scissor_region: self.scissor_region,
             blending: self.blending,
             line_width: self.line_width,
             viewport: self.viewport,
@@ -116,7 +116,7 @@ impl<Vs, Pa, Fs, Il, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R,
             fragment_shader: self.fragment_shader,
             depth_test: self.depth_test,
             stencil_test: self.stencil_test,
-            scissor_test: self.scissor_test,
+            scissor_region: self.scissor_region,
             blending: self.blending,
             line_width: self.line_width,
             viewport: self.viewport,
@@ -140,7 +140,7 @@ impl<Vs, Pa, Fs, Il, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R,
             fragment_shader: Some(fragment_shader.data().clone()),
             depth_test: self.depth_test,
             stencil_test: self.stencil_test,
-            scissor_test: self.scissor_test,
+            scissor_region: self.scissor_region,
             blending: self.blending,
             line_width: self.line_width,
             viewport: self.viewport,
@@ -164,7 +164,7 @@ impl<Vs, Pa, Fs, Il, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R,
             fragment_shader: self.fragment_shader,
             depth_test: self.depth_test,
             stencil_test: self.stencil_test,
-            scissor_test: self.scissor_test,
+            scissor_region: self.scissor_region,
             blending: self.blending,
             line_width: self.line_width,
             viewport: self.viewport,
@@ -191,7 +191,7 @@ impl<Vs, Pa, Fs, Il, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R,
             fragment_shader: self.fragment_shader,
             depth_test: self.depth_test,
             stencil_test: self.stencil_test,
-            scissor_test: self.scissor_test,
+            scissor_region: self.scissor_region,
             blending: self.blending,
             line_width: self.line_width,
             viewport: self.viewport,
@@ -227,16 +227,9 @@ impl<Vs, Pa, Fs, Il, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R,
         }
     }
 
-    pub fn enable_scissor_test(self, scissor_region: Region2D) -> Self {
+    pub fn scissor_region(self, scissor_region: Region2D) -> Self {
         GraphicsPipelineDescriptorBuilder {
-            scissor_test: Some(scissor_region),
-            ..self
-        }
-    }
-
-    pub fn disable_scissor_test(self) -> Self {
-        GraphicsPipelineDescriptorBuilder {
-            scissor_test: None,
+            scissor_region,
             ..self
         }
     }
@@ -261,7 +254,7 @@ impl<Vs, Pa, Fs, Il, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R,
 
     pub fn viewport(self, viewport: Viewport) -> Self {
         GraphicsPipelineDescriptorBuilder {
-            viewport: Viewport,
+            viewport,
             ..self
         }
     }
@@ -283,7 +276,7 @@ where
             primitive_assembly: self.primitive_assembly.unwrap(),
             depth_test: self.depth_test,
             stencil_test: self.stencil_test,
-            scissor_test: self.scissor_test,
+            scissor_region: self.scissor_region,
             blending: self.blending,
             line_width: self.line_width,
             viewport: self.viewport,

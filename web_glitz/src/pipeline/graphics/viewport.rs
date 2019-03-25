@@ -1,5 +1,7 @@
 use crate::runtime::Connection;
 
+use crate::runtime::state::ContextUpdate;
+
 /// Describes the viewport used by by a [GraphicsPipeline].
 ///
 /// The viewport defines the affine transformation of `X` and `Y` from normalized device coordinates
@@ -43,7 +45,7 @@ impl Viewport {
         let (gl, state) = unsafe { connection.unpack_mut() };
 
         let (x, y, width, height) = match self {
-            Viewport::Region((x, y), width, height) => (x, y, width, height),
+            Viewport::Region((x, y), width, height) => (*x, *y, *width, *height),
             Viewport::Auto => {
                 let (width, height) = auto_dimensions;
 
@@ -51,6 +53,6 @@ impl Viewport {
             }
         };
 
-        state.set_viewport(*x, *y, *width as i32, *height as i32).apply(gl).unwrap();
+        state.set_viewport(x, y, width as i32, height as i32).apply(gl).unwrap();
     }
 }

@@ -165,16 +165,19 @@ impl<T> Buffer<T>
 where
     T: ?Sized,
 {
+    pub(crate) fn data(&self) -> &Arc<BufferData> {
+        &self.data
+    }
+
     pub fn usage_hint(&self) -> BufferUsage {
         self.data.usage_hint
     }
 
     pub fn view(&self) -> BufferView<T> {
         BufferView {
-            data: self.data.clone(),
+            buffer: self,
             offset_in_bytes: 0,
             len: self.data.len,
-            _marker: marker::PhantomData,
         }
     }
 }
@@ -209,16 +212,16 @@ impl<T> Buffer<[T]> {
         self.data.len
     }
 
-    pub fn get<I>(&self, index: I) -> Option<I::Output>
+    pub fn get<'a, I>(&'a self, index: I) -> Option<I::Output>
     where
-        I: BufferIndex<Buffer<[T]>>,
+        I: BufferIndex<&'a Buffer<[T]>>,
     {
         index.get(self)
     }
 
-    pub unsafe fn get_unchecked<I>(&self, index: I) -> I::Output
+    pub unsafe fn get_unchecked<'a, I>(&'a self, index: I) -> I::Output
     where
-        I: BufferIndex<Buffer<[T]>>,
+        I: BufferIndex<&'a Buffer<[T]>>,
     {
         index.get_unchecked(self)
     }
@@ -247,23 +250,22 @@ impl<T> Buffer<[T]> {
     }
 }
 
-#[derive(Clone)]
-pub struct BufferView<T>
+#[derive(Copy)]
+pub struct BufferView<'a, T>
 where
     T: ?Sized,
 {
-    data: Arc<BufferData>,
-    offset_in_bytes: usize,
+    buffer: &'a Buffer<T>,
+    pub(crate) offset_in_bytes: usize,
     len: usize,
-    _marker: marker::PhantomData<T>,
 }
 
-impl<T> BufferView<T>
+impl<'a, T> BufferView<'a, T>
 where
     T: ?Sized,
 {
     pub(crate) fn buffer_data(&self) -> &Arc<BufferData> {
-        &self.data
+        &self.buffer.data
     }
 
     pub(crate) fn offset_in_bytes(&self) -> usize {
@@ -271,16 +273,16 @@ where
     }
 
     pub fn usage_hint(&self) -> BufferUsage {
-        self.data.usage_hint
+        self.buffer.data.usage_hint
     }
 }
 
-impl<T> BufferView<T> {
+impl<'a, T> BufferView<'a, T> {
     pub(crate) fn bind_uniform(&self, connection: &mut Connection) -> u32 {
         let (gl, state) = unsafe { connection.unpack_mut() };
 
         unsafe {
-            let data = arc_get_mut_unchecked(&self.data);
+            let data = arc_get_mut_unchecked(&self.buffer.data);
             let most_recent_binding = &mut data.recent_uniform_binding;
             let size_in_bytes = self.len * mem::size_of::<T>();
 
@@ -318,7 +320,7 @@ impl<T> BufferView<T> {
         D: Borrow<T> + Send + Sync + 'static,
     {
         UploadCommand {
-            buffer_data: self.data.clone(),
+            buffer_data: self.buffer.data.clone(),
             data,
             offset_in_bytes: self.offset_in_bytes,
             len: 1,
@@ -328,7 +330,7 @@ impl<T> BufferView<T> {
 
     pub fn download_command(&self) -> DownloadCommand<T> {
         DownloadCommand {
-            data: self.data.clone(),
+            data: self.buffer.data.clone(),
             state: DownloadState::Initial,
             offset_in_bytes: self.offset_in_bytes,
             len: 1,
@@ -337,23 +339,33 @@ impl<T> BufferView<T> {
     }
 }
 
-impl<T> BufferView<[T]> {
+impl<'a, T> Clone for BufferView<'a, T> {
+    fn clone(&self) -> Self {
+        BufferView {
+            buffer: self.buffer,
+            offset_in_bytes: self.offset_in_bytes,
+            len: self.len,
+        }
+    }
+}
+
+impl<'a, T> BufferView<'a, [T]> {
     pub fn len(&self) -> usize {
         self.len
     }
 
     pub fn get<I>(&self, index: I) -> Option<I::Output>
     where
-        I: BufferIndex<BufferView<[T]>>,
+        I: BufferIndex<BufferView<'a, [T]>>,
     {
-        index.get(self)
+        index.get(self.clone())
     }
 
     pub unsafe fn get_unchecked<I>(&self, index: I) -> I::Output
     where
-        I: BufferIndex<BufferView<[T]>>,
+        I: BufferIndex<BufferView<'a, [T]>>,
     {
-        index.get_unchecked(self)
+        index.get_unchecked(self.clone())
     }
 
     pub fn upload_command<D>(&self, data: D) -> UploadCommand<[T], D>
@@ -361,7 +373,7 @@ impl<T> BufferView<[T]> {
         D: Borrow<[T]> + Send + Sync + 'static,
     {
         UploadCommand {
-            buffer_data: self.data.clone(),
+            buffer_data: self.buffer.data.clone(),
             data,
             offset_in_bytes: self.offset_in_bytes,
             len: self.len,
@@ -371,7 +383,7 @@ impl<T> BufferView<[T]> {
 
     pub fn download_command(&self) -> DownloadCommand<[T]> {
         DownloadCommand {
-            data: self.data.clone(),
+            data: self.buffer.data.clone(),
             state: DownloadState::Initial,
             offset_in_bytes: self.offset_in_bytes,
             len: self.len,
@@ -380,16 +392,12 @@ impl<T> BufferView<[T]> {
     }
 }
 
-impl<T> Into<BufferView<T>> for Buffer<T>
-where
-    T: ?Sized,
-{
-    fn into(self) -> BufferView<T> {
+impl<'a, T> Clone for BufferView<'a, [T]> {
+    fn clone(&self) -> Self {
         BufferView {
-            len: self.data.len,
-            data: self.data,
-            offset_in_bytes: 0,
-            _marker: marker::PhantomData,
+            buffer: self.buffer,
+            offset_in_bytes: self.offset_in_bytes,
+            len: self.len,
         }
     }
 }
@@ -397,167 +405,155 @@ where
 pub trait BufferIndex<T> {
     type Output;
 
-    fn get(self, buffer: &T) -> Option<Self::Output>;
+    fn get(self, buffer: T) -> Option<Self::Output>;
 
-    unsafe fn get_unchecked(self, buffer: &T) -> Self::Output;
+    unsafe fn get_unchecked(self, buffer: T) -> Self::Output;
 }
 
-impl<T> BufferIndex<Buffer<[T]>> for usize {
-    type Output = BufferView<T>;
+impl<'a, T> BufferIndex<&'a Buffer<[T]>> for usize {
+    type Output = BufferView<'a, T>;
 
-    fn get(self, buffer: &Buffer<[T]>) -> Option<Self::Output> {
+    fn get(self, buffer: &'a Buffer<[T]>) -> Option<Self::Output> {
         if self < buffer.data.len {
             Some(BufferView {
-                data: buffer.data.clone(),
+                buffer: unsafe { mem::transmute(buffer) },
                 offset_in_bytes: self * mem::size_of::<T>(),
                 len: 1,
-                _marker: marker::PhantomData,
             })
         } else {
             None
         }
     }
 
-    unsafe fn get_unchecked(self, buffer: &Buffer<[T]>) -> Self::Output {
+    unsafe fn get_unchecked(self, buffer: &'a Buffer<[T]>) -> Self::Output {
         BufferView {
-            data: buffer.data.clone(),
+            buffer: unsafe { mem::transmute(buffer) },
             offset_in_bytes: self * mem::size_of::<T>(),
             len: 1,
-            _marker: marker::PhantomData,
         }
     }
 }
 
-impl<T> BufferIndex<BufferView<[T]>> for usize {
-    type Output = BufferView<T>;
+impl<'a, T> BufferIndex<BufferView<'a, [T]>> for usize {
+    type Output = BufferView<'a, T>;
 
-    fn get(self, buffer: &BufferView<[T]>) -> Option<Self::Output> {
-        if self < buffer.len {
+    fn get(self, view: BufferView<'a, [T]>) -> Option<Self::Output> {
+        if self < view.len {
             Some(BufferView {
-                data: buffer.data.clone(),
-                offset_in_bytes: buffer.offset_in_bytes + self * mem::size_of::<T>(),
+                buffer: unsafe { mem::transmute(view.buffer) },
+                offset_in_bytes: view.offset_in_bytes + self * mem::size_of::<T>(),
                 len: 1,
-                _marker: marker::PhantomData,
             })
         } else {
             None
         }
     }
 
-    unsafe fn get_unchecked(self, buffer: &BufferView<[T]>) -> Self::Output {
+    unsafe fn get_unchecked(self, view: BufferView<'a, [T]>) -> Self::Output {
         BufferView {
-            data: buffer.data.clone(),
-            offset_in_bytes: buffer.offset_in_bytes + self * mem::size_of::<T>(),
+            buffer: unsafe { mem::transmute(view.buffer) },
+            offset_in_bytes: view.offset_in_bytes + self * mem::size_of::<T>(),
             len: 1,
-            _marker: marker::PhantomData,
         }
     }
 }
 
-impl<T> BufferIndex<Buffer<[T]>> for RangeFull {
-    type Output = BufferView<[T]>;
+impl<'a, T> BufferIndex<&'a Buffer<[T]>> for RangeFull {
+    type Output = BufferView<'a, [T]>;
 
-    fn get(self, buffer: &Buffer<[T]>) -> Option<Self::Output> {
+    fn get(self, buffer: &'a Buffer<[T]>) -> Option<Self::Output> {
         Some(BufferView {
-            data: buffer.data.clone(),
+            buffer,
             offset_in_bytes: 0,
             len: buffer.data.len,
-            _marker: marker::PhantomData,
         })
     }
 
-    unsafe fn get_unchecked(self, buffer: &Buffer<[T]>) -> Self::Output {
+    unsafe fn get_unchecked(self, buffer: &'a Buffer<[T]>) -> Self::Output {
         BufferView {
-            data: buffer.data.clone(),
+            buffer,
             offset_in_bytes: 0,
             len: buffer.data.len,
-            _marker: marker::PhantomData,
         }
     }
 }
 
-impl<T> BufferIndex<BufferView<[T]>> for RangeFull {
-    type Output = BufferView<[T]>;
+impl<'a, T> BufferIndex<BufferView<'a, [T]>> for RangeFull {
+    type Output = BufferView<'a, [T]>;
 
-    fn get(self, buffer: &BufferView<[T]>) -> Option<Self::Output> {
+    fn get(self, view: BufferView<'a, [T]>) -> Option<Self::Output> {
         Some(BufferView {
-            data: buffer.data.clone(),
-            offset_in_bytes: buffer.offset_in_bytes,
-            len: buffer.len,
-            _marker: marker::PhantomData,
+            buffer: view.buffer,
+            offset_in_bytes: view.offset_in_bytes,
+            len: view.len,
         })
     }
 
-    unsafe fn get_unchecked(self, buffer: &BufferView<[T]>) -> Self::Output {
+    unsafe fn get_unchecked(self, view: BufferView<'a, [T]>) -> Self::Output {
         BufferView {
-            data: buffer.data.clone(),
-            offset_in_bytes: buffer.offset_in_bytes,
-            len: buffer.len,
-            _marker: marker::PhantomData,
+            buffer: view.buffer,
+            offset_in_bytes: view.offset_in_bytes,
+            len: view.len,
         }
     }
 }
 
-impl<T> BufferIndex<Buffer<[T]>> for Range<usize> {
-    type Output = BufferView<[T]>;
+impl<'a, T> BufferIndex<&'a Buffer<[T]>> for Range<usize> {
+    type Output = BufferView<'a, [T]>;
 
-    fn get(self, buffer: &Buffer<[T]>) -> Option<Self::Output> {
+    fn get(self, buffer: &'a Buffer<[T]>) -> Option<Self::Output> {
         let Range { start, end } = self;
 
         if start > end || end > buffer.data.len {
             None
         } else {
             Some(BufferView {
-                data: buffer.data.clone(),
+                buffer,
                 offset_in_bytes: start * mem::size_of::<T>(),
                 len: end - start,
-                _marker: marker::PhantomData,
             })
         }
     }
 
-    unsafe fn get_unchecked(self, buffer: &Buffer<[T]>) -> Self::Output {
+    unsafe fn get_unchecked(self, buffer: &'a Buffer<[T]>) -> Self::Output {
         BufferView {
-            data: buffer.data.clone(),
+            buffer,
             offset_in_bytes: self.start * mem::size_of::<T>(),
             len: self.end - self.start,
-            _marker: marker::PhantomData,
         }
     }
 }
 
-impl<T> BufferIndex<BufferView<[T]>> for Range<usize> {
-    type Output = BufferView<[T]>;
+impl<'a, T> BufferIndex<BufferView<'a, [T]>> for Range<usize> {
+    type Output = BufferView<'a, [T]>;
 
-    fn get(self, buffer: &BufferView<[T]>) -> Option<Self::Output> {
+    fn get(self, view: BufferView<'a, [T]>) -> Option<Self::Output> {
         let Range { start, end } = self;
 
-        if start > end || end > buffer.len {
+        if start > end || end > view.len {
             None
         } else {
             Some(BufferView {
-                data: buffer.data.clone(),
-                offset_in_bytes: buffer.offset_in_bytes + start * mem::size_of::<T>(),
+                buffer: view.buffer,
+                offset_in_bytes: view.offset_in_bytes + start * mem::size_of::<T>(),
                 len: end - start,
-                _marker: marker::PhantomData,
             })
         }
     }
 
-    unsafe fn get_unchecked(self, buffer: &BufferView<[T]>) -> Self::Output {
+    unsafe fn get_unchecked(self, view: BufferView<'a, [T]>) -> Self::Output {
         BufferView {
-            data: buffer.data.clone(),
-            offset_in_bytes: buffer.offset_in_bytes + self.start * mem::size_of::<T>(),
+            buffer: view.buffer,
+            offset_in_bytes: view.offset_in_bytes + self.start * mem::size_of::<T>(),
             len: self.end - self.start,
-            _marker: marker::PhantomData,
         }
     }
 }
 
-impl<T> BufferIndex<Buffer<[T]>> for RangeInclusive<usize> {
-    type Output = BufferView<[T]>;
+impl<'a, T> BufferIndex<&'a Buffer<[T]>> for RangeInclusive<usize> {
+    type Output = BufferView<'a, [T]>;
 
-    fn get(self, buffer: &Buffer<[T]>) -> Option<Self::Output> {
+    fn get(self, buffer: &'a Buffer<[T]>) -> Option<Self::Output> {
         if *self.end() == usize::max_value() {
             None
         } else {
@@ -565,96 +561,96 @@ impl<T> BufferIndex<Buffer<[T]>> for RangeInclusive<usize> {
         }
     }
 
-    unsafe fn get_unchecked(self, buffer: &Buffer<[T]>) -> Self::Output {
+    unsafe fn get_unchecked(self, buffer: &'a Buffer<[T]>) -> Self::Output {
         (*self.start()..self.end() + 1).get_unchecked(buffer)
     }
 }
 
-impl<T> BufferIndex<BufferView<[T]>> for RangeInclusive<usize> {
-    type Output = BufferView<[T]>;
+impl<'a, T> BufferIndex<BufferView<'a, [T]>> for RangeInclusive<usize> {
+    type Output = BufferView<'a, [T]>;
 
-    fn get(self, buffer: &BufferView<[T]>) -> Option<Self::Output> {
+    fn get(self, view: BufferView<'a, [T]>) -> Option<Self::Output> {
         if *self.end() == usize::max_value() {
             None
         } else {
-            (*self.start()..self.end() + 1).get(buffer)
+            (*self.start()..self.end() + 1).get(view)
         }
     }
 
-    unsafe fn get_unchecked(self, buffer: &BufferView<[T]>) -> Self::Output {
-        (*self.start()..self.end() + 1).get_unchecked(buffer)
+    unsafe fn get_unchecked(self, view: BufferView<'a, [T]>) -> Self::Output {
+        (*self.start()..self.end() + 1).get_unchecked(view)
     }
 }
 
-impl<T> BufferIndex<Buffer<[T]>> for RangeFrom<usize> {
-    type Output = BufferView<[T]>;
+impl<'a, T> BufferIndex<&'a Buffer<[T]>> for RangeFrom<usize> {
+    type Output = BufferView<'a, [T]>;
 
-    fn get(self, buffer: &Buffer<[T]>) -> Option<Self::Output> {
+    fn get(self, buffer: &'a Buffer<[T]>) -> Option<Self::Output> {
         (self.start..buffer.data.len).get(buffer)
     }
 
-    unsafe fn get_unchecked(self, buffer: &Buffer<[T]>) -> Self::Output {
+    unsafe fn get_unchecked(self, buffer: &'a Buffer<[T]>) -> Self::Output {
         (self.start..buffer.data.len).get_unchecked(buffer)
     }
 }
 
-impl<T> BufferIndex<BufferView<[T]>> for RangeFrom<usize> {
-    type Output = BufferView<[T]>;
+impl<'a, T> BufferIndex<BufferView<'a, [T]>> for RangeFrom<usize> {
+    type Output = BufferView<'a, [T]>;
 
-    fn get(self, buffer: &BufferView<[T]>) -> Option<Self::Output> {
-        (self.start..buffer.len).get(buffer)
+    fn get(self, view: BufferView<'a, [T]>) -> Option<Self::Output> {
+        (self.start..view.len).get(view)
     }
 
-    unsafe fn get_unchecked(self, buffer: &BufferView<[T]>) -> Self::Output {
-        (self.start..buffer.len).get_unchecked(buffer)
+    unsafe fn get_unchecked(self, view: BufferView<'a, [T]>) -> Self::Output {
+        (self.start..view.len).get_unchecked(view)
     }
 }
 
-impl<T> BufferIndex<Buffer<[T]>> for RangeTo<usize> {
-    type Output = BufferView<[T]>;
+impl<'a, T> BufferIndex<&'a Buffer<[T]>> for RangeTo<usize> {
+    type Output = BufferView<'a, [T]>;
 
-    fn get(self, buffer: &Buffer<[T]>) -> Option<Self::Output> {
+    fn get(self, buffer: &'a Buffer<[T]>) -> Option<Self::Output> {
         (0..self.end).get(buffer)
     }
 
-    unsafe fn get_unchecked(self, buffer: &Buffer<[T]>) -> Self::Output {
+    unsafe fn get_unchecked(self, buffer: &'a Buffer<[T]>) -> Self::Output {
         (0..self.end).get_unchecked(buffer)
     }
 }
 
-impl<T> BufferIndex<BufferView<[T]>> for RangeTo<usize> {
-    type Output = BufferView<[T]>;
+impl<'a, T> BufferIndex<BufferView<'a, [T]>> for RangeTo<usize> {
+    type Output = BufferView<'a, [T]>;
 
-    fn get(self, buffer: &BufferView<[T]>) -> Option<Self::Output> {
-        (0..self.end).get(buffer)
+    fn get(self, view: BufferView<'a, [T]>) -> Option<Self::Output> {
+        (0..self.end).get(view)
     }
 
-    unsafe fn get_unchecked(self, buffer: &BufferView<[T]>) -> Self::Output {
-        (0..self.end).get_unchecked(buffer)
+    unsafe fn get_unchecked(self, view: BufferView<'a, [T]>) -> Self::Output {
+        (0..self.end).get_unchecked(view)
     }
 }
 
-impl<T> BufferIndex<Buffer<[T]>> for RangeToInclusive<usize> {
-    type Output = BufferView<[T]>;
+impl<'a, T> BufferIndex<&'a Buffer<[T]>> for RangeToInclusive<usize> {
+    type Output = BufferView<'a, [T]>;
 
-    fn get(self, buffer: &Buffer<[T]>) -> Option<Self::Output> {
+    fn get(self, buffer: &'a Buffer<[T]>) -> Option<Self::Output> {
         (0..=self.end).get(buffer)
     }
 
-    unsafe fn get_unchecked(self, buffer: &Buffer<[T]>) -> Self::Output {
+    unsafe fn get_unchecked(self, buffer: &'a Buffer<[T]>) -> Self::Output {
         (0..=self.end).get_unchecked(buffer)
     }
 }
 
-impl<T> BufferIndex<BufferView<[T]>> for RangeToInclusive<usize> {
-    type Output = BufferView<[T]>;
+impl<'a, T> BufferIndex<BufferView<'a, [T]>> for RangeToInclusive<usize> {
+    type Output = BufferView<'a, [T]>;
 
-    fn get(self, buffer: &BufferView<[T]>) -> Option<Self::Output> {
-        (0..=self.end).get(buffer)
+    fn get(self, view: BufferView<'a, [T]>) -> Option<Self::Output> {
+        (0..=self.end).get(view)
     }
 
-    unsafe fn get_unchecked(self, buffer: &BufferView<[T]>) -> Self::Output {
-        (0..=self.end).get_unchecked(buffer)
+    unsafe fn get_unchecked(self, view: BufferView<'a, [T]>) -> Self::Output {
+        (0..=self.end).get_unchecked(view)
     }
 }
 
@@ -895,7 +891,7 @@ unsafe impl<T> GpuTask<Connection> for DownloadCommand<T> {
     type Output = Result<Box<T>, TaskContextMismatch>;
 
     fn context_id(&self) -> ContextId {
-        ContextId::Id(self.buffer_data.context_id)
+        ContextId::Id(self.data.context_id)
     }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
@@ -973,7 +969,7 @@ unsafe impl<T> GpuTask<Connection> for DownloadCommand<[T]> {
     type Output = Result<Box<[T]>, TaskContextMismatch>;
 
     fn context_id(&self) -> ContextId {
-        ContextId::Id(self.buffer_data.context_id)
+        ContextId::Id(self.data.context_id)
     }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {

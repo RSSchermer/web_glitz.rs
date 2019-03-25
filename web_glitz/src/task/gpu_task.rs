@@ -1,4 +1,4 @@
-use super::{Join, Join3, Join4, Join5, Map, Sequence, Sequence3, Sequence4, Sequence5, Then};
+use super::{Join, Join3, Join4, Join5, Sequence, Sequence3, Sequence4, Sequence5};
 
 pub enum Progress<T> {
     Finished(T),
@@ -17,7 +17,7 @@ impl ContextId {
             ContextId::Any => Ok(other),
             ContextId::Id(id) => {
                 if other == ContextId::Any || other == ContextId::Id(*id) {
-                    self
+                    Ok(*self)
                 } else {
                     Err(IncompatibleContextIds(*self, other))
                 }
@@ -26,6 +26,7 @@ impl ContextId {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct IncompatibleContextIds(ContextId, ContextId);
 
 pub unsafe trait GpuTask<Ec> {
