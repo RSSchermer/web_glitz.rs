@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use crate::image::format::{
-    FloatSamplable, IntegerSamplable, ShadowSamplable, TextureFormat, UnsignedIntegerSamplable,
-    InvalidMagnificationFilter, InvalidMinificationFilter, Filterable
+    Filterable, FloatSamplable, IntegerSamplable, InvalidMagnificationFilter,
+    InvalidMinificationFilter, ShadowSamplable, TextureFormat, UnsignedIntegerSamplable,
 };
 use crate::image::texture_2d::Texture2D;
 use crate::image::texture_2d::Texture2DData;
@@ -13,9 +13,9 @@ use crate::image::texture_3d::Texture3DData;
 use crate::image::texture_cube::TextureCube;
 use crate::image::texture_cube::TextureCubeData;
 use crate::runtime::state::ContextUpdate;
-use crate::runtime::{Connection, RenderingContext, Extensions};
-use crate::task::{GpuTask, ContextId};
+use crate::runtime::{Connection, Extensions, RenderingContext};
 use crate::task::Progress;
+use crate::task::{ContextId, GpuTask};
 use crate::util::{arc_get_mut_unchecked, identical, JsId};
 use std::convert::TryFrom;
 use std::marker;
@@ -99,7 +99,7 @@ impl Sampler {
             id: None,
             context_id: context.id(),
             dropper: Box::new(context.clone()),
-            extensions: context.extensions().clone()
+            extensions: context.extensions().clone(),
         });
 
         context.submit(SamplerAllocateCommand {
@@ -205,7 +205,7 @@ impl ShadowSampler {
             id: None,
             context_id: context.id(),
             dropper: Box::new(context.clone()),
-            extensions: context.extensions().clone()
+            extensions: context.extensions().clone(),
         });
 
         context.submit(ShadowSamplerAllocateCommand {
@@ -257,7 +257,7 @@ pub(crate) struct SamplerData {
     id: Option<JsId>,
     context_id: usize,
     dropper: Box<SamplerObjectDropper>,
-    extensions: Extensions
+    extensions: Extensions,
 }
 
 impl SamplerData {
@@ -410,7 +410,6 @@ impl<'a> FloatSampledTexture2D<'a> {
     where
         F: TextureFormat + FloatSamplable + 'static,
     {
-
         if texture.data().context_id() != sampler.data.context_id {
             return Err(IncompatibleSampler::ContextMismatch);
         }
@@ -494,10 +493,7 @@ pub struct ShadowSampledTexture2D<'a> {
 }
 
 impl<'a> ShadowSampledTexture2D<'a> {
-    pub fn new<F>(
-        texture: &'a Texture2D<F>,
-        sampler: &'a ShadowSampler,
-    ) -> Self
+    pub fn new<F>(texture: &'a Texture2D<F>, sampler: &'a ShadowSampler) -> Self
     where
         F: TextureFormat + ShadowSamplable + 'static,
     {
@@ -611,10 +607,7 @@ pub struct ShadowSampledTexture2DArray<'a> {
 }
 
 impl<'a> ShadowSampledTexture2DArray<'a> {
-    pub fn new<F>(
-        texture: &'a Texture2DArray<F>,
-        sampler: &'a ShadowSampler,
-    ) -> Self
+    pub fn new<F>(texture: &'a Texture2DArray<F>, sampler: &'a ShadowSampler) -> Self
     where
         F: TextureFormat + ShadowSamplable + 'static,
     {
@@ -818,10 +811,7 @@ pub struct ShadowSampledTextureCube<'a> {
 }
 
 impl<'a> ShadowSampledTextureCube<'a> {
-    pub fn new<F>(
-        texture: &'a TextureCube<F>,
-        sampler: &'a ShadowSampler,
-    ) -> Self
+    pub fn new<F>(texture: &'a TextureCube<F>, sampler: &'a ShadowSampler) -> Self
     where
         F: TextureFormat + ShadowSamplable + 'static,
     {

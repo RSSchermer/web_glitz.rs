@@ -35,30 +35,33 @@ use crate::render_pass::framebuffer::{
 use crate::runtime::state::{
     AttachmentSet, ContextUpdate, DepthStencilAttachmentDescriptor, DrawBuffer, DynamicState,
 };
-use crate::runtime::{Connection, RenderingContext};
 use crate::runtime::TaskContextMismatch;
-use crate::task::{GpuTask, Progress, ContextId};
+use crate::runtime::{Connection, RenderingContext};
+use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::{slice_make_mut, JsId};
-use std::{marker, cmp};
+use std::{cmp, marker};
 
 pub struct RenderPass<T> {
     id: usize,
     context_id: usize,
     render_target_encoding: RenderTargetEncodingData,
-    task: T
+    task: T,
 }
 
-impl<T> RenderPass<T> where for<'a> T: GpuTask<RenderPassContext<'a>> {
+impl<T> RenderPass<T>
+where
+    for<'a> T: GpuTask<RenderPassContext<'a>>,
+{
     pub(crate) fn new<Rc, R, F>(id: usize, context: &Rc, render_target: R, f: F) -> RenderPass<T>
     where
         Rc: RenderingContext + Clone + 'static,
         R: RenderTargetDescription,
-        F: FnOnce(&mut R::Framebuffer) -> T
+        F: FnOnce(&mut R::Framebuffer) -> T,
     {
         let context_id = context.id();
         let mut encoding_context = EncodingContext {
             render_pass_id: id,
-            context_id
+            context_id,
         };
         let mut encoding = render_target.into_encoding(&mut encoding_context);
 
@@ -66,7 +69,7 @@ impl<T> RenderPass<T> where for<'a> T: GpuTask<RenderPassContext<'a>> {
             id,
             context_id,
             task: f(&mut encoding.framebuffer),
-            render_target_encoding: encoding.data
+            render_target_encoding: encoding.data,
         }
     }
 }
@@ -98,7 +101,7 @@ pub struct RenderPassMismatch;
 
 unsafe impl<T, O> GpuTask<Connection> for RenderPass<T>
 where
-    for<'a> T: GpuTask<RenderPassContext<'a>, Output=O>,
+    for<'a> T: GpuTask<RenderPassContext<'a>, Output = O>,
 {
     type Output = O;
 
@@ -114,9 +117,9 @@ where
                 state.set_bound_draw_framebuffer(None).apply(gl).unwrap();
 
                 self.task.progress(&mut RenderPassContext {
-                        connection,
-                        render_pass_id: self.id,
-                    })
+                    connection,
+                    render_pass_id: self.id,
+                })
             }
             RenderTargetEncodingData::FBO(data) => {
                 state
@@ -132,11 +135,10 @@ where
                     data.load_ops[16].perform(gl);
                 }
 
-                let output = self.task
-                    .progress(&mut RenderPassContext {
-                        connection,
-                        render_pass_id: self.id,
-                    });
+                let output = self.task.progress(&mut RenderPassContext {
+                    connection,
+                    render_pass_id: self.id,
+                });
 
                 let mut invalidate_buffers = [0; 17];
                 let mut invalidate_counter = 0;
@@ -719,7 +721,7 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, ()> {
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 last_id: 0,
-                dimensions: None
+                dimensions: None,
             },
             context,
             data: RenderTargetEncodingData::Default,
@@ -741,7 +743,7 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, DefaultDe
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 last_id: 0,
-                dimensions: None
+                dimensions: None,
             },
             context,
             data: RenderTargetEncodingData::Default,
@@ -763,7 +765,7 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, DefaultDe
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 last_id: 0,
-                dimensions: None
+                dimensions: None,
             },
             context,
             data: RenderTargetEncodingData::Default,
@@ -785,7 +787,7 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, DefaultSt
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 last_id: 0,
-                dimensions: None
+                dimensions: None,
             },
             context,
             data: RenderTargetEncodingData::Default,
@@ -807,7 +809,7 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, ()> {
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 last_id: 0,
-                dimensions: None
+                dimensions: None,
             },
             context,
             data: RenderTargetEncodingData::Default,
@@ -829,7 +831,7 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, DefaultD
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 last_id: 0,
-                dimensions: None
+                dimensions: None,
             },
             context,
             data: RenderTargetEncodingData::Default,
@@ -851,7 +853,7 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, DefaultD
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 last_id: 0,
-                dimensions: None
+                dimensions: None,
             },
             context,
             data: RenderTargetEncodingData::Default,
@@ -873,7 +875,7 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, DefaultS
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 last_id: 0,
-                dimensions: None
+                dimensions: None,
             },
             context,
             data: RenderTargetEncodingData::Default,
@@ -1476,7 +1478,7 @@ pub struct RenderTargetEncoder<'a, C, Ds> {
     color: C,
     depth_stencil: Ds,
     data: FBOEncodingData,
-    dimensions: Option<(u32, u32)>
+    dimensions: Option<(u32, u32)>,
 }
 
 enum RenderTargetEncodingData {
@@ -1489,7 +1491,7 @@ struct FBOEncodingData {
     store_ops: [StoreOp; 17],
     color_count: usize,
     color_attachments: [Option<FramebufferAttachment>; 16],
-    depth_stencil_attachment: DepthStencilAttachmentDescriptor
+    depth_stencil_attachment: DepthStencilAttachmentDescriptor,
 }
 
 impl<'a> RenderTargetEncoder<'a, (), ()> {
@@ -1506,9 +1508,9 @@ impl<'a> RenderTargetEncoder<'a, (), ()> {
                     None, None, None, None, None, None, None, None, None, None, None, None, None,
                     None, None, None,
                 ],
-                depth_stencil_attachment: DepthStencilAttachmentDescriptor::None
+                depth_stencil_attachment: DepthStencilAttachmentDescriptor::None,
             },
-            dimensions: None
+            dimensions: None,
         }
     }
 }
@@ -1536,11 +1538,12 @@ impl<'a, C, Ds> RenderTargetEncoder<'a, C, Ds> {
             self.data.store_ops[c] = attachment.store_op;
             self.data.color_count += 1;
 
-            let dimensions = if let Some((framebuffer_width, framebuffer_height)) = self.dimensions {
+            let dimensions = if let Some((framebuffer_width, framebuffer_height)) = self.dimensions
+            {
                 Some((
                     cmp::min(framebuffer_width, width),
-                    cmp::min(framebuffer_height, height)
-                    ))
+                    cmp::min(framebuffer_height, height),
+                ))
             } else {
                 Some((width, height))
             };
@@ -1553,7 +1556,7 @@ impl<'a, C, Ds> RenderTargetEncoder<'a, C, Ds> {
                 context: self.context,
                 depth_stencil: self.depth_stencil,
                 data: self.data,
-                dimensions
+                dimensions,
             })
         }
     }
@@ -1583,10 +1586,11 @@ impl<'a, C, Ds> RenderTargetEncoder<'a, C, Ds> {
             self.data.store_ops[c] = attachment.store_op;
             self.data.color_count += 1;
 
-            let dimensions = if let Some((framebuffer_width, framebuffer_height)) = self.dimensions {
+            let dimensions = if let Some((framebuffer_width, framebuffer_height)) = self.dimensions
+            {
                 Some((
                     cmp::min(framebuffer_width, width),
-                    cmp::min(framebuffer_height, height)
+                    cmp::min(framebuffer_height, height),
                 ))
             } else {
                 Some((width, height))
@@ -1600,7 +1604,7 @@ impl<'a, C, Ds> RenderTargetEncoder<'a, C, Ds> {
                 context: self.context,
                 depth_stencil: self.depth_stencil,
                 data: self.data,
-                dimensions
+                dimensions,
             })
         }
     }
@@ -1630,10 +1634,11 @@ impl<'a, C, Ds> RenderTargetEncoder<'a, C, Ds> {
             self.data.store_ops[c] = attachment.store_op;
             self.data.color_count += 1;
 
-            let dimensions = if let Some((framebuffer_width, framebuffer_height)) = self.dimensions {
+            let dimensions = if let Some((framebuffer_width, framebuffer_height)) = self.dimensions
+            {
                 Some((
                     cmp::min(framebuffer_width, width),
-                    cmp::min(framebuffer_height, height)
+                    cmp::min(framebuffer_height, height),
                 ))
             } else {
                 Some((width, height))
@@ -1652,7 +1657,7 @@ impl<'a, C, Ds> RenderTargetEncoder<'a, C, Ds> {
                 context: self.context,
                 depth_stencil: self.depth_stencil,
                 data: self.data,
-                dimensions
+                dimensions,
             })
         }
     }
@@ -1677,7 +1682,7 @@ impl<'a, C, Ds> RenderTargetEncoder<'a, C, Ds> {
         let dimensions = if let Some((framebuffer_width, framebuffer_height)) = self.dimensions {
             Some((
                 cmp::min(framebuffer_width, width),
-                cmp::min(framebuffer_height, height)
+                cmp::min(framebuffer_height, height),
             ))
         } else {
             Some((width, height))
@@ -1688,7 +1693,7 @@ impl<'a, C, Ds> RenderTargetEncoder<'a, C, Ds> {
             depth_stencil: DepthStencilBuffer::new(self.context.render_pass_id, width, height),
             data: self.data,
             context: self.context,
-            dimensions
+            dimensions,
         }
     }
 
@@ -1712,7 +1717,7 @@ impl<'a, C, Ds> RenderTargetEncoder<'a, C, Ds> {
         let dimensions = if let Some((framebuffer_width, framebuffer_height)) = self.dimensions {
             Some((
                 cmp::min(framebuffer_width, width),
-                cmp::min(framebuffer_height, height)
+                cmp::min(framebuffer_height, height),
             ))
         } else {
             Some((width, height))
@@ -1723,7 +1728,7 @@ impl<'a, C, Ds> RenderTargetEncoder<'a, C, Ds> {
             depth_stencil: DepthBuffer::new(self.context.render_pass_id, width, height),
             data: self.data,
             context: self.context,
-            dimensions
+            dimensions,
         }
     }
 
@@ -1747,7 +1752,7 @@ impl<'a, C, Ds> RenderTargetEncoder<'a, C, Ds> {
         let dimensions = if let Some((framebuffer_width, framebuffer_height)) = self.dimensions {
             Some((
                 cmp::min(framebuffer_width, width),
-                cmp::min(framebuffer_height, height)
+                cmp::min(framebuffer_height, height),
             ))
         } else {
             Some((width, height))
@@ -1758,7 +1763,7 @@ impl<'a, C, Ds> RenderTargetEncoder<'a, C, Ds> {
             depth_stencil: StencilBuffer::new(self.context.render_pass_id, width, height),
             data: self.data,
             context: self.context,
-            dimensions
+            dimensions,
         }
     }
 }
@@ -1881,8 +1886,8 @@ where
             if let Some((width, height)) = framebuffer_dimensions {
                 framebuffer_dimensions = Some((
                     cmp::min(width, attachment_width),
-                    cmp::min(height, attachment_height)
-                    ));
+                    cmp::min(height, attachment_height),
+                ));
             } else {
                 framebuffer_dimensions = Some((attachment_width, attachment_height));
             }
@@ -1901,7 +1906,7 @@ where
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 last_id: 0,
-                dimensions: framebuffer_dimensions
+                dimensions: framebuffer_dimensions,
             },
             data: RenderTargetEncodingData::FBO(FBOEncodingData {
                 load_ops,
@@ -1954,7 +1959,7 @@ where
             if let Some((width, height)) = framebuffer_dimensions {
                 framebuffer_dimensions = Some((
                     cmp::min(width, attachment_width),
-                    cmp::min(height, attachment_height)
+                    cmp::min(height, attachment_height),
                 ));
             } else {
                 framebuffer_dimensions = Some((attachment_width, attachment_height));
@@ -1977,7 +1982,7 @@ where
         if let Some((width, height)) = framebuffer_dimensions {
             framebuffer_dimensions = Some((
                 cmp::min(width, depth_stencil_width),
-                cmp::min(height, depth_stencil_height)
+                cmp::min(height, depth_stencil_height),
             ));
         } else {
             framebuffer_dimensions = Some((depth_stencil_width, depth_stencil_height));
@@ -1994,7 +1999,7 @@ where
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 last_id: 0,
-                dimensions: framebuffer_dimensions
+                dimensions: framebuffer_dimensions,
             },
             data: RenderTargetEncodingData::FBO(FBOEncodingData {
                 load_ops,
@@ -2049,7 +2054,7 @@ where
             if let Some((width, height)) = framebuffer_dimensions {
                 framebuffer_dimensions = Some((
                     cmp::min(width, attachment_width),
-                    cmp::min(height, attachment_height)
+                    cmp::min(height, attachment_height),
                 ));
             } else {
                 framebuffer_dimensions = Some((attachment_width, attachment_height));
@@ -2070,26 +2075,20 @@ where
         let depth_height = depth_attachment.height();
 
         if let Some((width, height)) = framebuffer_dimensions {
-            framebuffer_dimensions = Some((
-                cmp::min(width, depth_width),
-                cmp::min(height, depth_height)
-            ));
-        }  else {
+            framebuffer_dimensions =
+                Some((cmp::min(width, depth_width), cmp::min(height, depth_height)));
+        } else {
             framebuffer_dimensions = Some((depth_width, depth_height));
         }
 
         RenderTargetEncoding {
             framebuffer: Framebuffer {
                 color: buffers,
-                depth_stencil: DepthBuffer::new(
-                    context.render_pass_id,
-                    depth_width,
-                    depth_height,
-                ),
+                depth_stencil: DepthBuffer::new(context.render_pass_id, depth_width, depth_height),
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 last_id: 0,
-                dimensions: framebuffer_dimensions
+                dimensions: framebuffer_dimensions,
             },
             data: RenderTargetEncodingData::FBO(FBOEncodingData {
                 load_ops,
@@ -2142,7 +2141,7 @@ where
             if let Some((width, height)) = framebuffer_dimensions {
                 framebuffer_dimensions = Some((
                     cmp::min(width, attachment_width),
-                    cmp::min(height, attachment_height)
+                    cmp::min(height, attachment_height),
                 ));
             } else {
                 framebuffer_dimensions = Some((attachment_width, attachment_height));
@@ -2165,7 +2164,7 @@ where
         if let Some((width, height)) = framebuffer_dimensions {
             framebuffer_dimensions = Some((
                 cmp::min(width, stencil_width),
-                cmp::min(height, stencil_height)
+                cmp::min(height, stencil_height),
             ));
         } else {
             framebuffer_dimensions = Some((stencil_width, stencil_height));
@@ -2182,7 +2181,7 @@ where
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 last_id: 0,
-                dimensions: framebuffer_dimensions
+                dimensions: framebuffer_dimensions,
             },
             data: RenderTargetEncodingData::FBO(FBOEncodingData {
                 load_ops,
@@ -2199,13 +2198,13 @@ where
 }
 
 impl<'a, F> RenderTargetEncoding<'a, Framebuffer<Vec<IntegerBuffer<F>>, ()>>
-    where
-        F: IntegerRenderable,
+where
+    F: IntegerRenderable,
 {
     pub fn from_integer_colors<C, I>(context: &'a mut EncodingContext, colors: C) -> Self
-        where
-            C: IntoIterator<Item = IntegerTarget<I>>,
-            I: IntoFramebufferAttachment<Format = F>,
+    where
+        C: IntoIterator<Item = IntegerTarget<I>>,
+        I: IntoFramebufferAttachment<Format = F>,
     {
         let mut color_attachments = [
             None, None, None, None, None, None, None, None, None, None, None, None, None, None,
@@ -2231,7 +2230,7 @@ impl<'a, F> RenderTargetEncoding<'a, Framebuffer<Vec<IntegerBuffer<F>>, ()>>
             if let Some((width, height)) = framebuffer_dimensions {
                 framebuffer_dimensions = Some((
                     cmp::min(width, attachment_width),
-                    cmp::min(height, attachment_height)
+                    cmp::min(height, attachment_height),
                 ));
             } else {
                 framebuffer_dimensions = Some((attachment_width, attachment_height));
@@ -2251,7 +2250,7 @@ impl<'a, F> RenderTargetEncoding<'a, Framebuffer<Vec<IntegerBuffer<F>>, ()>>
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 last_id: 0,
-                dimensions: framebuffer_dimensions
+                dimensions: framebuffer_dimensions,
             },
             data: RenderTargetEncodingData::FBO(FBOEncodingData {
                 load_ops,
@@ -2265,20 +2264,21 @@ impl<'a, F> RenderTargetEncoding<'a, Framebuffer<Vec<IntegerBuffer<F>>, ()>>
     }
 }
 
-impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<IntegerBuffer<F0>>, DepthStencilBuffer<F1>>>
-    where
-        F0: IntegerRenderable,
-        F1: DepthStencilRenderable,
+impl<'a, F0, F1>
+    RenderTargetEncoding<'a, Framebuffer<Vec<IntegerBuffer<F0>>, DepthStencilBuffer<F1>>>
+where
+    F0: IntegerRenderable,
+    F1: DepthStencilRenderable,
 {
     pub fn from_integer_colors_and_depth_stencil<C, I, Ds>(
         context: &'a mut EncodingContext,
         colors: C,
         depth_stencil: DepthStencilTarget<Ds>,
     ) -> Self
-        where
-            C: IntoIterator<Item = IntegerTarget<I>>,
-            I: IntoFramebufferAttachment<Format = F0>,
-            Ds: IntoFramebufferAttachment<Format = F1>,
+    where
+        C: IntoIterator<Item = IntegerTarget<I>>,
+        I: IntoFramebufferAttachment<Format = F0>,
+        Ds: IntoFramebufferAttachment<Format = F1>,
     {
         let mut color_attachments = [
             None, None, None, None, None, None, None, None, None, None, None, None, None, None,
@@ -2304,7 +2304,7 @@ impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<IntegerBuffer<F0>>, De
             if let Some((width, height)) = framebuffer_dimensions {
                 framebuffer_dimensions = Some((
                     cmp::min(width, attachment_width),
-                    cmp::min(height, attachment_height)
+                    cmp::min(height, attachment_height),
                 ));
             } else {
                 framebuffer_dimensions = Some((attachment_width, attachment_height));
@@ -2327,7 +2327,7 @@ impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<IntegerBuffer<F0>>, De
         if let Some((width, height)) = framebuffer_dimensions {
             framebuffer_dimensions = Some((
                 cmp::min(width, depth_stencil_width),
-                cmp::min(height, depth_stencil_height)
+                cmp::min(height, depth_stencil_height),
             ));
         } else {
             framebuffer_dimensions = Some((depth_stencil_width, depth_stencil_height));
@@ -2344,7 +2344,7 @@ impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<IntegerBuffer<F0>>, De
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 last_id: 0,
-                dimensions: framebuffer_dimensions
+                dimensions: framebuffer_dimensions,
             },
             data: RenderTargetEncodingData::FBO(FBOEncodingData {
                 load_ops,
@@ -2361,19 +2361,19 @@ impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<IntegerBuffer<F0>>, De
 }
 
 impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<IntegerBuffer<F0>>, DepthBuffer<F1>>>
-    where
-        F0: IntegerRenderable,
-        F1: DepthRenderable,
+where
+    F0: IntegerRenderable,
+    F1: DepthRenderable,
 {
     pub fn from_integer_colors_and_depth<C, I, Ds>(
         context: &'a mut EncodingContext,
         colors: C,
         depth: DepthTarget<Ds>,
     ) -> Self
-        where
-            C: IntoIterator<Item = IntegerTarget<I>>,
-            I: IntoFramebufferAttachment<Format = F0>,
-            Ds: IntoFramebufferAttachment<Format = F1>,
+    where
+        C: IntoIterator<Item = IntegerTarget<I>>,
+        I: IntoFramebufferAttachment<Format = F0>,
+        Ds: IntoFramebufferAttachment<Format = F1>,
     {
         let mut color_attachments = [
             None, None, None, None, None, None, None, None, None, None, None, None, None, None,
@@ -2399,7 +2399,7 @@ impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<IntegerBuffer<F0>>, De
             if let Some((width, height)) = framebuffer_dimensions {
                 framebuffer_dimensions = Some((
                     cmp::min(width, attachment_width),
-                    cmp::min(height, attachment_height)
+                    cmp::min(height, attachment_height),
                 ));
             } else {
                 framebuffer_dimensions = Some((attachment_width, attachment_height));
@@ -2420,26 +2420,20 @@ impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<IntegerBuffer<F0>>, De
         let depth_height = depth_attachment.height();
 
         if let Some((width, height)) = framebuffer_dimensions {
-            framebuffer_dimensions = Some((
-                cmp::min(width, depth_width),
-                cmp::min(height, depth_height)
-            ));
-        }  else {
+            framebuffer_dimensions =
+                Some((cmp::min(width, depth_width), cmp::min(height, depth_height)));
+        } else {
             framebuffer_dimensions = Some((depth_width, depth_height));
         }
 
         RenderTargetEncoding {
             framebuffer: Framebuffer {
                 color: buffers,
-                depth_stencil: DepthBuffer::new(
-                    context.render_pass_id,
-                    depth_width,
-                    depth_height,
-                ),
+                depth_stencil: DepthBuffer::new(context.render_pass_id, depth_width, depth_height),
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 last_id: 0,
-                dimensions: framebuffer_dimensions
+                dimensions: framebuffer_dimensions,
             },
             data: RenderTargetEncodingData::FBO(FBOEncodingData {
                 load_ops,
@@ -2454,19 +2448,19 @@ impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<IntegerBuffer<F0>>, De
 }
 
 impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<IntegerBuffer<F0>>, StencilBuffer<F1>>>
-    where
-        F0: IntegerRenderable,
-        F1: StencilRenderable,
+where
+    F0: IntegerRenderable,
+    F1: StencilRenderable,
 {
     pub fn from_integer_colors_and_stencil<C, I, Ds>(
         context: &'a mut EncodingContext,
         colors: C,
         stencil: StencilTarget<Ds>,
     ) -> Self
-        where
-            C: IntoIterator<Item = IntegerTarget<I>>,
-            I: IntoFramebufferAttachment<Format = F0>,
-            Ds: IntoFramebufferAttachment<Format = F1>,
+    where
+        C: IntoIterator<Item = IntegerTarget<I>>,
+        I: IntoFramebufferAttachment<Format = F0>,
+        Ds: IntoFramebufferAttachment<Format = F1>,
     {
         let mut color_attachments = [
             None, None, None, None, None, None, None, None, None, None, None, None, None, None,
@@ -2492,7 +2486,7 @@ impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<IntegerBuffer<F0>>, St
             if let Some((width, height)) = framebuffer_dimensions {
                 framebuffer_dimensions = Some((
                     cmp::min(width, attachment_width),
-                    cmp::min(height, attachment_height)
+                    cmp::min(height, attachment_height),
                 ));
             } else {
                 framebuffer_dimensions = Some((attachment_width, attachment_height));
@@ -2515,7 +2509,7 @@ impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<IntegerBuffer<F0>>, St
         if let Some((width, height)) = framebuffer_dimensions {
             framebuffer_dimensions = Some((
                 cmp::min(width, stencil_width),
-                cmp::min(height, stencil_height)
+                cmp::min(height, stencil_height),
             ));
         } else {
             framebuffer_dimensions = Some((stencil_width, stencil_height));
@@ -2532,7 +2526,7 @@ impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<IntegerBuffer<F0>>, St
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 last_id: 0,
-                dimensions: framebuffer_dimensions
+                dimensions: framebuffer_dimensions,
             },
             data: RenderTargetEncodingData::FBO(FBOEncodingData {
                 load_ops,
@@ -2549,13 +2543,13 @@ impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<IntegerBuffer<F0>>, St
 }
 
 impl<'a, F> RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<F>>, ()>>
-    where
-        F: UnsignedIntegerRenderable,
+where
+    F: UnsignedIntegerRenderable,
 {
     pub fn from_unsigned_integer_colors<C, I>(context: &'a mut EncodingContext, colors: C) -> Self
-        where
-            C: IntoIterator<Item = UnsignedIntegerTarget<I>>,
-            I: IntoFramebufferAttachment<Format = F>,
+    where
+        C: IntoIterator<Item = UnsignedIntegerTarget<I>>,
+        I: IntoFramebufferAttachment<Format = F>,
     {
         let mut color_attachments = [
             None, None, None, None, None, None, None, None, None, None, None, None, None, None,
@@ -2581,7 +2575,7 @@ impl<'a, F> RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<F>>, 
             if let Some((width, height)) = framebuffer_dimensions {
                 framebuffer_dimensions = Some((
                     cmp::min(width, attachment_width),
-                    cmp::min(height, attachment_height)
+                    cmp::min(height, attachment_height),
                 ));
             } else {
                 framebuffer_dimensions = Some((attachment_width, attachment_height));
@@ -2601,7 +2595,7 @@ impl<'a, F> RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<F>>, 
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 last_id: 0,
-                dimensions: framebuffer_dimensions
+                dimensions: framebuffer_dimensions,
             },
             data: RenderTargetEncodingData::FBO(FBOEncodingData {
                 load_ops,
@@ -2615,20 +2609,21 @@ impl<'a, F> RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<F>>, 
     }
 }
 
-impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<F0>>, DepthStencilBuffer<F1>>>
-    where
-        F0: UnsignedIntegerRenderable,
-        F1: DepthStencilRenderable,
+impl<'a, F0, F1>
+    RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<F0>>, DepthStencilBuffer<F1>>>
+where
+    F0: UnsignedIntegerRenderable,
+    F1: DepthStencilRenderable,
 {
     pub fn from_unsigned_integer_colors_and_depth_stencil<C, I, Ds>(
         context: &'a mut EncodingContext,
         colors: C,
         depth_stencil: DepthStencilTarget<Ds>,
     ) -> Self
-        where
-            C: IntoIterator<Item = UnsignedIntegerTarget<I>>,
-            I: IntoFramebufferAttachment<Format = F0>,
-            Ds: IntoFramebufferAttachment<Format = F1>,
+    where
+        C: IntoIterator<Item = UnsignedIntegerTarget<I>>,
+        I: IntoFramebufferAttachment<Format = F0>,
+        Ds: IntoFramebufferAttachment<Format = F1>,
     {
         let mut color_attachments = [
             None, None, None, None, None, None, None, None, None, None, None, None, None, None,
@@ -2654,7 +2649,7 @@ impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<
             if let Some((width, height)) = framebuffer_dimensions {
                 framebuffer_dimensions = Some((
                     cmp::min(width, attachment_width),
-                    cmp::min(height, attachment_height)
+                    cmp::min(height, attachment_height),
                 ));
             } else {
                 framebuffer_dimensions = Some((attachment_width, attachment_height));
@@ -2677,7 +2672,7 @@ impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<
         if let Some((width, height)) = framebuffer_dimensions {
             framebuffer_dimensions = Some((
                 cmp::min(width, depth_stencil_width),
-                cmp::min(height, depth_stencil_height)
+                cmp::min(height, depth_stencil_height),
             ));
         } else {
             framebuffer_dimensions = Some((depth_stencil_width, depth_stencil_height));
@@ -2694,7 +2689,7 @@ impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 last_id: 0,
-                dimensions: framebuffer_dimensions
+                dimensions: framebuffer_dimensions,
             },
             data: RenderTargetEncodingData::FBO(FBOEncodingData {
                 load_ops,
@@ -2710,20 +2705,21 @@ impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<
     }
 }
 
-impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<F0>>, DepthBuffer<F1>>>
-    where
-        F0: UnsignedIntegerRenderable,
-        F1: DepthRenderable,
+impl<'a, F0, F1>
+    RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<F0>>, DepthBuffer<F1>>>
+where
+    F0: UnsignedIntegerRenderable,
+    F1: DepthRenderable,
 {
     pub fn from_unsigned_integer_colors_and_depth<C, I, Ds>(
         context: &'a mut EncodingContext,
         colors: C,
         depth: DepthTarget<Ds>,
     ) -> Self
-        where
-            C: IntoIterator<Item = UnsignedIntegerTarget<I>>,
-            I: IntoFramebufferAttachment<Format = F0>,
-            Ds: IntoFramebufferAttachment<Format = F1>,
+    where
+        C: IntoIterator<Item = UnsignedIntegerTarget<I>>,
+        I: IntoFramebufferAttachment<Format = F0>,
+        Ds: IntoFramebufferAttachment<Format = F1>,
     {
         let mut color_attachments = [
             None, None, None, None, None, None, None, None, None, None, None, None, None, None,
@@ -2749,7 +2745,7 @@ impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<
             if let Some((width, height)) = framebuffer_dimensions {
                 framebuffer_dimensions = Some((
                     cmp::min(width, attachment_width),
-                    cmp::min(height, attachment_height)
+                    cmp::min(height, attachment_height),
                 ));
             } else {
                 framebuffer_dimensions = Some((attachment_width, attachment_height));
@@ -2770,26 +2766,20 @@ impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<
         let depth_height = depth_attachment.height();
 
         if let Some((width, height)) = framebuffer_dimensions {
-            framebuffer_dimensions = Some((
-                cmp::min(width, depth_width),
-                cmp::min(height, depth_height)
-            ));
-        }  else {
+            framebuffer_dimensions =
+                Some((cmp::min(width, depth_width), cmp::min(height, depth_height)));
+        } else {
             framebuffer_dimensions = Some((depth_width, depth_height));
         }
 
         RenderTargetEncoding {
             framebuffer: Framebuffer {
                 color: buffers,
-                depth_stencil: DepthBuffer::new(
-                    context.render_pass_id,
-                    depth_width,
-                    depth_height,
-                ),
+                depth_stencil: DepthBuffer::new(context.render_pass_id, depth_width, depth_height),
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 last_id: 0,
-                dimensions: framebuffer_dimensions
+                dimensions: framebuffer_dimensions,
             },
             data: RenderTargetEncodingData::FBO(FBOEncodingData {
                 load_ops,
@@ -2803,20 +2793,21 @@ impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<
     }
 }
 
-impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<F0>>, StencilBuffer<F1>>>
-    where
-        F0: UnsignedIntegerRenderable,
-        F1: StencilRenderable,
+impl<'a, F0, F1>
+    RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<F0>>, StencilBuffer<F1>>>
+where
+    F0: UnsignedIntegerRenderable,
+    F1: StencilRenderable,
 {
     pub fn from_unsigned_integer_colors_and_stencil<C, I, Ds>(
         context: &'a mut EncodingContext,
         colors: C,
         stencil: StencilTarget<Ds>,
     ) -> Self
-        where
-            C: IntoIterator<Item = UnsignedIntegerTarget<I>>,
-            I: IntoFramebufferAttachment<Format = F0>,
-            Ds: IntoFramebufferAttachment<Format = F1>,
+    where
+        C: IntoIterator<Item = UnsignedIntegerTarget<I>>,
+        I: IntoFramebufferAttachment<Format = F0>,
+        Ds: IntoFramebufferAttachment<Format = F1>,
     {
         let mut color_attachments = [
             None, None, None, None, None, None, None, None, None, None, None, None, None, None,
@@ -2842,7 +2833,7 @@ impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<
             if let Some((width, height)) = framebuffer_dimensions {
                 framebuffer_dimensions = Some((
                     cmp::min(width, attachment_width),
-                    cmp::min(height, attachment_height)
+                    cmp::min(height, attachment_height),
                 ));
             } else {
                 framebuffer_dimensions = Some((attachment_width, attachment_height));
@@ -2865,7 +2856,7 @@ impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<
         if let Some((width, height)) = framebuffer_dimensions {
             framebuffer_dimensions = Some((
                 cmp::min(width, stencil_width),
-                cmp::min(height, stencil_height)
+                cmp::min(height, stencil_height),
             ));
         } else {
             framebuffer_dimensions = Some((stencil_width, stencil_height));
@@ -2882,7 +2873,7 @@ impl<'a, F0, F1> RenderTargetEncoding<'a, Framebuffer<Vec<UnsignedIntegerBuffer<
                 context_id: context.context_id,
                 render_pass_id: context.render_pass_id,
                 last_id: 0,
-                dimensions: framebuffer_dimensions
+                dimensions: framebuffer_dimensions,
             },
             data: RenderTargetEncodingData::FBO(FBOEncodingData {
                 load_ops,

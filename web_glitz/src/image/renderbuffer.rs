@@ -7,7 +7,7 @@ use web_sys::WebGl2RenderingContext as Gl;
 use crate::image::format::RenderbufferFormat;
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
-use crate::task::{GpuTask, Progress, ContextId};
+use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, JsId};
 use std::hash::Hash;
 use std::hash::Hasher;

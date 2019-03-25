@@ -1,7 +1,7 @@
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::runtime::Connection;
 use crate::runtime::state::ContextUpdate;
+use crate::runtime::Connection;
 
 /// Enumerates the possible blending factors that can be applied to color values during [Blending].
 ///

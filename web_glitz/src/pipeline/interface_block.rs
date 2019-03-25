@@ -112,7 +112,10 @@ pub unsafe trait InterfaceBlockComponent: StableRepr {
     /// [None]), then the implementation is expected to return [CheckCompatibility::Finished]
     /// (unless the component was found to be incompatible with a prior memory unit descriptor, in
     /// which case [CheckCompatibility::Incompatible] should be returned).
-    fn check_compatibility<'a, I>(component_offset: usize, remainder: &'a mut I) -> CheckCompatibility
+    fn check_compatibility<'a, I>(
+        component_offset: usize,
+        remainder: &'a mut I,
+    ) -> CheckCompatibility
     where
         I: Iterator<Item = &'a MemoryUnitDescriptor>;
 }

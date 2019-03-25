@@ -14,20 +14,22 @@ use crate::image::texture_2d_array::{Texture2DArray, Texture2DArrayDescriptor};
 use crate::image::texture_3d::{Texture3D, Texture3DDescriptor};
 use crate::image::texture_cube::{TextureCube, TextureCubeDescriptor};
 use crate::image::{MaxMipmapLevelsExceeded, MipmapLevels};
+use crate::pipeline::graphics::vertex_input::InputAttributeLayout;
+use crate::pipeline::graphics::{GraphicsPipeline, GraphicsPipelineDescriptor};
+use crate::pipeline::resources::Resources;
 use crate::render_pass::{
     DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
     DefaultRenderTarget, DefaultStencilBuffer,
 };
 use crate::runtime::executor_job::job;
 use crate::runtime::fenced::JsTimeoutFencedTaskRunner;
+use crate::runtime::rendering_context::{
+    CreateGraphicsPipelineError, Extensions, TransformFeedbackVaryings,
+};
 use crate::runtime::state::DynamicState;
 use crate::runtime::{Connection, ContextOptions, Execution, PowerPreference, RenderingContext};
 use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
 use crate::task::{GpuTask, Progress};
-use crate::pipeline::graphics::{GraphicsPipelineDescriptor, GraphicsPipeline};
-use crate::runtime::rendering_context::{CreateGraphicsPipelineError, TransformFeedbackVaryings, Extensions};
-use crate::pipeline::graphics::vertex_input::InputAttributeLayout;
-use crate::pipeline::resources::Resources;
 
 thread_local!(static ID_GEN: IdGen = IdGen::new());
 
@@ -53,7 +55,7 @@ impl IdGen {
 pub struct SingleThreadedContext {
     executor: Rc<RefCell<SingleThreadedExecutor>>,
     id: usize,
-    extensions: Extensions
+    extensions: Extensions,
 }
 
 impl RenderingContext for SingleThreadedContext {
@@ -83,10 +85,11 @@ impl RenderingContext for SingleThreadedContext {
         &self,
         descriptor: &GraphicsPipelineDescriptor<Il, R, Tf>,
     ) -> Result<GraphicsPipeline<Il, R, Tf>, CreateGraphicsPipelineError>
-        where
-            Il: InputAttributeLayout,
-            R: Resources + 'static,
-            Tf: TransformFeedbackVaryings {
+    where
+        Il: InputAttributeLayout,
+        R: Resources + 'static,
+        Tf: TransformFeedbackVaryings,
+    {
         let mut executor = self.executor.borrow_mut();
         let mut connection = executor.connection.borrow_mut();
 
@@ -156,7 +159,7 @@ impl SingleThreadedContext {
             executor: RefCell::new(SingleThreadedExecutor::new(Connection::new(id, gl, state)))
                 .into(),
             id,
-            extensions: Extensions::default()
+            extensions: Extensions::default(),
         }
     }
 }

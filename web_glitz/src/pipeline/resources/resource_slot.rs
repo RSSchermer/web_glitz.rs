@@ -6,8 +6,8 @@ use fnv::FnvHasher;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
-use js_sys::{Uint8Array, Uint32Array};
-use web_sys::{WebGlProgram, WebGlUniformLocation, WebGl2RenderingContext as Gl};
+use js_sys::{Uint32Array, Uint8Array};
+use web_sys::{WebGl2RenderingContext as Gl, WebGlProgram, WebGlUniformLocation};
 
 pub struct ResourceSlotDescriptor {
     identifier: Identifier,
@@ -499,8 +499,8 @@ impl UniformBlockSlot {
                             len: size as usize,
                         }
                     }
-                },
-                _ => unreachable!()
+                }
+                _ => unreachable!(),
             };
 
             layout.push(MemoryUnitDescriptor::new(offsets[i] as usize, unit));
@@ -592,9 +592,11 @@ impl<'a> SlotBindingConfirmer for SlotBindingChecker<'a> {
         binding: usize,
     ) -> Result<(), SlotBindingMismatch> {
         let initial_binding = match descriptor.slot() {
-            Slot::TextureSampler(slot) => {
-                self.gl.get_uniform(&self.program, slot.location()).as_f64().unwrap() as usize
-            }
+            Slot::TextureSampler(slot) => self
+                .gl
+                .get_uniform(&self.program, slot.location())
+                .as_f64()
+                .unwrap() as usize,
             Slot::UniformBlock(slot) => self
                 .gl
                 .get_active_uniform_block_parameter(
@@ -603,7 +605,8 @@ impl<'a> SlotBindingConfirmer for SlotBindingChecker<'a> {
                     Gl::UNIFORM_BLOCK_BINDING,
                 )
                 .unwrap()
-                .as_f64().unwrap() as usize,
+                .as_f64()
+                .unwrap() as usize,
         };
 
         if initial_binding == binding {

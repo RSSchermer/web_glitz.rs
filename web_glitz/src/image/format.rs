@@ -1,7 +1,7 @@
+use crate::runtime::Extensions;
 use crate::sampler::MagnificationFilter;
 use crate::sampler::MinificationFilter;
 use web_sys::WebGl2RenderingContext as Gl;
-use crate::runtime::Extensions;
 
 pub unsafe trait InternalFormat {
     fn id() -> u32;
@@ -245,7 +245,7 @@ unsafe impl TextureFormat for R32F {
                 } else {
                     Err(InvalidMinificationFilter::ExtensionRequired(filter))
                 }
-            },
+            }
         }
     }
 }
@@ -335,7 +335,7 @@ unsafe impl TextureFormat for RG32F {
                 } else {
                     Err(InvalidMinificationFilter::ExtensionRequired(filter))
                 }
-            },
+            }
         }
     }
 }

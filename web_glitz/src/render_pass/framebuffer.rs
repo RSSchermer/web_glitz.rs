@@ -19,21 +19,28 @@ use crate::image::texture_cube::{
     LevelFace as TextureCubeLevelFace, LevelFaceSubImage as TextureCubeLevelFaceSubImage,
 };
 use crate::image::Region2D;
+use crate::pipeline::graphics::vertex_input::{
+    InputAttributeLayout, VertexInputStreamDescription, VertexInputStreamDescriptor,
+};
+use crate::pipeline::graphics::{
+    Blending, DepthTest, GraphicsPipeline, LineWidth, PrimitiveAssembly, StencilTest, Topology,
+    Viewport,
+};
+use crate::pipeline::resources::bind_group_encoding::{
+    BindGroupEncodingContext, BindingDescriptor,
+};
+use crate::pipeline::resources::Resources;
 use crate::render_pass::{
     FramebufferAttachment, IntoFramebufferAttachment, RenderPassContext, RenderPassMismatch,
 };
 use crate::runtime::state::ContextUpdate;
-use crate::task::{GpuTask, Progress, ContextId};
-use crate::util::{slice_make_mut, JsId};
-use crate::pipeline::graphics::{GraphicsPipeline, Topology, DepthTest, StencilTest, Blending, LineWidth, Viewport, PrimitiveAssembly};
-use crate::pipeline::graphics::vertex_input::{InputAttributeLayout, VertexInputStreamDescriptor, VertexInputStreamDescription};
-use crate::pipeline::resources::bind_group_encoding::{BindingDescriptor, BindGroupEncodingContext};
-use std::borrow::Borrow;
-use crate::pipeline::resources::Resources;
 use crate::runtime::Connection;
-use fnv::FnvHasher;
-use std::hash::{Hash, Hasher};
 use crate::sampler::IncompatibleSampler::ContextMismatch;
+use crate::task::{ContextId, GpuTask, Progress};
+use crate::util::{slice_make_mut, JsId};
+use fnv::FnvHasher;
+use std::borrow::Borrow;
+use std::hash::{Hash, Hasher};
 
 pub struct BlitSourceContextMismatch;
 
@@ -43,12 +50,18 @@ pub struct Framebuffer<C, Ds> {
     pub(crate) dimensions: Option<(u32, u32)>,
     pub(crate) context_id: usize,
     pub(crate) render_pass_id: usize,
-    pub(crate) last_id: usize
+    pub(crate) last_id: usize,
 }
 
 impl<C, Ds> Framebuffer<C, Ds> {
-    pub fn pipeline_task<Vl, R, Tf, F, T>(&mut self, pipeline: &GraphicsPipeline<Vl, R, Tf>, f: F) -> PipelineTask<T>
-        where F: Fn(&ActiveGraphicsPipeline<Vl, R>) -> T, for<'a> T: GpuTask<PipelineTaskContext<'a>>
+    pub fn pipeline_task<Vl, R, Tf, F, T>(
+        &mut self,
+        pipeline: &GraphicsPipeline<Vl, R, Tf>,
+        f: F,
+    ) -> PipelineTask<T>
+    where
+        F: Fn(&ActiveGraphicsPipeline<Vl, R>) -> T,
+        for<'a> T: GpuTask<PipelineTaskContext<'a>>,
     {
         let id = self.last_id;
 
@@ -65,7 +78,7 @@ impl<C, Ds> Framebuffer<C, Ds> {
             topology: pipeline.primitive_assembly().topology,
             pipeline_task_id,
             _input_attribute_layout_marker: marker::PhantomData,
-            _resources_marker: marker::PhantomData
+            _resources_marker: marker::PhantomData,
         });
 
         if task.context_id() != ContextId::Id(pipeline_task_id) {
@@ -83,7 +96,7 @@ impl<C, Ds> Framebuffer<C, Ds> {
             blending: pipeline.blending().clone(),
             line_width: pipeline.line_width().clone(),
             viewport: pipeline.viewport().clone(),
-            framebuffer_dimensions: self.dimensions
+            framebuffer_dimensions: self.dimensions,
         }
     }
 }
@@ -285,7 +298,7 @@ where
 }
 
 pub struct PipelineTaskContext<'a> {
-    connection: &'a mut Connection
+    connection: &'a mut Connection,
 }
 
 pub struct PipelineTask<T> {
@@ -299,10 +312,13 @@ pub struct PipelineTask<T> {
     blending: Option<Blending>,
     line_width: LineWidth,
     viewport: Viewport,
-    framebuffer_dimensions: Option<(u32, u32)>
+    framebuffer_dimensions: Option<(u32, u32)>,
 }
 
-unsafe impl<'a, T, O> GpuTask<RenderPassContext<'a>> for PipelineTask<T> where for <'b> T: GpuTask<PipelineTaskContext<'b>, Output=O> {
+unsafe impl<'a, T, O> GpuTask<RenderPassContext<'a>> for PipelineTask<T>
+where
+    for<'b> T: GpuTask<PipelineTaskContext<'b>, Output = O>,
+{
     type Output = O;
 
     fn context_id(&self) -> ContextId {
@@ -314,12 +330,18 @@ unsafe impl<'a, T, O> GpuTask<RenderPassContext<'a>> for PipelineTask<T> where f
 
         unsafe {
             self.program_id.with_value_unchecked(|program_object| {
-                state.set_active_program(Some(program_object)).apply(gl).unwrap();
+                state
+                    .set_active_program(Some(program_object))
+                    .apply(gl)
+                    .unwrap();
             })
         };
 
         let framebuffer_dimensions = self.framebuffer_dimensions.unwrap_or_else(|| {
-            (gl.drawing_buffer_width() as u32, gl.drawing_buffer_height() as u32)
+            (
+                gl.drawing_buffer_width() as u32,
+                gl.drawing_buffer_height() as u32,
+            )
         });
 
         match self.scissor_region {
@@ -327,8 +349,11 @@ unsafe impl<'a, T, O> GpuTask<RenderPassContext<'a>> for PipelineTask<T> where f
                 let (gl, state) = unsafe { context.unpack_mut() };
 
                 state.set_scissor_test_enabled(true).apply(gl).unwrap();
-                state.set_scissor_rect((x as i32, y as i32, width, height)).apply(gl).unwrap();
-            },
+                state
+                    .set_scissor_rect((x as i32, y as i32, width, height))
+                    .apply(gl)
+                    .unwrap();
+            }
             Region2D::Fill => {
                 state.set_scissor_test_enabled(false).apply(gl).unwrap();
             }
@@ -347,7 +372,7 @@ unsafe impl<'a, T, O> GpuTask<RenderPassContext<'a>> for PipelineTask<T> where f
         self.viewport.apply(connection, framebuffer_dimensions);
 
         self.task.progress(&mut PipelineTaskContext {
-            connection: context.connection_mut()
+            connection: context.connection_mut(),
         })
     }
 }
@@ -361,9 +386,9 @@ pub struct ActiveGraphicsPipeline<Il, R> {
 }
 
 impl<Il, R> ActiveGraphicsPipeline<Il, R>
-    where
-        Il: InputAttributeLayout,
-        R: Resources,
+where
+    Il: InputAttributeLayout,
+    R: Resources,
 {
     /// Creates a [DrawCommand] that will execute this [ActiveGraphicsPipeline] on the
     /// [vertex_input_stream] with the [resources] bound to the pipeline's resource slots.
@@ -374,16 +399,22 @@ impl<Il, R> ActiveGraphicsPipeline<Il, R>
     ///   than this [ActiveGraphicsPipeline].
     /// - Panics when [resources] specifies a resource that belongs to a different context than this
     ///   [ActiveGraphicsPipeline].
-    pub fn draw_command<V>(&self, vertex_input_stream: &V, resources: &R) -> DrawCommand<R::Bindings>
-        where
-            V: VertexInputStreamDescription<Layout = Il>,
-            R: Resources
+    pub fn draw_command<V>(
+        &self,
+        vertex_input_stream: &V,
+        resources: &R,
+    ) -> DrawCommand<R::Bindings>
+    where
+        V: VertexInputStreamDescription<Layout = Il>,
+        R: Resources,
     {
         DrawCommand {
             pipeline_task_id: self.pipeline_task_id,
             vertex_input_stream_descriptor: vertex_input_stream.descriptor(),
             topology: self.topology,
-            binding_group: resources.encode_bind_group(&mut BindGroupEncodingContext::new(self.context_id)).into_descriptors()
+            binding_group: resources
+                .encode_bind_group(&mut BindGroupEncodingContext::new(self.context_id))
+                .into_descriptors(),
         }
     }
 }
@@ -396,8 +427,8 @@ pub struct DrawCommand<B> {
 }
 
 unsafe impl<'a, B> GpuTask<PipelineTaskContext<'a>> for DrawCommand<B>
-    where
-        B: Borrow<[BindingDescriptor]>,
+where
+    B: Borrow<[BindingDescriptor]>,
 {
     type Output = ();
 
@@ -409,9 +440,13 @@ unsafe impl<'a, B> GpuTask<PipelineTaskContext<'a>> for DrawCommand<B>
         let (gl, state) = unsafe { context.connection.unpack_mut() };
 
         unsafe {
-            self.vertex_input_stream_descriptor.vertex_array_data.id().unwrap().with_value_unchecked(|vao| {
-                state.set_bound_vertex_array(Some(vao)).apply(gl).unwrap();
-            })
+            self.vertex_input_stream_descriptor
+                .vertex_array_data
+                .id()
+                .unwrap()
+                .with_value_unchecked(|vao| {
+                    state.set_bound_vertex_array(Some(vao)).apply(gl).unwrap();
+                })
         }
 
         for descriptor in self.binding_group.borrow().iter() {
@@ -419,7 +454,6 @@ unsafe impl<'a, B> GpuTask<PipelineTaskContext<'a>> for DrawCommand<B>
         }
 
         let (gl, _) = unsafe { context.connection.unpack_mut() };
-
 
         if let Some(format) = self.vertex_input_stream_descriptor.index_format_kind() {
             let VertexInputStreamDescriptor {
@@ -432,9 +466,20 @@ unsafe impl<'a, B> GpuTask<PipelineTaskContext<'a>> for DrawCommand<B>
             let offset = offset as u32 * format.size_in_bytes();
 
             if instance_count == 1 {
-                gl.draw_elements_with_i32(self.topology.id(), count as i32, format.id(), offset as i32);
+                gl.draw_elements_with_i32(
+                    self.topology.id(),
+                    count as i32,
+                    format.id(),
+                    offset as i32,
+                );
             } else {
-                gl.draw_elements_instanced_with_i32(self.topology.id(), count as i32, format.id(), offset as i32, instance_count as i32);
+                gl.draw_elements_instanced_with_i32(
+                    self.topology.id(),
+                    count as i32,
+                    format.id(),
+                    offset as i32,
+                    instance_count as i32,
+                );
             }
         } else {
             let VertexInputStreamDescriptor {
@@ -447,7 +492,12 @@ unsafe impl<'a, B> GpuTask<PipelineTaskContext<'a>> for DrawCommand<B>
             if instance_count == 1 {
                 gl.draw_arrays(self.topology.id(), offset as i32, count as i32);
             } else {
-                gl.draw_arrays_instanced(self.topology.id(), offset as i32, count as i32, instance_count as i32);
+                gl.draw_arrays_instanced(
+                    self.topology.id(),
+                    offset as i32,
+                    count as i32,
+                    instance_count as i32,
+                );
             }
         }
 

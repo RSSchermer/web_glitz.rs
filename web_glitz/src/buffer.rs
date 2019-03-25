@@ -10,7 +10,7 @@ use web_sys::{WebGl2RenderingContext as GL, WebGlBuffer};
 
 use crate::runtime::state::{BufferRange, ContextUpdate};
 use crate::runtime::{Connection, RenderingContext, TaskContextMismatch};
-use crate::task::{GpuTask, Progress, ContextId};
+use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, slice_make_mut, JsId};
 
 #[derive(Clone, Copy, Debug)]

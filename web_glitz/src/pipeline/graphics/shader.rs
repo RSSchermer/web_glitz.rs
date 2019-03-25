@@ -1,5 +1,5 @@
 use crate::runtime::{Connection, RenderingContext};
-use crate::task::{GpuTask, Progress, ContextId};
+use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, JsId};
 use std::borrow::Borrow;
 use std::sync::Arc;
@@ -125,8 +125,8 @@ trait FragmentShaderObjectDropper {
 }
 
 impl<T> FragmentShaderObjectDropper for T
-    where
-        T: RenderingContext,
+where
+    T: RenderingContext,
 {
     fn drop_shader_object(&self, id: JsId) {
         self.submit(FragmentShaderDropCommand { id });
@@ -179,8 +179,8 @@ struct FragmentShaderAllocateCommand<S> {
 }
 
 unsafe impl<S> GpuTask<Connection> for FragmentShaderAllocateCommand<S>
-    where
-        S: Borrow<str>,
+where
+    S: Borrow<str>,
 {
     type Output = ();
 
@@ -203,7 +203,6 @@ unsafe impl<S> GpuTask<Connection> for FragmentShaderAllocateCommand<S>
     }
 }
 
-
 struct VertexShaderDropCommand {
     id: JsId,
 }
@@ -219,7 +218,9 @@ unsafe impl GpuTask<Connection> for VertexShaderDropCommand {
         let (gl, state) = unsafe { connection.unpack_mut() };
         let value = unsafe { JsId::into_value(self.id) };
 
-        state.program_cache_mut().remove_vertex_shader_dependent(self.id);
+        state
+            .program_cache_mut()
+            .remove_vertex_shader_dependent(self.id);
         gl.delete_shader(Some(&value.unchecked_into()));
 
         Progress::Finished(())
@@ -241,7 +242,9 @@ unsafe impl GpuTask<Connection> for FragmentShaderDropCommand {
         let (gl, state) = unsafe { connection.unpack_mut() };
         let value = unsafe { JsId::into_value(self.id) };
 
-        state.program_cache_mut().remove_fragment_shader_dependent(self.id);
+        state
+            .program_cache_mut()
+            .remove_fragment_shader_dependent(self.id);
         gl.delete_shader(Some(&value.unchecked_into()));
 
         Progress::Finished(())

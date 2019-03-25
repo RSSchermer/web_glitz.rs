@@ -1,6 +1,7 @@
 use crate::buffer::BufferView;
 use crate::pipeline::interface_block;
 use crate::pipeline::interface_block::InterfaceBlock;
+use crate::pipeline::resources::bind_group_encoding::{BindGroupEncoder, BindingDescriptor};
 use crate::pipeline::resources::resource_slot::{SamplerKind, Slot};
 use crate::sampler::{
     FloatSampledTexture2D, FloatSampledTexture2DArray, FloatSampledTexture3D,
@@ -10,12 +11,14 @@ use crate::sampler::{
     UnsignedIntegerSampledTexture2DArray, UnsignedIntegerSampledTexture3D,
     UnsignedIntegerSampledTextureCube,
 };
-use crate::pipeline::resources::bind_group_encoding::{BindGroupEncoder, BindingDescriptor};
 
 pub unsafe trait Binding {
     fn compatibility(slot: &Slot) -> Result<(), Incompatible>;
 
-    fn encode<'b, T>(&self, encoder: BindGroupEncoder<'b, T>) -> BindGroupEncoder<'b, (BindingDescriptor, T)>;
+    fn encode<'b, T>(
+        &self,
+        encoder: BindGroupEncoder<'b, T>,
+    ) -> BindGroupEncoder<'b, (BindingDescriptor, T)>;
 }
 
 pub enum Incompatible {
@@ -42,7 +45,10 @@ where
         }
     }
 
-    fn encode<'b, B>(&self, encoder: BindGroupEncoder<'b, B>) -> BindGroupEncoder<'b, (BindingDescriptor, B)> {
+    fn encode<'b, B>(
+        &self,
+        encoder: BindGroupEncoder<'b, B>,
+    ) -> BindGroupEncoder<'b, (BindingDescriptor, B)> {
         encoder.add_buffer(self)
     }
 }
@@ -64,7 +70,10 @@ unsafe impl<'a> Binding for FloatSampler2DBinding<'a> {
         }
     }
 
-    fn encode<'b, T>(&self, encoder: BindGroupEncoder<'b, T>) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
+    fn encode<'b, T>(
+        &self,
+        encoder: BindGroupEncoder<'b, T>,
+    ) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
         encoder.add_float_sampler_2d(self)
     }
 }
@@ -86,7 +95,10 @@ unsafe impl<'a> Binding for FloatSampler2DArrayBinding<'a> {
         }
     }
 
-    fn encode<'b, T>(&self, encoder: BindGroupEncoder<'b, T>) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
+    fn encode<'b, T>(
+        &self,
+        encoder: BindGroupEncoder<'b, T>,
+    ) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
         encoder.add_float_sampler_2d_array(self)
     }
 }
@@ -108,7 +120,10 @@ unsafe impl<'a> Binding for FloatSampler3DBinding<'a> {
         }
     }
 
-    fn encode<'b, T>(&self, encoder: BindGroupEncoder<'b, T>) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
+    fn encode<'b, T>(
+        &self,
+        encoder: BindGroupEncoder<'b, T>,
+    ) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
         encoder.add_float_sampler_3d(self)
     }
 }
@@ -130,7 +145,10 @@ unsafe impl<'a> Binding for FloatSamplerCubeBinding<'a> {
         }
     }
 
-    fn encode<'b, T>(&self, encoder: BindGroupEncoder<'b, T>) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
+    fn encode<'b, T>(
+        &self,
+        encoder: BindGroupEncoder<'b, T>,
+    ) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
         encoder.add_float_sampler_cube(self)
     }
 }
@@ -152,7 +170,10 @@ unsafe impl<'a> Binding for IntegerSampler2DBinding<'a> {
         }
     }
 
-    fn encode<'b, T>(&self, encoder: BindGroupEncoder<'b, T>) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
+    fn encode<'b, T>(
+        &self,
+        encoder: BindGroupEncoder<'b, T>,
+    ) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
         encoder.add_integer_sampler_2d(self)
     }
 }
@@ -174,7 +195,10 @@ unsafe impl<'a> Binding for IntegerSampler2DArrayBinding<'a> {
         }
     }
 
-    fn encode<'b, T>(&self, encoder: BindGroupEncoder<'b, T>) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
+    fn encode<'b, T>(
+        &self,
+        encoder: BindGroupEncoder<'b, T>,
+    ) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
         encoder.add_integer_sampler_2d_array(self)
     }
 }
@@ -196,7 +220,10 @@ unsafe impl<'a> Binding for IntegerSampler3DBinding<'a> {
         }
     }
 
-    fn encode<'b, T>(&self, encoder: BindGroupEncoder<'b, T>) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
+    fn encode<'b, T>(
+        &self,
+        encoder: BindGroupEncoder<'b, T>,
+    ) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
         encoder.add_integer_sampler_3d(self)
     }
 }
@@ -218,7 +245,10 @@ unsafe impl<'a> Binding for IntegerSamplerCubeBinding<'a> {
         }
     }
 
-    fn encode<'b, T>(&self, encoder: BindGroupEncoder<'b, T>) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
+    fn encode<'b, T>(
+        &self,
+        encoder: BindGroupEncoder<'b, T>,
+    ) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
         encoder.add_integer_sampler_cube(self)
     }
 }
@@ -240,7 +270,10 @@ unsafe impl<'a> Binding for UnsignedIntegerSampler2DBinding<'a> {
         }
     }
 
-    fn encode<'b, T>(&self, encoder: BindGroupEncoder<'b, T>) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
+    fn encode<'b, T>(
+        &self,
+        encoder: BindGroupEncoder<'b, T>,
+    ) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
         encoder.add_unsigned_integer_sampler_2d(self)
     }
 }
@@ -262,7 +295,10 @@ unsafe impl<'a> Binding for UnsignedIntegerSampler2DArrayBinding<'a> {
         }
     }
 
-    fn encode<'b, T>(&self, encoder: BindGroupEncoder<'b, T>) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
+    fn encode<'b, T>(
+        &self,
+        encoder: BindGroupEncoder<'b, T>,
+    ) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
         encoder.add_unsigned_integer_sampler_2d_array(self)
     }
 }
@@ -284,7 +320,10 @@ unsafe impl<'a> Binding for UnsignedIntegerSampler3DBinding<'a> {
         }
     }
 
-    fn encode<'b, T>(&self, encoder: BindGroupEncoder<'b, T>) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
+    fn encode<'b, T>(
+        &self,
+        encoder: BindGroupEncoder<'b, T>,
+    ) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
         encoder.add_unsigned_integer_sampler_3d(self)
     }
 }
@@ -306,7 +345,10 @@ unsafe impl<'a> Binding for UnsignedIntegerSamplerCubeBinding<'a> {
         }
     }
 
-    fn encode<'b, T>(&self, encoder: BindGroupEncoder<'b, T>) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
+    fn encode<'b, T>(
+        &self,
+        encoder: BindGroupEncoder<'b, T>,
+    ) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
         encoder.add_unsigned_integer_sampler_cube(self)
     }
 }
@@ -328,7 +370,10 @@ unsafe impl<'a> Binding for ShadowSampler2DBinding<'a> {
         }
     }
 
-    fn encode<'b, T>(&self, encoder: BindGroupEncoder<'b, T>) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
+    fn encode<'b, T>(
+        &self,
+        encoder: BindGroupEncoder<'b, T>,
+    ) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
         encoder.add_shadow_sampler_2d(self)
     }
 }
@@ -350,7 +395,10 @@ unsafe impl<'a> Binding for ShadowSampler2DArrayBinding<'a> {
         }
     }
 
-    fn encode<'b, T>(&self, encoder: BindGroupEncoder<'b, T>) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
+    fn encode<'b, T>(
+        &self,
+        encoder: BindGroupEncoder<'b, T>,
+    ) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
         encoder.add_shadow_sampler_2d_array(self)
     }
 }
@@ -372,7 +420,10 @@ unsafe impl<'a> Binding for ShadowSamplerCubeBinding<'a> {
         }
     }
 
-    fn encode<'b, T>(&self, encoder: BindGroupEncoder<'b, T>) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
+    fn encode<'b, T>(
+        &self,
+        encoder: BindGroupEncoder<'b, T>,
+    ) -> BindGroupEncoder<'b, (BindingDescriptor, T)> {
         encoder.add_shadow_sampler_cube(self)
     }
 }

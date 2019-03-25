@@ -36,14 +36,14 @@ where
             buffer_data: self.data().clone(),
             offset_in_bytes: 0,
             size_in_bytes: (mem::size_of::<T>() * self.len()) as u32,
-            input_rate: InputRate::PerVertex
+            input_rate: InputRate::PerVertex,
         }
     }
 }
 
 unsafe impl<'a, T> VertexBufferDescription for &'a Buffer<[T]>
-    where
-        T: Vertex,
+where
+    T: Vertex,
 {
     type Vertex = T;
 
@@ -52,7 +52,7 @@ unsafe impl<'a, T> VertexBufferDescription for &'a Buffer<[T]>
             buffer_data: self.data().clone(),
             offset_in_bytes: 0,
             size_in_bytes: (mem::size_of::<T>() * self.len()) as u32,
-            input_rate: InputRate::PerVertex
+            input_rate: InputRate::PerVertex,
         }
     }
 }
@@ -68,7 +68,7 @@ where
             buffer_data: self.buffer_data().clone(),
             offset_in_bytes: self.offset_in_bytes as u32,
             size_in_bytes: (mem::size_of::<T>() * self.len()) as u32,
-            input_rate: InputRate::PerVertex
+            input_rate: InputRate::PerVertex,
         }
     }
 }
@@ -86,14 +86,14 @@ where
             buffer_data: self.0.data().clone(),
             offset_in_bytes: 0,
             size_in_bytes: (mem::size_of::<T>() * self.0.len()) as u32,
-            input_rate: InputRate::PerInstance
+            input_rate: InputRate::PerInstance,
         }
     }
 }
 
 unsafe impl<'a, T> VertexBufferDescription for PerInstance<&'a Buffer<[T]>>
-    where
-        T: Vertex,
+where
+    T: Vertex,
 {
     type Vertex = T;
 
@@ -102,7 +102,7 @@ unsafe impl<'a, T> VertexBufferDescription for PerInstance<&'a Buffer<[T]>>
             buffer_data: self.0.data().clone(),
             offset_in_bytes: 0,
             size_in_bytes: (mem::size_of::<T>() * self.0.len()) as u32,
-            input_rate: InputRate::PerInstance
+            input_rate: InputRate::PerInstance,
         }
     }
 }
@@ -118,7 +118,7 @@ where
             buffer_data: self.0.buffer_data().clone(),
             offset_in_bytes: self.0.offset_in_bytes as u32,
             size_in_bytes: (mem::size_of::<T>() * self.0.len()) as u32,
-            input_rate: InputRate::PerInstance
+            input_rate: InputRate::PerInstance,
         }
     }
 }

@@ -1,10 +1,11 @@
 use crate::buffer::{Buffer, BufferData, BufferView};
 use crate::pipeline::graphics::vertex_input::input_attribute_layout::InputAttributeLayout;
 use crate::pipeline::graphics::vertex_input::{
-    InputRate, VertexBufferDescription, VertexBufferDescriptor, VertexInputAttributeDescriptor, Vertex
+    InputRate, Vertex, VertexBufferDescription, VertexBufferDescriptor,
+    VertexInputAttributeDescriptor,
 };
 use crate::runtime::{Connection, RenderingContext};
-use crate::task::{GpuTask, Progress, ContextId};
+use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, JsId};
 use fnv::FnvHasher;
 use std::sync::Arc;
@@ -140,7 +141,7 @@ unsafe impl IndexFormat for u32 {
 pub enum IndexFormatKind {
     UnsignedByte,
     UnsignedShort,
-    UnsignedInt
+    UnsignedInt,
 }
 
 impl IndexFormatKind {
@@ -299,7 +300,7 @@ impl<L> VertexArray<L> {
 
         let (index_buffer_pointer, index_format_kind) = match &index_buffer_descriptor {
             Some(d) => (Some(d.buffer_data.clone()), Some(d.format_kind)),
-            _ => (None, None)
+            _ => (None, None),
         };
 
         let data = Arc::new(VertexArrayData {
@@ -358,16 +359,22 @@ impl<L> VertexArray<L> {
     }
 
     pub fn instanced(&self, instance_count: usize) -> Instanced<VertexArraySlice<L>> {
-        Instanced(VertexArraySlice {
+        Instanced(
+            VertexArraySlice {
                 vertex_array: self,
                 offset: 0,
                 len: self.len,
-        }, instance_count)
+            },
+            instance_count,
+        )
     }
 }
 
 pub trait VertexArrayRange {
-    fn range<'a, L>(self, vertex_array: &VertexArraySlice<'a, L>) -> Option<VertexArraySlice<'a, L>>;
+    fn range<'a, L>(
+        self,
+        vertex_array: &VertexArraySlice<'a, L>,
+    ) -> Option<VertexArraySlice<'a, L>>;
 
     unsafe fn range_unchecked<'a, L>(
         self,
@@ -402,11 +409,14 @@ impl<'a, L> VertexArraySlice<'a, L> {
     }
 
     pub fn instanced(&self, instance_count: usize) -> Instanced<VertexArraySlice<L>> {
-        Instanced(VertexArraySlice {
-            vertex_array: self.vertex_array,
-            offset: self.offset,
-            len: self.len
-        }, instance_count)
+        Instanced(
+            VertexArraySlice {
+                vertex_array: self.vertex_array,
+                offset: self.offset,
+                len: self.len,
+            },
+            instance_count,
+        )
     }
 }
 

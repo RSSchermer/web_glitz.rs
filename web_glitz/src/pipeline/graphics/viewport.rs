@@ -53,6 +53,9 @@ impl Viewport {
             }
         };
 
-        state.set_viewport(x, y, width as i32, height as i32).apply(gl).unwrap();
+        state
+            .set_viewport(x, y, width as i32, height as i32)
+            .apply(gl)
+            .unwrap();
     }
 }

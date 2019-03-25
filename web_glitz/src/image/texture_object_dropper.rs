@@ -1,7 +1,7 @@
 use wasm_bindgen::JsCast;
 
 use crate::runtime::{Connection, RenderingContext};
-use crate::task::{GpuTask, Progress, ContextId};
+use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
 
 pub(super) trait TextureObjectDropper {

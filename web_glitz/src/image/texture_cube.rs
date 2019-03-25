@@ -20,7 +20,7 @@ use crate::image::{Image2DSource, Region2D};
 use crate::image::{MaxMipmapLevelsExceeded, MipmapLevels};
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext, TaskContextMismatch};
-use crate::task::{GpuTask, Progress, ContextId};
+use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, identical, JsId};
 
 pub struct TextureCubeDescriptor<F>

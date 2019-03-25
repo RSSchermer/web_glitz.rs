@@ -1,35 +1,39 @@
-use crate::pipeline::graphics::vertex_input::{InputAttributeLayout, VertexInputStreamDescription, VertexInputAttributeDescriptor, VertexInputStreamDescriptor};
-use crate::pipeline::graphics::{vertex_input, BindingStrategy, GraphicsPipelineDescriptor, Topology, DepthTest, StencilTest, Blending, LineWidth, Viewport, PrimitiveAssembly};
+use crate::image::Region2D;
+use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
+use crate::pipeline::graphics::vertex_input::vertex_array::VertexArrayData;
+use crate::pipeline::graphics::vertex_input::{
+    InputAttributeLayout, VertexInputAttributeDescriptor, VertexInputStreamDescription,
+    VertexInputStreamDescriptor,
+};
+use crate::pipeline::graphics::{
+    vertex_input, BindingStrategy, Blending, DepthTest, GraphicsPipelineDescriptor, LineWidth,
+    PrimitiveAssembly, StencilTest, Topology, Viewport,
+};
 use crate::pipeline::resources;
 use crate::pipeline::resources::bind_group_encoding::BindingDescriptor;
 use crate::pipeline::resources::resource_slot::{
     Identifier, SlotBindingChecker, SlotBindingUpdater,
 };
 use crate::pipeline::resources::Resources;
-use crate::runtime::state::{Program, ProgramKey, CreateProgramError};
-use crate::runtime::{Connection, RenderingContext, CreateGraphicsPipelineError};
-use crate::task::{GpuTask, ContextId, Progress};
+use crate::runtime::state::{CreateProgramError, Program, ProgramKey};
+use crate::runtime::{Connection, CreateGraphicsPipelineError, RenderingContext};
+use crate::task::{ContextId, GpuTask, Progress};
+use crate::util::JsId;
 use std::any::TypeId;
 use std::borrow::Borrow;
 use std::marker;
 use std::sync::Arc;
-use crate::pipeline::graphics::shader::{VertexShaderData, FragmentShaderData};
-use crate::pipeline::graphics::vertex_input::vertex_array::VertexArrayData;
-use crate::image::Region2D;
-use crate::util::JsId;
 
 trait ProgramObjectDropper {
     fn drop_program_object(&self, id: JsId);
 }
 
 impl<T> ProgramObjectDropper for T
-    where
-        T: RenderingContext,
+where
+    T: RenderingContext,
 {
     fn drop_program_object(&self, id: JsId) {
-        self.submit(ProgramObjectDropCommand {
-            id
-        });
+        self.submit(ProgramObjectDropCommand { id });
     }
 }
 
@@ -127,11 +131,14 @@ where
         }
 
         let mut program_cache = state.program_cache_mut();
-        let program = program_cache.get_or_create(ProgramKey {
-            vertex_shader_id: descriptor.vertex_shader_data.id().unwrap(),
-            fragment_shader_id: descriptor.fragment_shader_data.id().unwrap(),
-            resources_type_id: TypeId::of::<R>(),
-        }, gl)?;
+        let program = program_cache.get_or_create(
+            ProgramKey {
+                vertex_shader_id: descriptor.vertex_shader_data.id().unwrap(),
+                fragment_shader_id: descriptor.fragment_shader_data.id().unwrap(),
+                resources_type_id: TypeId::of::<R>(),
+            },
+            gl,
+        )?;
 
         Il::check_compatibility(program.attribute_slot_descriptors())?;
 
@@ -140,15 +147,13 @@ where
                 let confirmer = SlotBindingChecker::new(gl, program.gl_object());
 
                 R::confirm_slot_bindings(&confirmer, program.resource_slot_descriptors())?;
-            },
+            }
             BindingStrategy::Update => {
                 let confirmer = SlotBindingUpdater::new(gl, program.gl_object());
 
                 R::confirm_slot_bindings(&confirmer, program.resource_slot_descriptors())?;
             }
         };
-
-
 
         Ok(GraphicsPipeline {
             _input_attribute_layout_marker: marker::PhantomData,
@@ -169,41 +174,41 @@ where
         })
     }
 
-//    pub(crate) fn create_unchecked<Rc>(
-//        context: &Rc,
-//        connection: &mut Connection,
-//        descriptor: &GraphicsPipelineDescriptor<Il, R, Tf>,
-//    ) -> Self
-//    where
-//        Rc: RenderingContext + Clone + 'static,
-//    {
-//        let (gl, state) = unsafe { connection.unpack_mut() };
-//
-//        let program = state
-//            .program_cache()
-//            .get_or_create_unchecked(ProgramDescriptor {
-//                vertex_shader: &descriptor.vertex_shader,
-//                fragment_shader: &descriptor.fragment_shader,
-//                resources_type: TypeId::of::<R>(),
-//            })?;
-//
-//        match descriptor.binding_strategy {
-//            BindingStrategy::Update => {
-//                let confirmer = SlotBindingUpdater::new(gl, program.gl_object());
-//
-//                R::confirm_slot_bindings(confirmer, program.resource_slot_descriptors())
-//            }
-//            _ => (),
-//        };
-//
-//        GraphicsPipeline {
-//            _input_attribute_layout_marker: marker::PhantomData,
-//            _resources_marker: marker::PhantomData,
-//            _transform_feedback_varyings_marker: marker::PhantomData,
-//            vertex_shader: descriptor.vertex_shader.data().clone(),
-//            fragment_shader: descriptor.fragment_shader.data().clone(),
-//        }
-//    }
+    //    pub(crate) fn create_unchecked<Rc>(
+    //        context: &Rc,
+    //        connection: &mut Connection,
+    //        descriptor: &GraphicsPipelineDescriptor<Il, R, Tf>,
+    //    ) -> Self
+    //    where
+    //        Rc: RenderingContext + Clone + 'static,
+    //    {
+    //        let (gl, state) = unsafe { connection.unpack_mut() };
+    //
+    //        let program = state
+    //            .program_cache()
+    //            .get_or_create_unchecked(ProgramDescriptor {
+    //                vertex_shader: &descriptor.vertex_shader,
+    //                fragment_shader: &descriptor.fragment_shader,
+    //                resources_type: TypeId::of::<R>(),
+    //            })?;
+    //
+    //        match descriptor.binding_strategy {
+    //            BindingStrategy::Update => {
+    //                let confirmer = SlotBindingUpdater::new(gl, program.gl_object());
+    //
+    //                R::confirm_slot_bindings(confirmer, program.resource_slot_descriptors())
+    //            }
+    //            _ => (),
+    //        };
+    //
+    //        GraphicsPipeline {
+    //            _input_attribute_layout_marker: marker::PhantomData,
+    //            _resources_marker: marker::PhantomData,
+    //            _transform_feedback_varyings_marker: marker::PhantomData,
+    //            vertex_shader: descriptor.vertex_shader.data().clone(),
+    //            fragment_shader: descriptor.fragment_shader.data().clone(),
+    //        }
+    //    }
 }
 
 impl<Il, R, Tf> Drop for GraphicsPipeline<Il, R, Tf> {

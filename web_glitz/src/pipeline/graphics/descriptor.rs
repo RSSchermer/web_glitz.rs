@@ -5,7 +5,9 @@ use crate::image::Region2D;
 use crate::pipeline::graphics::fragment_test::{DepthTest, StencilTest};
 use crate::pipeline::graphics::line_width::LineWidth;
 use crate::pipeline::graphics::primitive_assembly::PrimitiveAssembly;
-use crate::pipeline::graphics::shader::{FragmentShader, VertexShader, VertexShaderData, FragmentShaderData};
+use crate::pipeline::graphics::shader::{
+    FragmentShader, FragmentShaderData, VertexShader, VertexShaderData,
+};
 use crate::pipeline::graphics::vertex_input::InputAttributeLayout;
 use crate::pipeline::graphics::viewport::Viewport;
 use crate::pipeline::graphics::Blending;
@@ -253,10 +255,7 @@ impl<Vs, Pa, Fs, Il, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R,
     }
 
     pub fn viewport(self, viewport: Viewport) -> Self {
-        GraphicsPipelineDescriptorBuilder {
-            viewport,
-            ..self
-        }
+        GraphicsPipelineDescriptorBuilder { viewport, ..self }
     }
 }
 

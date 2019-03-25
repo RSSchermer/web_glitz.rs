@@ -16,13 +16,15 @@ use crate::image::{MaxMipmapLevelsExceeded, MipmapLevels};
 use crate::pipeline::graphics::vertex_input::{
     Incompatible as IncompatibleInputAttributeLayout, InputAttributeLayout,
 };
+use crate::pipeline::graphics::{
+    vertex_input, GraphicsPipeline, GraphicsPipelineDescriptor, ShaderLinkingError,
+};
+use crate::pipeline::resources;
+use crate::pipeline::resources::resource_slot::Identifier;
 use crate::pipeline::resources::{Incompatible as IncompatibleResourceLayout, Resources};
-use crate::runtime::state::{DynamicState, CreateProgramError};
+use crate::runtime::state::{CreateProgramError, DynamicState};
 use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
 use crate::task::GpuTask;
-use crate::pipeline::graphics::{GraphicsPipelineDescriptor, GraphicsPipeline, ShaderLinkingError, vertex_input};
-use crate::pipeline::resources::resource_slot::Identifier;
-use crate::pipeline::resources;
 
 pub trait RenderingContext {
     fn id(&self) -> usize;
@@ -97,7 +99,7 @@ impl Extensions {
 impl Default for Extensions {
     fn default() -> Self {
         Extensions {
-            texture_float_linear: ExtensionState::Disabled
+            texture_float_linear: ExtensionState::Disabled,
         }
     }
 }
@@ -105,7 +107,7 @@ impl Default for Extensions {
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum ExtensionState {
     Enabled,
-    Disabled
+    Disabled,
 }
 
 impl ExtensionState {
@@ -132,10 +134,12 @@ pub enum CreateGraphicsPipelineError {
 impl From<CreateProgramError> for CreateGraphicsPipelineError {
     fn from(err: CreateProgramError) -> Self {
         match err {
-            CreateProgramError::ShaderLinkingError(error) => CreateGraphicsPipelineError::ShaderLinkingError(ShaderLinkingError {
-                error
-            }),
-            CreateProgramError::UnsupportedUniformType(identifier, error) => CreateGraphicsPipelineError::UnsupportedUniformType(identifier, error)
+            CreateProgramError::ShaderLinkingError(error) => {
+                CreateGraphicsPipelineError::ShaderLinkingError(ShaderLinkingError { error })
+            }
+            CreateProgramError::UnsupportedUniformType(identifier, error) => {
+                CreateGraphicsPipelineError::UnsupportedUniformType(identifier, error)
+            }
         }
     }
 }

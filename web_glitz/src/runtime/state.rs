@@ -11,16 +11,21 @@ use web_sys::{
 use crate::pipeline::graphics::vertex_input::{
     AttributeSlotDescriptor, AttributeType, VertexInputAttributeDescriptor,
 };
-use crate::pipeline::graphics::{BlendEquation, BlendFactor, DepthRange, PolygonOffset, ShaderLinkingError, StencilOperation, TestFunction, VertexShader, WindingOrder, CullingMode};
-use crate::pipeline::resources::resource_slot::{Identifier, ResourceSlotDescriptor, UniformBlockSlot, TextureSamplerSlot, SamplerKind};
+use crate::pipeline::graphics::{
+    BlendEquation, BlendFactor, CullingMode, DepthRange, PolygonOffset, ShaderLinkingError,
+    StencilOperation, TestFunction, VertexShader, WindingOrder,
+};
+use crate::pipeline::resources::resource_slot::{
+    Identifier, ResourceSlotDescriptor, SamplerKind, TextureSamplerSlot, UniformBlockSlot,
+};
 use crate::render_pass::FramebufferAttachment;
 use crate::runtime::index_lru::IndexLRU;
 use crate::util::identical;
 use crate::util::JsId;
 use fnv::{FnvHashMap, FnvHasher};
 use std::any::TypeId;
-use std::sync::Arc;
 use std::collections::hash_map::Entry;
+use std::sync::Arc;
 
 pub struct DynamicState {
     framebuffer_cache: FnvHashMap<u64, (Framebuffer, [Option<JsId>; 17])>,
@@ -109,7 +114,7 @@ pub struct DynamicState {
     scissor: (i32, i32, u32, u32),
     viewport: (i32, i32, i32, i32),
     front_face: WindingOrder,
-    cull_face: CullingMode
+    cull_face: CullingMode,
 }
 
 impl DynamicState {
@@ -120,7 +125,6 @@ impl DynamicState {
     pub(crate) fn program_cache_mut(&mut self) -> ProgramCache {
         ProgramCache { state: self }
     }
-
 
     pub(crate) fn bind_read_framebuffer(&mut self, gl: &Gl) {
         if !identical(
@@ -1315,7 +1319,13 @@ impl DynamicState {
         &self.viewport
     }
 
-    pub fn set_viewport(&mut self, x: i32, y: i32, width: i32, height: i32)-> impl ContextUpdate<'static, ()> {
+    pub fn set_viewport(
+        &mut self,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+    ) -> impl ContextUpdate<'static, ()> {
         if self.viewport != (x, y, width, height) {
             self.viewport = (x, y, width, height);
 
@@ -1333,7 +1343,7 @@ impl DynamicState {
         self.front_face
     }
 
-    pub fn set_front_face(&mut self, front_face: WindingOrder)-> impl ContextUpdate<'static, ()> {
+    pub fn set_front_face(&mut self, front_face: WindingOrder) -> impl ContextUpdate<'static, ()> {
         if self.front_face != front_face {
             self.front_face = front_face;
 
@@ -1369,21 +1379,21 @@ impl DynamicState {
                         }
 
                         context.cull_face(Gl::FRONT_AND_BACK)
-                    },
+                    }
                     CullingMode::Front => {
                         if !is_enabled {
                             context.enable(Gl::CULL_FACE)
                         }
 
                         context.cull_face(Gl::FRONT)
-                    },
+                    }
                     CullingMode::Back => {
                         if !is_enabled {
                             context.enable(Gl::CULL_FACE)
                         }
 
                         context.cull_face(Gl::BACK)
-                    },
+                    }
                 }
 
                 Ok(())
@@ -1470,7 +1480,12 @@ impl DynamicState {
             sample_coverage_enabled: false,
             rasterizer_discard_enabled: false,
             scissor: (0, 0, 0, 0),
-            viewport: (0, 0, context.drawing_buffer_width(), context.drawing_buffer_height()),
+            viewport: (
+                0,
+                0,
+                context.drawing_buffer_width(),
+                context.drawing_buffer_height(),
+            ),
             depth_func: TestFunction::Less,
             depth_mask: true,
             depth_range: DepthRange::default(),
@@ -1498,7 +1513,7 @@ impl DynamicState {
             blend_func_destination_alpha: BlendFactor::Zero,
             line_width: 1.0,
             front_face: WindingOrder::CounterClockwise,
-            cull_face: CullingMode::None
+            cull_face: CullingMode::None,
         }
     }
 }
@@ -1839,7 +1854,9 @@ impl<'a> ProgramCache<'a> {
                     .as_bool()
                     .unwrap()
                 {
-                    let info = gl.get_program_info_log(&program_object).unwrap_or("".to_string());
+                    let info = gl
+                        .get_program_info_log(&program_object)
+                        .unwrap_or("".to_string());
 
                     return Err(CreateProgramError::ShaderLinkingError(info));
                 }
@@ -1879,7 +1896,9 @@ impl<'a> ProgramCache<'a> {
                 let mut resource_slot_descriptors = Vec::with_capacity(resource_slot_count);
 
                 for i in 0..active_block_count {
-                    let name = gl.get_active_uniform_block_name(&program_object, i).unwrap();
+                    let name = gl
+                        .get_active_uniform_block_name(&program_object, i)
+                        .unwrap();
                     let identifier = Identifier::new(name);
                     let slot = UniformBlockSlot::new(gl, &program_object, i as usize);
 
@@ -1898,94 +1917,449 @@ impl<'a> ProgramCache<'a> {
 
                         if info.size() == 1 {
                             let slot = match info.type_() {
-                                Gl::FLOAT => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT")),
-                                Gl::FLOAT_VEC2 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_VEC2")),
-                                Gl::FLOAT_VEC3 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_VEC3")),
-                                Gl::FLOAT_VEC4 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_VEC4")),
-                                Gl::INT => return Err(CreateProgramError::UnsupportedUniformType(identifier, "INT")),
-                                Gl::INT_VEC2 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "INT_VEC2")),
-                                Gl::INT_VEC3 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "INT_VEC3")),
-                                Gl::INT_VEC4 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "INT_VEC4")),
-                                Gl::UNSIGNED_INT => return Err(CreateProgramError::UnsupportedUniformType(identifier, "UNSIGNED_INT")),
-                                Gl::UNSIGNED_INT_VEC2 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "UNSIGNED_INT_VEC2")),
-                                Gl::UNSIGNED_INT_VEC3 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "UNSIGNED_INT_VEC3")),
-                                Gl::UNSIGNED_INT_VEC4 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "UNSIGNED_INT_VEC4")),
-                                Gl::BOOL => return Err(CreateProgramError::UnsupportedUniformType(identifier, "BOOL")),
-                                Gl::BOOL_VEC2 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "BOOL_VEC2")),
-                                Gl::BOOL_VEC3 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "BOOL_VEC3")),
-                                Gl::BOOL_VEC4 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "BOOL_VEC4")),
-                                Gl::FLOAT_MAT2 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_MAT2")),
-                                Gl::FLOAT_MAT3 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_MAT3")),
-                                Gl::FLOAT_MAT4 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_MAT4")),
-                                Gl::FLOAT_MAT2X3 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_MAT2x3")),
-                                Gl::FLOAT_MAT2X4 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_MAT2x4")),
-                                Gl::FLOAT_MAT3X2 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_MAT3x2")),
-                                Gl::FLOAT_MAT3X4 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_MAT3x4")),
-                                Gl::FLOAT_MAT4X2 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_MAT4x2")),
-                                Gl::FLOAT_MAT4X3 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_MAT4x3")),
-                                Gl::SAMPLER_2D => TextureSamplerSlot::new(location, SamplerKind::FloatSampler2D),
-                                Gl::SAMPLER_3D => TextureSamplerSlot::new(location, SamplerKind::FloatSampler3D),
-                                Gl::SAMPLER_CUBE => TextureSamplerSlot::new(location, SamplerKind::FloatSamplerCube),
-                                Gl::SAMPLER_2D_SHADOW => TextureSamplerSlot::new(location, SamplerKind::Sampler2DShadow),
-                                Gl::SAMPLER_2D_ARRAY => TextureSamplerSlot::new(location, SamplerKind::FloatSampler2DArray),
-                                Gl::SAMPLER_2D_ARRAY_SHADOW => TextureSamplerSlot::new(location, SamplerKind::Sampler2DArrayShadow),
-                                Gl::SAMPLER_CUBE_SHADOW => TextureSamplerSlot::new(location, SamplerKind::SamplerCubeShadow),
-                                Gl::INT_SAMPLER_2D => TextureSamplerSlot::new(location, SamplerKind::IntegerSampler2D),
-                                Gl::INT_SAMPLER_3D => TextureSamplerSlot::new(location, SamplerKind::IntegerSampler3D),
-                                Gl::INT_SAMPLER_CUBE => TextureSamplerSlot::new(location, SamplerKind::IntegerSamplerCube),
-                                Gl::INT_SAMPLER_2D_ARRAY => TextureSamplerSlot::new(location, SamplerKind::IntegerSampler2DArray),
-                                Gl::UNSIGNED_INT_SAMPLER_2D => TextureSamplerSlot::new(location, SamplerKind::UnsignedIntegerSampler2D),
-                                Gl::UNSIGNED_INT_SAMPLER_3D => TextureSamplerSlot::new(location, SamplerKind::UnsignedIntegerSampler3D),
-                                Gl::UNSIGNED_INT_SAMPLER_CUBE => TextureSamplerSlot::new(location, SamplerKind::UnsignedIntegerSamplerCube),
-                                Gl::UNSIGNED_INT_SAMPLER_2D_ARRAY => TextureSamplerSlot::new(location, SamplerKind::UnsignedIntegerSampler2DArray),
-                                _ => unreachable!()
+                                Gl::FLOAT => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier, "FLOAT",
+                                    ));
+                                }
+                                Gl::FLOAT_VEC2 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_VEC2",
+                                    ));
+                                }
+                                Gl::FLOAT_VEC3 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_VEC3",
+                                    ));
+                                }
+                                Gl::FLOAT_VEC4 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_VEC4",
+                                    ));
+                                }
+                                Gl::INT => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier, "INT",
+                                    ));
+                                }
+                                Gl::INT_VEC2 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier, "INT_VEC2",
+                                    ));
+                                }
+                                Gl::INT_VEC3 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier, "INT_VEC3",
+                                    ));
+                                }
+                                Gl::INT_VEC4 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier, "INT_VEC4",
+                                    ));
+                                }
+                                Gl::UNSIGNED_INT => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "UNSIGNED_INT",
+                                    ));
+                                }
+                                Gl::UNSIGNED_INT_VEC2 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "UNSIGNED_INT_VEC2",
+                                    ));
+                                }
+                                Gl::UNSIGNED_INT_VEC3 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "UNSIGNED_INT_VEC3",
+                                    ));
+                                }
+                                Gl::UNSIGNED_INT_VEC4 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "UNSIGNED_INT_VEC4",
+                                    ));
+                                }
+                                Gl::BOOL => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier, "BOOL",
+                                    ));
+                                }
+                                Gl::BOOL_VEC2 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "BOOL_VEC2",
+                                    ));
+                                }
+                                Gl::BOOL_VEC3 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "BOOL_VEC3",
+                                    ));
+                                }
+                                Gl::BOOL_VEC4 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "BOOL_VEC4",
+                                    ));
+                                }
+                                Gl::FLOAT_MAT2 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_MAT2",
+                                    ));
+                                }
+                                Gl::FLOAT_MAT3 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_MAT3",
+                                    ));
+                                }
+                                Gl::FLOAT_MAT4 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_MAT4",
+                                    ));
+                                }
+                                Gl::FLOAT_MAT2X3 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_MAT2x3",
+                                    ));
+                                }
+                                Gl::FLOAT_MAT2X4 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_MAT2x4",
+                                    ));
+                                }
+                                Gl::FLOAT_MAT3X2 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_MAT3x2",
+                                    ));
+                                }
+                                Gl::FLOAT_MAT3X4 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_MAT3x4",
+                                    ));
+                                }
+                                Gl::FLOAT_MAT4X2 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_MAT4x2",
+                                    ));
+                                }
+                                Gl::FLOAT_MAT4X3 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_MAT4x3",
+                                    ));
+                                }
+                                Gl::SAMPLER_2D => {
+                                    TextureSamplerSlot::new(location, SamplerKind::FloatSampler2D)
+                                }
+                                Gl::SAMPLER_3D => {
+                                    TextureSamplerSlot::new(location, SamplerKind::FloatSampler3D)
+                                }
+                                Gl::SAMPLER_CUBE => {
+                                    TextureSamplerSlot::new(location, SamplerKind::FloatSamplerCube)
+                                }
+                                Gl::SAMPLER_2D_SHADOW => {
+                                    TextureSamplerSlot::new(location, SamplerKind::Sampler2DShadow)
+                                }
+                                Gl::SAMPLER_2D_ARRAY => TextureSamplerSlot::new(
+                                    location,
+                                    SamplerKind::FloatSampler2DArray,
+                                ),
+                                Gl::SAMPLER_2D_ARRAY_SHADOW => TextureSamplerSlot::new(
+                                    location,
+                                    SamplerKind::Sampler2DArrayShadow,
+                                ),
+                                Gl::SAMPLER_CUBE_SHADOW => TextureSamplerSlot::new(
+                                    location,
+                                    SamplerKind::SamplerCubeShadow,
+                                ),
+                                Gl::INT_SAMPLER_2D => {
+                                    TextureSamplerSlot::new(location, SamplerKind::IntegerSampler2D)
+                                }
+                                Gl::INT_SAMPLER_3D => {
+                                    TextureSamplerSlot::new(location, SamplerKind::IntegerSampler3D)
+                                }
+                                Gl::INT_SAMPLER_CUBE => TextureSamplerSlot::new(
+                                    location,
+                                    SamplerKind::IntegerSamplerCube,
+                                ),
+                                Gl::INT_SAMPLER_2D_ARRAY => TextureSamplerSlot::new(
+                                    location,
+                                    SamplerKind::IntegerSampler2DArray,
+                                ),
+                                Gl::UNSIGNED_INT_SAMPLER_2D => TextureSamplerSlot::new(
+                                    location,
+                                    SamplerKind::UnsignedIntegerSampler2D,
+                                ),
+                                Gl::UNSIGNED_INT_SAMPLER_3D => TextureSamplerSlot::new(
+                                    location,
+                                    SamplerKind::UnsignedIntegerSampler3D,
+                                ),
+                                Gl::UNSIGNED_INT_SAMPLER_CUBE => TextureSamplerSlot::new(
+                                    location,
+                                    SamplerKind::UnsignedIntegerSamplerCube,
+                                ),
+                                Gl::UNSIGNED_INT_SAMPLER_2D_ARRAY => TextureSamplerSlot::new(
+                                    location,
+                                    SamplerKind::UnsignedIntegerSampler2DArray,
+                                ),
+                                _ => unreachable!(),
                             };
 
                             resource_slot_descriptors
                                 .push(ResourceSlotDescriptor::new(identifier, slot.into()));
                         } else {
                             let slot = match info.type_() {
-                                Gl::FLOAT => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT[]")),
-                                Gl::FLOAT_VEC2 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_VEC2[]")),
-                                Gl::FLOAT_VEC3 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_VEC3[]")),
-                                Gl::FLOAT_VEC4 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_VEC4[]")),
-                                Gl::INT => return Err(CreateProgramError::UnsupportedUniformType(identifier, "INT[]")),
-                                Gl::INT_VEC2 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "INT_VEC2[]")),
-                                Gl::INT_VEC3 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "INT_VEC3[]")),
-                                Gl::INT_VEC4 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "INT_VEC4[]")),
-                                Gl::UNSIGNED_INT => return Err(CreateProgramError::UnsupportedUniformType(identifier, "UNSIGNED_INT[]")),
-                                Gl::UNSIGNED_INT_VEC2 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "UNSIGNED_INT_VEC2[]")),
-                                Gl::UNSIGNED_INT_VEC3 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "UNSIGNED_INT_VEC3[]")),
-                                Gl::UNSIGNED_INT_VEC4 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "UNSIGNED_INT_VEC4[]")),
-                                Gl::BOOL => return Err(CreateProgramError::UnsupportedUniformType(identifier, "BOOL[]")),
-                                Gl::BOOL_VEC2 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "BOOL_VEC2[]")),
-                                Gl::BOOL_VEC3 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "BOOL_VEC3[]")),
-                                Gl::BOOL_VEC4 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "BOOL_VEC4[]")),
-                                Gl::FLOAT_MAT2 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_MAT2[]")),
-                                Gl::FLOAT_MAT3 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_MAT3[]")),
-                                Gl::FLOAT_MAT4 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_MAT4[]")),
-                                Gl::FLOAT_MAT2X3 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_MAT2x3[]")),
-                                Gl::FLOAT_MAT2X4 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_MAT2x4[]")),
-                                Gl::FLOAT_MAT3X2 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_MAT3x2[]")),
-                                Gl::FLOAT_MAT3X4 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_MAT3x4[]")),
-                                Gl::FLOAT_MAT4X2 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_MAT4x2[]")),
-                                Gl::FLOAT_MAT4X3 => return Err(CreateProgramError::UnsupportedUniformType(identifier, "FLOAT_MAT4x3[]")),
-                                Gl::SAMPLER_2D => return Err(CreateProgramError::UnsupportedUniformType(identifier, "SAMPLER_2D[]")),
-                                Gl::SAMPLER_3D => return Err(CreateProgramError::UnsupportedUniformType(identifier, "SAMPLER_3D[]")),
-                                Gl::SAMPLER_CUBE => return Err(CreateProgramError::UnsupportedUniformType(identifier, "SAMPLER_CUBE[]")),
-                                Gl::SAMPLER_2D_SHADOW => return Err(CreateProgramError::UnsupportedUniformType(identifier, "SAMPLER_2D_SHADOW[]")),
-                                Gl::SAMPLER_2D_ARRAY => return Err(CreateProgramError::UnsupportedUniformType(identifier, "SAMPLER_2D_ARRAY[]")),
-                                Gl::SAMPLER_2D_ARRAY_SHADOW => return Err(CreateProgramError::UnsupportedUniformType(identifier, "SAMPLER_2D_ARRAY_SHADOW[]")),
-                                Gl::SAMPLER_CUBE_SHADOW => return Err(CreateProgramError::UnsupportedUniformType(identifier, "SAMPLER_CUBE_SHADOW[]")),
-                                Gl::INT_SAMPLER_2D => return Err(CreateProgramError::UnsupportedUniformType(identifier, "INT_SAMPLER_2D[]")),
-                                Gl::INT_SAMPLER_3D => return Err(CreateProgramError::UnsupportedUniformType(identifier, "INT_SAMPLER_3D[]")),
-                                Gl::INT_SAMPLER_CUBE => return Err(CreateProgramError::UnsupportedUniformType(identifier, "INT_SAMPLER_CUBE[]")),
-                                Gl::INT_SAMPLER_2D_ARRAY => return Err(CreateProgramError::UnsupportedUniformType(identifier, "INT_SAMPLER_2D_ARRAY[]")),
-                                Gl::UNSIGNED_INT_SAMPLER_2D => return Err(CreateProgramError::UnsupportedUniformType(identifier, "UNSIGNED_INT_SAMPLER_2D[]")),
-                                Gl::UNSIGNED_INT_SAMPLER_3D => return Err(CreateProgramError::UnsupportedUniformType(identifier, "UNSIGNED_INT_SAMPLER_3D[]")),
-                                Gl::UNSIGNED_INT_SAMPLER_CUBE => return Err(CreateProgramError::UnsupportedUniformType(identifier, "UNSIGNED_INT_SAMPLER_CUBE[]")),
-                                Gl::UNSIGNED_INT_SAMPLER_2D_ARRAY => return Err(CreateProgramError::UnsupportedUniformType(identifier, "UNSIGNED_INT_SAMPLER_2D_ARRAY[]")),
-                                _ => unreachable!()
+                                Gl::FLOAT => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier, "FLOAT[]",
+                                    ));
+                                }
+                                Gl::FLOAT_VEC2 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_VEC2[]",
+                                    ));
+                                }
+                                Gl::FLOAT_VEC3 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_VEC3[]",
+                                    ));
+                                }
+                                Gl::FLOAT_VEC4 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_VEC4[]",
+                                    ));
+                                }
+                                Gl::INT => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier, "INT[]",
+                                    ));
+                                }
+                                Gl::INT_VEC2 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "INT_VEC2[]",
+                                    ));
+                                }
+                                Gl::INT_VEC3 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "INT_VEC3[]",
+                                    ));
+                                }
+                                Gl::INT_VEC4 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "INT_VEC4[]",
+                                    ));
+                                }
+                                Gl::UNSIGNED_INT => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "UNSIGNED_INT[]",
+                                    ));
+                                }
+                                Gl::UNSIGNED_INT_VEC2 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "UNSIGNED_INT_VEC2[]",
+                                    ));
+                                }
+                                Gl::UNSIGNED_INT_VEC3 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "UNSIGNED_INT_VEC3[]",
+                                    ));
+                                }
+                                Gl::UNSIGNED_INT_VEC4 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "UNSIGNED_INT_VEC4[]",
+                                    ));
+                                }
+                                Gl::BOOL => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier, "BOOL[]",
+                                    ));
+                                }
+                                Gl::BOOL_VEC2 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "BOOL_VEC2[]",
+                                    ));
+                                }
+                                Gl::BOOL_VEC3 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "BOOL_VEC3[]",
+                                    ));
+                                }
+                                Gl::BOOL_VEC4 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "BOOL_VEC4[]",
+                                    ));
+                                }
+                                Gl::FLOAT_MAT2 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_MAT2[]",
+                                    ));
+                                }
+                                Gl::FLOAT_MAT3 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_MAT3[]",
+                                    ));
+                                }
+                                Gl::FLOAT_MAT4 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_MAT4[]",
+                                    ));
+                                }
+                                Gl::FLOAT_MAT2X3 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_MAT2x3[]",
+                                    ));
+                                }
+                                Gl::FLOAT_MAT2X4 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_MAT2x4[]",
+                                    ));
+                                }
+                                Gl::FLOAT_MAT3X2 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_MAT3x2[]",
+                                    ));
+                                }
+                                Gl::FLOAT_MAT3X4 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_MAT3x4[]",
+                                    ));
+                                }
+                                Gl::FLOAT_MAT4X2 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_MAT4x2[]",
+                                    ));
+                                }
+                                Gl::FLOAT_MAT4X3 => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "FLOAT_MAT4x3[]",
+                                    ));
+                                }
+                                Gl::SAMPLER_2D => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "SAMPLER_2D[]",
+                                    ));
+                                }
+                                Gl::SAMPLER_3D => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "SAMPLER_3D[]",
+                                    ));
+                                }
+                                Gl::SAMPLER_CUBE => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "SAMPLER_CUBE[]",
+                                    ));
+                                }
+                                Gl::SAMPLER_2D_SHADOW => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "SAMPLER_2D_SHADOW[]",
+                                    ));
+                                }
+                                Gl::SAMPLER_2D_ARRAY => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "SAMPLER_2D_ARRAY[]",
+                                    ));
+                                }
+                                Gl::SAMPLER_2D_ARRAY_SHADOW => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "SAMPLER_2D_ARRAY_SHADOW[]",
+                                    ));
+                                }
+                                Gl::SAMPLER_CUBE_SHADOW => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "SAMPLER_CUBE_SHADOW[]",
+                                    ));
+                                }
+                                Gl::INT_SAMPLER_2D => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "INT_SAMPLER_2D[]",
+                                    ));
+                                }
+                                Gl::INT_SAMPLER_3D => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "INT_SAMPLER_3D[]",
+                                    ));
+                                }
+                                Gl::INT_SAMPLER_CUBE => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "INT_SAMPLER_CUBE[]",
+                                    ));
+                                }
+                                Gl::INT_SAMPLER_2D_ARRAY => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "INT_SAMPLER_2D_ARRAY[]",
+                                    ));
+                                }
+                                Gl::UNSIGNED_INT_SAMPLER_2D => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "UNSIGNED_INT_SAMPLER_2D[]",
+                                    ));
+                                }
+                                Gl::UNSIGNED_INT_SAMPLER_3D => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "UNSIGNED_INT_SAMPLER_3D[]",
+                                    ));
+                                }
+                                Gl::UNSIGNED_INT_SAMPLER_CUBE => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "UNSIGNED_INT_SAMPLER_CUBE[]",
+                                    ));
+                                }
+                                Gl::UNSIGNED_INT_SAMPLER_2D_ARRAY => {
+                                    return Err(CreateProgramError::UnsupportedUniformType(
+                                        identifier,
+                                        "UNSIGNED_INT_SAMPLER_2D_ARRAY[]",
+                                    ));
+                                }
+                                _ => unreachable!(),
                             };
                         }
                     }

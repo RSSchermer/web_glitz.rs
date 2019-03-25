@@ -1,5 +1,5 @@
 mod gpu_task;
-pub use self::gpu_task::{GpuTask, ContextId, GpuTaskExt, Progress};
+pub use self::gpu_task::{ContextId, GpuTask, GpuTaskExt, Progress};
 
 mod join;
 pub use self::join::{Join, Join3, Join4, Join5};
