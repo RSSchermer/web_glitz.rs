@@ -16,8 +16,8 @@ extern crate web_sys;
 #[macro_use]
 extern crate web_glitz_macros;
 
-#[proc_macro_hack]
-pub use web_glitz_macros::uniforms;
+//#[proc_macro_hack]
+//pub use web_glitz_macros::uniforms;
 pub use web_glitz_macros::*;
 
 pub mod buffer;
