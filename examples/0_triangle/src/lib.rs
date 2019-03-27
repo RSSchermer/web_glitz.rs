@@ -34,8 +34,7 @@ pub fn start() {
         .unwrap()
         .document()
         .unwrap()
-        .query_selector("#canvas")
-        .unwrap()
+        .get_element_by_id("canvas")
         .unwrap()
         .dyn_into()
         .unwrap();
