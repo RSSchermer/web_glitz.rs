@@ -36,6 +36,15 @@ where
     }
 }
 
+impl<'a> BindGroupEncoding<'a, [BindingDescriptor; 0]> {
+    pub fn empty(context: &'a mut BindGroupEncodingContext) -> Self {
+        BindGroupEncoding {
+            context,
+            descriptors: [],
+        }
+    }
+}
+
 pub struct BindingDescriptor {
     internal: BindingDescriptorInternal,
 }

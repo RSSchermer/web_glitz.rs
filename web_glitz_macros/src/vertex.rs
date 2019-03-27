@@ -29,22 +29,22 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
                 .clone()
                 .map(|i| i.into_token_stream())
                 .unwrap_or(a.position.into_token_stream());
-            let location = a.location;
+            let location = a.location as u32;
             let ty = &a.ty;
             let span = a.span;
             let format_kind = {
                 let ident = Ident::new(a.format.as_str(), Span::call_site()).into_token_stream();
 
                 quote_spanned!(span=> {
-                    impl AssertFormatCompatible<#ident> for #ty {}
+                    assert_format_compatible::<#ty, #ident>();
 
-                    <#ident as #mod_path::attribute_format::AttributeFormat>::kind()
+                    <#ident as AttributeFormat>::KIND
                 })
             };
 
             quote! {
                 #mod_path::VertexInputAttributeDescriptor {
-                    location: #location as u32,
+                    location: #location,
                     format: #format_kind,
                     offset: offset_of!(#struct_name, #field_name) as u8
                 }
@@ -54,14 +54,14 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
         let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
         let impl_block = quote! {
-            #[automatically_derived]
-            impl #impl_generics #mod_path::Vertex for #struct_name #ty_generics #where_clause {
-                fn input_attribute_descriptors() -> &'static [VertexInputAttributeDescriptor] {
-                    static input_attribute_descrptors: [VertexInputAttributeDescriptor;#len] = [
-                        #(#recurse),*
-                    ];
+            const INPUT_ATTRIBUTE_DESCRIPTORS: [#mod_path::VertexInputAttributeDescriptor;#len] = [
+                #(#recurse),*
+            ];
 
-                    &input_attribute_descriptors
+            #[automatically_derived]
+            unsafe impl #impl_generics #mod_path::Vertex for #struct_name #ty_generics #where_clause {
+                fn input_attribute_descriptors() -> &'static [#mod_path::VertexInputAttributeDescriptor] {
+                    &INPUT_ATTRIBUTE_DESCRIPTORS
                 }
             }
         };
@@ -72,20 +72,16 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
         // Modified from the memoffset crate (https://github.com/Gilnaa/memoffset)
         // TODO: replace with std::mem::offset_of when it becomes available
         let offset_of = quote! {
+            union Transmuter<T: 'static> {
+                pub ptr: &'static T,
+                pub int: usize,
+            }
+
             macro_rules! offset_of {
-                ($father:ty, $($field:tt)+) => ({
-                    #[allow(unused_unsafe)]
-                    let root: $father = unsafe { std::mem::uninitialized() };
+                ($parent:ty, $($field:tt)+) => (unsafe {
+                    let x: &'static $parent = Transmuter::<$parent> { int: 0 }.ptr;
 
-                    let base = &root as *const _ as usize;
-
-                    // Future error: borrow of packed field requires unsafe function or block (error E0133)
-                    #[allow(unused_unsafe)]
-                    let member =  unsafe { &root.$($field)* as *const _ as usize };
-
-                    std::mem::forget(root);
-
-                    member - base
+                    Transmuter { ptr: &x.$($field)+ }.int
                 });
             }
         };
@@ -98,8 +94,11 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
                 #[allow(rust_2018_idioms)]
                 extern crate web_glitz as _web_glitz;
 
-                trait AssertFormatCompatible<F>: #mod_path::FormatCompatible<F>
+                use #mod_path::attribute_format::*;
+
+                const fn assert_format_compatible<T, F>()
                 where
+                    T: #mod_path::FormatCompatible<F>,
                     F: #mod_path::attribute_format::AttributeFormat
                 {}
 

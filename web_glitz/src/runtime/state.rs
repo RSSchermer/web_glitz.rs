@@ -1821,20 +1821,12 @@ impl<'a> ProgramCache<'a> {
         key: ProgramKey,
         gl: &Gl,
     ) -> Result<&Program, CreateProgramError> {
-        let DynamicState {
-            program_cache,
-            active_program,
-            ..
-        } = self.state;
 
-        let program = match program_cache.entry(key) {
+
+        let program = match self.state.program_cache.entry(key) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
                 let program_object = gl.create_program().unwrap();
-
-                gl.use_program(Some(&program_object));
-
-                *active_program = Some(program_object.clone());
 
                 unsafe {
                     key.vertex_shader_id.with_value_unchecked(|shader_object| {

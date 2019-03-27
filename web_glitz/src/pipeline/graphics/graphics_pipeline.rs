@@ -217,6 +217,7 @@ impl<Il, R, Tf> Drop for GraphicsPipeline<Il, R, Tf> {
     }
 }
 
+#[derive(Debug)]
 pub struct ShaderLinkingError {
     pub(crate) error: String,
 }

@@ -8,6 +8,7 @@ pub unsafe trait InputAttributeLayout {
     ) -> Result<(), Incompatible>;
 }
 
+#[derive(Debug)]
 pub enum Incompatible {
     MissingAttribute { location: u32 },
     TypeMismatch { location: u32 },

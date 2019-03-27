@@ -15,8 +15,8 @@ pub use self::input_attribute_layout::{
 pub(crate) mod vertex_array;
 pub use self::vertex_array::{
     IndexBufferDescription, IndexBufferDescriptor, IndexFormat, Instanced, VertexArray,
-    VertexArraySlice, VertexBuffersDescription, VertexBuffersDescriptor,
-    VertexInputStreamDescription, VertexInputStreamDescriptor,
+    VertexArrayDescriptor, VertexArrayRange, VertexArraySlice, VertexBuffersDescription,
+    VertexBuffersDescriptor, VertexInputStreamDescription, VertexInputStreamDescriptor,
 };
 
 pub mod attribute_format;

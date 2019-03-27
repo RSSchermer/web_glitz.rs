@@ -14,12 +14,18 @@ use crate::image::texture_2d_array::{Texture2DArray, Texture2DArrayDescriptor};
 use crate::image::texture_3d::{Texture3D, Texture3DDescriptor};
 use crate::image::texture_cube::{TextureCube, TextureCubeDescriptor};
 use crate::image::{MaxMipmapLevelsExceeded, MipmapLevels};
-use crate::pipeline::graphics::vertex_input::InputAttributeLayout;
-use crate::pipeline::graphics::{GraphicsPipeline, GraphicsPipelineDescriptor};
+use crate::pipeline::graphics::vertex_input::{
+    IndexBufferDescription, InputAttributeLayout, VertexArray, VertexArrayDescriptor,
+    VertexBuffersDescription,
+};
+use crate::pipeline::graphics::{
+    FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, VertexShader,
+};
 use crate::pipeline::resources::Resources;
 use crate::render_pass::{
     DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
-    DefaultRenderTarget, DefaultStencilBuffer,
+    DefaultRenderTarget, DefaultStencilBuffer, RenderPass, RenderPassContext,
+    RenderTargetDescription,
 };
 use crate::runtime::executor_job::job;
 use crate::runtime::fenced::JsTimeoutFencedTaskRunner;
@@ -70,6 +76,7 @@ impl RenderingContext for SingleThreadedContext {
     fn create_buffer<D, T>(&self, data: D, usage_hint: BufferUsage) -> Buffer<T>
     where
         D: IntoBuffer<T>,
+        T: ?Sized,
     {
         data.into_buffer(self, usage_hint)
     }
@@ -79,6 +86,14 @@ impl RenderingContext for SingleThreadedContext {
         F: RenderbufferFormat + 'static,
     {
         Renderbuffer::new(self, width, height)
+    }
+
+    fn create_vertex_shader(&self, source: String) -> VertexShader {
+        VertexShader::new(self, source)
+    }
+
+    fn create_fragment_shader(&self, source: String) -> FragmentShader {
+        FragmentShader::new(self, source)
     }
 
     fn create_graphics_pipeline<Il, R, Tf>(
@@ -95,6 +110,26 @@ impl RenderingContext for SingleThreadedContext {
 
         GraphicsPipeline::create(self, &mut connection, descriptor)
     }
+
+    fn create_render_pass<R, F, T>(&self, render_target: R, f: F) -> RenderPass<T>
+    where
+        R: RenderTargetDescription,
+        F: FnOnce(&mut R::Framebuffer) -> T,
+        for<'a> T: GpuTask<RenderPassContext<'a>>,
+    {
+        let id = ID_GEN.with(|id_gen| id_gen.next());
+
+        RenderPass::new(id, self, render_target, f)
+    }
+
+    fn create_sampler(&self, descriptor: &SamplerDescriptor) -> Sampler {
+        Sampler::new(self, descriptor)
+    }
+
+    fn create_shadow_sampler(&self, descriptor: &ShadowSamplerDescriptor) -> ShadowSampler {
+        ShadowSampler::new(self, descriptor)
+    }
+
     fn create_texture_2d<F>(
         &self,
         descriptor: &Texture2DDescriptor<F>,
@@ -135,12 +170,15 @@ impl RenderingContext for SingleThreadedContext {
         TextureCube::new(self, descriptor)
     }
 
-    fn create_sampler(&self, descriptor: &SamplerDescriptor) -> Sampler {
-        Sampler::new(self, descriptor)
-    }
-
-    fn create_shadow_sampler(&self, descriptor: &ShadowSamplerDescriptor) -> ShadowSampler {
-        ShadowSampler::new(self, descriptor)
+    fn create_vertex_array<V, I>(
+        &self,
+        descriptor: &VertexArrayDescriptor<V, I>,
+    ) -> VertexArray<V::Layout>
+    where
+        V: VertexBuffersDescription,
+        I: IndexBufferDescription,
+    {
+        VertexArray::new(self, descriptor)
     }
 
     fn submit<T>(&self, task: T) -> Execution<T::Output>
@@ -214,7 +252,7 @@ impl Options for ContextOptions<DefaultRGBABuffer, ()> {
     type Output = Result<
         (
             SingleThreadedContext,
-            DefaultRenderTarget<DefaultRGBBuffer, ()>,
+            DefaultRenderTarget<DefaultRGBABuffer, ()>,
         ),
         String,
     >;
@@ -284,7 +322,7 @@ impl Options for ContextOptions<DefaultRGBABuffer, DefaultDepthBuffer> {
     type Output = Result<
         (
             SingleThreadedContext,
-            DefaultRenderTarget<DefaultRGBBuffer, ()>,
+            DefaultRenderTarget<DefaultRGBABuffer, DefaultDepthBuffer>,
         ),
         String,
     >;
@@ -319,7 +357,7 @@ impl Options for ContextOptions<DefaultRGBABuffer, DefaultStencilBuffer> {
     type Output = Result<
         (
             SingleThreadedContext,
-            DefaultRenderTarget<DefaultRGBBuffer, ()>,
+            DefaultRenderTarget<DefaultRGBABuffer, DefaultStencilBuffer>,
         ),
         String,
     >;
@@ -389,7 +427,7 @@ impl Options for ContextOptions<DefaultRGBBuffer, DefaultDepthStencilBuffer> {
     type Output = Result<
         (
             SingleThreadedContext,
-            DefaultRenderTarget<DefaultRGBBuffer, ()>,
+            DefaultRenderTarget<DefaultRGBBuffer, DefaultDepthStencilBuffer>,
         ),
         String,
     >;
@@ -424,7 +462,7 @@ impl Options for ContextOptions<DefaultRGBBuffer, DefaultDepthBuffer> {
     type Output = Result<
         (
             SingleThreadedContext,
-            DefaultRenderTarget<DefaultRGBBuffer, ()>,
+            DefaultRenderTarget<DefaultRGBBuffer, DefaultDepthBuffer>,
         ),
         String,
     >;
@@ -459,7 +497,7 @@ impl Options for ContextOptions<DefaultRGBBuffer, DefaultStencilBuffer> {
     type Output = Result<
         (
             SingleThreadedContext,
-            DefaultRenderTarget<DefaultRGBBuffer, ()>,
+            DefaultRenderTarget<DefaultRGBBuffer, DefaultStencilBuffer>,
         ),
         String,
     >;

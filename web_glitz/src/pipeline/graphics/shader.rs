@@ -55,7 +55,7 @@ impl FragmentShader {
 
         context.submit(FragmentShaderAllocateCommand {
             data: data.clone(),
-            tpe: Gl::VERTEX_SHADER,
+            tpe: Gl::FRAGMENT_SHADER,
             source,
         });
 

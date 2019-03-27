@@ -1,14 +1,17 @@
-use syn::{DeriveInput, Ident, Data};
-use syn::spanned::Spanned;
-use proc_macro2::{TokenStream, Span};
+use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
+use syn::spanned::Spanned;
+use syn::{Data, DeriveInput, Ident};
 
 use crate::util::ErrorLog;
 
 pub fn expand_repr_std140(input: &DeriveInput) -> Result<TokenStream, String> {
     if let Data::Struct(data) = &input.data {
         if has_other_repr(input) {
-            return Err("Cannot parse another #[repr] attribute on a struct marked with #[repr_std140]".to_string());
+            return Err(
+                "Cannot parse another #[repr] attribute on a struct marked with #[repr_std140]"
+                    .to_string(),
+            );
         }
 
         let mod_path = quote!(_web_glitz::std140);
@@ -23,14 +26,15 @@ pub fn expand_repr_std140(input: &DeriveInput) -> Result<TokenStream, String> {
         });
 
         let suffix = struct_name.to_string().trim_left_matches("r#").to_owned();
-        let dummy_const = Ident::new(&format!("_ASSERT_STD140_FOR_{}", suffix), Span::call_site());
+        let dummy_const = Ident::new(
+            &format!("_IMPL_REPR_STD140_FOR_{}", suffix),
+            Span::call_site(),
+        );
 
         let asserts = quote! {
-            const #dummy_const: () = {
-                fn assert_repr_std140<T: #mod_path::ReprStd140>() {}
+            fn assert_repr_std140<T: #mod_path::ReprStd140>() {}
 
-                #(#asserts)*
-            }
+            #(#asserts)*
         };
 
         let impl_repr_std140 = quote! {
@@ -42,9 +46,17 @@ pub fn expand_repr_std140(input: &DeriveInput) -> Result<TokenStream, String> {
             #[repr(C, align(16))]
             #input
 
-            #asserts
+            #[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
+            const #dummy_const: () = {
+                #[allow(unknown_lints)]
+                #[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
+                #[allow(rust_2018_idioms)]
+                extern crate web_glitz as _web_glitz;
 
-            #impl_repr_std140
+                #asserts
+
+                #impl_repr_std140
+            }
         };
 
         Ok(generated)
@@ -54,7 +66,8 @@ pub fn expand_repr_std140(input: &DeriveInput) -> Result<TokenStream, String> {
 }
 
 fn has_other_repr(input: &DeriveInput) -> bool {
-    input.attrs.iter().any(|attr| {
-        attr.path.is_ident(Ident::new("repr", Span::call_site()))
-    })
+    input
+        .attrs
+        .iter()
+        .any(|attr| attr.path.is_ident(Ident::new("repr", Span::call_site())))
 }

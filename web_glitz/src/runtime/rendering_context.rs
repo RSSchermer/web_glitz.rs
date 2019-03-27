@@ -14,14 +14,17 @@ use crate::image::texture_3d::{Texture3D, Texture3DDescriptor};
 use crate::image::texture_cube::{TextureCube, TextureCubeDescriptor};
 use crate::image::{MaxMipmapLevelsExceeded, MipmapLevels};
 use crate::pipeline::graphics::vertex_input::{
-    Incompatible as IncompatibleInputAttributeLayout, InputAttributeLayout,
+    Incompatible as IncompatibleInputAttributeLayout, IndexBufferDescription, InputAttributeLayout,
+    VertexArray, VertexArrayDescriptor, VertexBuffersDescription,
 };
 use crate::pipeline::graphics::{
-    vertex_input, GraphicsPipeline, GraphicsPipelineDescriptor, ShaderLinkingError,
+    vertex_input, FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, ShaderLinkingError,
+    VertexShader,
 };
 use crate::pipeline::resources;
 use crate::pipeline::resources::resource_slot::Identifier;
 use crate::pipeline::resources::{Incompatible as IncompatibleResourceLayout, Resources};
+use crate::render_pass::{RenderPass, RenderPassContext, RenderTargetDescription};
 use crate::runtime::state::{CreateProgramError, DynamicState};
 use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
 use crate::task::GpuTask;
@@ -33,11 +36,16 @@ pub trait RenderingContext {
 
     fn create_buffer<D, T>(&self, data: D, usage_hint: BufferUsage) -> Buffer<T>
     where
-        D: IntoBuffer<T>;
+        D: IntoBuffer<T>,
+        T: ?Sized;
 
     fn create_renderbuffer<F>(&self, width: u32, height: u32) -> Renderbuffer<F>
     where
         F: RenderbufferFormat + 'static;
+
+    fn create_vertex_shader(&self, source: String) -> VertexShader;
+
+    fn create_fragment_shader(&self, source: String) -> FragmentShader;
 
     fn create_graphics_pipeline<Il, R, Tf>(
         &self,
@@ -47,6 +55,12 @@ pub trait RenderingContext {
         Il: InputAttributeLayout,
         R: Resources + 'static,
         Tf: TransformFeedbackVaryings;
+
+    fn create_render_pass<R, F, T>(&self, render_target: R, f: F) -> RenderPass<T>
+    where
+        R: RenderTargetDescription,
+        F: FnOnce(&mut R::Framebuffer) -> T,
+        for<'a> T: GpuTask<RenderPassContext<'a>>;
 
     fn create_texture_2d<F>(
         &self,
@@ -79,6 +93,14 @@ pub trait RenderingContext {
     fn create_sampler(&self, descriptor: &SamplerDescriptor) -> Sampler;
 
     fn create_shadow_sampler(&self, descriptor: &ShadowSamplerDescriptor) -> ShadowSampler;
+
+    fn create_vertex_array<V, I>(
+        &self,
+        descriptor: &VertexArrayDescriptor<V, I>,
+    ) -> VertexArray<V::Layout>
+    where
+        V: VertexBuffersDescription,
+        I: IndexBufferDescription;
 
     fn submit<T>(&self, task: T) -> Execution<T::Output>
     where
@@ -122,8 +144,11 @@ impl ExtensionState {
 
 pub unsafe trait TransformFeedbackVaryings {}
 
+unsafe impl TransformFeedbackVaryings for () {}
+
 pub enum IncompatibleTransformFeedbackVaryings {}
 
+#[derive(Debug)]
 pub enum CreateGraphicsPipelineError {
     ShaderLinkingError(ShaderLinkingError),
     UnsupportedUniformType(Identifier, &'static str),

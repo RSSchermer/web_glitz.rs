@@ -13,7 +13,7 @@ use std::{marker, mem};
 
 use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
-
+use web_sys::console;
 use crate::runtime::state::ContextUpdate;
 
 struct VertexBufferDescriptorInternal {
@@ -68,7 +68,7 @@ macro_rules! impl_vertex_buffers_description {
                         size_in_bytes,
                         input_rate
                     } = $T.descriptor();
-                    let stride_in_bytes = mem::size_of::<$T::Vertex> as i32;
+                    let stride_in_bytes = mem::size_of::<$T::Vertex>() as i32;
 
                     buffer_descriptors.push(VertexBufferDescriptorInternal {
                         buffer_data,
@@ -165,7 +165,7 @@ impl IndexFormatKind {
 pub unsafe trait IndexBufferDescription {
     type Format: IndexFormat;
 
-    fn descriptor(&self) -> IndexBufferDescriptor;
+    fn descriptor(&self) -> Option<IndexBufferDescriptor>;
 }
 
 pub struct IndexBufferDescriptor {
@@ -175,19 +175,27 @@ pub struct IndexBufferDescriptor {
     len: u32,
 }
 
+unsafe impl<'a> IndexBufferDescription for () {
+    type Format = u16;
+
+    fn descriptor(&self) -> Option<IndexBufferDescriptor> {
+        None
+    }
+}
+
 unsafe impl<'a, F> IndexBufferDescription for &'a Buffer<[F]>
 where
     F: IndexFormat,
 {
     type Format = F;
 
-    fn descriptor(&self) -> IndexBufferDescriptor {
-        IndexBufferDescriptor {
+    fn descriptor(&self) -> Option<IndexBufferDescriptor> {
+        Some(IndexBufferDescriptor {
             buffer_data: self.data().clone(),
             format_kind: F::kind(),
             offset: 0,
             len: self.len() as u32,
-        }
+        })
     }
 }
 
@@ -197,13 +205,13 @@ where
 {
     type Format = F;
 
-    fn descriptor(&self) -> IndexBufferDescriptor {
-        IndexBufferDescriptor {
+    fn descriptor(&self) -> Option<IndexBufferDescriptor> {
+        Some(IndexBufferDescriptor {
             buffer_data: self.buffer_data().clone(),
             format_kind: F::kind(),
             offset: (self.offset_in_bytes() / mem::size_of::<F>()) as u32,
             len: self.len() as u32,
-        }
+        })
     }
 }
 
@@ -213,7 +221,7 @@ where
     I: IndexBufferDescription,
 {
     pub vertex_buffers: V,
-    pub index_buffer: Option<I>,
+    pub index_buffer: I,
 }
 
 pub struct VertexArray<L> {
@@ -263,7 +271,7 @@ impl Drop for VertexArrayData {
 }
 
 impl<L> VertexArray<L> {
-    pub(crate) fn new<Rc, V, I>(context: Rc, descriptor: VertexArrayDescriptor<V, I>) -> Self
+    pub(crate) fn new<Rc, V, I>(context: &Rc, descriptor: &VertexArrayDescriptor<V, I>) -> Self
     where
         Rc: RenderingContext + Clone + 'static,
         V: VertexBuffersDescription<Layout = L>,
@@ -296,7 +304,7 @@ impl<L> VertexArray<L> {
             buffer_pointers.push(descriptor.buffer_data.clone());
         }
 
-        let index_buffer_descriptor = index_buffer.map(|b| b.descriptor());
+        let index_buffer_descriptor = index_buffer.descriptor();
 
         let (index_buffer_pointer, index_format_kind) = match &index_buffer_descriptor {
             Some(d) => (Some(d.buffer_data.clone()), Some(d.format_kind)),

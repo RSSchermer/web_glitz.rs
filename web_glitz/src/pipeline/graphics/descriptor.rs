@@ -265,7 +265,7 @@ where
     Il: InputAttributeLayout,
     R: Resources,
 {
-    fn finish(self) -> GraphicsPipelineDescriptor<Il, R, ()> {
+    pub fn finish(self) -> GraphicsPipelineDescriptor<Il, R, ()> {
         GraphicsPipelineDescriptor {
             _vertex_input_layout: marker::PhantomData,
             _resource_layout: marker::PhantomData,

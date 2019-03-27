@@ -145,6 +145,34 @@ pub unsafe trait Resources {
     ) -> BindGroupEncoding<'a, Self::Bindings>;
 }
 
+unsafe impl Resources for () {
+    type Bindings = [BindingDescriptor; 0];
+
+    fn confirm_slot_bindings<C>(
+        confirmer: &C,
+        descriptors: &[ResourceSlotDescriptor],
+    ) -> Result<(), Incompatible>
+    where
+        C: SlotBindingConfirmer,
+    {
+        if let Some(descriptor) = descriptors.first() {
+            Err(Incompatible::MissingResource(
+                descriptor.identifier().clone(),
+            ))
+        } else {
+            Ok(())
+        }
+    }
+
+    fn encode_bind_group<'a>(
+        &self,
+        context: &'a mut BindGroupEncodingContext,
+    ) -> BindGroupEncoding<'a, Self::Bindings> {
+        BindGroupEncoding::empty(context)
+    }
+}
+
+#[derive(Debug)]
 pub enum Incompatible {
     MissingResource(Identifier),
     ResourceTypeMismatch(Identifier),

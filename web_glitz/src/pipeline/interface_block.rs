@@ -152,6 +152,7 @@ pub unsafe trait StableRepr {}
 
 unsafe impl<T> StableRepr for T where T: ReprStd140 {}
 
+#[derive(Debug)]
 pub enum Incompatible {
     MissingUnit(MemoryUnitDescriptor),
     UnitLayoutMismatch(MemoryUnitDescriptor, UnitLayout),
@@ -164,7 +165,7 @@ pub enum CheckCompatibility {
 }
 
 /// Describes a memory unit in an interface block at which it occurs, and its [UnitLayout].
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct MemoryUnitDescriptor {
     offset: usize,
     layout: UnitLayout,
@@ -203,7 +204,7 @@ pub enum MatrixOrder {
 }
 
 /// Enumerates the kinds of memory unit layouts that can occur within an interface block.
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum UnitLayout {
     Float,
     FloatArray {
