@@ -168,6 +168,15 @@ pub struct BindGroupEncoder<'a, B> {
     bindings: B,
 }
 
+impl<'a> BindGroupEncoder<'a, ()> {
+    pub fn new(context: &'a mut BindGroupEncodingContext) -> Self {
+        BindGroupEncoder {
+            context,
+            bindings: ()
+        }
+    }
+}
+
 impl<'a, B> BindGroupEncoder<'a, B> {
     pub fn add_buffer<T>(
         self,

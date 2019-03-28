@@ -25,6 +25,7 @@ use crate::sampler::{
 };
 use std::borrow::Borrow;
 use std::mem;
+use crate::pipeline::resources::binding;
 
 /// Provides a group of resources (uniform block buffers, sampled textures) that may be bound to a
 /// pipeline, such that the pipeline may access these resources during execution.
@@ -179,13 +180,13 @@ pub enum Incompatible {
     IncompatibleBlockLayout(Identifier, interface_block::Incompatible),
 }
 
-pub trait Resource {
+pub unsafe trait BufferResource {
     type Binding: Binding;
 
     fn into_binding(self, index: u32) -> Self::Binding;
 }
 
-impl<'a, T> Resource for &'a Buffer<T>
+unsafe impl<'a, T> BufferResource for &'a Buffer<T>
 where
     T: InterfaceBlock,
 {
@@ -200,7 +201,7 @@ where
     }
 }
 
-impl<'a, T> Resource for BufferView<'a, T>
+unsafe impl<'a, T> BufferResource for BufferView<'a, T>
 where
     T: InterfaceBlock,
 {
@@ -215,7 +216,13 @@ where
     }
 }
 
-impl<'a> Resource for FloatSampledTexture2D<'a> {
+pub unsafe trait TextureResource {
+    type Binding: Binding;
+
+    fn into_binding(self, index: u32) -> Self::Binding;
+}
+
+unsafe impl<'a> TextureResource for FloatSampledTexture2D<'a> {
     type Binding = FloatSampler2DBinding<'a>;
 
     fn into_binding(self, index: u32) -> Self::Binding {
@@ -226,7 +233,7 @@ impl<'a> Resource for FloatSampledTexture2D<'a> {
     }
 }
 
-impl<'a> Resource for FloatSampledTexture2DArray<'a> {
+unsafe impl<'a> TextureResource for FloatSampledTexture2DArray<'a> {
     type Binding = FloatSampler2DArrayBinding<'a>;
 
     fn into_binding(self, index: u32) -> Self::Binding {
@@ -237,7 +244,7 @@ impl<'a> Resource for FloatSampledTexture2DArray<'a> {
     }
 }
 
-impl<'a> Resource for FloatSampledTexture3D<'a> {
+unsafe impl<'a> TextureResource for FloatSampledTexture3D<'a> {
     type Binding = FloatSampler3DBinding<'a>;
 
     fn into_binding(self, index: u32) -> Self::Binding {
@@ -248,7 +255,7 @@ impl<'a> Resource for FloatSampledTexture3D<'a> {
     }
 }
 
-impl<'a> Resource for FloatSampledTextureCube<'a> {
+unsafe impl<'a> TextureResource for FloatSampledTextureCube<'a> {
     type Binding = FloatSamplerCubeBinding<'a>;
 
     fn into_binding(self, index: u32) -> Self::Binding {
@@ -259,7 +266,7 @@ impl<'a> Resource for FloatSampledTextureCube<'a> {
     }
 }
 
-impl<'a> Resource for IntegerSampledTexture2D<'a> {
+unsafe impl<'a> TextureResource for IntegerSampledTexture2D<'a> {
     type Binding = IntegerSampler2DBinding<'a>;
 
     fn into_binding(self, index: u32) -> Self::Binding {
@@ -270,7 +277,7 @@ impl<'a> Resource for IntegerSampledTexture2D<'a> {
     }
 }
 
-impl<'a> Resource for IntegerSampledTexture2DArray<'a> {
+unsafe impl<'a> TextureResource for IntegerSampledTexture2DArray<'a> {
     type Binding = IntegerSampler2DArrayBinding<'a>;
 
     fn into_binding(self, index: u32) -> Self::Binding {
@@ -281,7 +288,7 @@ impl<'a> Resource for IntegerSampledTexture2DArray<'a> {
     }
 }
 
-impl<'a> Resource for IntegerSampledTexture3D<'a> {
+unsafe impl<'a> TextureResource for IntegerSampledTexture3D<'a> {
     type Binding = IntegerSampler3DBinding<'a>;
 
     fn into_binding(self, index: u32) -> Self::Binding {
@@ -292,7 +299,7 @@ impl<'a> Resource for IntegerSampledTexture3D<'a> {
     }
 }
 
-impl<'a> Resource for IntegerSampledTextureCube<'a> {
+unsafe impl<'a> TextureResource for IntegerSampledTextureCube<'a> {
     type Binding = IntegerSamplerCubeBinding<'a>;
 
     fn into_binding(self, index: u32) -> Self::Binding {
@@ -303,7 +310,7 @@ impl<'a> Resource for IntegerSampledTextureCube<'a> {
     }
 }
 
-impl<'a> Resource for UnsignedIntegerSampledTexture2D<'a> {
+unsafe impl<'a> TextureResource for UnsignedIntegerSampledTexture2D<'a> {
     type Binding = UnsignedIntegerSampler2DBinding<'a>;
 
     fn into_binding(self, index: u32) -> Self::Binding {
@@ -314,7 +321,7 @@ impl<'a> Resource for UnsignedIntegerSampledTexture2D<'a> {
     }
 }
 
-impl<'a> Resource for UnsignedIntegerSampledTexture2DArray<'a> {
+unsafe impl<'a> TextureResource for UnsignedIntegerSampledTexture2DArray<'a> {
     type Binding = UnsignedIntegerSampler2DArrayBinding<'a>;
 
     fn into_binding(self, index: u32) -> Self::Binding {
@@ -325,7 +332,7 @@ impl<'a> Resource for UnsignedIntegerSampledTexture2DArray<'a> {
     }
 }
 
-impl<'a> Resource for UnsignedIntegerSampledTexture3D<'a> {
+unsafe impl<'a> TextureResource for UnsignedIntegerSampledTexture3D<'a> {
     type Binding = UnsignedIntegerSampler3DBinding<'a>;
 
     fn into_binding(self, index: u32) -> Self::Binding {
@@ -336,7 +343,7 @@ impl<'a> Resource for UnsignedIntegerSampledTexture3D<'a> {
     }
 }
 
-impl<'a> Resource for UnsignedIntegerSampledTextureCube<'a> {
+unsafe impl<'a> TextureResource for UnsignedIntegerSampledTextureCube<'a> {
     type Binding = UnsignedIntegerSamplerCubeBinding<'a>;
 
     fn into_binding(self, index: u32) -> Self::Binding {
@@ -347,7 +354,7 @@ impl<'a> Resource for UnsignedIntegerSampledTextureCube<'a> {
     }
 }
 
-impl<'a> Resource for ShadowSampledTexture2D<'a> {
+unsafe impl<'a> TextureResource for ShadowSampledTexture2D<'a> {
     type Binding = ShadowSampler2DBinding<'a>;
 
     fn into_binding(self, index: u32) -> Self::Binding {
@@ -358,7 +365,7 @@ impl<'a> Resource for ShadowSampledTexture2D<'a> {
     }
 }
 
-impl<'a> Resource for ShadowSampledTexture2DArray<'a> {
+unsafe impl<'a> TextureResource for ShadowSampledTexture2DArray<'a> {
     type Binding = ShadowSampler2DArrayBinding<'a>;
 
     fn into_binding(self, index: u32) -> Self::Binding {
@@ -369,7 +376,7 @@ impl<'a> Resource for ShadowSampledTexture2DArray<'a> {
     }
 }
 
-impl<'a> Resource for ShadowSampledTextureCube<'a> {
+unsafe impl<'a> TextureResource for ShadowSampledTextureCube<'a> {
     type Binding = ShadowSamplerCubeBinding<'a>;
 
     fn into_binding(self, index: u32) -> Self::Binding {

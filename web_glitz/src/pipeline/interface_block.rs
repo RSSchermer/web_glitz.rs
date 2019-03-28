@@ -1,4 +1,4 @@
-use crate::std_140::ReprStd140;
+use crate::std140::ReprStd140;
 
 /// Trait that may be implemented on a type which, when stored in a `Buffer`, may safely be used to
 /// back a device interface block (uniform block) that has a compatible memory layout.
@@ -112,12 +112,12 @@ pub unsafe trait InterfaceBlockComponent: StableRepr {
     /// [None]), then the implementation is expected to return [CheckCompatibility::Finished]
     /// (unless the component was found to be incompatible with a prior memory unit descriptor, in
     /// which case [CheckCompatibility::Incompatible] should be returned).
-    fn check_compatibility<'a, I>(
+    fn check_compatibility<'a, 'b, I>(
         component_offset: usize,
         remainder: &'a mut I,
     ) -> CheckCompatibility
     where
-        I: Iterator<Item = &'a MemoryUnitDescriptor>;
+        I: Iterator<Item = &'b MemoryUnitDescriptor>, 'b: 'a;
 }
 
 /// Marker trait for types that are guaranteed have a stable memory representation across builds.

@@ -16,11 +16,15 @@ pub fn expand_derive_interface_block(input: &DeriveInput) -> Result<TokenStream,
             let span = field.span();
 
             quote_spanned! {span=>
-                let offset = base_offset + offset_of!(#struct_name, #ident);
+                let offset = offset_of!(#struct_name, #ident);
 
-                match <#ty as #mod_path::InterfaceBlockComponent>::check_compatibility(offset, remainder) {
-                    #mod_path::CheckCompatibility::Finished => return Ok(()),
-                    #mod_path::CheckCompatibility::Incompatible(err) => return Err(err),
+                match <#ty as #mod_path::InterfaceBlockComponent>::check_compatibility(offset, &mut remainder) {
+                    #mod_path::CheckCompatibility::Finished => {
+                        return Ok(());
+                    },
+                    #mod_path::CheckCompatibility::Incompatible(err) => {
+                        return Err(err);
+                    },
                     #mod_path::CheckCompatibility::Continue => ()
                 }
             }
@@ -57,13 +61,13 @@ pub fn expand_derive_interface_block(input: &DeriveInput) -> Result<TokenStream,
 
         let impl_block = quote! {
             #[automatically_derived]
-            impl #impl_generics #mod_path::InterfaceBlock for #struct_name #ty_generics #where_clause {
+            unsafe impl #impl_generics #mod_path::InterfaceBlock for #struct_name #ty_generics #where_clause {
                 fn compatibility(memory_layout: &[#mod_path::MemoryUnitDescriptor]) -> Result<(), #mod_path::Incompatible> {
-                    let mut iter = memory_layout.iter();
+                    let mut remainder = memory_layout.iter();
 
                     #(#recurse)*
 
-                    if let Some(unit) = iter.next() {
+                    if let Some(unit) = remainder.next() {
                         Err(#mod_path::Incompatible::MissingUnit(unit.clone()))
                     } else {
                         Ok(())
@@ -83,7 +87,7 @@ pub fn expand_derive_interface_block(input: &DeriveInput) -> Result<TokenStream,
                 #offset_of
 
                 #impl_block
-            }
+            };
         };
 
         Ok(generated)

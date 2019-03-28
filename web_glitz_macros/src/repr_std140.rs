@@ -32,7 +32,7 @@ pub fn expand_repr_std140(input: &DeriveInput) -> Result<TokenStream, String> {
         );
 
         let asserts = quote! {
-            fn assert_repr_std140<T: #mod_path::ReprStd140>() {}
+            const fn assert_repr_std140<T: #mod_path::ReprStd140>() {}
 
             #(#asserts)*
         };
@@ -56,7 +56,7 @@ pub fn expand_repr_std140(input: &DeriveInput) -> Result<TokenStream, String> {
                 #asserts
 
                 #impl_repr_std140
-            }
+            };
         };
 
         Ok(generated)

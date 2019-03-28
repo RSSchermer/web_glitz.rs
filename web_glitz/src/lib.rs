@@ -27,7 +27,7 @@ pub mod pipeline;
 pub mod render_pass;
 pub mod runtime;
 pub mod sampler;
-pub mod std_140;
+pub mod std140;
 pub mod task;
 
 mod util;

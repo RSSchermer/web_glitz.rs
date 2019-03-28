@@ -11,14 +11,10 @@ use syn::{parse_macro_input, DeriveInput};
 mod interface_block;
 mod interface_block_component;
 mod repr_std140;
+mod resources;
 mod uniforms_impl;
 mod util;
 mod vertex;
-//
-//#[proc_macro_hack]
-//pub fn uniforms(input: TokenStream) -> TokenStream {
-//    uniforms_impl::expand_uniforms(input.into()).into()
-//}
 
 #[proc_macro_attribute]
 pub fn repr_std140(args: TokenStream, input: TokenStream) -> TokenStream {
@@ -45,6 +41,15 @@ pub fn derive_interface_block_component(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     interface_block_component::expand_derive_interface_block_component(&input)
+        .unwrap_or_else(compile_error)
+        .into()
+}
+
+#[proc_macro_derive(Resources, attributes(buffer_resource, texture_resource))]
+pub fn derive_resources(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+
+    resources::expand_derive_resources(&input)
         .unwrap_or_else(compile_error)
         .into()
 }

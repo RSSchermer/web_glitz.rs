@@ -116,25 +116,21 @@ impl_vertex_buffers_description!(
 );
 
 pub unsafe trait IndexFormat {
-    fn kind() -> IndexFormatKind;
+    const KIND: IndexFormatKind;
 }
 
 unsafe impl IndexFormat for u8 {
-    fn kind() -> IndexFormatKind {
-        IndexFormatKind::UnsignedByte
-    }
+    const KIND: IndexFormatKind =
+        IndexFormatKind::UnsignedByte;
 }
 
 unsafe impl IndexFormat for u16 {
-    fn kind() -> IndexFormatKind {
-        IndexFormatKind::UnsignedShort
-    }
+    const KIND: IndexFormatKind = IndexFormatKind::UnsignedShort;
 }
 
 unsafe impl IndexFormat for u32 {
-    fn kind() -> IndexFormatKind {
-        IndexFormatKind::UnsignedInt
-    }
+    const KIND: IndexFormatKind =
+        IndexFormatKind::UnsignedInt;
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -192,7 +188,7 @@ where
     fn descriptor(&self) -> Option<IndexBufferDescriptor> {
         Some(IndexBufferDescriptor {
             buffer_data: self.data().clone(),
-            format_kind: F::kind(),
+            format_kind: F::KIND,
             offset: 0,
             len: self.len() as u32,
         })
@@ -208,7 +204,7 @@ where
     fn descriptor(&self) -> Option<IndexBufferDescriptor> {
         Some(IndexBufferDescriptor {
             buffer_data: self.buffer_data().clone(),
-            format_kind: F::kind(),
+            format_kind: F::KIND,
             offset: (self.offset_in_bytes() / mem::size_of::<F>()) as u32,
             len: self.len() as u32,
         })

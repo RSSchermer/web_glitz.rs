@@ -45,7 +45,7 @@ impl Identifier {
         Identifier { name, hash_fnv64 }
     }
 
-    pub(crate) fn hash_fnv64(&self) -> u64 {
+    pub fn hash_fnv64(&self) -> u64 {
         self.hash_fnv64
     }
 }
@@ -93,13 +93,13 @@ impl UniformBlockSlot {
             .as_f64()
             .unwrap() as usize;
 
-        let mut indices: Vec<u32> = Vec::with_capacity(unit_count);
-        let mut types: Vec<u32> = Vec::with_capacity(unit_count);
-        let mut sizes: Vec<u32> = Vec::with_capacity(unit_count);
-        let mut offsets: Vec<u32> = Vec::with_capacity(unit_count);
-        let mut array_strides: Vec<u32> = Vec::with_capacity(unit_count);
-        let mut matrix_strides: Vec<u32> = Vec::with_capacity(unit_count);
-        let mut matrix_orientations: Vec<u8> = Vec::with_capacity(unit_count);
+        let mut indices: Vec<u32> = vec![0;unit_count];
+        let mut types: Vec<u32> = vec![0;unit_count];
+        let mut sizes: Vec<u32> = vec![0;unit_count];
+        let mut offsets: Vec<u32> = vec![0;unit_count];
+        let mut array_strides: Vec<u32> = vec![0;unit_count];
+        let mut matrix_strides: Vec<u32> = vec![0;unit_count];
+        let mut matrix_orientations: Vec<u8> = vec![0;unit_count];
 
         let js_indices_array = gl
             .get_active_uniform_block_parameter(

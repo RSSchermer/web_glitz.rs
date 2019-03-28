@@ -56,7 +56,7 @@ pub fn expand_derive_interface_block_component(input: &DeriveInput) -> Result<To
 
         let impl_block = quote! {
             #[automatically_derived]
-            impl #impl_generics #mod_path::InterfaceBlockComponent for #struct_name #ty_generics #where_clause {
+            unsafe impl #impl_generics #mod_path::InterfaceBlockComponent for #struct_name #ty_generics #where_clause {
                 fn check_compatibility<'a, I>(
                     component_offset: usize,
                     remainder: &'a mut I,
@@ -82,7 +82,7 @@ pub fn expand_derive_interface_block_component(input: &DeriveInput) -> Result<To
                 #offset_of
 
                 #impl_block
-            }
+            };
         };
 
         Ok(generated)
