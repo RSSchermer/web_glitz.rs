@@ -66,7 +66,7 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
             }
         };
 
-        let suffix = struct_name.to_string().trim_left_matches("r#").to_owned();
+        let suffix = struct_name.to_string().trim_start_matches("r#").to_owned();
         let dummy_const = Ident::new(&format!("_IMPL_VERTEX_FOR_{}", suffix), Span::call_site());
 
         // Modified from the memoffset crate (https://github.com/Gilnaa/memoffset)

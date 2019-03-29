@@ -4,7 +4,7 @@ pub use self::vertex::{FormatCompatible, Vertex};
 mod vertex_buffer_descriptor;
 pub use self::vertex_buffer_descriptor::{
     FormatKind, InputRate, VertexBufferDescription, VertexBufferDescriptor,
-    VertexInputAttributeDescriptor,
+    VertexInputAttributeDescriptor, PerInstance
 };
 
 mod input_attribute_layout;

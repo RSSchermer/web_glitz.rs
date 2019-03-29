@@ -1,25 +1,20 @@
 #![feature(const_fn)]
-
-#[macro_use]
-extern crate web_glitz;
-extern crate console_error_panic_hook;
-
 use std::panic;
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
 use web_glitz::buffer::BufferUsage;
-use web_glitz::pipeline::graphics::vertex_input::{Vertex, VertexArrayDescriptor};
+use web_glitz::pipeline::graphics::vertex_input::VertexArrayDescriptor;
 use web_glitz::pipeline::graphics::{
-    CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, Topology, WindingOrder,
+    CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 
 use web_sys::{window, HtmlCanvasElement};
 
-#[derive(Vertex)]
-struct SimpleVertex {
+#[derive(web_glitz::Vertex)]
+struct Vertex {
     #[vertex_attribute(location = 0, format = "Float2_f32")]
     position: [f32; 2],
     #[vertex_attribute(location = 1, format = "Float3_f32")]
@@ -49,27 +44,26 @@ pub fn start() {
         .create_graphics_pipeline(
             &GraphicsPipelineDescriptor::begin()
                 .vertex_shader(&vertex_shader)
-                .primitive_assembly(PrimitiveAssembly {
-                    topology: Topology::Triangle,
+                .primitive_assembly(PrimitiveAssembly::Triangles {
                     winding_order: WindingOrder::CounterClockwise,
                     face_culling: CullingMode::None,
                 })
                 .fragment_shader(&fragment_shader)
-                .vertex_input_layout::<SimpleVertex>()
+                .vertex_input_layout::<Vertex>()
                 .finish(),
         )
         .unwrap();
 
     let vertex_data = [
-        SimpleVertex {
+        Vertex {
             position: [0.0, 0.5],
             color: [1.0, 0.0, 0.0],
         },
-        SimpleVertex {
+        Vertex {
             position: [-0.5, -0.5],
             color: [0.0, 1.0, 0.0],
         },
-        SimpleVertex {
+        Vertex {
             position: [0.5, -0.5],
             color: [0.0, 0.0, 1.0],
         },

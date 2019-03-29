@@ -1,9 +1,7 @@
 use proc_macro2::{Span, TokenStream};
-use quote::{quote, quote_spanned, ToTokens};
+use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{Data, DeriveInput, Ident};
-
-use crate::util::ErrorLog;
 
 pub fn expand_repr_std140(input: &DeriveInput) -> Result<TokenStream, String> {
     if let Data::Struct(data) = &input.data {
@@ -25,7 +23,7 @@ pub fn expand_repr_std140(input: &DeriveInput) -> Result<TokenStream, String> {
             quote_spanned!(span=> assert_repr_std140::<#ty>();)
         });
 
-        let suffix = struct_name.to_string().trim_left_matches("r#").to_owned();
+        let suffix = struct_name.to_string().trim_start_matches("r#").to_owned();
         let dummy_const = Ident::new(
             &format!("_IMPL_REPR_STD140_FOR_{}", suffix),
             Span::call_site(),

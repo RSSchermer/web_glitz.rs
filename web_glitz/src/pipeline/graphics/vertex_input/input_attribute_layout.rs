@@ -89,7 +89,7 @@ macro_rules! impl_input_attribute_layout {
             fn check_compatibility(slot_descriptors: &[AttributeSlotDescriptor]) -> Result<(), Incompatible> {
                 'outer: for slot in slot_descriptors.iter() {
                     $(
-                        'inner: for attribute in $T::input_attribute_descriptors().iter() {
+                        for attribute in $T::input_attribute_descriptors().iter() {
                             if attribute.location == slot.location() {
                                 if !attribute.format.is_compatible(slot.attribute_type) {
                                     return Err(Incompatible::TypeMismatch { location: slot.location() })

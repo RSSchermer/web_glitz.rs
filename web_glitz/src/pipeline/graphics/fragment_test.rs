@@ -4,6 +4,7 @@ use std::ops::RangeInclusive;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::runtime::state::ContextUpdate;
+use std::convert::TryFrom;
 
 /// Enumerates the test functions that may be used with [DepthTest] and [StencilTest].
 ///
@@ -218,6 +219,24 @@ impl Default for DepthRange {
         DepthRange {
             range_near: 0.0,
             range_far: 1.0,
+        }
+    }
+}
+
+impl TryFrom<RangeInclusive<f32>> for DepthRange {
+    type Error = InvalidDepthRange;
+
+    fn try_from(range: RangeInclusive<f32>) -> Result<Self, Self::Error> {
+        let near = *range.start();
+        let far = *range.end();
+
+        if near < 0.0 || far > 1.0 || near >= far {
+            Err(InvalidDepthRange(range))
+        } else {
+            Ok(DepthRange {
+                range_near: near,
+                range_far: far
+            })
         }
     }
 }

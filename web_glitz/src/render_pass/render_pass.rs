@@ -35,7 +35,6 @@ use crate::render_pass::framebuffer::{
 use crate::runtime::state::{
     AttachmentSet, ContextUpdate, DepthStencilAttachmentDescriptor, DrawBuffer, DynamicState,
 };
-use crate::runtime::TaskContextMismatch;
 use crate::runtime::{Connection, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::{slice_make_mut, JsId};
@@ -96,8 +95,6 @@ impl<'a> RenderPassContext<'a> {
         self.connection.unpack_mut()
     }
 }
-
-pub struct RenderPassMismatch;
 
 unsafe impl<T, O> GpuTask<Connection> for RenderPass<T>
 where
@@ -1848,6 +1845,7 @@ generate_encoder_finish!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, 
 generate_encoder_finish!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15);
 
 pub struct RenderTargetEncoding<'a, F> {
+    #[allow(dead_code)]
     context: &'a mut EncodingContext,
     framebuffer: F,
     data: RenderTargetEncodingData,

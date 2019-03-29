@@ -1,3 +1,6 @@
+use std::borrow::Borrow;
+use std::sync::Arc;
+
 use crate::buffer::BufferData;
 use crate::image::texture_2d::Texture2DData;
 use crate::image::texture_2d_array::Texture2DArrayData;
@@ -11,18 +14,15 @@ use crate::pipeline::resources::binding::{
     UnsignedIntegerSampler2DBinding, UnsignedIntegerSampler3DBinding,
     UnsignedIntegerSamplerCubeBinding,
 };
-use crate::runtime::state::BufferRange;
+use crate::runtime::state::{BufferRange, ContextUpdate};
 use crate::runtime::Connection;
 use crate::sampler::SamplerData;
-use std::borrow::Borrow;
-use std::sync::Arc;
-
-use crate::runtime::state::ContextUpdate;
 
 pub struct BindGroupEncoding<'a, B>
 where
     B: Borrow<[BindingDescriptor]> + 'static,
 {
+    #[allow(dead_code)]
     context: &'a mut BindGroupEncodingContext,
     descriptors: B,
 }
@@ -64,6 +64,8 @@ impl BindingDescriptor {
                     .id()
                     .unwrap()
                     .with_value_unchecked(|buffer_object| {
+                        state.set_active_uniform_buffer_index(*index);
+
                         state
                             .set_bound_uniform_buffer_range(BufferRange::OffsetSize(
                                 buffer_object,
@@ -182,6 +184,10 @@ impl<'a, B> BindGroupEncoder<'a, B> {
         self,
         binding: &BufferBinding<T>,
     ) -> BindGroupEncoder<'a, (BindingDescriptor, B)> {
+        if binding.buffer_view.buffer_data().context_id() != self.context.context_id {
+            panic!("Buffer does not belong to same context as the bind group encoder");
+        }
+
         BindGroupEncoder {
             context: self.context,
             bindings: (
@@ -202,6 +208,10 @@ impl<'a, B> BindGroupEncoder<'a, B> {
         self,
         binding: &FloatSampler2DBinding,
     ) -> BindGroupEncoder<'a, (BindingDescriptor, B)> {
+        if binding.resource.texture_data.context_id() != self.context.context_id {
+            panic!("Texture does not belong to same context as the bind group encoder");
+        }
+
         BindGroupEncoder {
             context: self.context,
             bindings: (
@@ -221,6 +231,10 @@ impl<'a, B> BindGroupEncoder<'a, B> {
         self,
         binding: &FloatSampler2DArrayBinding,
     ) -> BindGroupEncoder<'a, (BindingDescriptor, B)> {
+        if binding.resource.texture_data.context_id() != self.context.context_id {
+            panic!("Texture does not belong to same context as the bind group encoder");
+        }
+
         BindGroupEncoder {
             context: self.context,
             bindings: (
@@ -242,6 +256,10 @@ impl<'a, B> BindGroupEncoder<'a, B> {
         self,
         binding: &FloatSampler3DBinding,
     ) -> BindGroupEncoder<'a, (BindingDescriptor, B)> {
+        if binding.resource.texture_data.context_id() != self.context.context_id {
+            panic!("Texture does not belong to same context as the bind group encoder");
+        }
+
         BindGroupEncoder {
             context: self.context,
             bindings: (
@@ -261,6 +279,10 @@ impl<'a, B> BindGroupEncoder<'a, B> {
         self,
         binding: &FloatSamplerCubeBinding,
     ) -> BindGroupEncoder<'a, (BindingDescriptor, B)> {
+        if binding.resource.texture_data.context_id() != self.context.context_id {
+            panic!("Texture does not belong to same context as the bind group encoder");
+        }
+
         BindGroupEncoder {
             context: self.context,
             bindings: (
@@ -282,6 +304,10 @@ impl<'a, B> BindGroupEncoder<'a, B> {
         self,
         binding: &IntegerSampler2DBinding,
     ) -> BindGroupEncoder<'a, (BindingDescriptor, B)> {
+        if binding.resource.texture_data.context_id() != self.context.context_id {
+            panic!("Texture does not belong to same context as the bind group encoder");
+        }
+
         BindGroupEncoder {
             context: self.context,
             bindings: (
@@ -301,6 +327,10 @@ impl<'a, B> BindGroupEncoder<'a, B> {
         self,
         binding: &IntegerSampler2DArrayBinding,
     ) -> BindGroupEncoder<'a, (BindingDescriptor, B)> {
+        if binding.resource.texture_data.context_id() != self.context.context_id {
+            panic!("Texture does not belong to same context as the bind group encoder");
+        }
+
         BindGroupEncoder {
             context: self.context,
             bindings: (
@@ -322,6 +352,10 @@ impl<'a, B> BindGroupEncoder<'a, B> {
         self,
         binding: &IntegerSampler3DBinding,
     ) -> BindGroupEncoder<'a, (BindingDescriptor, B)> {
+        if binding.resource.texture_data.context_id() != self.context.context_id {
+            panic!("Texture does not belong to same context as the bind group encoder");
+        }
+
         BindGroupEncoder {
             context: self.context,
             bindings: (
@@ -341,6 +375,10 @@ impl<'a, B> BindGroupEncoder<'a, B> {
         self,
         binding: &IntegerSamplerCubeBinding,
     ) -> BindGroupEncoder<'a, (BindingDescriptor, B)> {
+        if binding.resource.texture_data.context_id() != self.context.context_id {
+            panic!("Texture does not belong to same context as the bind group encoder");
+        }
+
         BindGroupEncoder {
             context: self.context,
             bindings: (
@@ -362,6 +400,10 @@ impl<'a, B> BindGroupEncoder<'a, B> {
         self,
         binding: &UnsignedIntegerSampler2DBinding,
     ) -> BindGroupEncoder<'a, (BindingDescriptor, B)> {
+        if binding.resource.texture_data.context_id() != self.context.context_id {
+            panic!("Texture does not belong to same context as the bind group encoder");
+        }
+
         BindGroupEncoder {
             context: self.context,
             bindings: (
@@ -381,6 +423,10 @@ impl<'a, B> BindGroupEncoder<'a, B> {
         self,
         binding: &UnsignedIntegerSampler2DArrayBinding,
     ) -> BindGroupEncoder<'a, (BindingDescriptor, B)> {
+        if binding.resource.texture_data.context_id() != self.context.context_id {
+            panic!("Texture does not belong to same context as the bind group encoder");
+        }
+
         BindGroupEncoder {
             context: self.context,
             bindings: (
@@ -402,6 +448,10 @@ impl<'a, B> BindGroupEncoder<'a, B> {
         self,
         binding: &UnsignedIntegerSampler3DBinding,
     ) -> BindGroupEncoder<'a, (BindingDescriptor, B)> {
+        if binding.resource.texture_data.context_id() != self.context.context_id {
+            panic!("Texture does not belong to same context as the bind group encoder");
+        }
+
         BindGroupEncoder {
             context: self.context,
             bindings: (
@@ -421,6 +471,10 @@ impl<'a, B> BindGroupEncoder<'a, B> {
         self,
         binding: &UnsignedIntegerSamplerCubeBinding,
     ) -> BindGroupEncoder<'a, (BindingDescriptor, B)> {
+        if binding.resource.texture_data.context_id() != self.context.context_id {
+            panic!("Texture does not belong to same context as the bind group encoder");
+        }
+
         BindGroupEncoder {
             context: self.context,
             bindings: (
@@ -442,6 +496,10 @@ impl<'a, B> BindGroupEncoder<'a, B> {
         self,
         binding: &ShadowSampler2DBinding,
     ) -> BindGroupEncoder<'a, (BindingDescriptor, B)> {
+        if binding.resource.texture_data.context_id() != self.context.context_id {
+            panic!("Texture does not belong to same context as the bind group encoder");
+        }
+
         BindGroupEncoder {
             context: self.context,
             bindings: (
@@ -461,6 +519,10 @@ impl<'a, B> BindGroupEncoder<'a, B> {
         self,
         binding: &ShadowSampler2DArrayBinding,
     ) -> BindGroupEncoder<'a, (BindingDescriptor, B)> {
+        if binding.resource.texture_data.context_id() != self.context.context_id {
+            panic!("Texture does not belong to same context as the bind group encoder");
+        }
+
         BindGroupEncoder {
             context: self.context,
             bindings: (
@@ -482,6 +544,10 @@ impl<'a, B> BindGroupEncoder<'a, B> {
         self,
         binding: &ShadowSamplerCubeBinding,
     ) -> BindGroupEncoder<'a, (BindingDescriptor, B)> {
+        if binding.resource.texture_data.context_id() != self.context.context_id {
+            panic!("Texture does not belong to same context as the bind group encoder");
+        }
+
         BindGroupEncoder {
             context: self.context,
             bindings: (

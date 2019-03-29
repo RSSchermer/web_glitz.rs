@@ -7,7 +7,6 @@ use std::ops::{Deref, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, Rang
 use std::slice;
 use std::sync::Arc;
 
-use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::image::format::{ClientFormat, Filterable, TextureFormat};
@@ -21,9 +20,9 @@ use crate::image::util::{
 use crate::image::{Image2DSource, Image3DSource, Region2D, Region3D};
 use crate::image::{MaxMipmapLevelsExceeded, MipmapLevels};
 use crate::runtime::state::ContextUpdate;
-use crate::runtime::{Connection, RenderingContext, TaskContextMismatch};
+use crate::runtime::{Connection, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
-use crate::util::{arc_get_mut_unchecked, identical, JsId};
+use crate::util::{arc_get_mut_unchecked, JsId};
 
 pub struct Texture3DDescriptor<F>
 where
@@ -44,38 +43,6 @@ pub struct Texture3D<F> {
 impl<F> Texture3D<F> {
     pub(crate) fn data(&self) -> &Arc<Texture3DData> {
         &self.data
-    }
-
-    pub(crate) fn bind(&self, connection: &mut Connection) -> u32 {
-        let (gl, state) = unsafe { connection.unpack_mut() };
-
-        unsafe {
-            let data = arc_get_mut_unchecked(&self.data);
-            let most_recent_unit = &mut data.most_recent_unit;
-
-            data.id.unwrap().with_value_unchecked(|texture_object| {
-                if most_recent_unit.is_none()
-                    || !identical(
-                        state.texture_units_textures()[most_recent_unit.unwrap() as usize].as_ref(),
-                        Some(&texture_object),
-                    )
-                {
-                    state.set_active_texture_lru().apply(gl).unwrap();
-                    state
-                        .set_bound_texture_2d_array(Some(&texture_object))
-                        .apply(gl)
-                        .unwrap();
-
-                    let unit = state.active_texture();
-
-                    *most_recent_unit = Some(unit);
-
-                    unit
-                } else {
-                    most_recent_unit.unwrap()
-                }
-            })
-        }
     }
 }
 
@@ -121,7 +88,6 @@ where
             height: *height,
             depth: *depth,
             levels,
-            most_recent_unit: None,
         });
 
         context.submit(AllocateCommand::<F> {
@@ -201,7 +167,6 @@ pub(crate) struct Texture3DData {
     height: u32,
     depth: u32,
     levels: usize,
-    most_recent_unit: Option<u32>,
 }
 
 impl Texture3DData {
@@ -479,10 +444,6 @@ impl<'a, F> Level<'a, F>
 where
     F: TextureFormat,
 {
-    pub(crate) fn texture_data(&self) -> &Arc<Texture3DData> {
-        &self.handle.data
-    }
-
     pub fn level(&self) -> usize {
         self.level
     }

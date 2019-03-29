@@ -2,18 +2,20 @@ use std::borrow::Borrow;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use serde::Serialize;
+use serde_derive::Serialize;
+
 use wasm_bindgen::{JsCast, JsValue};
+
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext as Gl};
 
 use crate::buffer::{Buffer, BufferUsage, IntoBuffer};
-use crate::image::format::{Filterable, RenderbufferFormat, TextureFormat};
+use crate::image::format::{RenderbufferFormat, TextureFormat};
 use crate::image::renderbuffer::Renderbuffer;
 use crate::image::texture_2d::{Texture2D, Texture2DDescriptor};
 use crate::image::texture_2d_array::{Texture2DArray, Texture2DArrayDescriptor};
 use crate::image::texture_3d::{Texture3D, Texture3DDescriptor};
 use crate::image::texture_cube::{TextureCube, TextureCubeDescriptor};
-use crate::image::{MaxMipmapLevelsExceeded, MipmapLevels};
+use crate::image::MaxMipmapLevelsExceeded;
 use crate::pipeline::graphics::vertex_input::{
     IndexBufferDescription, InputAttributeLayout, VertexArray, VertexArrayDescriptor,
     VertexBuffersDescription,
@@ -105,7 +107,7 @@ impl RenderingContext for SingleThreadedContext {
         R: Resources + 'static,
         Tf: TransformFeedbackVaryings,
     {
-        let mut executor = self.executor.borrow_mut();
+        let executor = self.executor.borrow_mut();
         let mut connection = executor.connection.borrow_mut();
 
         GraphicsPipeline::create(self, &mut connection, descriptor)

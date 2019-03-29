@@ -1,11 +1,6 @@
 #![allow(non_camel_case_types)]
 
-use crate::pipeline::interface_block::CheckCompatibility;
-use crate::pipeline::interface_block::Incompatible;
-use crate::pipeline::interface_block::InterfaceBlock;
-use crate::pipeline::interface_block::InterfaceBlockComponent;
-use crate::pipeline::interface_block::MemoryUnitDescriptor;
-use crate::pipeline::interface_block::UnitLayout;
+use crate::pipeline::interface_block::{CheckCompatibility, Incompatible, InterfaceBlockComponent, MemoryUnitDescriptor, UnitLayout};
 
 pub unsafe trait ReprStd140 {}
 
@@ -14,14 +9,14 @@ pub unsafe trait Std140ArrayElement: ReprStd140 {}
 //pub struct array<T, const LEN: usize> where T: Std140ArrayElement {
 //    internal: [ArrayElementWrapper<T>: LEN]
 //}
-
-#[repr(C, align(16))]
-struct ArrayElementWrapper<T>
-where
-    T: Std140ArrayElement,
-{
-    element: T,
-}
+//
+//#[repr(C, align(16))]
+//struct ArrayElementWrapper<T>
+//where
+//    T: Std140ArrayElement,
+//{
+//    element: T,
+//}
 
 macro_rules! impl_interface_block_component {
     ($T:ident, $layout:expr) => {

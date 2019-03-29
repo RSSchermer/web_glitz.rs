@@ -1,28 +1,22 @@
+use std::any::TypeId;
+use std::marker;
+use std::sync::Arc;
+
 use crate::image::Region2D;
 use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
-use crate::pipeline::graphics::vertex_input::vertex_array::VertexArrayData;
-use crate::pipeline::graphics::vertex_input::{
-    InputAttributeLayout, VertexInputAttributeDescriptor, VertexInputStreamDescription,
-    VertexInputStreamDescriptor,
-};
+use crate::pipeline::graphics::vertex_input::InputAttributeLayout;
 use crate::pipeline::graphics::{
-    vertex_input, BindingStrategy, Blending, DepthTest, GraphicsPipelineDescriptor, LineWidth,
-    PrimitiveAssembly, StencilTest, Topology, Viewport,
+    BindingStrategy, Blending, DepthTest, GraphicsPipelineDescriptor,
+    PrimitiveAssembly, StencilTest, Viewport,
 };
-use crate::pipeline::resources;
-use crate::pipeline::resources::bind_group_encoding::BindingDescriptor;
 use crate::pipeline::resources::resource_slot::{
-    Identifier, SlotBindingChecker, SlotBindingUpdater,
+    SlotBindingChecker, SlotBindingUpdater,
 };
 use crate::pipeline::resources::Resources;
-use crate::runtime::state::{CreateProgramError, Program, ProgramKey};
+use crate::runtime::state::ProgramKey;
 use crate::runtime::{Connection, CreateGraphicsPipelineError, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
-use std::any::TypeId;
-use std::borrow::Borrow;
-use std::marker;
-use std::sync::Arc;
 
 trait ProgramObjectDropper {
     fn drop_program_object(&self, id: JsId);
@@ -48,7 +42,7 @@ unsafe impl GpuTask<Connection> for ProgramObjectDropCommand {
         ContextId::Any
     }
 
-    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
+    fn progress(&mut self, _connection: &mut Connection) -> Progress<Self::Output> {
         unsafe { JsId::into_value(self.id) };
 
         Progress::Finished(())
@@ -61,7 +55,9 @@ pub struct GraphicsPipeline<Il, R, Tf> {
     _transform_feedback_varyings_marker: marker::PhantomData<Tf>,
     context_id: usize,
     dropper: Box<ProgramObjectDropper>,
+    #[allow(dead_code)] // Just holding on to this so it won't get dropped prematurely
     vertex_shader_data: Arc<VertexShaderData>,
+    #[allow(dead_code)] // Just holding on to this so it won't get dropped prematurely
     fragment_shader_data: Arc<FragmentShaderData>,
     primitive_assembly: PrimitiveAssembly,
     program_id: JsId,
@@ -69,11 +65,14 @@ pub struct GraphicsPipeline<Il, R, Tf> {
     stencil_test: Option<StencilTest>,
     scissor_region: Region2D,
     blending: Option<Blending>,
-    line_width: LineWidth,
     viewport: Viewport,
 }
 
 impl<Il, R, Tf> GraphicsPipeline<Il, R, Tf> {
+    pub(crate) fn context_id(&self) -> usize {
+        self.context_id
+    }
+
     pub(crate) fn program_id(&self) -> JsId {
         self.program_id
     }
@@ -96,10 +95,6 @@ impl<Il, R, Tf> GraphicsPipeline<Il, R, Tf> {
 
     pub(crate) fn blending(&self) -> &Option<Blending> {
         &self.blending
-    }
-
-    pub(crate) fn line_width(&self) -> &LineWidth {
-        &self.line_width
     }
 
     pub(crate) fn viewport(&self) -> &Viewport {
@@ -169,7 +164,6 @@ where
             stencil_test: descriptor.stencil_test.clone(),
             scissor_region: descriptor.scissor_region.clone(),
             blending: descriptor.blending.clone(),
-            line_width: descriptor.line_width.clone(),
             viewport: descriptor.viewport.clone(),
         })
     }

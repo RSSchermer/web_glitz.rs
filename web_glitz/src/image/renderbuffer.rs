@@ -44,10 +44,6 @@ where
         }
     }
 
-    pub(crate) fn id(&self) -> Option<JsId> {
-        self.data.id
-    }
-
     pub(crate) fn data(&self) -> &Arc<RenderbufferData> {
         &self.data
     }

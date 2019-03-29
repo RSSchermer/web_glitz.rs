@@ -4,7 +4,6 @@ extern crate proc_macro;
 
 use proc_macro::TokenStream;
 use proc_macro2;
-use proc_macro_hack::proc_macro_hack;
 use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
@@ -12,7 +11,6 @@ mod interface_block;
 mod interface_block_component;
 mod repr_std140;
 mod resources;
-mod uniforms_impl;
 mod util;
 mod vertex;
 

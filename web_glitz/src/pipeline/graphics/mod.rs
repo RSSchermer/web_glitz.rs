@@ -14,11 +14,8 @@ pub use self::fragment_test::{
 mod graphics_pipeline;
 pub use self::graphics_pipeline::{GraphicsPipeline, ShaderLinkingError};
 
-mod line_width;
-pub use self::line_width::LineWidth;
-
-mod primitive_assembly;
-pub use self::primitive_assembly::{CullingMode, PrimitiveAssembly, Topology, WindingOrder};
+pub(crate) mod primitive_assembly;
+pub use self::primitive_assembly::{CullingMode, PrimitiveAssembly, WindingOrder, LineWidth};
 
 mod shader;
 pub use self::shader::{FragmentShader, VertexShader};

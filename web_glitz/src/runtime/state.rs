@@ -1,19 +1,24 @@
+use std::any::TypeId;
 use std::borrow::Borrow;
+use std::collections::hash_map::Entry;
 use std::hash::{Hash, Hasher};
 
+use fnv::{FnvHashMap, FnvHasher};
+
 use js_sys::Uint32Array;
+
 use wasm_bindgen::JsValue;
+
 use web_sys::{
     WebGl2RenderingContext as Gl, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlRenderbuffer,
-    WebGlSampler, WebGlSync, WebGlTexture, WebGlVertexArrayObject,
+    WebGlSampler, WebGlTexture, WebGlVertexArrayObject,
 };
 
 use crate::pipeline::graphics::vertex_input::{
-    AttributeSlotDescriptor, AttributeType, VertexInputAttributeDescriptor,
+    AttributeSlotDescriptor, AttributeType
 };
 use crate::pipeline::graphics::{
-    BlendEquation, BlendFactor, CullingMode, DepthRange, PolygonOffset, ShaderLinkingError,
-    StencilOperation, TestFunction, VertexShader, WindingOrder,
+    BlendEquation, BlendFactor, CullingMode, DepthRange, PolygonOffset, StencilOperation, TestFunction, WindingOrder,
 };
 use crate::pipeline::resources::resource_slot::{
     Identifier, ResourceSlotDescriptor, SamplerKind, TextureSamplerSlot, UniformBlockSlot,
@@ -22,10 +27,6 @@ use crate::render_pass::FramebufferAttachment;
 use crate::runtime::index_lru::IndexLRU;
 use crate::util::identical;
 use crate::util::JsId;
-use fnv::{FnvHashMap, FnvHasher};
-use std::any::TypeId;
-use std::collections::hash_map::Entry;
-use std::sync::Arc;
 
 pub struct DynamicState {
     framebuffer_cache: FnvHashMap<u64, (Framebuffer, [Option<JsId>; 17])>,
@@ -2113,7 +2114,7 @@ impl<'a> ProgramCache<'a> {
                             resource_slot_descriptors
                                 .push(ResourceSlotDescriptor::new(identifier, slot.into()));
                         } else {
-                            let slot = match info.type_() {
+                            match info.type_() {
                                 Gl::FLOAT => {
                                     return Err(CreateProgramError::UnsupportedUniformType(
                                         identifier, "FLOAT[]",

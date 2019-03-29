@@ -1,28 +1,22 @@
+use std::marker;
 use std::sync::Arc;
 
+use wasm_bindgen::JsCast;
+
+use web_sys::WebGl2RenderingContext as Gl;
+
 use crate::image::format::{
-    Filterable, FloatSamplable, IntegerSamplable, InvalidMagnificationFilter,
+    FloatSamplable, IntegerSamplable, InvalidMagnificationFilter,
     InvalidMinificationFilter, ShadowSamplable, TextureFormat, UnsignedIntegerSamplable,
 };
-use crate::image::texture_2d::Texture2D;
-use crate::image::texture_2d::Texture2DData;
-use crate::image::texture_2d_array::Texture2DArray;
-use crate::image::texture_2d_array::Texture2DArrayData;
-use crate::image::texture_3d::Texture3D;
-use crate::image::texture_3d::Texture3DData;
-use crate::image::texture_cube::TextureCube;
-use crate::image::texture_cube::TextureCubeData;
-use crate::runtime::state::ContextUpdate;
+use crate::image::texture_2d::{Texture2D, Texture2DData};
+use crate::image::texture_2d_array::{Texture2DArray, Texture2DArrayData};
+use crate::image::texture_3d::{Texture3D, Texture3DData};
+use crate::image::texture_cube::{TextureCube, TextureCubeData};
 use crate::runtime::{Connection, Extensions, RenderingContext};
 use crate::task::Progress;
 use crate::task::{ContextId, GpuTask};
-use crate::util::{arc_get_mut_unchecked, identical, JsId};
-use std::convert::TryFrom;
-use std::marker;
-use std::ops::RangeInclusive;
-
-use wasm_bindgen::JsCast;
-use web_sys::WebGl2RenderingContext as Gl;
+use crate::util::{arc_get_mut_unchecked, JsId};
 
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum MagnificationFilter {
@@ -287,7 +281,7 @@ unsafe impl GpuTask<Connection> for SamplerAllocateCommand {
     }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        let (gl, state) = unsafe { connection.unpack_mut() };
+        let (gl, _) = unsafe { connection.unpack_mut() };
         let data = unsafe { arc_get_mut_unchecked(&mut self.data) };
         let object = gl.create_sampler().unwrap();
         let descriptor = &self.descriptor;
@@ -347,7 +341,7 @@ unsafe impl GpuTask<Connection> for ShadowSamplerAllocateCommand {
     }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        let (gl, state) = unsafe { connection.unpack_mut() };
+        let (gl, _) = unsafe { connection.unpack_mut() };
         let data = unsafe { arc_get_mut_unchecked(&mut self.data) };
         let object = gl.create_sampler().unwrap();
         let descriptor = &self.descriptor;

@@ -10,7 +10,6 @@ use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::image::format::{ClientFormat, Filterable, TextureFormat};
 use crate::image::image_source::Image2DSourceInternal;
-use crate::image::renderbuffer::RenderbufferData;
 use crate::image::texture_object_dropper::TextureObjectDropper;
 use crate::image::util::{
     max_mipmap_levels, mipmap_size, region_2d_overlap_height, region_2d_overlap_width,
@@ -19,9 +18,9 @@ use crate::image::util::{
 use crate::image::{Image2DSource, Region2D};
 use crate::image::{MaxMipmapLevelsExceeded, MipmapLevels};
 use crate::runtime::state::ContextUpdate;
-use crate::runtime::{Connection, RenderingContext, TaskContextMismatch};
+use crate::runtime::{Connection, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
-use crate::util::{arc_get_mut_unchecked, identical, slice_make_mut, JsId};
+use crate::util::{arc_get_mut_unchecked, slice_make_mut, JsId};
 
 pub struct Texture2DDescriptor<F>
 where
@@ -41,38 +40,6 @@ pub struct Texture2D<F> {
 impl<F> Texture2D<F> {
     pub(crate) fn data(&self) -> &Arc<Texture2DData> {
         &self.data
-    }
-
-    pub(crate) fn bind(&self, connection: &mut Connection) -> u32 {
-        let (gl, state) = unsafe { connection.unpack_mut() };
-
-        unsafe {
-            let data = arc_get_mut_unchecked(&self.data);
-            let most_recent_unit = &mut data.most_recent_unit;
-
-            data.id.unwrap().with_value_unchecked(|texture_object| {
-                if most_recent_unit.is_none()
-                    || !identical(
-                        state.texture_units_textures()[most_recent_unit.unwrap() as usize].as_ref(),
-                        Some(&texture_object),
-                    )
-                {
-                    state.set_active_texture_lru().apply(gl).unwrap();
-                    state
-                        .set_bound_texture_2d(Some(&texture_object))
-                        .apply(gl)
-                        .unwrap();
-
-                    let unit = state.active_texture();
-
-                    *most_recent_unit = Some(unit);
-
-                    unit
-                } else {
-                    most_recent_unit.unwrap()
-                }
-            })
-        }
     }
 }
 
@@ -116,7 +83,6 @@ where
             width: *width,
             height: *height,
             levels,
-            most_recent_unit: None,
         });
 
         context.submit(AllocateCommand::<F> {
@@ -191,7 +157,6 @@ pub(crate) struct Texture2DData {
     width: u32,
     height: u32,
     levels: usize,
-    most_recent_unit: Option<u32>,
 }
 
 impl Texture2DData {
@@ -605,7 +570,7 @@ where
 
     type IntoIter = LevelsMutIter<'a, F>;
 
-    fn into_iter(mut self) -> Self::IntoIter {
+    fn into_iter(self) -> Self::IntoIter {
         LevelsMutIter {
             current_level: self.offset,
             end_level: self.offset + self.len,

@@ -1,17 +1,74 @@
+use std::convert::TryFrom;
+use std::ops::Deref;
+
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::Connection;
 
 #[derive(Clone, PartialEq, Debug)]
-pub struct PrimitiveAssembly {
-    pub topology: Topology,
-    pub winding_order: WindingOrder,
-    pub face_culling: CullingMode,
+pub enum PrimitiveAssembly {
+    Points,
+    Lines(LineWidth),
+    LineStrip(LineWidth),
+    LineLoop(LineWidth),
+    Triangles {
+        winding_order: WindingOrder,
+        face_culling: CullingMode,
+    },
+    TriangleStrip {
+        winding_order: WindingOrder,
+        face_culling: CullingMode,
+    },
+    TriangleFan {
+        winding_order: WindingOrder,
+        face_culling: CullingMode,
+    }
+}
+
+impl PrimitiveAssembly {
+    pub(crate) fn topology(&self) -> Topology {
+        match self {
+            PrimitiveAssembly::Points => Topology::Point,
+            PrimitiveAssembly::Lines(_) => Topology::Line,
+            PrimitiveAssembly::LineStrip(_) => Topology::LineStrip,
+            PrimitiveAssembly::LineLoop(_) => Topology::LineLoop,
+            PrimitiveAssembly::Triangles {..} => Topology::Triangle,
+            PrimitiveAssembly::TriangleStrip {..} => Topology::TriangleStrip,
+            PrimitiveAssembly::TriangleFan {..} => Topology::TriangleFan,
+        }
+    }
+
+    pub(crate) fn line_width(&self) -> Option<LineWidth> {
+        match self {
+            PrimitiveAssembly::Lines(line_width) => Some(*line_width),
+            PrimitiveAssembly::LineStrip(line_width) => Some(*line_width),
+            PrimitiveAssembly::LineLoop(line_width) => Some(*line_width),
+            _ => None
+        }
+    }
+
+    pub(crate) fn face_culling(&self) -> Option<CullingMode> {
+        match self {
+            PrimitiveAssembly::Triangles { face_culling, ..} => Some(*face_culling),
+            PrimitiveAssembly::TriangleStrip { face_culling, ..} => Some(*face_culling),
+            PrimitiveAssembly::TriangleFan { face_culling, ..} => Some(*face_culling),
+            _ => None
+        }
+    }
+
+    pub(crate) fn winding_order(&self) -> Option<WindingOrder> {
+        match self {
+            PrimitiveAssembly::Triangles { winding_order, ..} => Some(*winding_order),
+            PrimitiveAssembly::TriangleStrip { winding_order, ..} => Some(*winding_order),
+            PrimitiveAssembly::TriangleFan { winding_order, ..} => Some(*winding_order),
+            _ => None
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
-pub enum Topology {
+pub(crate) enum Topology {
     Point,
     Line,
     Triangle,
@@ -34,6 +91,73 @@ impl Topology {
         }
     }
 }
+
+/// Defines the line width used by a [Rasterizer].
+///
+/// Can be constructed from an `f32` via [TryFrom]:
+///
+/// ```
+/// use web_glitz::pipeline::graphics::LineWidth;
+///
+/// let line_width = LineWidth::try_from(2.0)?;
+/// ```
+///
+/// The value must not be negative or [f32::NAN], otherwise [InvalidLineWidth] is returned.
+///
+/// A [LineWidth] may be instantiated with the default value through [Default]:
+///
+/// ```
+/// use web_glitz::pipeline::graphics::LineWidth;
+///
+/// assert_eq!(LineWidth::default(), LineWidth::try_from(1.0).unwrap());
+/// ```
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct LineWidth {
+    value: f32,
+}
+
+impl LineWidth {
+    pub(crate) fn apply(&self, connection: &mut Connection) {
+        let (gl, state) = unsafe { connection.unpack_mut() };
+
+        state.set_line_width(self.value).apply(gl).unwrap();
+    }
+}
+
+impl TryFrom<f32> for LineWidth {
+    type Error = InvalidLineWidth;
+
+    fn try_from(value: f32) -> Result<Self, Self::Error> {
+        if value == std::f32::NAN {
+            Err(InvalidLineWidth::NaN)
+        } else if value < 0.0 {
+            Err(InvalidLineWidth::Negative)
+        } else {
+            Ok(LineWidth { value })
+        }
+    }
+}
+
+impl Default for LineWidth {
+    fn default() -> Self {
+        LineWidth { value: 1.0 }
+    }
+}
+
+impl Deref for LineWidth {
+    type Target = f32;
+
+    fn deref(&self) -> &Self::Target {
+        &self.value
+    }
+}
+
+/// Error returned when trying to construct a [LineWidth] from an invalid value.
+pub enum InvalidLineWidth {
+    NaN,
+    Negative,
+}
+
 
 /// Enumerates the possible winding orders for triangles that may be used by a [Rasterizer].
 ///

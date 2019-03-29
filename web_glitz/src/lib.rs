@@ -1,24 +1,7 @@
 #![feature(unboxed_closures)]
 #![feature(fn_traits)]
 #![feature(try_from)]
-#![feature(associated_type_defaults)]
 
-extern crate fnv;
-extern crate futures;
-extern crate js_sys;
-#[macro_use]
-extern crate serde_derive;
-#[macro_use]
-extern crate proc_macro_hack;
-extern crate wasm_bindgen;
-extern crate web_sys;
-
-#[allow(unused_imports)]
-#[macro_use]
-extern crate web_glitz_macros;
-
-//#[proc_macro_hack]
-//pub use web_glitz_macros::uniforms;
 pub use web_glitz_macros::*;
 
 pub mod buffer;

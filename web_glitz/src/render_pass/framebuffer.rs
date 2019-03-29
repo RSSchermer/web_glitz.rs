@@ -1,4 +1,8 @@
+use std::borrow::Borrow;
 use std::marker;
+use std::hash::{Hash, Hasher};
+
+use fnv::FnvHasher;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
@@ -23,24 +27,19 @@ use crate::pipeline::graphics::vertex_input::{
     InputAttributeLayout, VertexInputStreamDescription, VertexInputStreamDescriptor,
 };
 use crate::pipeline::graphics::{
-    Blending, DepthTest, GraphicsPipeline, LineWidth, PrimitiveAssembly, StencilTest, Topology,
+    Blending, DepthTest, GraphicsPipeline, PrimitiveAssembly, StencilTest,
     Viewport,
 };
+use crate::pipeline::graphics::primitive_assembly::Topology;
 use crate::pipeline::resources::bind_group_encoding::{
     BindGroupEncodingContext, BindingDescriptor,
 };
 use crate::pipeline::resources::Resources;
-use crate::render_pass::{
-    FramebufferAttachment, IntoFramebufferAttachment, RenderPassContext, RenderPassMismatch,
-};
+use crate::render_pass::{FramebufferAttachment, RenderPassContext};
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::Connection;
-use crate::sampler::IncompatibleSampler::ContextMismatch;
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::{slice_make_mut, JsId};
-use fnv::FnvHasher;
-use std::borrow::Borrow;
-use std::hash::{Hash, Hasher};
 
 pub struct BlitSourceContextMismatch;
 
@@ -63,6 +62,10 @@ impl<C, Ds> Framebuffer<C, Ds> {
         F: Fn(&ActiveGraphicsPipeline<Vl, R>) -> T,
         for<'a> T: GpuTask<PipelineTaskContext<'a>>,
     {
+        if self.context_id != pipeline.context_id() {
+            panic!("The pipeline does not belong to the same context as the frambuffer.");
+        }
+
         let id = self.last_id;
 
         self.last_id += 1;
@@ -75,7 +78,7 @@ impl<C, Ds> Framebuffer<C, Ds> {
 
         let task = f(&ActiveGraphicsPipeline {
             context_id: self.context_id,
-            topology: pipeline.primitive_assembly().topology,
+            topology: pipeline.primitive_assembly().topology(),
             pipeline_task_id,
             _input_attribute_layout_marker: marker::PhantomData,
             _resources_marker: marker::PhantomData,
@@ -94,7 +97,6 @@ impl<C, Ds> Framebuffer<C, Ds> {
             stencil_test: pipeline.stencil_test().clone(),
             scissor_region: pipeline.scissor_region().clone(),
             blending: pipeline.blending().clone(),
-            line_width: pipeline.line_width().clone(),
             viewport: pipeline.viewport().clone(),
             framebuffer_dimensions: self.dimensions,
         }
@@ -310,7 +312,6 @@ pub struct PipelineTask<T> {
     stencil_test: Option<StencilTest>,
     scissor_region: Region2D,
     blending: Option<Blending>,
-    line_width: LineWidth,
     viewport: Viewport,
     framebuffer_dimensions: Option<(u32, u32)>,
 }
@@ -361,15 +362,23 @@ where
 
         let connection = context.connection_mut();
 
-        self.primitive_assembly.face_culling.apply(connection);
-        self.primitive_assembly.winding_order.apply(connection);
+        if let Some(face_culling) = self.primitive_assembly.face_culling() {
+            face_culling.apply(connection);
+        }
+
+        if let Some(winding_order) = self.primitive_assembly.winding_order() {
+            winding_order.apply(connection);
+        }
+
+        if let Some(line_width) = self.primitive_assembly.line_width() {
+            line_width.apply(connection);
+        }
+
+        self.viewport.apply(connection, framebuffer_dimensions);
 
         DepthTest::apply(&self.depth_test, connection);
         StencilTest::apply(&self.stencil_test, connection);
         Blending::apply(&self.blending, connection);
-
-        self.line_width.apply(connection);
-        self.viewport.apply(connection, framebuffer_dimensions);
 
         self.task.progress(&mut PipelineTaskContext {
             connection: context.connection_mut(),
@@ -408,6 +417,12 @@ where
         V: VertexInputStreamDescription<Layout = Il>,
         R: Resources,
     {
+        let input_stream_descriptor = vertex_input_stream.descriptor();
+
+        if input_stream_descriptor.vertex_array_data.context_id() != self.context_id {
+            panic!("Vertex array does not belong to the same context as the pipeline.");
+        }
+
         DrawCommand {
             pipeline_task_id: self.pipeline_task_id,
             vertex_input_stream_descriptor: vertex_input_stream.descriptor(),
@@ -460,10 +475,11 @@ where
                 offset,
                 count,
                 instance_count,
+                ref vertex_array_data,
                 ..
             } = self.vertex_input_stream_descriptor;
 
-            let offset = offset as u32 * format.size_in_bytes();
+            let offset = vertex_array_data.offset + offset as u32 * format.size_in_bytes();
 
             if instance_count == 1 {
                 gl.draw_elements_with_i32(
@@ -815,11 +831,6 @@ impl_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C1
 impl_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13);
 impl_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14);
 impl_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15);
-
-pub struct BlitColorCommand {
-    region: ((u32, u32), u32, u32),
-    source: BlitSourceDescriptor,
-}
 
 pub struct BlitCommand {
     render_pass_id: usize,

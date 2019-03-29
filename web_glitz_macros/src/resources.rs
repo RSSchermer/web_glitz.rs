@@ -70,7 +70,7 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
                         }
                     };
 
-                    confirmer.confirm_slot_binding(descriptor, #binding);
+                    confirmer.confirm_slot_binding(descriptor, #binding)?;
                 }
             }
         });
@@ -89,7 +89,7 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
                 #hash => {
                     <#ty as #mod_path::TextureResource>::Binding::compatibility(slot)?;
 
-                    confirmer.confirm_slot_binding(descriptor, #binding);
+                    confirmer.confirm_slot_binding(descriptor, #binding)?;
                 }
             }
         });
@@ -101,7 +101,6 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
                 .map(|i| i.into_token_stream())
                 .unwrap_or(field.position.into_token_stream());
 
-            let ty = &field.ty;
             let binding = field.binding as u32;
 
             quote! {
@@ -116,7 +115,6 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
                 .map(|i| i.into_token_stream())
                 .unwrap_or(field.position.into_token_stream());
 
-            let ty = &field.ty;
             let binding = field.binding as u32;
 
             quote! {
@@ -167,7 +165,7 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
             }
         };
 
-        let suffix = struct_name.to_string().trim_left_matches("r#").to_owned();
+        let suffix = struct_name.to_string().trim_start_matches("r#").to_owned();
         let dummy_const = Ident::new(&format!("_IMPL_RESOURCES_FOR_{}", suffix), Span::call_site());
 
         let generated = quote! {

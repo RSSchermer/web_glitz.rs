@@ -3,18 +3,19 @@ use std::borrow::Borrow;
 use futures::future::Future;
 use futures::sync::oneshot::{Canceled, Receiver};
 use futures::{Async, Poll};
+
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::buffer::{Buffer, BufferUsage, IntoBuffer};
-use crate::image::format::{Filterable, RenderbufferFormat, TextureFormat};
+use crate::image::format::{RenderbufferFormat, TextureFormat};
 use crate::image::renderbuffer::Renderbuffer;
 use crate::image::texture_2d::{Texture2D, Texture2DDescriptor};
 use crate::image::texture_2d_array::{Texture2DArray, Texture2DArrayDescriptor};
 use crate::image::texture_3d::{Texture3D, Texture3DDescriptor};
 use crate::image::texture_cube::{TextureCube, TextureCubeDescriptor};
-use crate::image::{MaxMipmapLevelsExceeded, MipmapLevels};
+use crate::image::MaxMipmapLevelsExceeded;
 use crate::pipeline::graphics::vertex_input::{
-    Incompatible as IncompatibleInputAttributeLayout, IndexBufferDescription, InputAttributeLayout,
+    IndexBufferDescription, InputAttributeLayout,
     VertexArray, VertexArrayDescriptor, VertexBuffersDescription,
 };
 use crate::pipeline::graphics::{
@@ -23,7 +24,7 @@ use crate::pipeline::graphics::{
 };
 use crate::pipeline::resources;
 use crate::pipeline::resources::resource_slot::Identifier;
-use crate::pipeline::resources::{Incompatible as IncompatibleResourceLayout, Resources};
+use crate::pipeline::resources::Resources;
 use crate::render_pass::{RenderPass, RenderPassContext, RenderTargetDescription};
 use crate::runtime::state::{CreateProgramError, DynamicState};
 use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
@@ -146,8 +147,6 @@ pub unsafe trait TransformFeedbackVaryings {}
 
 unsafe impl TransformFeedbackVaryings for () {}
 
-pub enum IncompatibleTransformFeedbackVaryings {}
-
 #[derive(Debug)]
 pub enum CreateGraphicsPipelineError {
     ShaderLinkingError(ShaderLinkingError),
@@ -254,5 +253,3 @@ impl Connection {
         (&mut self.gl, &mut self.state)
     }
 }
-
-pub struct TaskContextMismatch;

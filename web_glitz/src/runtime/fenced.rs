@@ -193,6 +193,7 @@ impl FnMut<()> for JsTimeoutFencedTaskLoop {
 
 struct JsTimeoutFencedTaskLoopHandle {
     inner: Rc<Cell<i32>>,
+    #[allow(dead_code)] // Just holding onto this so it doesn't get dropped prematurely
     closure_container: Rc<Option<Closure<dyn FnMut()>>>,
     cancelled: Rc<Cell<bool>>,
 }

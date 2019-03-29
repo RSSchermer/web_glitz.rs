@@ -33,7 +33,7 @@ impl JsId {
         F: FnOnce(&T) -> R,
         T: JsCast,
     {
-        let value = unsafe { JsId::into_value(self.clone()).unchecked_into() };
+        let value = JsId::into_value(self.clone()).unchecked_into();
 
         let result = f(&value);
 

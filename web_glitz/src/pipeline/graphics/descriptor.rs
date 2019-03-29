@@ -2,16 +2,12 @@ use std::marker;
 use std::sync::Arc;
 
 use crate::image::Region2D;
-use crate::pipeline::graphics::fragment_test::{DepthTest, StencilTest};
-use crate::pipeline::graphics::line_width::LineWidth;
-use crate::pipeline::graphics::primitive_assembly::PrimitiveAssembly;
+use crate::pipeline::graphics::{DepthTest, StencilTest, PrimitiveAssembly, FragmentShader, VertexShader, Viewport, Blending};
+use crate::pipeline::resources::Resources;
 use crate::pipeline::graphics::shader::{
-    FragmentShader, FragmentShaderData, VertexShader, VertexShaderData,
+    FragmentShaderData, VertexShaderData,
 };
 use crate::pipeline::graphics::vertex_input::InputAttributeLayout;
-use crate::pipeline::graphics::viewport::Viewport;
-use crate::pipeline::graphics::Blending;
-use crate::pipeline::resources::Resources;
 
 pub struct GraphicsPipelineDescriptor<Il, R, Tf> {
     _vertex_input_layout: marker::PhantomData<Il>,
@@ -24,7 +20,6 @@ pub struct GraphicsPipelineDescriptor<Il, R, Tf> {
     pub(crate) stencil_test: Option<StencilTest>,
     pub(crate) scissor_region: Region2D,
     pub(crate) blending: Option<Blending>,
-    pub(crate) line_width: LineWidth,
     pub(crate) viewport: Viewport,
     pub(crate) binding_strategy: BindingStrategy,
 }
@@ -51,7 +46,6 @@ impl GraphicsPipelineDescriptor<(), (), ()> {
             stencil_test: None,
             scissor_region: Region2D::Fill,
             blending: None,
-            line_width: LineWidth::default(),
             viewport: Viewport::Auto,
             binding_strategy: BindingStrategy::Check,
         }
@@ -72,7 +66,6 @@ pub struct GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R, Tf> {
     stencil_test: Option<StencilTest>,
     scissor_region: Region2D,
     blending: Option<Blending>,
-    line_width: LineWidth,
     viewport: Viewport,
     binding_strategy: BindingStrategy,
 }
@@ -96,7 +89,6 @@ impl<Vs, Pa, Fs, Il, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R,
             stencil_test: self.stencil_test,
             scissor_region: self.scissor_region,
             blending: self.blending,
-            line_width: self.line_width,
             viewport: self.viewport,
             binding_strategy: self.binding_strategy,
         }
@@ -120,7 +112,6 @@ impl<Vs, Pa, Fs, Il, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R,
             stencil_test: self.stencil_test,
             scissor_region: self.scissor_region,
             blending: self.blending,
-            line_width: self.line_width,
             viewport: self.viewport,
             binding_strategy: self.binding_strategy,
         }
@@ -144,7 +135,6 @@ impl<Vs, Pa, Fs, Il, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R,
             stencil_test: self.stencil_test,
             scissor_region: self.scissor_region,
             blending: self.blending,
-            line_width: self.line_width,
             viewport: self.viewport,
             binding_strategy: self.binding_strategy,
         }
@@ -168,7 +158,6 @@ impl<Vs, Pa, Fs, Il, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R,
             stencil_test: self.stencil_test,
             scissor_region: self.scissor_region,
             blending: self.blending,
-            line_width: self.line_width,
             viewport: self.viewport,
             binding_strategy: self.binding_strategy,
         }
@@ -195,7 +184,6 @@ impl<Vs, Pa, Fs, Il, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R,
             stencil_test: self.stencil_test,
             scissor_region: self.scissor_region,
             blending: self.blending,
-            line_width: self.line_width,
             viewport: self.viewport,
             binding_strategy: strategy,
         }
@@ -250,10 +238,6 @@ impl<Vs, Pa, Fs, Il, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R,
         }
     }
 
-    pub fn line_width(self, line_width: LineWidth) -> Self {
-        GraphicsPipelineDescriptorBuilder { line_width, ..self }
-    }
-
     pub fn viewport(self, viewport: Viewport) -> Self {
         GraphicsPipelineDescriptorBuilder { viewport, ..self }
     }
@@ -277,7 +261,6 @@ where
             stencil_test: self.stencil_test,
             scissor_region: self.scissor_region,
             blending: self.blending,
-            line_width: self.line_width,
             viewport: self.viewport,
             binding_strategy: self.binding_strategy,
         }

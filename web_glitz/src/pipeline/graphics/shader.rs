@@ -159,7 +159,7 @@ where
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, _) = unsafe { connection.unpack_mut() };
-        let mut data = unsafe { arc_get_mut_unchecked(&mut self.data) };
+        let data = unsafe { arc_get_mut_unchecked(&mut self.data) };
 
         let shader_object = gl.create_shader(self.tpe).unwrap();
 
@@ -190,7 +190,7 @@ where
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, _) = unsafe { connection.unpack_mut() };
-        let mut data = unsafe { arc_get_mut_unchecked(&mut self.data) };
+        let data = unsafe { arc_get_mut_unchecked(&mut self.data) };
 
         let shader_object = gl.create_shader(self.tpe).unwrap();
 

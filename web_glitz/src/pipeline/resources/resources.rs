@@ -1,3 +1,6 @@
+use std::borrow::Borrow;
+use std::mem;
+
 use crate::buffer::{Buffer, BufferView};
 use crate::pipeline::interface_block;
 use crate::pipeline::interface_block::InterfaceBlock;
@@ -12,9 +15,7 @@ use crate::pipeline::resources::binding::{
     UnsignedIntegerSampler2DArrayBinding, UnsignedIntegerSampler2DBinding,
     UnsignedIntegerSampler3DBinding, UnsignedIntegerSamplerCubeBinding,
 };
-use crate::pipeline::resources::resource_slot::{
-    Identifier, ResourceSlotDescriptor, Slot, SlotBindingConfirmer,
-};
+use crate::pipeline::resources::resource_slot::{Identifier, ResourceSlotDescriptor, SlotBindingConfirmer, SlotBindingMismatch};
 use crate::sampler::{
     FloatSampledTexture2D, FloatSampledTexture2DArray, FloatSampledTexture3D,
     FloatSampledTextureCube, IntegerSampledTexture2D, IntegerSampledTexture2DArray,
@@ -23,9 +24,6 @@ use crate::sampler::{
     UnsignedIntegerSampledTexture2DArray, UnsignedIntegerSampledTexture3D,
     UnsignedIntegerSampledTextureCube,
 };
-use std::borrow::Borrow;
-use std::mem;
-use crate::pipeline::resources::binding;
 
 /// Provides a group of resources (uniform block buffers, sampled textures) that may be bound to a
 /// pipeline, such that the pipeline may access these resources during execution.
@@ -150,7 +148,7 @@ unsafe impl Resources for () {
     type Bindings = [BindingDescriptor; 0];
 
     fn confirm_slot_bindings<C>(
-        confirmer: &C,
+        _confirmer: &C,
         descriptors: &[ResourceSlotDescriptor],
     ) -> Result<(), Incompatible>
     where
@@ -178,6 +176,19 @@ pub enum Incompatible {
     MissingResource(Identifier),
     ResourceTypeMismatch(Identifier),
     IncompatibleBlockLayout(Identifier, interface_block::Incompatible),
+    SlotBindingMismatch {
+        expected: usize,
+        actual: usize
+    }
+}
+
+impl From<SlotBindingMismatch> for Incompatible {
+    fn from(err: SlotBindingMismatch) -> Self {
+        Incompatible::SlotBindingMismatch {
+            expected: err.expected,
+            actual: err.actual
+        }
+    }
 }
 
 pub unsafe trait BufferResource {

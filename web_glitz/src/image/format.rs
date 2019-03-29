@@ -185,15 +185,15 @@ pub enum InvalidMagnificationFilter {
 
 unsafe impl TextureFormat for R8 {
     fn validate_magnification_filter(
-        extensions: &Extensions,
-        filter: MagnificationFilter,
+        _extensions: &Extensions,
+        _filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         Ok(())
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
-        filter: MinificationFilter,
+        _extensions: &Extensions,
+        _filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         Ok(())
     }
@@ -201,15 +201,15 @@ unsafe impl TextureFormat for R8 {
 
 unsafe impl TextureFormat for R16F {
     fn validate_magnification_filter(
-        extensions: &Extensions,
-        filter: MagnificationFilter,
+        _extensions: &Extensions,
+        _filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         Ok(())
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
-        filter: MinificationFilter,
+        _extensions: &Extensions,
+        _filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         Ok(())
     }
@@ -252,7 +252,7 @@ unsafe impl TextureFormat for R32F {
 
 unsafe impl TextureFormat for R8UI {
     fn validate_magnification_filter(
-        extensions: &Extensions,
+        _extensions: &Extensions,
         filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         match filter {
@@ -262,7 +262,7 @@ unsafe impl TextureFormat for R8UI {
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
+        _extensions: &Extensions,
         filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         match filter {
@@ -275,15 +275,15 @@ unsafe impl TextureFormat for R8UI {
 
 unsafe impl TextureFormat for RG8 {
     fn validate_magnification_filter(
-        extensions: &Extensions,
-        filter: MagnificationFilter,
+        _extensions: &Extensions,
+        _filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         Ok(())
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
-        filter: MinificationFilter,
+        _extensions: &Extensions,
+        _filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         Ok(())
     }
@@ -291,15 +291,15 @@ unsafe impl TextureFormat for RG8 {
 
 unsafe impl TextureFormat for RG16F {
     fn validate_magnification_filter(
-        extensions: &Extensions,
-        filter: MagnificationFilter,
+        _extensions: &Extensions,
+        _filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         Ok(())
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
-        filter: MinificationFilter,
+        _extensions: &Extensions,
+        _filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         Ok(())
     }
@@ -342,7 +342,7 @@ unsafe impl TextureFormat for RG32F {
 
 unsafe impl TextureFormat for RG8UI {
     fn validate_magnification_filter(
-        extensions: &Extensions,
+        _extensions: &Extensions,
         filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         match filter {
@@ -352,7 +352,7 @@ unsafe impl TextureFormat for RG8UI {
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
+        _extensions: &Extensions,
         filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         match filter {
@@ -365,15 +365,15 @@ unsafe impl TextureFormat for RG8UI {
 
 unsafe impl TextureFormat for RGB8 {
     fn validate_magnification_filter(
-        extensions: &Extensions,
-        filter: MagnificationFilter,
+        _extensions: &Extensions,
+        _filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         Ok(())
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
-        filter: MinificationFilter,
+        _extensions: &Extensions,
+        _filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         Ok(())
     }
@@ -381,15 +381,15 @@ unsafe impl TextureFormat for RGB8 {
 
 unsafe impl TextureFormat for SRGB8 {
     fn validate_magnification_filter(
-        extensions: &Extensions,
-        filter: MagnificationFilter,
+        _extensions: &Extensions,
+        _filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         Ok(())
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
-        filter: MinificationFilter,
+        _extensions: &Extensions,
+        _filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         Ok(())
     }
@@ -397,15 +397,15 @@ unsafe impl TextureFormat for SRGB8 {
 
 unsafe impl TextureFormat for RGB565 {
     fn validate_magnification_filter(
-        extensions: &Extensions,
-        filter: MagnificationFilter,
+        _extensions: &Extensions,
+        _filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         Ok(())
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
-        filter: MinificationFilter,
+        _extensions: &Extensions,
+        _filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         Ok(())
     }
@@ -413,15 +413,15 @@ unsafe impl TextureFormat for RGB565 {
 
 unsafe impl TextureFormat for R11F_G11F_B10F {
     fn validate_magnification_filter(
-        extensions: &Extensions,
-        filter: MagnificationFilter,
+        _extensions: &Extensions,
+        _filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         Ok(())
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
-        filter: MinificationFilter,
+        _extensions: &Extensions,
+        _filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         Ok(())
     }
@@ -429,15 +429,15 @@ unsafe impl TextureFormat for R11F_G11F_B10F {
 
 unsafe impl TextureFormat for RGB9_E5 {
     fn validate_magnification_filter(
-        extensions: &Extensions,
-        filter: MagnificationFilter,
+        _extensions: &Extensions,
+        _filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         Ok(())
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
-        filter: MinificationFilter,
+        _extensions: &Extensions,
+        _filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         Ok(())
     }
@@ -445,15 +445,15 @@ unsafe impl TextureFormat for RGB9_E5 {
 
 unsafe impl TextureFormat for RGB16F {
     fn validate_magnification_filter(
-        extensions: &Extensions,
-        filter: MagnificationFilter,
+        _extensions: &Extensions,
+        _filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         Ok(())
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
-        filter: MinificationFilter,
+        _extensions: &Extensions,
+        _filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         Ok(())
     }
@@ -496,7 +496,7 @@ unsafe impl TextureFormat for RGB32F {
 
 unsafe impl TextureFormat for RGB8UI {
     fn validate_magnification_filter(
-        extensions: &Extensions,
+        _extensions: &Extensions,
         filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         match filter {
@@ -506,7 +506,7 @@ unsafe impl TextureFormat for RGB8UI {
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
+        _extensions: &Extensions,
         filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         match filter {
@@ -519,15 +519,15 @@ unsafe impl TextureFormat for RGB8UI {
 
 unsafe impl TextureFormat for RGBA8 {
     fn validate_magnification_filter(
-        extensions: &Extensions,
-        filter: MagnificationFilter,
+        _extensions: &Extensions,
+        _filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         Ok(())
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
-        filter: MinificationFilter,
+        _extensions: &Extensions,
+        _filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         Ok(())
     }
@@ -535,15 +535,15 @@ unsafe impl TextureFormat for RGBA8 {
 
 unsafe impl TextureFormat for SRGB8_ALPHA8 {
     fn validate_magnification_filter(
-        extensions: &Extensions,
-        filter: MagnificationFilter,
+        _extensions: &Extensions,
+        _filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         Ok(())
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
-        filter: MinificationFilter,
+        _extensions: &Extensions,
+        _filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         Ok(())
     }
@@ -551,15 +551,15 @@ unsafe impl TextureFormat for SRGB8_ALPHA8 {
 
 unsafe impl TextureFormat for RGB5_A1 {
     fn validate_magnification_filter(
-        extensions: &Extensions,
-        filter: MagnificationFilter,
+        _extensions: &Extensions,
+        _filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         Ok(())
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
-        filter: MinificationFilter,
+        _extensions: &Extensions,
+        _filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         Ok(())
     }
@@ -567,15 +567,15 @@ unsafe impl TextureFormat for RGB5_A1 {
 
 unsafe impl TextureFormat for RGBA4 {
     fn validate_magnification_filter(
-        extensions: &Extensions,
-        filter: MagnificationFilter,
+        _extensions: &Extensions,
+        _filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         Ok(())
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
-        filter: MinificationFilter,
+        _extensions: &Extensions,
+        _filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         Ok(())
     }
@@ -583,15 +583,15 @@ unsafe impl TextureFormat for RGBA4 {
 
 unsafe impl TextureFormat for RGB10_A2 {
     fn validate_magnification_filter(
-        extensions: &Extensions,
-        filter: MagnificationFilter,
+        _extensions: &Extensions,
+        _filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         Ok(())
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
-        filter: MinificationFilter,
+        _extensions: &Extensions,
+        _filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         Ok(())
     }
@@ -599,15 +599,15 @@ unsafe impl TextureFormat for RGB10_A2 {
 
 unsafe impl TextureFormat for RGBA16F {
     fn validate_magnification_filter(
-        extensions: &Extensions,
-        filter: MagnificationFilter,
+        _extensions: &Extensions,
+        _filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         Ok(())
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
-        filter: MinificationFilter,
+        _extensions: &Extensions,
+        _filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         Ok(())
     }
@@ -650,7 +650,7 @@ unsafe impl TextureFormat for RGBA32F {
 
 unsafe impl TextureFormat for RGBA8UI {
     fn validate_magnification_filter(
-        extensions: &Extensions,
+        _extensions: &Extensions,
         filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         match filter {
@@ -660,7 +660,7 @@ unsafe impl TextureFormat for RGBA8UI {
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
+        _extensions: &Extensions,
         filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         match filter {
@@ -673,7 +673,7 @@ unsafe impl TextureFormat for RGBA8UI {
 
 unsafe impl TextureFormat for DepthComponent16 {
     fn validate_magnification_filter(
-        extensions: &Extensions,
+        _extensions: &Extensions,
         filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         match filter {
@@ -683,7 +683,7 @@ unsafe impl TextureFormat for DepthComponent16 {
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
+        _extensions: &Extensions,
         filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         match filter {
@@ -696,7 +696,7 @@ unsafe impl TextureFormat for DepthComponent16 {
 
 unsafe impl TextureFormat for DepthComponent24 {
     fn validate_magnification_filter(
-        extensions: &Extensions,
+        _extensions: &Extensions,
         filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         match filter {
@@ -706,7 +706,7 @@ unsafe impl TextureFormat for DepthComponent24 {
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
+        _extensions: &Extensions,
         filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         match filter {
@@ -719,7 +719,7 @@ unsafe impl TextureFormat for DepthComponent24 {
 
 unsafe impl TextureFormat for DepthComponent32F {
     fn validate_magnification_filter(
-        extensions: &Extensions,
+        _extensions: &Extensions,
         filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         match filter {
@@ -729,7 +729,7 @@ unsafe impl TextureFormat for DepthComponent32F {
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
+        _extensions: &Extensions,
         filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         match filter {
@@ -742,7 +742,7 @@ unsafe impl TextureFormat for DepthComponent32F {
 
 unsafe impl TextureFormat for Depth24Stencil8 {
     fn validate_magnification_filter(
-        extensions: &Extensions,
+        _extensions: &Extensions,
         filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         match filter {
@@ -752,7 +752,7 @@ unsafe impl TextureFormat for Depth24Stencil8 {
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
+        _extensions: &Extensions,
         filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         match filter {
@@ -765,7 +765,7 @@ unsafe impl TextureFormat for Depth24Stencil8 {
 
 unsafe impl TextureFormat for Depth32FStencil8 {
     fn validate_magnification_filter(
-        extensions: &Extensions,
+        _extensions: &Extensions,
         filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         match filter {
@@ -775,7 +775,7 @@ unsafe impl TextureFormat for Depth32FStencil8 {
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
+        _extensions: &Extensions,
         filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         match filter {
@@ -788,15 +788,15 @@ unsafe impl TextureFormat for Depth32FStencil8 {
 
 unsafe impl TextureFormat for Luminance {
     fn validate_magnification_filter(
-        extensions: &Extensions,
-        filter: MagnificationFilter,
+        _extensions: &Extensions,
+        _filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         Ok(())
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
-        filter: MinificationFilter,
+        _extensions: &Extensions,
+        _filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         Ok(())
     }
@@ -804,15 +804,15 @@ unsafe impl TextureFormat for Luminance {
 
 unsafe impl TextureFormat for LuminanceAlpha {
     fn validate_magnification_filter(
-        extensions: &Extensions,
-        filter: MagnificationFilter,
+        _extensions: &Extensions,
+        _filter: MagnificationFilter,
     ) -> Result<(), InvalidMagnificationFilter> {
         Ok(())
     }
 
     fn validate_minification_filter(
-        extensions: &Extensions,
-        filter: MinificationFilter,
+        _extensions: &Extensions,
+        _filter: MinificationFilter,
     ) -> Result<(), InvalidMinificationFilter> {
         Ok(())
     }

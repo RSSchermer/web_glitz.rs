@@ -8,8 +8,8 @@ use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use web_sys::{WebGl2RenderingContext as GL, WebGlBuffer};
 
-use crate::runtime::state::{BufferRange, ContextUpdate};
-use crate::runtime::{Connection, RenderingContext, TaskContextMismatch};
+use crate::runtime::state::ContextUpdate;
+use crate::runtime::{Connection, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, slice_make_mut, JsId};
 
@@ -65,9 +65,7 @@ where
             context_id: context.id(),
             dropper: Box::new(context.clone()),
             usage_hint,
-            len: 1,
-            size_in_bytes: mem::size_of::<T>(),
-            recent_uniform_binding: None,
+            len: 1
         });
 
         context.submit(AllocateCommand {
@@ -98,9 +96,7 @@ where
             context_id: context.id(),
             dropper: Box::new(context.clone()),
             usage_hint,
-            len,
-            size_in_bytes: len * mem::size_of::<T>(),
-            recent_uniform_binding: None,
+            len
         });
 
         context.submit(AllocateCommand::<D, [T]> {
@@ -134,14 +130,16 @@ pub(crate) struct BufferData {
     context_id: usize,
     dropper: Box<BufferObjectDropper>,
     len: usize,
-    size_in_bytes: usize,
-    usage_hint: BufferUsage,
-    recent_uniform_binding: Option<u32>,
+    usage_hint: BufferUsage
 }
 
 impl BufferData {
     pub(crate) fn id(&self) -> Option<JsId> {
         self.id
+    }
+
+    pub(crate) fn context_id(&self) -> usize {
+        self.context_id
     }
 }
 
@@ -278,43 +276,6 @@ where
 }
 
 impl<'a, T> BufferView<'a, T> {
-    pub(crate) fn bind_uniform(&self, connection: &mut Connection) -> u32 {
-        let (gl, state) = unsafe { connection.unpack_mut() };
-
-        unsafe {
-            let data = arc_get_mut_unchecked(&self.buffer.data);
-            let most_recent_binding = &mut data.recent_uniform_binding;
-            let size_in_bytes = self.len * mem::size_of::<T>();
-
-            data.id.unwrap().with_value_unchecked(|buffer_object| {
-                let buffer_range = BufferRange::OffsetSize(
-                    buffer_object,
-                    self.offset_in_bytes as u32,
-                    size_in_bytes as u32,
-                );
-
-                if most_recent_binding.is_none()
-                    || state.bound_uniform_buffer_range(most_recent_binding.unwrap())
-                        != buffer_range
-                {
-                    state.set_active_uniform_buffer_binding_lru();
-                    state
-                        .set_bound_uniform_buffer_range(buffer_range)
-                        .apply(gl)
-                        .unwrap();
-
-                    let binding = state.active_uniform_buffer_binding();
-
-                    *most_recent_binding = Some(binding);
-
-                    binding
-                } else {
-                    most_recent_binding.unwrap()
-                }
-            })
-        }
-    }
-
     pub fn upload_command<D>(&self, data: D) -> UploadCommand<T, D>
     where
         D: Borrow<T> + Send + Sync + 'static,
@@ -427,7 +388,7 @@ impl<'a, T> BufferIndex<&'a Buffer<[T]>> for usize {
 
     unsafe fn get_unchecked(self, buffer: &'a Buffer<[T]>) -> Self::Output {
         BufferView {
-            buffer: unsafe { mem::transmute(buffer) },
+            buffer: mem::transmute(buffer),
             offset_in_bytes: self * mem::size_of::<T>(),
             len: 1,
         }
@@ -451,7 +412,7 @@ impl<'a, T> BufferIndex<BufferView<'a, [T]>> for usize {
 
     unsafe fn get_unchecked(self, view: BufferView<'a, [T]>) -> Self::Output {
         BufferView {
-            buffer: unsafe { mem::transmute(view.buffer) },
+            buffer: mem::transmute(view.buffer),
             offset_in_bytes: view.offset_in_bytes + self * mem::size_of::<T>(),
             len: 1,
         }
@@ -778,17 +739,13 @@ unsafe impl<T, D> GpuTask<Connection> for UploadCommand<T, D>
 where
     D: Borrow<T>,
 {
-    type Output = Result<(), TaskContextMismatch>;
+    type Output = ();
 
     fn context_id(&self) -> ContextId {
         ContextId::Id(self.buffer_data.context_id)
     }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        if self.buffer_data.context_id != connection.context_id() {
-            return Progress::Finished(Err(TaskContextMismatch));
-        }
-
         let (gl, state) = unsafe { connection.unpack_mut() };
 
         unsafe {
@@ -816,7 +773,7 @@ where
             );
         };
 
-        Progress::Finished(Ok(()))
+        Progress::Finished(())
     }
 }
 
@@ -824,17 +781,13 @@ unsafe impl<T, D> GpuTask<Connection> for UploadCommand<[T], D>
 where
     D: Borrow<[T]>,
 {
-    type Output = Result<(), TaskContextMismatch>;
+    type Output = ();
 
     fn context_id(&self) -> ContextId {
         ContextId::Id(self.buffer_data.context_id)
     }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        if self.buffer_data.context_id != connection.context_id() {
-            return Progress::Finished(Err(TaskContextMismatch));;
-        }
-
         let (gl, state) = unsafe { connection.unpack_mut() };
 
         unsafe {
@@ -867,7 +820,7 @@ where
             );
         };
 
-        Progress::Finished(Ok(()))
+        Progress::Finished(())
     }
 }
 
@@ -888,17 +841,13 @@ enum DownloadState {
 }
 
 unsafe impl<T> GpuTask<Connection> for DownloadCommand<T> {
-    type Output = Result<Box<T>, TaskContextMismatch>;
+    type Output = Box<T>;
 
     fn context_id(&self) -> ContextId {
         ContextId::Id(self.data.context_id)
     }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        if self.data.context_id != connection.context_id() {
-            return Progress::Finished(Err(TaskContextMismatch));;
-        }
-
         match self.state {
             DownloadState::Initial => {
                 let (gl, state) = unsafe { connection.unpack_mut() };
@@ -959,24 +908,20 @@ unsafe impl<T> GpuTask<Connection> for DownloadCommand<T> {
 
                 mem::forget(data);
 
-                Progress::Finished(Ok(value))
+                Progress::Finished(value)
             }
         }
     }
 }
 
 unsafe impl<T> GpuTask<Connection> for DownloadCommand<[T]> {
-    type Output = Result<Box<[T]>, TaskContextMismatch>;
+    type Output = Box<[T]>;
 
     fn context_id(&self) -> ContextId {
         ContextId::Id(self.data.context_id)
     }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        if self.data.context_id != connection.context_id() {
-            return Progress::Finished(Err(TaskContextMismatch));;
-        }
-
         match self.state {
             DownloadState::Initial => {
                 let (gl, state) = unsafe { connection.unpack_mut() };
@@ -1040,7 +985,7 @@ unsafe impl<T> GpuTask<Connection> for DownloadCommand<[T]> {
 
                     mem::forget(data);
 
-                    Progress::Finished(Ok(boxed))
+                    Progress::Finished(boxed)
                 }
             }
         }

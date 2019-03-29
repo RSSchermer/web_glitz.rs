@@ -1,20 +1,19 @@
+use std::sync::Arc;
+use std::{marker, mem};
+
+use wasm_bindgen::JsCast;
+
+use web_sys::WebGl2RenderingContext as Gl;
+
 use crate::buffer::{Buffer, BufferData, BufferView};
-use crate::pipeline::graphics::vertex_input::input_attribute_layout::InputAttributeLayout;
 use crate::pipeline::graphics::vertex_input::{
     InputRate, Vertex, VertexBufferDescription, VertexBufferDescriptor,
     VertexInputAttributeDescriptor,
 };
 use crate::runtime::{Connection, RenderingContext};
+use crate::runtime::state::ContextUpdate;
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, JsId};
-use fnv::FnvHasher;
-use std::sync::Arc;
-use std::{marker, mem};
-
-use wasm_bindgen::JsCast;
-use web_sys::WebGl2RenderingContext as Gl;
-use web_sys::console;
-use crate::runtime::state::ContextUpdate;
 
 struct VertexBufferDescriptorInternal {
     pub(crate) buffer_data: Arc<BufferData>,
@@ -45,7 +44,9 @@ macro_rules! impl_vertex_buffers_description {
         {
             type Layout = ($($T::Vertex),*);
 
+            #[allow(unused_assignments)]
             fn descriptor(&self) -> VertexBuffersDescriptor {
+                #[allow(unused_parens, non_snake_case)]
                 let ($($T),*) = self;
                 let mut buffer_count = 0;
                 let mut attribute_count = 0;
@@ -243,9 +244,12 @@ pub(crate) struct VertexArrayData {
     id: Option<JsId>,
     context_id: usize,
     dropper: Box<VertexArrayObjectDropper>,
+    #[allow(dead_code)] // Just holding on to these so they don't get dropped prematurely
     vertex_buffer_pointers: Vec<Arc<BufferData>>,
+    #[allow(dead_code)] // Just holding on to this so it doesn't get dropped prematurely
     index_buffer_pointer: Option<Arc<BufferData>>,
     index_format_kind: Option<IndexFormatKind>,
+    pub(crate) offset: u32
 }
 
 impl VertexArrayData {
@@ -302,25 +306,27 @@ impl<L> VertexArray<L> {
 
         let index_buffer_descriptor = index_buffer.descriptor();
 
-        let (index_buffer_pointer, index_format_kind) = match &index_buffer_descriptor {
-            Some(d) => (Some(d.buffer_data.clone()), Some(d.format_kind)),
-            _ => (None, None),
-        };
-
-        let data = Arc::new(VertexArrayData {
-            id: None,
-            context_id: context.id(),
-            dropper: Box::new(context.clone()),
-            vertex_buffer_pointers: buffer_pointers,
-            index_buffer_pointer,
-            index_format_kind,
-        });
-
-        let len = if let Some(descriptor) = &index_buffer_descriptor {
-            descriptor.len
+        let (data, len) = if let Some(ref index_buffer_descriptor) = index_buffer_descriptor {
+            (Arc::new(VertexArrayData {
+                id: None,
+                context_id: context.id(),
+                dropper: Box::new(context.clone()),
+                vertex_buffer_pointers: buffer_pointers,
+                index_buffer_pointer: Some(index_buffer_descriptor.buffer_data.clone()),
+                index_format_kind: Some(index_buffer_descriptor.format_kind),
+                offset: index_buffer_descriptor.offset
+            }), index_buffer_descriptor.len)
         } else {
-            vertex_count.unwrap_or(0)
-        } as usize;
+            (Arc::new(VertexArrayData {
+                id: None,
+                context_id: context.id(),
+                dropper: Box::new(context.clone()),
+                vertex_buffer_pointers: buffer_pointers,
+                index_buffer_pointer: None,
+                index_format_kind: None,
+                offset: 0
+            }), vertex_count.unwrap_or(0))
+        };
 
         context.submit(VertexArrayAllocateCommand {
             data: data.clone(),
@@ -331,7 +337,7 @@ impl<L> VertexArray<L> {
 
         VertexArray {
             data,
-            len,
+            len: len as usize,
             _marker: marker::PhantomData,
         }
     }
@@ -503,7 +509,7 @@ unsafe impl GpuTask<Connection> for VertexArrayAllocateCommand {
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, state) = unsafe { connection.unpack_mut() };
-        let mut data = unsafe { arc_get_mut_unchecked(&mut self.data) };
+        let data = unsafe { arc_get_mut_unchecked(&mut self.data) };
         let vao = gl.create_vertex_array().unwrap();
 
         state.set_bound_vertex_array(Some(&vao)).apply(gl).unwrap();

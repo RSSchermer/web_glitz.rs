@@ -1,5 +1,5 @@
 use super::attribute_format::*;
-use super::{FormatKind, VertexInputAttributeDescriptor};
+use super::VertexInputAttributeDescriptor;
 
 pub unsafe trait Vertex: Sized {
     fn input_attribute_descriptors() -> &'static [VertexInputAttributeDescriptor];

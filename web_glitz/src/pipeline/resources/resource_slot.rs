@@ -570,8 +570,8 @@ pub trait SlotBindingConfirmer {
 }
 
 pub struct SlotBindingMismatch {
-    expected: usize,
-    actual: usize,
+    pub expected: usize,
+    pub actual: usize,
 }
 
 pub struct SlotBindingChecker<'a> {

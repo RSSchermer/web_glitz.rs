@@ -1,9 +1,7 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
 use syn::spanned::Spanned;
-use syn::{Attribute, Data, DeriveInput, Field, Ident, Lit, Meta, NestedMeta, Type};
-
-use crate::util::ErrorLog;
+use syn::{Data, DeriveInput, Ident};
 
 pub fn expand_derive_interface_block_component(input: &DeriveInput) -> Result<TokenStream, String> {
     if let Data::Struct(data) = &input.data {
@@ -25,7 +23,7 @@ pub fn expand_derive_interface_block_component(input: &DeriveInput) -> Result<To
             }
         });
 
-        let suffix = struct_name.to_string().trim_left_matches("r#").to_owned();
+        let suffix = struct_name.to_string().trim_start_matches("r#").to_owned();
         let dummy_const = Ident::new(
             &format!("_IMPL_INTERFACE_BLOCK_COMPONENT_FOR_{}", suffix),
             Span::call_site(),
