@@ -9,14 +9,17 @@ use std::panic;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
+use web_glitz::buffer::{Buffer, BufferUsage};
 use web_glitz::pipeline::graphics::vertex_input::{Vertex, VertexArrayDescriptor};
-use web_glitz::pipeline::graphics::{CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, Topology, WindingOrder, BindingStrategy};
+use web_glitz::pipeline::graphics::{
+    BindingStrategy, CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, Topology,
+    WindingOrder,
+};
 use web_glitz::pipeline::interface_block::InterfaceBlock;
 use web_glitz::pipeline::resources::Resources;
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 use web_glitz::std140;
 
-use web_glitz::buffer::{BufferUsage, Buffer};
 use web_sys::{window, HtmlCanvasElement};
 
 #[derive(Vertex)]
@@ -30,13 +33,13 @@ struct SimpleVertex {
 #[repr_std140]
 #[derive(InterfaceBlock)]
 struct Uniforms {
-    scale: std140::float
+    scale: std140::float,
 }
 
 #[derive(Resources)]
 struct PipelineResources<'a> {
     #[buffer_resource(binding = 0)]
-    uniforms: &'a Buffer<Uniforms>
+    uniforms: &'a Buffer<Uniforms>,
 }
 
 #[wasm_bindgen(start)]
@@ -55,8 +58,8 @@ pub fn start() {
     let (context, render_target) =
         unsafe { single_threaded::context(&canvas, &ContextOptions::default()).unwrap() };
 
-    let vertex_shader = context.create_vertex_shader(include_str!("vertex.glsl").to_string());
-    let fragment_shader = context.create_fragment_shader(include_str!("fragment.glsl").to_string());
+    let vertex_shader = context.create_vertex_shader(include_str!("vertex.glsl"));
+    let fragment_shader = context.create_fragment_shader(include_str!("fragment.glsl"));
 
     let pipeline = context
         .create_graphics_pipeline(
@@ -97,16 +100,19 @@ pub fn start() {
     });
 
     let uniforms = Uniforms {
-        scale: std140::float(0.5)
+        scale: std140::float(0.5),
     };
 
     let uniform_buffer = context.create_buffer(uniforms, BufferUsage::DynamicDraw);
 
     let render_pass = context.create_render_pass(render_target, |framebuffer| {
         framebuffer.pipeline_task(&pipeline, |active_pipeline| {
-            active_pipeline.draw_command(&vertex_array, &PipelineResources {
-                uniforms: &uniform_buffer
-            })
+            active_pipeline.draw_command(
+                &vertex_array,
+                &PipelineResources {
+                    uniforms: &uniform_buffer,
+                },
+            )
         })
     });
 

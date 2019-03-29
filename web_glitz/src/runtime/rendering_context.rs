@@ -43,9 +43,9 @@ pub trait RenderingContext {
     where
         F: RenderbufferFormat + 'static;
 
-    fn create_vertex_shader(&self, source: String) -> VertexShader;
+    fn create_vertex_shader<S>(&self, source: S) -> VertexShader where S: Borrow<str> + 'static;
 
-    fn create_fragment_shader(&self, source: String) -> FragmentShader;
+    fn create_fragment_shader<S>(&self, source: S) -> FragmentShader where S: Borrow<str> + 'static;
 
     fn create_graphics_pipeline<Il, R, Tf>(
         &self,

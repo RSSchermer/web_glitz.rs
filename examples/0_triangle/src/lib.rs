@@ -9,13 +9,13 @@ use std::panic;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
+use web_glitz::buffer::BufferUsage;
 use web_glitz::pipeline::graphics::vertex_input::{Vertex, VertexArrayDescriptor};
 use web_glitz::pipeline::graphics::{
     CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, Topology, WindingOrder,
 };
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 
-use web_glitz::buffer::BufferUsage;
 use web_sys::{window, HtmlCanvasElement};
 
 #[derive(Vertex)]
@@ -42,8 +42,8 @@ pub fn start() {
     let (context, render_target) =
         unsafe { single_threaded::context(&canvas, &ContextOptions::default()).unwrap() };
 
-    let vertex_shader = context.create_vertex_shader(include_str!("vertex.glsl").to_string());
-    let fragment_shader = context.create_fragment_shader(include_str!("fragment.glsl").to_string());
+    let vertex_shader = context.create_vertex_shader(include_str!("vertex.glsl"));
+    let fragment_shader = context.create_fragment_shader(include_str!("fragment.glsl"));
 
     let pipeline = context
         .create_graphics_pipeline(

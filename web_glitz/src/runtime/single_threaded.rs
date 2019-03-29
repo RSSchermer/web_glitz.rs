@@ -88,11 +88,11 @@ impl RenderingContext for SingleThreadedContext {
         Renderbuffer::new(self, width, height)
     }
 
-    fn create_vertex_shader(&self, source: String) -> VertexShader {
+    fn create_vertex_shader<S>(&self, source: S) -> VertexShader where S: Borrow<str> + 'static {
         VertexShader::new(self, source)
     }
 
-    fn create_fragment_shader(&self, source: String) -> FragmentShader {
+    fn create_fragment_shader<S>(&self, source: S) -> FragmentShader where S: Borrow<str> + 'static {
         FragmentShader::new(self, source)
     }
 
