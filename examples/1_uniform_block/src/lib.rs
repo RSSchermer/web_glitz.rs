@@ -190,10 +190,10 @@ pub fn start() {
     let render_pass = context.create_render_pass(render_target, |framebuffer| {
         framebuffer.pipeline_task(&pipeline, |active_pipeline| {
 
-            // Our render pass has been identical to the render pass in `/examples/0_triangle` thus
-            // far. However, our pipeline now does use additional resources, so rather than
-            // specifying the empty tuple `()` as the second argument to our draw command, we now
-            // provide an instance of our `Resources` type.
+            // Our render pass has thus far been identical to the render pass in
+            // `/examples/0_triangle`. However, our pipeline now does use resources, so rather than
+            // specifying the empty tuple `()` as the second argument to our draw command, we'll
+            // instead provide an instance of our `Resources` type.
             //
             // Note that, as with the vertex array, WebGlitz wont have to do any additional runtime
             // safety checks here to ensure that the resources are compatible with the pipeline: we
