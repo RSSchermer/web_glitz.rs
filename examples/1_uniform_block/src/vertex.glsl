@@ -1,9 +1,9 @@
 #version 300 es
 
-in vec2 position;
-in vec3 color;
+layout(location=0) in vec2 position;
+layout(location=1) in vec3 color;
 
-layout(std140) uniform uniforms
+layout(std140) uniform Uniforms
 {
     float scale;
 };

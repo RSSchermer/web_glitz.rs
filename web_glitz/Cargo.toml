@@ -3,6 +3,9 @@ name = "web-glitz"
 version = "0.1.0"
 authors = ["Roland Schermer <roland0507@gmail.com>"]
 edition = "2018"
+repository = "https://github.com/RSSchermer/weg_glitz.rs"
+license = "MIT"
+readme = "../README.md"
 
 [dependencies]
 failure = "0.1.3"

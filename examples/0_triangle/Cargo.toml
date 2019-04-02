@@ -9,7 +9,6 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-console_error_panic_hook = "0.1.6"
 wasm-bindgen = "0.2.40"
 web-glitz = { version = "0.1.0", path = "../../web_glitz" }
 

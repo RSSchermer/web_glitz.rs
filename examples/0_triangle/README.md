@@ -1,4 +1,6 @@
-# Simple Triangle Example
+# Hello Triangle Example
+
+This example contains a minimal WebGlitz program that draws a single colored triangle. 
 
 You can build the example locally with:
 
@@ -6,4 +8,4 @@ You can build the example locally with:
 $ npm run serve
 ```
 
-and then visiting http://localhost:8080 in a browser should run the example!
+Then visit http://localhost:8080 in a browser to see the result.
