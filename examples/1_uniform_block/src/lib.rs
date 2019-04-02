@@ -195,7 +195,7 @@ pub fn start() {
             // specifying the empty tuple `()` as the second argument to our draw command, we now
             // provide an instance of our `Resources` type.
             //
-            // Note that as with the vertex array, WebGlitz wont have to do any additional runtime
+            // Note that, as with the vertex array, WebGlitz wont have to do any additional runtime
             // safety checks here to ensure that the resources are compatible with the pipeline: we
             // checked this when we created the pipeline and we can now leverage Rust's type system
             // again to enforce safety at compile time.
