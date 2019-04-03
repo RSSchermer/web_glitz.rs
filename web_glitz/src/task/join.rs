@@ -58,14 +58,22 @@ macro_rules! generate {
 
 generate! {
     /// Task for the `join` combinator, waiting for two tasks to complete in no particular order.
+    ///
+    /// See [GpuTaskExt::join].
     (Join, <A, B>),
 
     /// Task for the `join3` combinator, waiting for three tasks to complete in no particular order.
+    ///
+    /// See [GpuTaskExt::join3].
     (Join3, <A, B, C>),
 
     /// Task for the `join4` combinator, waiting for four tasks to complete in no particular order.
+    ///
+    /// See [GpuTaskExt::join4].
     (Join4, <A, B, C, D>),
 
     /// Task for the `join5` combinator, waiting for five tasks to complete in no particular order.
+    ///
+    /// See [GpuTaskExt::join5].
     (Join5, <A, B, C, D, E>),
 }
