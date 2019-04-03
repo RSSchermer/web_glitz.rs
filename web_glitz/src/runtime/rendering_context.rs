@@ -18,10 +18,7 @@ use crate::pipeline::graphics::vertex_input::{
     IndexBufferDescription, InputAttributeLayout,
     VertexArray, VertexArrayDescriptor, VertexBuffersDescription,
 };
-use crate::pipeline::graphics::{
-    vertex_input, FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, ShaderLinkingError,
-    VertexShader,
-};
+use crate::pipeline::graphics::{vertex_input, FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, ShaderLinkingError, VertexShader, ShaderCompilationError};
 use crate::pipeline::resources;
 use crate::pipeline::resources::resource_slot::Identifier;
 use crate::pipeline::resources::Resources;
@@ -44,9 +41,9 @@ pub trait RenderingContext {
     where
         F: RenderbufferFormat + 'static;
 
-    fn create_vertex_shader<S>(&self, source: S) -> VertexShader where S: Borrow<str> + 'static;
+    fn create_vertex_shader<S>(&self, source: S) -> Result<VertexShader, ShaderCompilationError> where S: Borrow<str> + 'static;
 
-    fn create_fragment_shader<S>(&self, source: S) -> FragmentShader where S: Borrow<str> + 'static;
+    fn create_fragment_shader<S>(&self, source: S) -> Result<FragmentShader, ShaderCompilationError> where S: Borrow<str> + 'static;
 
     fn create_graphics_pipeline<Il, R, Tf>(
         &self,
@@ -208,7 +205,7 @@ impl<O> Future for Execution<O> {
             Execution::Pending(ref mut recv) => match recv.poll() {
                 Ok(Async::Ready(output)) => Ok(Async::Ready(output)),
                 Ok(Async::NotReady) => Ok(Async::NotReady),
-                Err(Canceled) => unreachable!(),
+                _ => unreachable!(),
             },
         }
     }

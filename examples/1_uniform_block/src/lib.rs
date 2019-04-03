@@ -11,8 +11,6 @@
 
 #![feature(const_fn)]
 
-use std::panic;
-
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
@@ -125,8 +123,8 @@ pub fn start() {
     let (context, render_target) =
         unsafe { single_threaded::context(&canvas, &ContextOptions::default()).unwrap() };
 
-    let vertex_shader = context.create_vertex_shader(include_str!("vertex.glsl"));
-    let fragment_shader = context.create_fragment_shader(include_str!("fragment.glsl"));
+    let vertex_shader = context.create_vertex_shader(include_str!("vertex.glsl")).unwrap();
+    let fragment_shader = context.create_fragment_shader(include_str!("fragment.glsl")).unwrap();
 
     // Create our pipeline.
     //

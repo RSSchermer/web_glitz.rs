@@ -7,8 +7,6 @@
 // For the time being, the `web_glitz::Vertex` derive macro requires that we enable this feature:
 #![feature(const_fn)]
 
-use std::panic;
-
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
@@ -97,10 +95,10 @@ pub fn start() {
         unsafe { single_threaded::context(&canvas, &ContextOptions::default()).unwrap() };
 
     // Create and compile our vertex shader using the GLSL code in `/src/vertex.glsl`.
-    let vertex_shader = context.create_vertex_shader(include_str!("vertex.glsl"));
+    let vertex_shader = context.create_vertex_shader(include_str!("vertex.glsl")).unwrap();
 
     // Create and compile our fragment shader using the GLSL code in `/src/fragment.glsl`.
-    let fragment_shader = context.create_fragment_shader(include_str!("fragment.glsl"));
+    let fragment_shader = context.create_fragment_shader(include_str!("fragment.glsl")).unwrap();
 
     // Create our graphics pipeline. We'll use the vertex and fragment shaders we just initialized
     // and we'll assemble our vertices into triangles. We also have to specify a type for the vertex

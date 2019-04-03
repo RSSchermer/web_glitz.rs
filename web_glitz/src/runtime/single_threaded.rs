@@ -20,9 +20,7 @@ use crate::pipeline::graphics::vertex_input::{
     IndexBufferDescription, InputAttributeLayout, VertexArray, VertexArrayDescriptor,
     VertexBuffersDescription,
 };
-use crate::pipeline::graphics::{
-    FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, VertexShader,
-};
+use crate::pipeline::graphics::{FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, VertexShader, ShaderCompilationError};
 use crate::pipeline::resources::Resources;
 use crate::render_pass::{
     DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
@@ -38,6 +36,7 @@ use crate::runtime::state::DynamicState;
 use crate::runtime::{Connection, ContextOptions, Execution, PowerPreference, RenderingContext};
 use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
 use crate::task::{GpuTask, Progress};
+use crate::pipeline::graphics::shader::{FragmentShaderAllocateCommand, VertexShaderAllocateCommand};
 
 thread_local!(static ID_GEN: IdGen = IdGen::new());
 
@@ -90,12 +89,22 @@ impl RenderingContext for SingleThreadedContext {
         Renderbuffer::new(self, width, height)
     }
 
-    fn create_vertex_shader<S>(&self, source: S) -> VertexShader where S: Borrow<str> + 'static {
-        VertexShader::new(self, source)
+    fn create_vertex_shader<S>(&self, source: S) -> Result<VertexShader, ShaderCompilationError> where S: Borrow<str> + 'static {
+        let allocate_command = VertexShaderAllocateCommand::new(self, source);
+
+        match self.submit(allocate_command) {
+            Execution::Ready(res) => res.unwrap(),
+            _ => unreachable!()
+        }
     }
 
-    fn create_fragment_shader<S>(&self, source: S) -> FragmentShader where S: Borrow<str> + 'static {
-        FragmentShader::new(self, source)
+    fn create_fragment_shader<S>(&self, source: S) -> Result<FragmentShader, ShaderCompilationError> where S: Borrow<str> + 'static {
+        let allocate_command = FragmentShaderAllocateCommand::new(self, source);
+
+        match self.submit(allocate_command) {
+            Execution::Ready(res) => res.unwrap(),
+            _ => unreachable!()
+        }
     }
 
     fn create_graphics_pipeline<Il, R, Tf>(

@@ -7,31 +7,14 @@ use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
 
+#[derive(PartialEq, Debug)]
+pub struct ShaderCompilationError(String);
+
 pub struct VertexShader {
     data: Arc<VertexShaderData>,
 }
 
 impl VertexShader {
-    pub(crate) fn new<S, Rc>(context: &Rc, source: S) -> Self
-    where
-        S: Borrow<str> + 'static,
-        Rc: RenderingContext + Clone + 'static,
-    {
-        let data = Arc::new(VertexShaderData {
-            id: None,
-            context_id: context.id(),
-            dropper: Box::new(context.clone()),
-        });
-
-        context.submit(VertexShaderAllocateCommand {
-            data: data.clone(),
-            tpe: Gl::VERTEX_SHADER,
-            source,
-        });
-
-        VertexShader { data }
-    }
-
     pub(crate) fn data(&self) -> &Arc<VertexShaderData> {
         &self.data
     }
@@ -42,26 +25,6 @@ pub struct FragmentShader {
 }
 
 impl FragmentShader {
-    pub(crate) fn new<S, Rc>(context: &Rc, source: S) -> Self
-    where
-        S: Borrow<str> + 'static,
-        Rc: RenderingContext + Clone + 'static,
-    {
-        let data = Arc::new(FragmentShaderData {
-            id: None,
-            context_id: context.id(),
-            dropper: Box::new(context.clone()),
-        });
-
-        context.submit(FragmentShaderAllocateCommand {
-            data: data.clone(),
-            tpe: Gl::FRAGMENT_SHADER,
-            source,
-        });
-
-        FragmentShader { data }
-    }
-
     pub(crate) fn data(&self) -> &Arc<FragmentShaderData> {
         &self.data
     }
@@ -141,17 +104,34 @@ impl Drop for FragmentShaderData {
     }
 }
 
-struct VertexShaderAllocateCommand<S> {
+pub(crate) struct VertexShaderAllocateCommand<S> {
     data: Arc<VertexShaderData>,
-    tpe: u32,
     source: S,
 }
 
+impl<S> VertexShaderAllocateCommand<S> where S: Borrow<str> + 'static {
+    pub(crate) fn new<Rc>(context: &Rc, source: S) -> Self
+        where
+            Rc: RenderingContext + Clone + 'static
+    {
+        let data = Arc::new(VertexShaderData {
+            id: None,
+            context_id: context.id(),
+            dropper: Box::new(context.clone()),
+        });
+
+        VertexShaderAllocateCommand {
+            data,
+            source,
+        }
+    }
+}
+
 unsafe impl<S> GpuTask<Connection> for VertexShaderAllocateCommand<S>
-where
-    S: Borrow<str>,
+    where
+        S: Borrow<str>,
 {
-    type Output = ();
+    type Output = Result<VertexShader, ShaderCompilationError>;
 
     fn context_id(&self) -> ContextId {
         ContextId::Any
@@ -161,28 +141,53 @@ where
         let (gl, _) = unsafe { connection.unpack_mut() };
         let data = unsafe { arc_get_mut_unchecked(&mut self.data) };
 
-        let shader_object = gl.create_shader(self.tpe).unwrap();
+        let shader_object = gl.create_shader(Gl::VERTEX_SHADER).unwrap();
 
         gl.shader_source(&shader_object, self.source.borrow());
         gl.compile_shader(&shader_object);
 
-        data.id = Some(JsId::from_value(shader_object.into()));
+        if !gl.get_shader_parameter(&shader_object, Gl::COMPILE_STATUS).as_bool().unwrap() {
+            let error = gl.get_shader_info_log(&shader_object).unwrap();
 
-        Progress::Finished(())
+            Progress::Finished(Err(ShaderCompilationError(error)))
+        } else {
+            data.id = Some(JsId::from_value(shader_object.into()));
+
+            Progress::Finished(Ok(VertexShader {
+                data: self.data.clone()
+            }))
+        }
     }
 }
 
-struct FragmentShaderAllocateCommand<S> {
+pub(crate) struct FragmentShaderAllocateCommand<S> {
     data: Arc<FragmentShaderData>,
-    tpe: u32,
     source: S,
+}
+
+impl<S> FragmentShaderAllocateCommand<S> where S: Borrow<str> + 'static {
+    pub(crate) fn new<Rc>(context: &Rc, source: S) -> Self
+        where
+            Rc: RenderingContext + Clone + 'static
+    {
+        let data = Arc::new(FragmentShaderData {
+            id: None,
+            context_id: context.id(),
+            dropper: Box::new(context.clone()),
+        });
+
+        FragmentShaderAllocateCommand {
+            data,
+            source,
+        }
+    }
 }
 
 unsafe impl<S> GpuTask<Connection> for FragmentShaderAllocateCommand<S>
 where
     S: Borrow<str>,
 {
-    type Output = ();
+    type Output = Result<FragmentShader, ShaderCompilationError>;
 
     fn context_id(&self) -> ContextId {
         ContextId::Any
@@ -192,14 +197,22 @@ where
         let (gl, _) = unsafe { connection.unpack_mut() };
         let data = unsafe { arc_get_mut_unchecked(&mut self.data) };
 
-        let shader_object = gl.create_shader(self.tpe).unwrap();
+        let shader_object = gl.create_shader(Gl::FRAGMENT_SHADER).unwrap();
 
         gl.shader_source(&shader_object, self.source.borrow());
         gl.compile_shader(&shader_object);
 
-        data.id = Some(JsId::from_value(shader_object.into()));
+        if !gl.get_shader_parameter(&shader_object, Gl::COMPILE_STATUS).as_bool().unwrap() {
+            let error = gl.get_shader_info_log(&shader_object).unwrap();
 
-        Progress::Finished(())
+            Progress::Finished(Err(ShaderCompilationError(error)))
+        } else {
+            data.id = Some(JsId::from_value(shader_object.into()));
+
+            Progress::Finished(Ok(FragmentShader {
+                data: self.data.clone()
+            }))
+        }
     }
 }
 
