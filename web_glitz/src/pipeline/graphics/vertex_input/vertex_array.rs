@@ -10,8 +10,8 @@ use crate::pipeline::graphics::vertex_input::{
     InputRate, Vertex, VertexBufferDescription, VertexBufferDescriptor,
     VertexInputAttributeDescriptor,
 };
-use crate::runtime::{Connection, RenderingContext};
 use crate::runtime::state::ContextUpdate;
+use crate::runtime::{Connection, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, JsId};
 
@@ -121,8 +121,7 @@ pub unsafe trait IndexFormat {
 }
 
 unsafe impl IndexFormat for u8 {
-    const KIND: IndexFormatKind =
-        IndexFormatKind::UnsignedByte;
+    const KIND: IndexFormatKind = IndexFormatKind::UnsignedByte;
 }
 
 unsafe impl IndexFormat for u16 {
@@ -130,8 +129,7 @@ unsafe impl IndexFormat for u16 {
 }
 
 unsafe impl IndexFormat for u32 {
-    const KIND: IndexFormatKind =
-        IndexFormatKind::UnsignedInt;
+    const KIND: IndexFormatKind = IndexFormatKind::UnsignedInt;
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -249,7 +247,7 @@ pub(crate) struct VertexArrayData {
     #[allow(dead_code)] // Just holding on to this so it doesn't get dropped prematurely
     index_buffer_pointer: Option<Arc<BufferData>>,
     index_format_kind: Option<IndexFormatKind>,
-    pub(crate) offset: u32
+    pub(crate) offset: u32,
 }
 
 impl VertexArrayData {
@@ -307,25 +305,31 @@ impl<L> VertexArray<L> {
         let index_buffer_descriptor = index_buffer.descriptor();
 
         let (data, len) = if let Some(ref index_buffer_descriptor) = index_buffer_descriptor {
-            (Arc::new(VertexArrayData {
-                id: None,
-                context_id: context.id(),
-                dropper: Box::new(context.clone()),
-                vertex_buffer_pointers: buffer_pointers,
-                index_buffer_pointer: Some(index_buffer_descriptor.buffer_data.clone()),
-                index_format_kind: Some(index_buffer_descriptor.format_kind),
-                offset: index_buffer_descriptor.offset
-            }), index_buffer_descriptor.len)
+            (
+                Arc::new(VertexArrayData {
+                    id: None,
+                    context_id: context.id(),
+                    dropper: Box::new(context.clone()),
+                    vertex_buffer_pointers: buffer_pointers,
+                    index_buffer_pointer: Some(index_buffer_descriptor.buffer_data.clone()),
+                    index_format_kind: Some(index_buffer_descriptor.format_kind),
+                    offset: index_buffer_descriptor.offset,
+                }),
+                index_buffer_descriptor.len,
+            )
         } else {
-            (Arc::new(VertexArrayData {
-                id: None,
-                context_id: context.id(),
-                dropper: Box::new(context.clone()),
-                vertex_buffer_pointers: buffer_pointers,
-                index_buffer_pointer: None,
-                index_format_kind: None,
-                offset: 0
-            }), vertex_count.unwrap_or(0))
+            (
+                Arc::new(VertexArrayData {
+                    id: None,
+                    context_id: context.id(),
+                    dropper: Box::new(context.clone()),
+                    vertex_buffer_pointers: buffer_pointers,
+                    index_buffer_pointer: None,
+                    index_format_kind: None,
+                    offset: 0,
+                }),
+                vertex_count.unwrap_or(0),
+            )
         };
 
         context.submit(VertexArrayAllocateCommand {

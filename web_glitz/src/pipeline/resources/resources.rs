@@ -15,7 +15,9 @@ use crate::pipeline::resources::binding::{
     UnsignedIntegerSampler2DArrayBinding, UnsignedIntegerSampler2DBinding,
     UnsignedIntegerSampler3DBinding, UnsignedIntegerSamplerCubeBinding,
 };
-use crate::pipeline::resources::resource_slot::{Identifier, ResourceSlotDescriptor, SlotBindingConfirmer, SlotBindingMismatch};
+use crate::pipeline::resources::resource_slot::{
+    Identifier, ResourceSlotDescriptor, SlotBindingConfirmer, SlotBindingMismatch,
+};
 use crate::sampler::{
     FloatSampledTexture2D, FloatSampledTexture2DArray, FloatSampledTexture3D,
     FloatSampledTextureCube, IntegerSampledTexture2D, IntegerSampledTexture2DArray,
@@ -176,17 +178,14 @@ pub enum Incompatible {
     MissingResource(Identifier),
     ResourceTypeMismatch(Identifier),
     IncompatibleBlockLayout(Identifier, interface_block::Incompatible),
-    SlotBindingMismatch {
-        expected: usize,
-        actual: usize
-    }
+    SlotBindingMismatch { expected: usize, actual: usize },
 }
 
 impl From<SlotBindingMismatch> for Incompatible {
     fn from(err: SlotBindingMismatch) -> Self {
         Incompatible::SlotBindingMismatch {
             expected: err.expected,
-            actual: err.actual
+            actual: err.actual,
         }
     }
 }

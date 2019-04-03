@@ -1,6 +1,6 @@
 use std::borrow::Borrow;
-use std::marker;
 use std::hash::{Hash, Hasher};
+use std::marker;
 
 use fnv::FnvHasher;
 
@@ -23,14 +23,13 @@ use crate::image::texture_cube::{
     LevelFace as TextureCubeLevelFace, LevelFaceSubImage as TextureCubeLevelFaceSubImage,
 };
 use crate::image::Region2D;
+use crate::pipeline::graphics::primitive_assembly::Topology;
 use crate::pipeline::graphics::vertex_input::{
     InputAttributeLayout, VertexInputStreamDescription, VertexInputStreamDescriptor,
 };
 use crate::pipeline::graphics::{
-    Blending, DepthTest, GraphicsPipeline, PrimitiveAssembly, StencilTest,
-    Viewport,
+    Blending, DepthTest, GraphicsPipeline, PrimitiveAssembly, StencilTest, Viewport,
 };
-use crate::pipeline::graphics::primitive_assembly::Topology;
 use crate::pipeline::resources::bind_group_encoding::{
     BindGroupEncodingContext, BindingDescriptor,
 };

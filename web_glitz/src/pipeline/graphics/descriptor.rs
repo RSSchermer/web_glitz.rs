@@ -2,12 +2,12 @@ use std::marker;
 use std::sync::Arc;
 
 use crate::image::Region2D;
-use crate::pipeline::graphics::{DepthTest, StencilTest, PrimitiveAssembly, FragmentShader, VertexShader, Viewport, Blending};
-use crate::pipeline::resources::Resources;
-use crate::pipeline::graphics::shader::{
-    FragmentShaderData, VertexShaderData,
-};
+use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
 use crate::pipeline::graphics::vertex_input::InputAttributeLayout;
+use crate::pipeline::graphics::{
+    Blending, DepthTest, FragmentShader, PrimitiveAssembly, StencilTest, VertexShader, Viewport,
+};
+use crate::pipeline::resources::Resources;
 
 pub struct GraphicsPipelineDescriptor<Il, R, Tf> {
     _vertex_input_layout: marker::PhantomData<Il>,

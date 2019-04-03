@@ -15,10 +15,10 @@ mod graphics_pipeline;
 pub use self::graphics_pipeline::{GraphicsPipeline, ShaderLinkingError};
 
 pub(crate) mod primitive_assembly;
-pub use self::primitive_assembly::{CullingMode, PrimitiveAssembly, WindingOrder, LineWidth};
+pub use self::primitive_assembly::{CullingMode, LineWidth, PrimitiveAssembly, WindingOrder};
 
 pub(crate) mod shader;
-pub use self::shader::{FragmentShader, VertexShader, ShaderCompilationError};
+pub use self::shader::{FragmentShader, ShaderCompilationError, VertexShader};
 
 mod viewport;
 pub use self::viewport::Viewport;

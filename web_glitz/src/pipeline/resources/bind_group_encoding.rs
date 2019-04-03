@@ -174,7 +174,7 @@ impl<'a> BindGroupEncoder<'a, ()> {
     pub fn new(context: &'a mut BindGroupEncodingContext) -> Self {
         BindGroupEncoder {
             context,
-            bindings: ()
+            bindings: (),
         }
     }
 }

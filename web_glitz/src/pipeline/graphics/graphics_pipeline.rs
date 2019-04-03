@@ -6,12 +6,10 @@ use crate::image::Region2D;
 use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
 use crate::pipeline::graphics::vertex_input::InputAttributeLayout;
 use crate::pipeline::graphics::{
-    BindingStrategy, Blending, DepthTest, GraphicsPipelineDescriptor,
-    PrimitiveAssembly, StencilTest, Viewport,
+    BindingStrategy, Blending, DepthTest, GraphicsPipelineDescriptor, PrimitiveAssembly,
+    StencilTest, Viewport,
 };
-use crate::pipeline::resources::resource_slot::{
-    SlotBindingChecker, SlotBindingUpdater,
-};
+use crate::pipeline::resources::resource_slot::{SlotBindingChecker, SlotBindingUpdater};
 use crate::pipeline::resources::Resources;
 use crate::runtime::state::ProgramKey;
 use crate::runtime::{Connection, CreateGraphicsPipelineError, RenderingContext};

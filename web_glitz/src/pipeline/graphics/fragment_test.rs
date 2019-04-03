@@ -235,7 +235,7 @@ impl TryFrom<RangeInclusive<f32>> for DepthRange {
         } else {
             Ok(DepthRange {
                 range_near: near,
-                range_far: far
+                range_far: far,
             })
         }
     }

@@ -14,11 +14,10 @@ use web_sys::{
     WebGlSampler, WebGlTexture, WebGlVertexArrayObject,
 };
 
-use crate::pipeline::graphics::vertex_input::{
-    AttributeSlotDescriptor, AttributeType
-};
+use crate::pipeline::graphics::vertex_input::{AttributeSlotDescriptor, AttributeType};
 use crate::pipeline::graphics::{
-    BlendEquation, BlendFactor, CullingMode, DepthRange, PolygonOffset, StencilOperation, TestFunction, WindingOrder,
+    BlendEquation, BlendFactor, CullingMode, DepthRange, PolygonOffset, StencilOperation,
+    TestFunction, WindingOrder,
 };
 use crate::pipeline::resources::resource_slot::{
     Identifier, ResourceSlotDescriptor, SamplerKind, TextureSamplerSlot, UniformBlockSlot,
@@ -1822,8 +1821,6 @@ impl<'a> ProgramCache<'a> {
         key: ProgramKey,
         gl: &Gl,
     ) -> Result<&Program, CreateProgramError> {
-
-
         let program = match self.state.program_cache.entry(key) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {

@@ -15,10 +15,13 @@ use crate::image::texture_3d::{Texture3D, Texture3DDescriptor};
 use crate::image::texture_cube::{TextureCube, TextureCubeDescriptor};
 use crate::image::MaxMipmapLevelsExceeded;
 use crate::pipeline::graphics::vertex_input::{
-    IndexBufferDescription, InputAttributeLayout,
-    VertexArray, VertexArrayDescriptor, VertexBuffersDescription,
+    IndexBufferDescription, InputAttributeLayout, VertexArray, VertexArrayDescriptor,
+    VertexBuffersDescription,
 };
-use crate::pipeline::graphics::{vertex_input, FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, ShaderLinkingError, VertexShader, ShaderCompilationError};
+use crate::pipeline::graphics::{
+    vertex_input, FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor,
+    ShaderCompilationError, ShaderLinkingError, VertexShader,
+};
 use crate::pipeline::resources;
 use crate::pipeline::resources::resource_slot::Identifier;
 use crate::pipeline::resources::Resources;
@@ -41,9 +44,16 @@ pub trait RenderingContext {
     where
         F: RenderbufferFormat + 'static;
 
-    fn create_vertex_shader<S>(&self, source: S) -> Result<VertexShader, ShaderCompilationError> where S: Borrow<str> + 'static;
+    fn create_vertex_shader<S>(&self, source: S) -> Result<VertexShader, ShaderCompilationError>
+    where
+        S: Borrow<str> + 'static;
 
-    fn create_fragment_shader<S>(&self, source: S) -> Result<FragmentShader, ShaderCompilationError> where S: Borrow<str> + 'static;
+    fn create_fragment_shader<S>(
+        &self,
+        source: S,
+    ) -> Result<FragmentShader, ShaderCompilationError>
+    where
+        S: Borrow<str> + 'static;
 
     fn create_graphics_pipeline<Il, R, Tf>(
         &self,

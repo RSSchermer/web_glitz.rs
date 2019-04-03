@@ -95,10 +95,14 @@ pub fn start() {
         unsafe { single_threaded::context(&canvas, &ContextOptions::default()).unwrap() };
 
     // Create and compile our vertex shader using the GLSL code in `/src/vertex.glsl`.
-    let vertex_shader = context.create_vertex_shader(include_str!("vertex.glsl")).unwrap();
+    let vertex_shader = context
+        .create_vertex_shader(include_str!("vertex.glsl"))
+        .unwrap();
 
     // Create and compile our fragment shader using the GLSL code in `/src/fragment.glsl`.
-    let fragment_shader = context.create_fragment_shader(include_str!("fragment.glsl")).unwrap();
+    let fragment_shader = context
+        .create_fragment_shader(include_str!("fragment.glsl"))
+        .unwrap();
 
     // Create our graphics pipeline. We'll use the vertex and fragment shaders we just initialized
     // and we'll assemble our vertices into triangles. We also have to specify a type for the vertex
@@ -111,7 +115,6 @@ pub fn start() {
             &GraphicsPipelineDescriptor::begin()
                 .vertex_shader(&vertex_shader)
                 .primitive_assembly(PrimitiveAssembly::Triangles {
-
                     // Because we're using a triangle topology, we have to specify a `WindingOrder`.
                     // The winder order determines which side of a triangle its "front" side and
                     // which side is its "back" side, see
@@ -172,12 +175,10 @@ pub fn start() {
     // done, the contents of the framebuffer will be stored back into the render target image(s). In
     // this case, that should result in our triangle showing up on the canvas.
     let render_pass = context.create_render_pass(render_target, |framebuffer| {
-
         // Return the render pass task. Our render pass task will consist of a pipeline task using
         // the pipeline we initialized earlier. The second argument is a function that takes the
         // activated pipeline and returns a pipeline task.
         framebuffer.pipeline_task(&pipeline, |active_pipeline| {
-
             // Return a pipeline task. In this case the pipeline task is a single draw command:
             // we'll tell the GPU driver to run our pipeline once, using our `vertex_array` as
             // input.

@@ -6,8 +6,8 @@ use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::image::format::{
-    FloatSamplable, IntegerSamplable, InvalidMagnificationFilter,
-    InvalidMinificationFilter, ShadowSamplable, TextureFormat, UnsignedIntegerSamplable,
+    FloatSamplable, IntegerSamplable, InvalidMagnificationFilter, InvalidMinificationFilter,
+    ShadowSamplable, TextureFormat, UnsignedIntegerSamplable,
 };
 use crate::image::texture_2d::{Texture2D, Texture2DData};
 use crate::image::texture_2d_array::{Texture2DArray, Texture2DArrayData};

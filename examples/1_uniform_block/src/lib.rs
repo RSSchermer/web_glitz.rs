@@ -17,11 +17,10 @@ use wasm_bindgen::JsCast;
 use web_glitz::buffer::{Buffer, BufferUsage};
 use web_glitz::pipeline::graphics::vertex_input::VertexArrayDescriptor;
 use web_glitz::pipeline::graphics::{
-    BindingStrategy, CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly,
-    WindingOrder,
+    BindingStrategy, CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
-use web_glitz::{std140, repr_std140};
+use web_glitz::{repr_std140, std140};
 
 use web_sys::{window, HtmlCanvasElement};
 
@@ -123,8 +122,13 @@ pub fn start() {
     let (context, render_target) =
         unsafe { single_threaded::context(&canvas, &ContextOptions::default()).unwrap() };
 
-    let vertex_shader = context.create_vertex_shader(include_str!("vertex.glsl")).unwrap();
-    let fragment_shader = context.create_fragment_shader(include_str!("fragment.glsl")).unwrap();
+    let vertex_shader = context
+        .create_vertex_shader(include_str!("vertex.glsl"))
+        .unwrap();
+
+    let fragment_shader = context
+        .create_fragment_shader(include_str!("fragment.glsl"))
+        .unwrap();
 
     // Create our pipeline.
     //
@@ -187,7 +191,6 @@ pub fn start() {
 
     let render_pass = context.create_render_pass(render_target, |framebuffer| {
         framebuffer.pipeline_task(&pipeline, |active_pipeline| {
-
             // Our render pass has thus far been identical to the render pass in
             // `/examples/0_triangle`. However, our pipeline now does use resources, so rather than
             // specifying the empty tuple `()` as the second argument to our draw command, we'll

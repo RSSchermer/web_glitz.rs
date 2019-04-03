@@ -1,6 +1,8 @@
 #![allow(non_camel_case_types)]
 
-use crate::pipeline::interface_block::{CheckCompatibility, Incompatible, InterfaceBlockComponent, MemoryUnitDescriptor, UnitLayout};
+use crate::pipeline::interface_block::{
+    CheckCompatibility, Incompatible, InterfaceBlockComponent, MemoryUnitDescriptor, UnitLayout,
+};
 
 pub unsafe trait ReprStd140 {}
 
@@ -26,7 +28,8 @@ macro_rules! impl_interface_block_component {
                 remainder: &'a mut I,
             ) -> CheckCompatibility
             where
-                I: Iterator<Item = &'b MemoryUnitDescriptor>, 'b: 'a,
+                I: Iterator<Item = &'b MemoryUnitDescriptor>,
+                'b: 'a,
             {
                 if let Some(unit) = remainder.next() {
                     if unit.offset() != component_offset {

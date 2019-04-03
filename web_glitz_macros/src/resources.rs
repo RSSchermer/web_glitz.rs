@@ -23,9 +23,8 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
                         if field.binding == buffer_resource_field.binding {
                             log.log_error(format!(
                                 "Fields `{}` and `{}` cannot both use buffer binding `{}`.",
-                                field.name,
-                                buffer_resource_field.name,
-                                field.binding));
+                                field.name, buffer_resource_field.name, field.binding
+                            ));
                         }
                     }
 
@@ -36,15 +35,14 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
                         if field.binding == texture_resource_field.binding {
                             log.log_error(format!(
                                 "Fields `{}` and `{}` cannot both use texture binding `{}`.",
-                                field.name,
-                                texture_resource_field.name,
-                                field.binding));
+                                field.name, texture_resource_field.name, field.binding
+                            ));
                         }
                     }
 
                     texture_resources.push(texture_resource_field);
                 }
-                ResourcesField::Excluded => ()
+                ResourcesField::Excluded => (),
             };
         }
 
@@ -166,7 +164,10 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
         };
 
         let suffix = struct_name.to_string().trim_start_matches("r#").to_owned();
-        let dummy_const = Ident::new(&format!("_IMPL_RESOURCES_FOR_{}", suffix), Span::call_site());
+        let dummy_const = Ident::new(
+            &format!("_IMPL_RESOURCES_FOR_{}", suffix),
+            Span::call_site(),
+        );
 
         let generated = quote! {
             #[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
@@ -242,7 +243,7 @@ impl ResourcesField {
                         } else {
                             log.log_error(format!(
                                 "Malformed #[buffer_resource] attribute for field `{}`: \
-                                     expected `binding` to be a positive integer.",
+                                 expected `binding` to be a positive integer.",
                                 field_name
                             ));
                         };
@@ -253,14 +254,14 @@ impl ResourcesField {
                         } else {
                             log.log_error(format!(
                                 "Malformed #[buffer_resource] attribute for field `{}`: \
-                                     expected `name` to be a string.",
+                                 expected `name` to be a string.",
                                 field_name
                             ));
                         };
                     }
                     _ => log.log_error(format!(
                         "Malformed #[buffer_resource] attribute for field `{}`: unrecognized \
-                             option `{}`.",
+                         option `{}`.",
                         field_name,
                         meta_item.into_token_stream()
                     )),
@@ -323,7 +324,7 @@ impl ResourcesField {
                         } else {
                             log.log_error(format!(
                                 "Malformed #[texture_resource] attribute for field `{}`: \
-                                     expected `binding` to be a positive integer.",
+                                 expected `binding` to be a positive integer.",
                                 field_name
                             ));
                         };
@@ -334,14 +335,14 @@ impl ResourcesField {
                         } else {
                             log.log_error(format!(
                                 "Malformed #[texture_resource] attribute for field `{}`: \
-                                     expected `name` to be a string.",
+                                 expected `name` to be a string.",
                                 field_name
                             ));
                         };
                     }
                     _ => log.log_error(format!(
                         "Malformed #[texture_resource] attribute for field `{}`: unrecognized \
-                             option `{}`.",
+                         option `{}`.",
                         field_name,
                         meta_item.into_token_stream()
                     )),

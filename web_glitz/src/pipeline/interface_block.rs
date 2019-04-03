@@ -117,7 +117,8 @@ pub unsafe trait InterfaceBlockComponent: StableRepr {
         remainder: &'a mut I,
     ) -> CheckCompatibility
     where
-        I: Iterator<Item = &'b MemoryUnitDescriptor>, 'b: 'a;
+        I: Iterator<Item = &'b MemoryUnitDescriptor>,
+        'b: 'a;
 }
 
 /// Marker trait for types that are guaranteed have a stable memory representation across builds.

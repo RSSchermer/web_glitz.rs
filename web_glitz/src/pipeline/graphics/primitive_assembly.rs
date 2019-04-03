@@ -23,7 +23,7 @@ pub enum PrimitiveAssembly {
     TriangleFan {
         winding_order: WindingOrder,
         face_culling: CullingMode,
-    }
+    },
 }
 
 impl PrimitiveAssembly {
@@ -33,9 +33,9 @@ impl PrimitiveAssembly {
             PrimitiveAssembly::Lines(_) => Topology::Line,
             PrimitiveAssembly::LineStrip(_) => Topology::LineStrip,
             PrimitiveAssembly::LineLoop(_) => Topology::LineLoop,
-            PrimitiveAssembly::Triangles {..} => Topology::Triangle,
-            PrimitiveAssembly::TriangleStrip {..} => Topology::TriangleStrip,
-            PrimitiveAssembly::TriangleFan {..} => Topology::TriangleFan,
+            PrimitiveAssembly::Triangles { .. } => Topology::Triangle,
+            PrimitiveAssembly::TriangleStrip { .. } => Topology::TriangleStrip,
+            PrimitiveAssembly::TriangleFan { .. } => Topology::TriangleFan,
         }
     }
 
@@ -44,25 +44,25 @@ impl PrimitiveAssembly {
             PrimitiveAssembly::Lines(line_width) => Some(*line_width),
             PrimitiveAssembly::LineStrip(line_width) => Some(*line_width),
             PrimitiveAssembly::LineLoop(line_width) => Some(*line_width),
-            _ => None
+            _ => None,
         }
     }
 
     pub(crate) fn face_culling(&self) -> Option<CullingMode> {
         match self {
-            PrimitiveAssembly::Triangles { face_culling, ..} => Some(*face_culling),
-            PrimitiveAssembly::TriangleStrip { face_culling, ..} => Some(*face_culling),
-            PrimitiveAssembly::TriangleFan { face_culling, ..} => Some(*face_culling),
-            _ => None
+            PrimitiveAssembly::Triangles { face_culling, .. } => Some(*face_culling),
+            PrimitiveAssembly::TriangleStrip { face_culling, .. } => Some(*face_culling),
+            PrimitiveAssembly::TriangleFan { face_culling, .. } => Some(*face_culling),
+            _ => None,
         }
     }
 
     pub(crate) fn winding_order(&self) -> Option<WindingOrder> {
         match self {
-            PrimitiveAssembly::Triangles { winding_order, ..} => Some(*winding_order),
-            PrimitiveAssembly::TriangleStrip { winding_order, ..} => Some(*winding_order),
-            PrimitiveAssembly::TriangleFan { winding_order, ..} => Some(*winding_order),
-            _ => None
+            PrimitiveAssembly::Triangles { winding_order, .. } => Some(*winding_order),
+            PrimitiveAssembly::TriangleStrip { winding_order, .. } => Some(*winding_order),
+            PrimitiveAssembly::TriangleFan { winding_order, .. } => Some(*winding_order),
+            _ => None,
         }
     }
 }
@@ -157,7 +157,6 @@ pub enum InvalidLineWidth {
     NaN,
     Negative,
 }
-
 
 /// Enumerates the possible winding orders for triangles that may be used by a [Rasterizer].
 ///

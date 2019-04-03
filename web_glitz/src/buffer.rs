@@ -65,7 +65,7 @@ where
             context_id: context.id(),
             dropper: Box::new(context.clone()),
             usage_hint,
-            len: 1
+            len: 1,
         });
 
         context.submit(AllocateCommand {
@@ -96,7 +96,7 @@ where
             context_id: context.id(),
             dropper: Box::new(context.clone()),
             usage_hint,
-            len
+            len,
         });
 
         context.submit(AllocateCommand::<D, [T]> {
@@ -130,7 +130,7 @@ pub(crate) struct BufferData {
     context_id: usize,
     dropper: Box<BufferObjectDropper>,
     len: usize,
-    usage_hint: BufferUsage
+    usage_hint: BufferUsage,
 }
 
 impl BufferData {
