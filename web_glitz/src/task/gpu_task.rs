@@ -1,59 +1,5 @@
 use super::{Join, Join3, Join4, Join5, Sequence, Sequence3, Sequence4, Sequence5};
 
-/// Returned from [GpuTask::progress], signifies the current state of progress for the task.
-///
-/// See [GpuTask::progress] for details.
-pub enum Progress<T> {
-    Finished(T),
-    ContinueFenced,
-}
-
-/// Returned from [GpuTask::context_id], identifies the context(s) a [GpuTask] may be used with.
-///
-/// See [GpuTask::context_id] for details.
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub enum ContextId {
-    Any,
-    Id(usize),
-}
-
-impl ContextId {
-    /// Attempts to combine two [ContextId]s, or returns an [IncompatibleContextIds] error when they
-    /// are incompatible.
-    ///
-    /// Two [ContextId]s are compatible if:
-    ///
-    /// - Either or both [ContextId]s are [ContextId::Any]. In this case [ContextId::Any] will be
-    ///   returned.
-    /// - Both are [ContextId::Id] and the two IDs are identical. In this case [ContextId::Id(id)]
-    ///   will be returned, where `id` is the ID shared by both [ContextId]s.
-    ///
-    /// Two [ContextId]s are incompatible if:
-    ///
-    /// - Both are [ContextId::Id] and the two IDs are not identical. In this case an
-    ///   [IncompatibleContextIds] error will be returned.
-    pub fn combine(&self, other: ContextId) -> Result<ContextId, IncompatibleContextIds> {
-        match self {
-            ContextId::Any => Ok(other),
-            ContextId::Id(id) => {
-                if other == ContextId::Any || other == ContextId::Id(*id) {
-                    Ok(*self)
-                } else {
-                    Err(IncompatibleContextIds(*self, other))
-                }
-            }
-        }
-    }
-}
-
-/// Error returned by [ContextId::combine] if the two context IDs that are combined are
-/// incompatible.
-///
-/// Two context IDs are incompatible if they are both [ContextId::Id] and the ID values are not
-/// identical.
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub struct IncompatibleContextIds(ContextId, ContextId);
-
 /// Trait for types that represent a computational task is to be partly or completely executed on a
 /// GPU.
 ///
@@ -313,3 +259,58 @@ where
         Sequence5::new(self, b, c, d, e)
     }
 }
+
+
+/// Returned from [GpuTask::progress], signifies the current state of progress for the task.
+///
+/// See [GpuTask::progress] for details.
+pub enum Progress<T> {
+    Finished(T),
+    ContinueFenced,
+}
+
+/// Returned from [GpuTask::context_id], identifies the context(s) a [GpuTask] may be used with.
+///
+/// See [GpuTask::context_id] for details.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum ContextId {
+    Any,
+    Id(usize),
+}
+
+impl ContextId {
+    /// Attempts to combine two [ContextId]s, or returns an [IncompatibleContextIds] error when they
+    /// are incompatible.
+    ///
+    /// Two [ContextId]s are compatible if:
+    ///
+    /// - Either or both [ContextId]s are [ContextId::Any]. In this case [ContextId::Any] will be
+    ///   returned.
+    /// - Both are [ContextId::Id] and the two IDs are identical. In this case [ContextId::Id(id)]
+    ///   will be returned, where `id` is the ID shared by both [ContextId]s.
+    ///
+    /// Two [ContextId]s are incompatible if:
+    ///
+    /// - Both are [ContextId::Id] and the two IDs are not identical. In this case an
+    ///   [IncompatibleContextIds] error will be returned.
+    pub fn combine(&self, other: ContextId) -> Result<ContextId, IncompatibleContextIds> {
+        match self {
+            ContextId::Any => Ok(other),
+            ContextId::Id(id) => {
+                if other == ContextId::Any || other == ContextId::Id(*id) {
+                    Ok(*self)
+                } else {
+                    Err(IncompatibleContextIds(*self, other))
+                }
+            }
+        }
+    }
+}
+
+/// Error returned by [ContextId::combine] if the two context IDs that are combined are
+/// incompatible.
+///
+/// Two context IDs are incompatible if they are both [ContextId::Id] and the ID values are not
+/// identical.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct IncompatibleContextIds(ContextId, ContextId);
