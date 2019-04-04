@@ -1,12 +1,12 @@
 use std::borrow::Borrow;
 
 use futures::future::Future;
-use futures::sync::oneshot::{Canceled, Receiver};
+use futures::sync::oneshot::Receiver;
 use futures::{Async, Poll};
 
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::buffer::{Buffer, BufferUsage, IntoBuffer};
+use crate::buffer::{Buffer, UsageHint, IntoBuffer};
 use crate::image::format::{RenderbufferFormat, TextureFormat};
 use crate::image::renderbuffer::Renderbuffer;
 use crate::image::texture_2d::{Texture2D, Texture2DDescriptor};
@@ -35,7 +35,7 @@ pub trait RenderingContext {
 
     fn extensions(&self) -> &Extensions;
 
-    fn create_buffer<D, T>(&self, data: D, usage_hint: BufferUsage) -> Buffer<T>
+    fn create_buffer<D, T>(&self, data: D, usage_hint: UsageHint) -> Buffer<T>
     where
         D: IntoBuffer<T>,
         T: ?Sized;

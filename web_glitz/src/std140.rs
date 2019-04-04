@@ -43,7 +43,7 @@
 //! - `uvec2`: `web_glitz::std140::uvec2`
 //! - `uvec3`: `web_glitz::std140::uvec3`
 //! - `uvec4`: `web_glitz::std140::uvec4`
-//! - `bool`: `web_glitz::std140::bool`
+//! - `bool`: `web_glitz::std140::boolean`
 //! - `bvec2`: `web_glitz::std140::bvec2`
 //! - `bvec3`: `web_glitz::std140::bvec3`
 //! - `bvec4`: `web_glitz::std140::bvec4`
@@ -168,6 +168,7 @@ macro_rules! impl_interface_block_component {
 }
 
 #[repr(C, align(4))]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct float(pub f32);
 
 impl_interface_block_component!(float, UnitLayout::Float);
@@ -175,6 +176,7 @@ unsafe impl ReprStd140 for float {}
 unsafe impl Std140ArrayElement for float {}
 
 #[repr(C, align(8))]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct vec2(pub f32, pub f32);
 
 impl_interface_block_component!(vec2, UnitLayout::FloatVector2);
@@ -182,6 +184,7 @@ unsafe impl ReprStd140 for vec2 {}
 unsafe impl Std140ArrayElement for vec2 {}
 
 #[repr(C, align(16))]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct vec3(pub f32, pub f32, pub f32);
 
 impl_interface_block_component!(vec3, UnitLayout::FloatVector3);
@@ -189,6 +192,7 @@ unsafe impl ReprStd140 for vec3 {}
 unsafe impl Std140ArrayElement for vec3 {}
 
 #[repr(C, align(16))]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct vec4(pub f32, pub f32, pub f32, pub f32);
 
 impl_interface_block_component!(vec4, UnitLayout::FloatVector4);
@@ -196,6 +200,7 @@ unsafe impl ReprStd140 for vec4 {}
 unsafe impl Std140ArrayElement for vec4 {}
 
 #[repr(C, align(4))]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct int(pub i32);
 
 impl_interface_block_component!(int, UnitLayout::Integer);
@@ -203,6 +208,7 @@ unsafe impl ReprStd140 for int {}
 unsafe impl Std140ArrayElement for int {}
 
 #[repr(C, align(8))]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct ivec2(pub i32, pub i32);
 
 impl_interface_block_component!(ivec2, UnitLayout::IntegerVector2);
@@ -210,6 +216,7 @@ unsafe impl ReprStd140 for ivec2 {}
 unsafe impl Std140ArrayElement for ivec2 {}
 
 #[repr(C, align(16))]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct ivec3(pub i32, pub i32, pub i32);
 
 impl_interface_block_component!(ivec3, UnitLayout::IntegerVector3);
@@ -217,6 +224,7 @@ unsafe impl ReprStd140 for ivec3 {}
 unsafe impl Std140ArrayElement for ivec3 {}
 
 #[repr(C, align(16))]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct ivec4(pub i32, pub i32, pub i32, pub i32);
 
 impl_interface_block_component!(ivec4, UnitLayout::IntegerVector4);
@@ -224,6 +232,7 @@ unsafe impl ReprStd140 for ivec4 {}
 unsafe impl Std140ArrayElement for ivec4 {}
 
 #[repr(C, align(4))]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct uint(pub u32);
 
 impl_interface_block_component!(uint, UnitLayout::UnsignedInteger);
@@ -231,6 +240,7 @@ unsafe impl ReprStd140 for uint {}
 unsafe impl Std140ArrayElement for uint {}
 
 #[repr(C, align(8))]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct uvec2(pub u32, pub u32);
 
 impl_interface_block_component!(uvec2, UnitLayout::UnsignedIntegerVector2);
@@ -238,6 +248,7 @@ unsafe impl ReprStd140 for uvec2 {}
 unsafe impl Std140ArrayElement for uvec2 {}
 
 #[repr(C, align(16))]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct uvec3(pub u32, pub u32, pub u32);
 
 impl_interface_block_component!(uvec3, UnitLayout::UnsignedIntegerVector3);
@@ -245,6 +256,7 @@ unsafe impl ReprStd140 for uvec3 {}
 unsafe impl Std140ArrayElement for uvec3 {}
 
 #[repr(C, align(16))]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct uvec4(pub u32, pub u32, pub u32, pub u32);
 
 impl_interface_block_component!(uvec4, UnitLayout::UnsignedIntegerVector4);
@@ -252,6 +264,7 @@ unsafe impl ReprStd140 for uvec4 {}
 unsafe impl Std140ArrayElement for uvec4 {}
 
 #[repr(u32)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum boolean {
     True = 1,
     False = 0,
@@ -262,6 +275,7 @@ unsafe impl ReprStd140 for boolean {}
 unsafe impl Std140ArrayElement for boolean {}
 
 #[repr(C, align(8))]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct bvec2(pub boolean, pub boolean);
 
 impl_interface_block_component!(bvec2, UnitLayout::BoolVector2);
@@ -269,6 +283,7 @@ unsafe impl ReprStd140 for bvec2 {}
 unsafe impl Std140ArrayElement for bvec2 {}
 
 #[repr(C, align(16))]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct bvec3(pub boolean, pub boolean, pub boolean);
 
 impl_interface_block_component!(bvec3, UnitLayout::BoolVector3);
@@ -276,6 +291,7 @@ unsafe impl ReprStd140 for bvec3 {}
 unsafe impl Std140ArrayElement for bvec3 {}
 
 #[repr(C, align(16))]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct bvec4(pub boolean, pub boolean, pub boolean, pub boolean);
 
 impl_interface_block_component!(bvec4, UnitLayout::BoolVector4);

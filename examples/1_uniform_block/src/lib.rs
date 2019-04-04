@@ -14,7 +14,7 @@
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
-use web_glitz::buffer::{Buffer, BufferUsage};
+use web_glitz::buffer::{Buffer, UsageHint};
 use web_glitz::pipeline::graphics::vertex_input::VertexArrayDescriptor;
 use web_glitz::pipeline::graphics::{
     BindingStrategy, CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
@@ -24,7 +24,7 @@ use web_glitz::{repr_std140, std140};
 
 use web_sys::{window, HtmlCanvasElement};
 
-#[derive(web_glitz::Vertex)]
+#[derive(web_glitz::Vertex, Clone, Copy)]
 struct Vertex {
     #[vertex_attribute(location = 0, format = "Float2_f32")]
     position: [f32; 2],
@@ -56,7 +56,7 @@ struct Vertex {
 //   memory layout. This allows the compiler to optimize the layout for performance and/or memory
 //   footprint. However, this means that a different/future version of the Rust compiler might
 //   produce a different memory layout for your type; on the old version the type's layout
-//   (accidentically) matched the layout the pipeline expected, but now you're suddenly getting
+//   (accidentally) matched the layout the pipeline expected, but now you're suddenly getting
 //   errors! `StableRepr` is meant to ensure that you don't accidentally fall into this trap.
 //   `StableRepr` implemented for all types that implement `ReprStd140`, including types marked
 //   with `#[repr_std140]`.
@@ -78,7 +78,7 @@ struct Vertex {
 // In this case our very simple uniform block contains only one `float` member, so we'll match that
 // in our struct.
 #[repr_std140]
-#[derive(web_glitz::InterfaceBlock)]
+#[derive(web_glitz::InterfaceBlock, Clone, Copy)]
 struct Uniforms {
     scale: std140::float,
 }
@@ -169,7 +169,7 @@ pub fn start() {
         },
     ];
 
-    let vertex_buffer = context.create_buffer(vertex_data, BufferUsage::StaticDraw);
+    let vertex_buffer = context.create_buffer(vertex_data, UsageHint::StreamDraw);
 
     let vertex_array = context.create_vertex_array(&VertexArrayDescriptor {
         vertex_buffers: vertex_buffer,
@@ -182,12 +182,9 @@ pub fn start() {
     };
 
     // Create a GPU-accessible buffer that holds our `uniforms` instance. In this case we'll only
-    // draw one frame and thus we wont be updating this buffer, so in this simple example we'll use
-    // `BufferUsage::StaticDraw` as the usage hint. Uniform data is often dynamic (it will typically
-    // be updated every frame), in which case we would use `BufferUsage::DynamicDraw`; see
-    // `examples/5_animated_triangle` for an example that draws multiple frames and updates a
-    // uniform buffer on every frame.
-    let uniform_buffer = context.create_buffer(uniforms, BufferUsage::StaticDraw);
+    // draw once and we wont be updating this buffer, so in this simple example we'll use
+    // `BufferUsage::StreamDraw` as the usage hint.
+    let uniform_buffer = context.create_buffer(uniforms, UsageHint::StreamDraw);
 
     let render_pass = context.create_render_pass(render_target, |framebuffer| {
         framebuffer.pipeline_task(&pipeline, |active_pipeline| {

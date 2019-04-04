@@ -8,7 +8,7 @@ use wasm_bindgen::{JsCast, JsValue};
 
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext as Gl};
 
-use crate::buffer::{Buffer, BufferUsage, IntoBuffer};
+use crate::buffer::{Buffer, UsageHint, IntoBuffer};
 use crate::image::format::{RenderbufferFormat, TextureFormat};
 use crate::image::renderbuffer::Renderbuffer;
 use crate::image::texture_2d::{Texture2D, Texture2DDescriptor};
@@ -79,7 +79,7 @@ impl RenderingContext for SingleThreadedContext {
         &self.extensions
     }
 
-    fn create_buffer<D, T>(&self, data: D, usage_hint: BufferUsage) -> Buffer<T>
+    fn create_buffer<D, T>(&self, data: D, usage_hint: UsageHint) -> Buffer<T>
     where
         D: IntoBuffer<T>,
         T: ?Sized,

@@ -10,7 +10,7 @@
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
-use web_glitz::buffer::BufferUsage;
+use web_glitz::buffer::UsageHint;
 use web_glitz::pipeline::graphics::vertex_input::VertexArrayDescriptor;
 use web_glitz::pipeline::graphics::{
     CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
@@ -33,7 +33,14 @@ use web_sys::{window, HtmlCanvasElement};
 // `web_glitz::pipeline::graphics::vertex_input::attribute_format` and the format must correspond to
 // the data type the pipeline expects for the attribute; this correspondence will be verified when
 // the pipeline is created.
-#[derive(web_glitz::Vertex)]
+//
+// There's still one additional thing we have to do: we have to make sure our type implements `Copy`
+// if we want to be able to store it in a GPU-accessible buffer. This is because uploading data to
+// and downloading data from a buffer involves doing a bitwise copy of the data. WebGlitz relies on
+// the semantics associated with the `Copy` trait to make sure that this is safe. `Clone` is a
+// supertrait of `Copy`, so we'll also have to implement `Clone`. Fortunately this is pretty easy:
+// we can automatically derive both `Clone` and `Copy`.
+#[derive(web_glitz::Vertex, Clone, Copy)]
 struct Vertex {
     // We intend to bind this field to the `position` attribute in the vertex shader, which is of
     // type `vec2`. We therefor need to match the `location` we've assigned to the attribute in the
@@ -150,10 +157,10 @@ pub fn start() {
     ];
 
     // Create a GPU-accessible memory buffer that holds our vertex data. We intend to use this
-    // buffer for drawing and we don't intend to update its contents after this, so we'll tell the
-    // driver that we intend to use it as `BufferUsage::StaticDraw` (see
+    // buffer for drawing once and we don't intend to update its contents after this, so we'll tell
+    // the driver that we intend to use it as `BufferUsage::StreamDraw` (see
     // `web_glitz::buffer::BufferUsage` for details on buffer usage hints).
-    let vertex_buffer = context.create_buffer(vertex_data, BufferUsage::StaticDraw);
+    let vertex_buffer = context.create_buffer(vertex_data, UsageHint::StreamDraw);
 
     // Initialize a vertex array using our vertex buffer. We'll tell WebGlitz we wont be using an
     // index buffer with this vertex array by passing an empty tuple `()`.
@@ -175,9 +182,9 @@ pub fn start() {
     // done, the contents of the framebuffer will be stored back into the render target image(s). In
     // this case, that should result in our triangle showing up on the canvas.
     let render_pass = context.create_render_pass(render_target, |framebuffer| {
-        // Return the render pass task. Our render pass task will consist of a pipeline task using
-        // the pipeline we initialized earlier. The second argument is a function that takes the
-        // activated pipeline and returns a pipeline task.
+        // Return the render pass task. Our render pass task will consist of a pipeline task that
+        // uses the pipeline we initialized earlier. The second argument is a function that takes
+        // the activated pipeline and returns a pipeline task.
         framebuffer.pipeline_task(&pipeline, |active_pipeline| {
             // Return a pipeline task. In this case the pipeline task is a single draw command:
             // we'll tell the GPU driver to run our pipeline once, using our `vertex_array` as
