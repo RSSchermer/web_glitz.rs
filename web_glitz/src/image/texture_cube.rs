@@ -8,19 +8,19 @@ use std::sync::Arc;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::image::format::{ClientFormat, Filterable, TextureFormat};
+use crate::image::format::{ClientFormat, Filterable, TextureFormat, FloatSamplable, IntegerSamplable, UnsignedIntegerSamplable, ShadowSamplable};
 use crate::image::image_source::Image2DSourceInternal;
 use crate::image::texture_object_dropper::TextureObjectDropper;
 use crate::image::util::{
     max_mipmap_levels, mipmap_size, region_2d_overlap_height, region_2d_overlap_width,
     region_2d_sub_image,
 };
-use crate::image::{Image2DSource, Region2D};
-use crate::image::{MaxMipmapLevelsExceeded, MipmapLevels};
+use crate::image::{Image2DSource, Region2D, IncompatibleSampler, MaxMipmapLevelsExceeded, MipmapLevels};
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, JsId};
+use crate::sampler::{Sampler, SamplerData, ShadowSampler};
 
 pub struct TextureCubeDescriptor<F>
 where
@@ -148,6 +148,161 @@ where
             texture_data: self.data.clone(),
         }
     }
+}
+
+impl<F> TextureCube<F>
+    where
+        F: TextureFormat + FloatSamplable + 'static,
+{
+    /// Combines this [TextureCube] with the `sampler` as a [FloatSampledTextureCube], which can be
+    /// bound to a pipeline as a texture resource.
+    ///
+    /// Returns an [IncompatibleSampler] error if the `sampler` is not compatible with this
+    /// texture's format.
+    ///
+    /// See also [web_glitz::pipeline::resources::Resources].
+    ///
+    /// # Panics
+    ///
+    /// Panics if this texture and the `sampler` do not belong to the same [RenderingContext].
+    pub fn float_sampled(&self, sampler: &Sampler) -> Result<FloatSampledTextureCube, IncompatibleSampler> {
+        if self.data().context_id() != sampler.data().context_id() {
+            panic!("Texture and sampler do not belong to the same context.");
+        }
+
+        F::validate_minification_filter(&sampler.data().extensions(), sampler.minification_filter())?;
+        F::validate_magnification_filter(&sampler.data().extensions(), sampler.magnification_filter())?;
+
+        Ok(FloatSampledTextureCube {
+            sampler_data: sampler.data().clone(),
+            texture_data: self.data().clone(),
+            _marker: marker::PhantomData,
+        })
+    }
+}
+
+/// A texture-sampler combination that can bound to a pipeline as a resource for a cube-map floating
+/// point sampler.
+#[derive(Clone)]
+pub struct FloatSampledTextureCube<'a> {
+    pub(crate) sampler_data: Arc<SamplerData>,
+    pub(crate) texture_data: Arc<TextureCubeData>,
+    _marker: marker::PhantomData<&'a ()>,
+}
+
+impl<F> TextureCube<F>
+    where
+        F: TextureFormat + IntegerSamplable + 'static,
+{
+    /// Combines this [TextureCube] with the `sampler` as a [IntegerSampledTextureCube], which can
+    /// be bound to a pipeline as a texture resource.
+    ///
+    /// Returns an [IncompatibleSampler] error if the `sampler` is not compatible with this
+    /// texture's format.
+    ///
+    /// See also [web_glitz::pipeline::resources::Resources].
+    ///
+    /// # Panics
+    ///
+    /// Panics if this texture and the `sampler` do not belong to the same [RenderingContext].
+    pub fn integer_sampled(&self, sampler: &Sampler) -> Result<IntegerSampledTextureCube, IncompatibleSampler> {
+        if self.data().context_id() != sampler.data().context_id() {
+            panic!("Texture and sampler do not belong to the same context.");
+        }
+
+        F::validate_minification_filter(&sampler.data().extensions(), sampler.minification_filter())?;
+        F::validate_magnification_filter(&sampler.data().extensions(), sampler.magnification_filter())?;
+
+        Ok(IntegerSampledTextureCube {
+            sampler_data: sampler.data().clone(),
+            texture_data: self.data().clone(),
+            _marker: marker::PhantomData,
+        })
+    }
+}
+
+/// A texture-sampler combination that can bound to a pipeline as a resource for a cube-map integer
+/// sampler.
+#[derive(Clone)]
+pub struct IntegerSampledTextureCube<'a> {
+    pub(crate) sampler_data: Arc<SamplerData>,
+    pub(crate) texture_data: Arc<TextureCubeData>,
+    _marker: marker::PhantomData<&'a ()>,
+}
+
+impl<F> TextureCube<F>
+    where
+        F: TextureFormat + UnsignedIntegerSamplable + 'static,
+{
+    /// Combines this [TextureCube] with the `sampler` as a [UnsignedIntegerSampledTextureCube],
+    /// which can be bound to a pipeline as a texture resource.
+    ///
+    /// Returns an [IncompatibleSampler] error if the `sampler` is not compatible with this
+    /// texture's format.
+    ///
+    /// See also [web_glitz::pipeline::resources::Resources].
+    ///
+    /// # Panics
+    ///
+    /// Panics if this texture and the `sampler` do not belong to the same [RenderingContext].
+    pub fn unsigned_integer_sampled(&self, sampler: &Sampler) -> Result<UnsignedIntegerSampledTextureCube, IncompatibleSampler> {
+        if self.data().context_id() != sampler.data().context_id() {
+            panic!("Texture and sampler do not belong to the same context.");
+        }
+
+        F::validate_minification_filter(&sampler.data().extensions(), sampler.minification_filter())?;
+        F::validate_magnification_filter(&sampler.data().extensions(), sampler.magnification_filter())?;
+
+        Ok(UnsignedIntegerSampledTextureCube {
+            sampler_data: sampler.data().clone(),
+            texture_data: self.data().clone(),
+            _marker: marker::PhantomData,
+        })
+    }
+}
+
+/// A texture-sampler combination that can bound to a pipeline as a resource for a cube-map unsigned
+/// integer sampler.
+#[derive(Clone)]
+pub struct UnsignedIntegerSampledTextureCube<'a> {
+    pub(crate) sampler_data: Arc<SamplerData>,
+    pub(crate) texture_data: Arc<TextureCubeData>,
+    _marker: marker::PhantomData<&'a ()>,
+}
+
+impl<F> TextureCube<F>
+    where
+        F: TextureFormat + ShadowSamplable + 'static,
+{
+    /// Combines this [TextureCube] with the `shadow_sampler` as a [ShadowSampledTextureCube], which
+    /// can be bound to a pipeline as a texture resource.
+    ///
+    /// See also [web_glitz::pipeline::resources::Resources].
+    ///
+    /// # Panics
+    ///
+    /// Panics if this texture and the `shadow_sampler` do not belong to the same
+    /// [RenderingContext].
+    pub fn shadow_sampled(&self, shadow_sampler: &ShadowSampler) -> ShadowSampledTextureCube {
+        if self.data().context_id() != shadow_sampler.data().context_id() {
+            panic!("Texture and sampler do not belong to the same context.");
+        }
+
+        ShadowSampledTextureCube {
+            sampler_data: shadow_sampler.data().clone(),
+            texture_data: self.data().clone(),
+            _marker: marker::PhantomData,
+        }
+    }
+}
+
+/// A texture-sampler combination that can bound to a pipeline as a resource for a cube-map shadow
+/// sampler.
+#[derive(Clone)]
+pub struct ShadowSampledTextureCube<'a> {
+    pub(crate) sampler_data: Arc<SamplerData>,
+    pub(crate) texture_data: Arc<TextureCubeData>,
+    _marker: marker::PhantomData<&'a ()>,
 }
 
 pub(crate) struct TextureCubeData {
@@ -1010,7 +1165,7 @@ where
         gl.tex_storage_2d(
             Gl::TEXTURE_CUBE_MAP,
             levels,
-            F::id(),
+            F::ID,
             data.width as i32,
             data.height as i32,
         );
@@ -1116,8 +1271,8 @@ where
                         offset_y as i32,
                         width as i32,
                         height as i32,
-                        T::format_id(),
-                        T::type_id(),
+                        T::FORMAT_ID,
+                        T::TYPE_ID,
                         Some(&mut *(data as *const _ as *mut _)),
                     )
                     .unwrap();

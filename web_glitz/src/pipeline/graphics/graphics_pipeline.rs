@@ -16,37 +16,9 @@ use crate::runtime::{Connection, CreateGraphicsPipelineError, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
 
-trait ProgramObjectDropper {
-    fn drop_program_object(&self, id: JsId);
-}
-
-impl<T> ProgramObjectDropper for T
-where
-    T: RenderingContext,
-{
-    fn drop_program_object(&self, id: JsId) {
-        self.submit(ProgramObjectDropCommand { id });
-    }
-}
-
-struct ProgramObjectDropCommand {
-    id: JsId,
-}
-
-unsafe impl GpuTask<Connection> for ProgramObjectDropCommand {
-    type Output = ();
-
-    fn context_id(&self) -> ContextId {
-        ContextId::Any
-    }
-
-    fn progress(&mut self, _connection: &mut Connection) -> Progress<Self::Output> {
-        unsafe { JsId::into_value(self.id) };
-
-        Progress::Finished(())
-    }
-}
-
+/// Encapsulates the state for a graphics pipeline.
+///
+///
 pub struct GraphicsPipeline<Il, R, Tf> {
     _input_attribute_layout_marker: marker::PhantomData<Il>,
     _resources_marker: marker::PhantomData<R>,
@@ -203,13 +175,47 @@ where
     //    }
 }
 
+/// Error returned when trying to create a graphics pipeline and the shaders fail to link.
+///
+/// See [RenderingContext::create_graphics_pipeline].
+#[derive(Debug)]
+pub struct ShaderLinkingError {
+    pub(crate) error: String,
+}
+
+trait ProgramObjectDropper {
+    fn drop_program_object(&self, id: JsId);
+}
+
+impl<T> ProgramObjectDropper for T
+where
+    T: RenderingContext,
+{
+    fn drop_program_object(&self, id: JsId) {
+        self.submit(ProgramObjectDropCommand { id });
+    }
+}
+
+struct ProgramObjectDropCommand {
+    id: JsId,
+}
+
+unsafe impl GpuTask<Connection> for ProgramObjectDropCommand {
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Any
+    }
+
+    fn progress(&mut self, _connection: &mut Connection) -> Progress<Self::Output> {
+        unsafe { JsId::into_value(self.id) };
+
+        Progress::Finished(())
+    }
+}
+
 impl<Il, R, Tf> Drop for GraphicsPipeline<Il, R, Tf> {
     fn drop(&mut self) {
         self.dropper.drop_program_object(self.program_id);
     }
-}
-
-#[derive(Debug)]
-pub struct ShaderLinkingError {
-    pub(crate) error: String,
 }

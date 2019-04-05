@@ -260,7 +260,6 @@ where
     }
 }
 
-
 /// Returned from [GpuTask::progress], signifies the current state of progress for the task.
 ///
 /// See [GpuTask::progress] for details.

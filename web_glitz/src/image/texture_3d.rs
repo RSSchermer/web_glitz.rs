@@ -9,7 +9,7 @@ use std::sync::Arc;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::image::format::{ClientFormat, Filterable, TextureFormat};
+use crate::image::format::{ClientFormat, Filterable, TextureFormat, FloatSamplable, IntegerSamplable, UnsignedIntegerSamplable};
 use crate::image::image_source::{Image2DSourceInternal, Image3DSourceInternal};
 use crate::image::texture_object_dropper::TextureObjectDropper;
 use crate::image::util::{
@@ -17,12 +17,13 @@ use crate::image::util::{
     region_2d_sub_image, region_3d_overlap_depth, region_3d_overlap_height,
     region_3d_overlap_width, region_3d_sub_image,
 };
-use crate::image::{Image2DSource, Image3DSource, Region2D, Region3D};
+use crate::image::{Image2DSource, Image3DSource, Region2D, Region3D, IncompatibleSampler};
 use crate::image::{MaxMipmapLevelsExceeded, MipmapLevels};
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, JsId};
+use crate::sampler::{Sampler, SamplerData};
 
 pub struct Texture3DDescriptor<F>
 where
@@ -157,6 +158,126 @@ where
             texture_data: self.data.clone(),
         }
     }
+}
+
+impl<F> Texture3D<F>
+    where
+        F: TextureFormat + FloatSamplable + 'static,
+{
+    /// Combines this [Texture3D] with the `sampler` as a [FloatSampledTexture3D], which can be
+    /// bound to a pipeline as a texture resource.
+    ///
+    /// Returns an [IncompatibleSampler] error if the `sampler` is not compatible with this
+    /// texture's format.
+    ///
+    /// See also [web_glitz::pipeline::resources::Resources].
+    ///
+    /// # Panics
+    ///
+    /// Panics if this texture and the `sampler` do not belong to the same [RenderingContext].
+    pub fn float_sampled(&self, sampler: &Sampler) -> Result<FloatSampledTexture3D, IncompatibleSampler> {
+        if self.data().context_id() != sampler.data().context_id() {
+            panic!("Texture and sampler do not belong to the same context.");
+        }
+
+        F::validate_minification_filter(&sampler.data().extensions(), sampler.minification_filter())?;
+        F::validate_magnification_filter(&sampler.data().extensions(), sampler.magnification_filter())?;
+
+        Ok(FloatSampledTexture3D {
+            sampler_data: sampler.data().clone(),
+            texture_data: self.data().clone(),
+            _marker: marker::PhantomData,
+        })
+    }
+}
+
+/// A texture-sampler combination that can bound to a pipeline as a resource for a 3D floating
+/// point sampler.
+#[derive(Clone)]
+pub struct FloatSampledTexture3D<'a> {
+    pub(crate) sampler_data: Arc<SamplerData>,
+    pub(crate) texture_data: Arc<Texture3DData>,
+    _marker: marker::PhantomData<&'a ()>,
+}
+
+impl<F> Texture3D<F>
+    where
+        F: TextureFormat + IntegerSamplable + 'static,
+{
+    /// Combines this [Texture3D] with the `sampler` as a [IntegerSampledTexture3D], which can be
+    /// bound to a pipeline as a texture resource.
+    ///
+    /// Returns an [IncompatibleSampler] error if the `sampler` is not compatible with this
+    /// texture's format.
+    ///
+    /// See also [web_glitz::pipeline::resources::Resources].
+    ///
+    /// # Panics
+    ///
+    /// Panics if this texture and the `sampler` do not belong to the same [RenderingContext].
+    pub fn integer_sampled(&self, sampler: &Sampler) -> Result<IntegerSampledTexture3D, IncompatibleSampler> {
+        if self.data().context_id() != sampler.data().context_id() {
+            panic!("Texture and sampler do not belong to the same context.");
+        }
+
+        F::validate_minification_filter(&sampler.data().extensions(), sampler.minification_filter())?;
+        F::validate_magnification_filter(&sampler.data().extensions(), sampler.magnification_filter())?;
+
+        Ok(IntegerSampledTexture3D {
+            sampler_data: sampler.data().clone(),
+            texture_data: self.data().clone(),
+            _marker: marker::PhantomData,
+        })
+    }
+}
+
+/// A texture-sampler combination that can bound to a pipeline as a resource for a 3D integer
+/// sampler.
+#[derive(Clone)]
+pub struct IntegerSampledTexture3D<'a> {
+    pub(crate) sampler_data: Arc<SamplerData>,
+    pub(crate) texture_data: Arc<Texture3DData>,
+    _marker: marker::PhantomData<&'a ()>,
+}
+
+impl<F> Texture3D<F>
+    where
+        F: TextureFormat + UnsignedIntegerSamplable + 'static,
+{
+    /// Combines this [Texture3D] with the `sampler` as a [UnsignedIntegerSampledTexture3D], which
+    /// can be bound to a pipeline as a texture resource.
+    ///
+    /// Returns an [IncompatibleSampler] error if the `sampler` is not compatible with this
+    /// texture's format.
+    ///
+    /// See also [web_glitz::pipeline::resources::Resources].
+    ///
+    /// # Panics
+    ///
+    /// Panics if this texture and the `sampler` do not belong to the same [RenderingContext].
+    pub fn unsigned_integer_sampled(&self, sampler: &Sampler) -> Result<UnsignedIntegerSampledTexture3D, IncompatibleSampler> {
+        if self.data().context_id() != sampler.data().context_id() {
+            panic!("Texture and sampler do not belong to the same context.");
+        }
+
+        F::validate_minification_filter(&sampler.data().extensions(), sampler.minification_filter())?;
+        F::validate_magnification_filter(&sampler.data().extensions(), sampler.magnification_filter())?;
+
+        Ok(UnsignedIntegerSampledTexture3D {
+            sampler_data: sampler.data().clone(),
+            texture_data: self.data().clone(),
+            _marker: marker::PhantomData,
+        })
+    }
+}
+
+/// A texture-sampler combination that can bound to a pipeline as a resource for a 3D unsigned
+/// integer sampler.
+#[derive(Clone)]
+pub struct UnsignedIntegerSampledTexture3D<'a> {
+    pub(crate) sampler_data: Arc<SamplerData>,
+    pub(crate) texture_data: Arc<Texture3DData>,
+    _marker: marker::PhantomData<&'a ()>,
 }
 
 pub(crate) struct Texture3DData {
@@ -1793,7 +1914,7 @@ where
         gl.tex_storage_3d(
             Gl::TEXTURE_3D,
             levels,
-            F::id(),
+            F::ID,
             data.width as i32,
             data.height as i32,
             data.depth as i32,
@@ -1916,8 +2037,8 @@ where
                         width as i32,
                         height as i32,
                         depth as i32,
-                        T::format_id(),
-                        T::type_id(),
+                        T::FORMAT_ID,
+                        T::TYPE_ID,
                         Some(&mut *(data as *const _ as *mut _)),
                     )
                     .unwrap();
@@ -2024,8 +2145,8 @@ where
                         width as i32,
                         height as i32,
                         1,
-                        T::format_id(),
-                        T::type_id(),
+                        T::FORMAT_ID,
+                        T::TYPE_ID,
                         Some(&mut *(data as *const _ as *mut _)),
                     )
                     .unwrap();

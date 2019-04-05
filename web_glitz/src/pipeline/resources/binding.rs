@@ -1,19 +1,30 @@
 use crate::buffer::BufferView;
+use crate::image::texture_2d::{
+    FloatSampledTexture2D, IntegerSampledTexture2D,  ShadowSampledTexture2D,
+    UnsignedIntegerSampledTexture2D,
+};
+use crate::image::texture_2d_array::{
+    FloatSampledTexture2DArray, IntegerSampledTexture2DArray,
+    ShadowSampledTexture2DArray,
+    UnsignedIntegerSampledTexture2DArray,
+};
+use crate::image::texture_3d::{
+    FloatSampledTexture3D,
+
+    IntegerSampledTexture3D,  UnsignedIntegerSampledTexture3D,
+};
+use crate::image::texture_cube::{
+
+    FloatSampledTextureCube, IntegerSampledTextureCube,  ShadowSampledTextureCube,
+    UnsignedIntegerSampledTextureCube,
+};
 use crate::pipeline::interface_block;
 use crate::pipeline::interface_block::InterfaceBlock;
 use crate::pipeline::resources::bind_group_encoding::{BindGroupEncoder, BindingDescriptor};
-use crate::pipeline::resources::resource_slot::{SamplerKind, Slot};
-use crate::sampler::{
-    FloatSampledTexture2D, FloatSampledTexture2DArray, FloatSampledTexture3D,
-    FloatSampledTextureCube, IntegerSampledTexture2D, IntegerSampledTexture2DArray,
-    IntegerSampledTexture3D, IntegerSampledTextureCube, ShadowSampledTexture2D,
-    ShadowSampledTexture2DArray, ShadowSampledTextureCube, UnsignedIntegerSampledTexture2D,
-    UnsignedIntegerSampledTexture2DArray, UnsignedIntegerSampledTexture3D,
-    UnsignedIntegerSampledTextureCube,
-};
+use crate::pipeline::resources::resource_slot::{SamplerKind, SlotType};
 
 pub unsafe trait Binding {
-    fn compatibility(slot: &Slot) -> Result<(), Incompatible>;
+    fn compatibility(slot: &SlotType) -> Result<(), Incompatible>;
 
     fn encode<'b, T>(
         &self,
@@ -36,9 +47,9 @@ unsafe impl<'a, T> Binding for BufferBinding<'a, T>
 where
     T: InterfaceBlock,
 {
-    fn compatibility(slot: &Slot) -> Result<(), Incompatible> {
+    fn compatibility(slot: &SlotType) -> Result<(), Incompatible> {
         match slot {
-            Slot::UniformBlock(slot) => slot
+            SlotType::UniformBlock(slot) => slot
                 .compatibility::<T>()
                 .map_err(|e| Incompatible::LayoutMismatch(e)),
             _ => Err(Incompatible::TypeMismatch),
@@ -59,8 +70,8 @@ pub struct FloatSampler2DBinding<'a> {
 }
 
 unsafe impl<'a> Binding for FloatSampler2DBinding<'a> {
-    fn compatibility(slot: &Slot) -> Result<(), Incompatible> {
-        if let Slot::TextureSampler(slot) = slot {
+    fn compatibility(slot: &SlotType) -> Result<(), Incompatible> {
+        if let SlotType::TextureSampler(slot) = slot {
             match slot.kind() {
                 SamplerKind::FloatSampler2D => Ok(()),
                 _ => Err(Incompatible::TypeMismatch),
@@ -84,8 +95,8 @@ pub struct FloatSampler2DArrayBinding<'a> {
 }
 
 unsafe impl<'a> Binding for FloatSampler2DArrayBinding<'a> {
-    fn compatibility(slot: &Slot) -> Result<(), Incompatible> {
-        if let Slot::TextureSampler(slot) = slot {
+    fn compatibility(slot: &SlotType) -> Result<(), Incompatible> {
+        if let SlotType::TextureSampler(slot) = slot {
             match slot.kind() {
                 SamplerKind::FloatSampler2DArray => Ok(()),
                 _ => Err(Incompatible::TypeMismatch),
@@ -109,8 +120,8 @@ pub struct FloatSampler3DBinding<'a> {
 }
 
 unsafe impl<'a> Binding for FloatSampler3DBinding<'a> {
-    fn compatibility(slot: &Slot) -> Result<(), Incompatible> {
-        if let Slot::TextureSampler(slot) = slot {
+    fn compatibility(slot: &SlotType) -> Result<(), Incompatible> {
+        if let SlotType::TextureSampler(slot) = slot {
             match slot.kind() {
                 SamplerKind::FloatSampler3D => Ok(()),
                 _ => Err(Incompatible::TypeMismatch),
@@ -134,8 +145,8 @@ pub struct FloatSamplerCubeBinding<'a> {
 }
 
 unsafe impl<'a> Binding for FloatSamplerCubeBinding<'a> {
-    fn compatibility(slot: &Slot) -> Result<(), Incompatible> {
-        if let Slot::TextureSampler(slot) = slot {
+    fn compatibility(slot: &SlotType) -> Result<(), Incompatible> {
+        if let SlotType::TextureSampler(slot) = slot {
             match slot.kind() {
                 SamplerKind::FloatSamplerCube => Ok(()),
                 _ => Err(Incompatible::TypeMismatch),
@@ -159,8 +170,8 @@ pub struct IntegerSampler2DBinding<'a> {
 }
 
 unsafe impl<'a> Binding for IntegerSampler2DBinding<'a> {
-    fn compatibility(slot: &Slot) -> Result<(), Incompatible> {
-        if let Slot::TextureSampler(slot) = slot {
+    fn compatibility(slot: &SlotType) -> Result<(), Incompatible> {
+        if let SlotType::TextureSampler(slot) = slot {
             match slot.kind() {
                 SamplerKind::IntegerSampler2D => Ok(()),
                 _ => Err(Incompatible::TypeMismatch),
@@ -184,8 +195,8 @@ pub struct IntegerSampler2DArrayBinding<'a> {
 }
 
 unsafe impl<'a> Binding for IntegerSampler2DArrayBinding<'a> {
-    fn compatibility(slot: &Slot) -> Result<(), Incompatible> {
-        if let Slot::TextureSampler(slot) = slot {
+    fn compatibility(slot: &SlotType) -> Result<(), Incompatible> {
+        if let SlotType::TextureSampler(slot) = slot {
             match slot.kind() {
                 SamplerKind::IntegerSampler2DArray => Ok(()),
                 _ => Err(Incompatible::TypeMismatch),
@@ -209,8 +220,8 @@ pub struct IntegerSampler3DBinding<'a> {
 }
 
 unsafe impl<'a> Binding for IntegerSampler3DBinding<'a> {
-    fn compatibility(slot: &Slot) -> Result<(), Incompatible> {
-        if let Slot::TextureSampler(slot) = slot {
+    fn compatibility(slot: &SlotType) -> Result<(), Incompatible> {
+        if let SlotType::TextureSampler(slot) = slot {
             match slot.kind() {
                 SamplerKind::IntegerSampler3D => Ok(()),
                 _ => Err(Incompatible::TypeMismatch),
@@ -234,8 +245,8 @@ pub struct IntegerSamplerCubeBinding<'a> {
 }
 
 unsafe impl<'a> Binding for IntegerSamplerCubeBinding<'a> {
-    fn compatibility(slot: &Slot) -> Result<(), Incompatible> {
-        if let Slot::TextureSampler(slot) = slot {
+    fn compatibility(slot: &SlotType) -> Result<(), Incompatible> {
+        if let SlotType::TextureSampler(slot) = slot {
             match slot.kind() {
                 SamplerKind::IntegerSamplerCube => Ok(()),
                 _ => Err(Incompatible::TypeMismatch),
@@ -259,8 +270,8 @@ pub struct UnsignedIntegerSampler2DBinding<'a> {
 }
 
 unsafe impl<'a> Binding for UnsignedIntegerSampler2DBinding<'a> {
-    fn compatibility(slot: &Slot) -> Result<(), Incompatible> {
-        if let Slot::TextureSampler(slot) = slot {
+    fn compatibility(slot: &SlotType) -> Result<(), Incompatible> {
+        if let SlotType::TextureSampler(slot) = slot {
             match slot.kind() {
                 SamplerKind::UnsignedIntegerSampler2D => Ok(()),
                 _ => Err(Incompatible::TypeMismatch),
@@ -284,8 +295,8 @@ pub struct UnsignedIntegerSampler2DArrayBinding<'a> {
 }
 
 unsafe impl<'a> Binding for UnsignedIntegerSampler2DArrayBinding<'a> {
-    fn compatibility(slot: &Slot) -> Result<(), Incompatible> {
-        if let Slot::TextureSampler(slot) = slot {
+    fn compatibility(slot: &SlotType) -> Result<(), Incompatible> {
+        if let SlotType::TextureSampler(slot) = slot {
             match slot.kind() {
                 SamplerKind::UnsignedIntegerSampler2DArray => Ok(()),
                 _ => Err(Incompatible::TypeMismatch),
@@ -309,8 +320,8 @@ pub struct UnsignedIntegerSampler3DBinding<'a> {
 }
 
 unsafe impl<'a> Binding for UnsignedIntegerSampler3DBinding<'a> {
-    fn compatibility(slot: &Slot) -> Result<(), Incompatible> {
-        if let Slot::TextureSampler(slot) = slot {
+    fn compatibility(slot: &SlotType) -> Result<(), Incompatible> {
+        if let SlotType::TextureSampler(slot) = slot {
             match slot.kind() {
                 SamplerKind::UnsignedIntegerSampler3D => Ok(()),
                 _ => Err(Incompatible::TypeMismatch),
@@ -334,8 +345,8 @@ pub struct UnsignedIntegerSamplerCubeBinding<'a> {
 }
 
 unsafe impl<'a> Binding for UnsignedIntegerSamplerCubeBinding<'a> {
-    fn compatibility(slot: &Slot) -> Result<(), Incompatible> {
-        if let Slot::TextureSampler(slot) = slot {
+    fn compatibility(slot: &SlotType) -> Result<(), Incompatible> {
+        if let SlotType::TextureSampler(slot) = slot {
             match slot.kind() {
                 SamplerKind::UnsignedIntegerSamplerCube => Ok(()),
                 _ => Err(Incompatible::TypeMismatch),
@@ -359,8 +370,8 @@ pub struct ShadowSampler2DBinding<'a> {
 }
 
 unsafe impl<'a> Binding for ShadowSampler2DBinding<'a> {
-    fn compatibility(slot: &Slot) -> Result<(), Incompatible> {
-        if let Slot::TextureSampler(slot) = slot {
+    fn compatibility(slot: &SlotType) -> Result<(), Incompatible> {
+        if let SlotType::TextureSampler(slot) = slot {
             match slot.kind() {
                 SamplerKind::Sampler2DShadow => Ok(()),
                 _ => Err(Incompatible::TypeMismatch),
@@ -384,8 +395,8 @@ pub struct ShadowSampler2DArrayBinding<'a> {
 }
 
 unsafe impl<'a> Binding for ShadowSampler2DArrayBinding<'a> {
-    fn compatibility(slot: &Slot) -> Result<(), Incompatible> {
-        if let Slot::TextureSampler(slot) = slot {
+    fn compatibility(slot: &SlotType) -> Result<(), Incompatible> {
+        if let SlotType::TextureSampler(slot) = slot {
             match slot.kind() {
                 SamplerKind::Sampler2DArrayShadow => Ok(()),
                 _ => Err(Incompatible::TypeMismatch),
@@ -409,8 +420,8 @@ pub struct ShadowSamplerCubeBinding<'a> {
 }
 
 unsafe impl<'a> Binding for ShadowSamplerCubeBinding<'a> {
-    fn compatibility(slot: &Slot) -> Result<(), Incompatible> {
-        if let Slot::TextureSampler(slot) = slot {
+    fn compatibility(slot: &SlotType) -> Result<(), Incompatible> {
+        if let SlotType::TextureSampler(slot) = slot {
             match slot.kind() {
                 SamplerKind::SamplerCubeShadow => Ok(()),
                 _ => Err(Incompatible::TypeMismatch),

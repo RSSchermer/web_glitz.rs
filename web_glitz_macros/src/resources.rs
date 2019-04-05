@@ -137,7 +137,7 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
                     C: #mod_path::resource_slot::SlotBindingConfirmer
                 {
                     for descriptor in descriptors.iter() {
-                        let slot = descriptor.slot();
+                        let slot = descriptor.slot_type();
 
                         match descriptor.identifier().hash_fnv64() {
                             #(#buffer_resource_confirmations)*

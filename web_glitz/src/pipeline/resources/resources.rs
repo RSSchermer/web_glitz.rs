@@ -2,6 +2,25 @@ use std::borrow::Borrow;
 use std::mem;
 
 use crate::buffer::{Buffer, BufferView};
+use crate::image::texture_2d::{
+    FloatSampledTexture2D, IntegerSampledTexture2D,  ShadowSampledTexture2D,
+    UnsignedIntegerSampledTexture2D,
+};
+use crate::image::texture_2d_array::{
+    FloatSampledTexture2DArray, IntegerSampledTexture2DArray,
+    ShadowSampledTexture2DArray,
+    UnsignedIntegerSampledTexture2DArray,
+};
+use crate::image::texture_3d::{
+    FloatSampledTexture3D,
+
+    IntegerSampledTexture3D,  UnsignedIntegerSampledTexture3D,
+};
+use crate::image::texture_cube::{
+
+    FloatSampledTextureCube, IntegerSampledTextureCube,  ShadowSampledTextureCube,
+    UnsignedIntegerSampledTextureCube,
+};
 use crate::pipeline::interface_block;
 use crate::pipeline::interface_block::InterfaceBlock;
 use crate::pipeline::resources::bind_group_encoding::{
@@ -17,14 +36,6 @@ use crate::pipeline::resources::binding::{
 };
 use crate::pipeline::resources::resource_slot::{
     Identifier, ResourceSlotDescriptor, SlotBindingConfirmer, SlotBindingMismatch,
-};
-use crate::sampler::{
-    FloatSampledTexture2D, FloatSampledTexture2DArray, FloatSampledTexture3D,
-    FloatSampledTextureCube, IntegerSampledTexture2D, IntegerSampledTexture2DArray,
-    IntegerSampledTexture3D, IntegerSampledTextureCube, ShadowSampledTexture2D,
-    ShadowSampledTexture2DArray, ShadowSampledTextureCube, UnsignedIntegerSampledTexture2D,
-    UnsignedIntegerSampledTexture2DArray, UnsignedIntegerSampledTexture3D,
-    UnsignedIntegerSampledTextureCube,
 };
 
 /// Provides a group of resources (uniform block buffers, sampled textures) that may be bound to a
@@ -173,6 +184,8 @@ unsafe impl Resources for () {
     }
 }
 
+/// Error returned by [Resources::confirm_slot_bindings] when the [Resources] don't match the
+/// resource slot bindings.
 #[derive(Debug)]
 pub enum Incompatible {
     MissingResource(Identifier),
@@ -190,9 +203,12 @@ impl From<SlotBindingMismatch> for Incompatible {
     }
 }
 
+/// Trait implemented for types that can be bound to a pipeline as a buffer resource.
 pub unsafe trait BufferResource {
+    /// The type of binding for this resource.
     type Binding: Binding;
 
+    /// Turns this buffer resource into a binding for the given `index`.
     fn into_binding(self, index: u32) -> Self::Binding;
 }
 
@@ -226,9 +242,12 @@ where
     }
 }
 
+/// Trait implemented for types that can be bound to a pipeline as a texture resource.
 pub unsafe trait TextureResource {
+    /// The type of binding for this resource.
     type Binding: Binding;
 
+    /// Turns this texture resource into a binding for the given `index`.
     fn into_binding(self, index: u32) -> Self::Binding;
 }
 

@@ -1,44 +1,115 @@
-use std::marker;
 use std::sync::Arc;
 
 use wasm_bindgen::JsCast;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::image::format::{
-    FloatSamplable, IntegerSamplable, InvalidMagnificationFilter, InvalidMinificationFilter,
-    ShadowSamplable, TextureFormat, UnsignedIntegerSamplable,
-};
-use crate::image::texture_2d::{Texture2D, Texture2DData};
-use crate::image::texture_2d_array::{Texture2DArray, Texture2DArrayData};
-use crate::image::texture_3d::{Texture3D, Texture3DData};
-use crate::image::texture_cube::{TextureCube, TextureCubeData};
 use crate::runtime::{Connection, Extensions, RenderingContext};
 use crate::task::Progress;
 use crate::task::{ContextId, GpuTask};
 use crate::util::{arc_get_mut_unchecked, JsId};
 
+/// Enumerates the filters available to a [Sampler] for magnification filtering.
+///
+/// Magnification filtering is used when a sampling a texture value for a fragment that is smaller
+/// than the candidate texels.
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum MagnificationFilter {
+    /// The sampled value is chosen to be the value of the texel whose coordinates are closest to
+    /// the sampling coordinates.
     Nearest = Gl::NEAREST as isize,
+
+    /// The sampled value is calculated by linearly interpolating between the 4 texels that are
+    /// closest to the sampling coordinates.
     Linear = Gl::LINEAR as isize,
 }
 
+/// Enumerates the methods available to a [Sampler] for minification filtering.
+///
+/// Minification filtering is used when a sampling a texture value for a fragment that is larger
+/// than the candidate texels.
+///
+/// # Minification Filtering and Mipmapping
+///
+/// Some of the filtering methods involve mipmapping. When a fragment is larger than the candidate
+/// texels, the fragment surface might span multiple texels. The most appropriate sample value might
+/// then be obtained by interpolating between these texels. However, doing this for each sampling
+/// operation can be very expensive.
+///
+/// This is instead solved by using a mipmap, which produces similar results with much better
+/// performance. A mipmap is a pre-calculated sequence of images, starting with the original image.
+/// Each subsequent image is half the width and half the height of the previous image (rounded
+/// down). The sequence ends when the width or height reaches 1. Each image in the mipmap sequence
+/// is identified by a mipmap level: the base image has a mipmap level of 0, the subsequent image
+/// has a mipmap level of 1, etc. For example, a mipmap of a base image of size 256 by 256 has 9
+/// mipmap levels: 256x256 (level 0), 128x128 (level 1), 64x64 (level 2), 32x32 (level 3), 16x16
+/// (level 4), 8x8 (level 5), 4x4 (level 6), 2x2 (level 7), 1x1 (level 8).
+///
+/// See the documentation for [NearestMipmapNearest], [NearestMipmapLinear], [LinearMipmapNearest]
+/// and [LinearMipmapLinear] for details on how these filtering operations will make use of a
+/// mipmap.
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum MinificationFilter {
+    /// The sampled value is chosen to be the value of the texel whose coordinates are closest to
+    /// the sampling coordinates.
     Nearest = Gl::NEAREST as isize,
+
+    /// The sampled value is calculated by linearly interpolating between the 4 texels that are
+    /// closest to the sampling coordinates.
     Linear = Gl::LINEAR as isize,
+
+    /// First selects the mipmap level for which the texel size is closest to the fragment size,
+    /// then the sampled value is chose to be the value of the texel whose coordinates are closest
+    /// to the sampling coordinates.
     NearestMipmapNearest = Gl::NEAREST_MIPMAP_NEAREST as isize,
+
+    /// First selects the mipmap level for which the texel size is closest to the fragment size,
+    /// then the sampled value is calculated by linearly interpolating between the 4 texels that are
+    /// closest to the sampling coordinates.
     NearestMipmapLinear = Gl::NEAREST_MIPMAP_LINEAR as isize,
+
+    /// First selects both the nearest mipmap level for which the texel size is smaller than the
+    /// fragment, as well as the nearest mipmap level for which the texel size is larger than the
+    /// fragment; then samples a value from both mipmap levels by choosing the texel whose
+    /// coordinates are closest to the sampling coordinates; finally, the sample value is calculated
+    /// by linearly interpolating between these two values.
     LinearMipmapNearest = Gl::LINEAR_MIPMAP_NEAREST as isize,
+
+    /// First selects both the nearest mipmap level for which the texel size is smaller than the
+    /// fragment, as well as the nearest mipmap level for which the texel size is larger than the
+    /// fragment; then samples a value from both mipmap levels by linearly interpolating between the
+    /// 4 texels that are closest to the sampling coordinates; finally, the sample value is
+    /// calculated by linearly interpolating between these two values.
     LinearMipmapLinear = Gl::LINEAR_MIPMAP_LINEAR as isize,
 }
 
+/// Enumerates the methods available to a [Sampler] for texture coordinate wrapping.
+///
+/// Texture coordinate wrapping concerns texture coordinate values outside of the range `0.0..=1.0`.
+/// The extremes of this range correspond to the edges of the texture. A texture coordinate value
+/// outside of this range therefore has to be mapped to a coordinate value on this range.
+///
+/// Separate wrapping methods can be used for each texture space coordinate component (typically
+/// referred to as the `S`, `T`, `R` coordinates or "width", "height", "depth" respectively), see
+/// [SamplerDescriptor] and [ShadowSamplerDescriptor].
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum Wrap {
+    /// If the coordinate value is smaller than `0.0`, then `0.0` is used as the coordinate value;
+    /// if the coordinate value is greater than `1.0`, then `1.0` is used as the coordinate value.
+    ///
+    /// For example, `-3.15` maps to `0.0` and `2.85` maps to `1.0`.
     ClampToEdge = Gl::CLAMP_TO_EDGE as isize,
-    MirroredRepeat = Gl::MIRRORED_REPEAT as isize,
+
+    /// The integer part of the coordinate value is ignored.
+    ///
+    /// For example, `3.15` maps to `0.15`.
     Repeat = Gl::REPEAT as isize,
+
+    /// Similar to [Repeat], however, if the integer part is odd, then the decimal part is
+    /// subtracted from `1`.
+    ///
+    /// For example, `2.15` maps to `0.15` and `3.15` maps to `0.85`.
+    MirroredRepeat = Gl::MIRRORED_REPEAT as isize,
 }
 
 #[derive(PartialEq, Clone, Copy, Debug)]
@@ -56,13 +127,62 @@ impl Default for LODRange {
     }
 }
 
+/// Provides the information necessary for the creation of a [Sampler].
+///
+/// See [RenderingContext::create_sampler] for details.
+///
+/// Can be instantiated with default values through [Default]:
+///
+/// ```rust
+/// use web_glitz::sampler::{
+///     SamplerDescriptor, MinificationFilter, MagnificationFilter, LODRange, Wrap
+/// };
+///
+/// assert_eq!(SamplerDescriptor::default(), SamplerDescriptor {
+///     minification_filter: MinificationFilter::NearestMipmapLinear,
+///     magnification_filter: MagnificationFilter::Linear,
+///     lod_range: LODRange::default(),
+///     wrap_s: Wrap::Repeat,
+///     wrap_t: Wrap::Repeat,
+///     wrap_r: Wrap::Repeat,
+/// });
+/// ```
 #[derive(Clone, PartialEq, Debug)]
 pub struct SamplerDescriptor {
+    /// The [MinificationFilter] that a sampler created from this descriptor will use.
+    ///
+    /// See [MinificationFilter] for details.
     pub minification_filter: MinificationFilter,
+
+    /// The [MagnificationFilter] that a sampler created from this descriptor will use.
+    ///
+    /// See [MagnificationFilter] for details.
     pub magnification_filter: MagnificationFilter,
+
+    /// The [LODRange] that a sampler created from this descriptor will use.
+    ///
+    /// See [LODRange] for details.
     pub lod_range: LODRange,
+
+    /// The wrapping method that a sampler created from this descriptor will use when sampling a
+    /// value at coordinates outside the range `0.0..=1.0` in the `S` ("width") direction in texture
+    /// space.
+    ///
+    /// See [Wrap] for details.
     pub wrap_s: Wrap,
+
+    /// The wrapping method that a sampler created from this descriptor will use when sampling a
+    /// value at coordinates outside the range `0.0..=1.0` in the `T` ("height") direction in
+    /// texture space.
+    ///
+    /// See [Wrap] for details.
     pub wrap_t: Wrap,
+
+    /// The wrapping algorithm that a sampler created from this descriptor will use when sampling
+    /// a value at coordinates outside the range `0.0..=1.0` in the `R` ("depth") direction in
+    /// texture space.
+    ///
+    /// See [Wrap] for details.
     pub wrap_r: Wrap,
 }
 
@@ -79,6 +199,15 @@ impl Default for SamplerDescriptor {
     }
 }
 
+/// Samples texture values given texture coordinates texture coordinates.
+///
+/// A [Sampler] attempts to obtain texture values by mapping texture coordinates onto texels
+/// (texture pixels). However, a set of texture coordinates rarely corresponds to exactly 1 texel
+/// unambiguously. Instead there are often several candidate texels. The [Sampler] performs texture
+/// filtering and texture wrapping in order to obtain the most appropriate texture value.
+///
+/// See the documentation for [RenderingContext::create_sampler] for details on how to create a
+/// [Sampler].
 pub struct Sampler {
     data: Arc<SamplerData>,
     descriptor: SamplerDescriptor,
@@ -111,66 +240,126 @@ impl Sampler {
         &self.data
     }
 
+    /// The [MinificationFilter] used by this [Sampler].
+    ///
+    /// See [MinificationFilter] for details.
     pub fn minification_filter(&self) -> MinificationFilter {
         self.descriptor.minification_filter
     }
 
+    /// The [MagnificationFilter] used by this [Sampler].
+    ///
+    /// See [MagnificationFilter] for details.
     pub fn magnification_filter(&self) -> MagnificationFilter {
         self.descriptor.magnification_filter
     }
 
+    /// The [LODRange] used by this [Sampler].
+    ///
+    /// See [LODRange] for details.
     pub fn lod_range(&self) -> LODRange {
         self.descriptor.lod_range
     }
 
+    /// The wrapping method that this [Sampler] uses when sampling a value at coordinates outside
+    /// the range `0.0..=1.0` in the `S` ("width") direction in texture space.
+    ///
+    /// See [Wrap] for details.
     pub fn wrap_s(&self) -> Wrap {
         self.descriptor.wrap_s
     }
 
+    /// The wrapping method that this [Sampler] uses when sampling a value at coordinates outside
+    /// the range `0.0..=1.0` in the `T` ("height") direction in texture space.
+    ///
+    /// See [Wrap] for details.
     pub fn wrap_t(&self) -> Wrap {
         self.descriptor.wrap_t
     }
 
+    /// The wrapping method that this [Sampler] uses when sampling a value at coordinates outside
+    /// the range `0.0..=1.0` in the `R` ("depth") direction in texture space.
+    ///
+    /// See [Wrap] for details.
     pub fn wrap_r(&self) -> Wrap {
         self.descriptor.wrap_r
     }
 }
 
-pub enum IncompatibleSampler {
-    ContextMismatch,
-    InvalidMagnificationFilter(InvalidMagnificationFilter),
-    InvalidMinificationFilter(InvalidMinificationFilter),
-}
-
-impl From<InvalidMagnificationFilter> for IncompatibleSampler {
-    fn from(err: InvalidMagnificationFilter) -> Self {
-        IncompatibleSampler::InvalidMagnificationFilter(err)
-    }
-}
-
-impl From<InvalidMinificationFilter> for IncompatibleSampler {
-    fn from(err: InvalidMinificationFilter) -> Self {
-        IncompatibleSampler::InvalidMinificationFilter(err)
-    }
-}
-
+/// Enumerates the compare functions available for a [ShadowSampler].
+///
+/// See [ShadowSampler] for details.
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub enum CompareFunction {
+    /// The function passes if the texel value is equal to the reference value.
     Equal = Gl::EQUAL as isize,
+
+    /// The function passes if the texel value is not equal to the reference value.
     NotEqual = Gl::NOTEQUAL as isize,
+
+    /// The function passes if the texel value is strictly smaller than the reference value.
     Less = Gl::LESS as isize,
+
+    /// The function passes if the texel value is strictly greater than the reference value.
     Greater = Gl::GREATER as isize,
+
+    /// The function passes if the texel value is smaller than or equal to the reference value.
     LessOrEqual = Gl::LEQUAL as isize,
+
+    /// The function passes if the texel value is greater than or equal to the reference value.
     GreaterOrEqual = Gl::GEQUAL as isize,
+
+    /// The function always passes, regardless of how the texel value compares to the reference
+    /// value.
     Always = Gl::ALWAYS as isize,
+
+    /// The function never passes, regardless of how the texel value compares to the reference
+    /// value.
     Never = Gl::NEVER as isize,
 }
 
+/// Provides the information necessary for the creation of a [Sampler].
+///
+/// See [RenderingContext::create_shadow_sampler] for details.
+///
+/// Can be instantiated with default values through [Default]:
+///
+/// ```rust
+/// use web_glitz::sampler::{ShadowSamplerDescriptor, CompareFunction, Wrap};
+///
+/// assert_eq!(ShadowSamplerDescriptor::default(), ShadowSamplerDescriptor {
+///     compare: CompareFunction::LessOrEqual,
+///     wrap_s: Wrap::Repeat,
+///     wrap_t: Wrap::Repeat,
+///     wrap_r: Wrap::Repeat,
+/// });
+/// ```
 #[derive(PartialEq, Clone, Debug)]
 pub struct ShadowSamplerDescriptor {
+    /// The [CompareFunction] that a [ShadowSampler] created from this descriptor will use.
+    ///
+    /// See [ShadowSampler] and [CompareFunction] for details.
     pub compare: CompareFunction,
+
+    /// The wrapping method that a shadow sampler created from this descriptor will use when
+    /// sampling a value at coordinates outside the range `0.0..=1.0` in the `S` ("width") direction
+    /// in texture space.
+    ///
+    /// See [Wrap] for details.
     pub wrap_s: Wrap,
+
+    /// The wrapping method that a shadow sampler created from this descriptor will use when
+    /// sampling a value at coordinates outside the range `0.0..=1.0` in the `T` ("height")
+    /// direction in texture space.
+    ///
+    /// See [Wrap] for details.
     pub wrap_t: Wrap,
+
+    /// The wrapping method that a shadow sampler created from this descriptor will use when
+    /// sampling a value at coordinates outside the range `0.0..=1.0` in the `R` ("depth") direction
+    /// in texture space.
+    ///
+    /// See [Wrap] for details.
     pub wrap_r: Wrap,
 }
 
@@ -185,6 +374,22 @@ impl Default for ShadowSamplerDescriptor {
     }
 }
 
+/// Samples depth values and compares them to a reference value using a [CompareFunction].
+///
+/// A shadow sampler can only be used with a texture that uses a depth format or a depth stencil
+/// stencil format. Rather than obtaining a (filtered) texel sample for certain texture coordinates
+/// like a normal [Sampler], sampling with a [ShadowSampler] compares the depth texel values
+/// closest to the sampled coordinates to a reference value using a [CompareFunction]. The value
+/// returned is a floating point value in the range `0.0..=1.0` where the value signifies the
+/// proportion of the texels that passed the [CompareFunction], for example: if no values passed, it
+/// returns `0.0`; if all values passed it returns `1.0`; if 1 out of 4 samples passed it returns
+/// `0.25`.
+///
+/// See the documentation for each of the [CompareFunction] variants for descriptions of how each
+/// respective function decides whether or not a texel value passes.
+///
+/// See the documentation for [RenderingContext::create_shadow_sampler] for details on how to
+/// create a [ShadowSampler].
 pub struct ShadowSampler {
     data: Arc<SamplerData>,
     descriptor: ShadowSamplerDescriptor,
@@ -217,18 +422,34 @@ impl ShadowSampler {
         &self.data
     }
 
+    /// The [CompareFunction] used by this[ShadowSampler].
+    ///
+    /// See type documentation for [ShadowSampler] and the documentation for [CompareFunction] for
+    /// details.
     pub fn compare(&self) -> CompareFunction {
         self.descriptor.compare
     }
 
+    /// The wrapping method that this [ShadowSampler] uses when sampling a value at coordinates
+    /// outside the range `0.0..=1.0` in the `S` ("width") direction in texture space.
+    ///
+    /// See [Wrap] for details.
     pub fn wrap_s(&self) -> Wrap {
         self.descriptor.wrap_s
     }
 
+    /// The wrapping method that this [ShadowSampler] uses when sampling a value at coordinates
+    /// outside the range `0.0..=1.0` in the `T` ("height") direction in texture space.
+    ///
+    /// See [Wrap] for details.
     pub fn wrap_t(&self) -> Wrap {
         self.descriptor.wrap_t
     }
 
+    /// The wrapping method that this [ShadowSampler] uses when sampling a value at coordinates
+    /// outside the range `0.0..=1.0` in the `R` ("depth") direction in texture space.
+    ///
+    /// See [Wrap] for details.
     pub fn wrap_r(&self) -> Wrap {
         self.descriptor.wrap_r
     }
@@ -257,6 +478,14 @@ pub(crate) struct SamplerData {
 impl SamplerData {
     pub(crate) fn id(&self) -> Option<JsId> {
         self.id
+    }
+
+    pub(crate) fn context_id(&self) -> usize {
+        self.context_id
+    }
+
+    pub(crate) fn extensions(&self) -> &Extensions {
+        &self.extensions
     }
 }
 
@@ -386,437 +615,5 @@ unsafe impl GpuTask<Connection> for SamplerDropCommand {
         gl.delete_sampler(Some(&value.unchecked_into()));
 
         Progress::Finished(())
-    }
-}
-
-#[derive(Clone)]
-pub struct FloatSampledTexture2D<'a> {
-    pub(crate) sampler_data: Arc<SamplerData>,
-    pub(crate) texture_data: Arc<Texture2DData>,
-    _marker: marker::PhantomData<&'a ()>,
-}
-
-impl<'a> FloatSampledTexture2D<'a> {
-    pub fn new<F>(
-        texture: &'a Texture2D<F>,
-        sampler: &'a Sampler,
-    ) -> Result<Self, IncompatibleSampler>
-    where
-        F: TextureFormat + FloatSamplable + 'static,
-    {
-        if texture.data().context_id() != sampler.data.context_id {
-            return Err(IncompatibleSampler::ContextMismatch);
-        }
-
-        F::validate_minification_filter(&sampler.data.extensions, sampler.minification_filter())?;
-        F::validate_magnification_filter(&sampler.data.extensions, sampler.magnification_filter())?;
-
-        Ok(FloatSampledTexture2D {
-            sampler_data: sampler.data().clone(),
-            texture_data: texture.data().clone(),
-            _marker: marker::PhantomData,
-        })
-    }
-}
-
-#[derive(Clone)]
-pub struct IntegerSampledTexture2D<'a> {
-    pub(crate) sampler_data: Arc<SamplerData>,
-    pub(crate) texture_data: Arc<Texture2DData>,
-    _marker: marker::PhantomData<&'a ()>,
-}
-
-impl<'a> IntegerSampledTexture2D<'a> {
-    pub fn new<F>(
-        texture: &'a Texture2D<F>,
-        sampler: &'a Sampler,
-    ) -> Result<Self, IncompatibleSampler>
-    where
-        F: TextureFormat + IntegerSamplable + 'static,
-    {
-        if texture.data().context_id() != sampler.data.context_id {
-            return Err(IncompatibleSampler::ContextMismatch);
-        }
-
-        F::validate_minification_filter(&sampler.data.extensions, sampler.minification_filter())?;
-        F::validate_magnification_filter(&sampler.data.extensions, sampler.magnification_filter())?;
-
-        Ok(IntegerSampledTexture2D {
-            sampler_data: sampler.data().clone(),
-            texture_data: texture.data().clone(),
-            _marker: marker::PhantomData,
-        })
-    }
-}
-
-#[derive(Clone)]
-pub struct UnsignedIntegerSampledTexture2D<'a> {
-    pub(crate) sampler_data: Arc<SamplerData>,
-    pub(crate) texture_data: Arc<Texture2DData>,
-    _marker: marker::PhantomData<&'a ()>,
-}
-
-impl<'a> UnsignedIntegerSampledTexture2D<'a> {
-    pub fn new<F>(
-        texture: &'a Texture2D<F>,
-        sampler: &'a Sampler,
-    ) -> Result<Self, IncompatibleSampler>
-    where
-        F: TextureFormat + UnsignedIntegerSamplable + 'static,
-    {
-        if texture.data().context_id() != sampler.data.context_id {
-            return Err(IncompatibleSampler::ContextMismatch);
-        }
-
-        F::validate_minification_filter(&sampler.data.extensions, sampler.minification_filter())?;
-        F::validate_magnification_filter(&sampler.data.extensions, sampler.magnification_filter())?;
-
-        Ok(UnsignedIntegerSampledTexture2D {
-            sampler_data: sampler.data().clone(),
-            texture_data: texture.data().clone(),
-            _marker: marker::PhantomData,
-        })
-    }
-}
-
-#[derive(Clone)]
-pub struct ShadowSampledTexture2D<'a> {
-    pub(crate) sampler_data: Arc<SamplerData>,
-    pub(crate) texture_data: Arc<Texture2DData>,
-    _marker: marker::PhantomData<&'a ()>,
-}
-
-impl<'a> ShadowSampledTexture2D<'a> {
-    pub fn new<F>(texture: &'a Texture2D<F>, sampler: &'a ShadowSampler) -> Self
-    where
-        F: TextureFormat + ShadowSamplable + 'static,
-    {
-        if texture.data().context_id() != sampler.data.context_id {
-            panic!("Texture and sampler do not belong to the same context.");
-        }
-
-        ShadowSampledTexture2D {
-            sampler_data: sampler.data().clone(),
-            texture_data: texture.data().clone(),
-            _marker: marker::PhantomData,
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct FloatSampledTexture2DArray<'a> {
-    pub(crate) sampler_data: Arc<SamplerData>,
-    pub(crate) texture_data: Arc<Texture2DArrayData>,
-    _marker: marker::PhantomData<&'a ()>,
-}
-
-impl<'a> FloatSampledTexture2DArray<'a> {
-    pub fn new<F>(
-        texture: &'a Texture2DArray<F>,
-        sampler: &'a Sampler,
-    ) -> Result<Self, IncompatibleSampler>
-    where
-        F: TextureFormat + FloatSamplable + 'static,
-    {
-        if texture.data().context_id() != sampler.data.context_id {
-            panic!("Texture and sampler do not belong to the same context.");
-        }
-
-        F::validate_minification_filter(&sampler.data.extensions, sampler.minification_filter())?;
-        F::validate_magnification_filter(&sampler.data.extensions, sampler.magnification_filter())?;
-
-        Ok(FloatSampledTexture2DArray {
-            sampler_data: sampler.data().clone(),
-            texture_data: texture.data().clone(),
-            _marker: marker::PhantomData,
-        })
-    }
-}
-
-#[derive(Clone)]
-pub struct IntegerSampledTexture2DArray<'a> {
-    pub(crate) sampler_data: Arc<SamplerData>,
-    pub(crate) texture_data: Arc<Texture2DArrayData>,
-    _marker: marker::PhantomData<&'a ()>,
-}
-
-impl<'a> IntegerSampledTexture2DArray<'a> {
-    pub fn new<F>(
-        texture: &'a Texture2DArray<F>,
-        sampler: &'a Sampler,
-    ) -> Result<Self, IncompatibleSampler>
-    where
-        F: TextureFormat + IntegerSamplable + 'static,
-    {
-        if texture.data().context_id() != sampler.data.context_id {
-            panic!("Texture and sampler do not belong to the same context.");
-        }
-
-        F::validate_minification_filter(&sampler.data.extensions, sampler.minification_filter())?;
-        F::validate_magnification_filter(&sampler.data.extensions, sampler.magnification_filter())?;
-
-        Ok(IntegerSampledTexture2DArray {
-            sampler_data: sampler.data().clone(),
-            texture_data: texture.data().clone(),
-            _marker: marker::PhantomData,
-        })
-    }
-}
-
-#[derive(Clone)]
-pub struct UnsignedIntegerSampledTexture2DArray<'a> {
-    pub(crate) sampler_data: Arc<SamplerData>,
-    pub(crate) texture_data: Arc<Texture2DArrayData>,
-    _marker: marker::PhantomData<&'a ()>,
-}
-
-impl<'a> UnsignedIntegerSampledTexture2DArray<'a> {
-    pub fn new<F>(
-        texture: &'a Texture2DArray<F>,
-        sampler: &'a Sampler,
-    ) -> Result<Self, IncompatibleSampler>
-    where
-        F: TextureFormat + UnsignedIntegerSamplable + 'static,
-    {
-        if texture.data().context_id() != sampler.data.context_id {
-            panic!("Texture and sampler do not belong to the same context.");
-        }
-
-        F::validate_minification_filter(&sampler.data.extensions, sampler.minification_filter())?;
-        F::validate_magnification_filter(&sampler.data.extensions, sampler.magnification_filter())?;
-
-        Ok(UnsignedIntegerSampledTexture2DArray {
-            sampler_data: sampler.data().clone(),
-            texture_data: texture.data().clone(),
-            _marker: marker::PhantomData,
-        })
-    }
-}
-
-#[derive(Clone)]
-pub struct ShadowSampledTexture2DArray<'a> {
-    pub(crate) sampler_data: Arc<SamplerData>,
-    pub(crate) texture_data: Arc<Texture2DArrayData>,
-    _marker: marker::PhantomData<&'a ()>,
-}
-
-impl<'a> ShadowSampledTexture2DArray<'a> {
-    pub fn new<F>(texture: &'a Texture2DArray<F>, sampler: &'a ShadowSampler) -> Self
-    where
-        F: TextureFormat + ShadowSamplable + 'static,
-    {
-        if texture.data().context_id() != sampler.data.context_id {
-            panic!("Texture and sampler do not belong to the same context.");
-        }
-
-        ShadowSampledTexture2DArray {
-            sampler_data: sampler.data().clone(),
-            texture_data: texture.data().clone(),
-            _marker: marker::PhantomData,
-        }
-    }
-}
-
-#[derive(Clone)]
-pub struct FloatSampledTexture3D<'a> {
-    pub(crate) sampler_data: Arc<SamplerData>,
-    pub(crate) texture_data: Arc<Texture3DData>,
-    _marker: marker::PhantomData<&'a ()>,
-}
-
-impl<'a> FloatSampledTexture3D<'a> {
-    pub fn new<F>(
-        texture: &'a Texture3D<F>,
-        sampler: &'a Sampler,
-    ) -> Result<Self, IncompatibleSampler>
-    where
-        F: TextureFormat + FloatSamplable + 'static,
-    {
-        if texture.data().context_id() != sampler.data.context_id {
-            panic!("Texture and sampler do not belong to the same context.");
-        }
-
-        F::validate_minification_filter(&sampler.data.extensions, sampler.minification_filter())?;
-        F::validate_magnification_filter(&sampler.data.extensions, sampler.magnification_filter())?;
-
-        Ok(FloatSampledTexture3D {
-            sampler_data: sampler.data().clone(),
-            texture_data: texture.data().clone(),
-            _marker: marker::PhantomData,
-        })
-    }
-}
-
-#[derive(Clone)]
-pub struct IntegerSampledTexture3D<'a> {
-    pub(crate) sampler_data: Arc<SamplerData>,
-    pub(crate) texture_data: Arc<Texture3DData>,
-    _marker: marker::PhantomData<&'a ()>,
-}
-
-impl<'a> IntegerSampledTexture3D<'a> {
-    pub fn new<F>(
-        texture: &'a Texture3D<F>,
-        sampler: &'a Sampler,
-    ) -> Result<Self, IncompatibleSampler>
-    where
-        F: TextureFormat + IntegerSamplable + 'static,
-    {
-        if texture.data().context_id() != sampler.data.context_id {
-            panic!("Texture and sampler do not belong to the same context.");
-        }
-
-        F::validate_minification_filter(&sampler.data.extensions, sampler.minification_filter())?;
-        F::validate_magnification_filter(&sampler.data.extensions, sampler.magnification_filter())?;
-
-        Ok(IntegerSampledTexture3D {
-            sampler_data: sampler.data().clone(),
-            texture_data: texture.data().clone(),
-            _marker: marker::PhantomData,
-        })
-    }
-}
-
-#[derive(Clone)]
-pub struct UnsignedIntegerSampledTexture3D<'a> {
-    pub(crate) sampler_data: Arc<SamplerData>,
-    pub(crate) texture_data: Arc<Texture3DData>,
-    _marker: marker::PhantomData<&'a ()>,
-}
-
-impl<'a> UnsignedIntegerSampledTexture3D<'a> {
-    pub fn new<F>(
-        texture: &'a Texture3D<F>,
-        sampler: &'a Sampler,
-    ) -> Result<Self, IncompatibleSampler>
-    where
-        F: TextureFormat + UnsignedIntegerSamplable + 'static,
-    {
-        if texture.data().context_id() != sampler.data.context_id {
-            panic!("Texture and sampler do not belong to the same context.");
-        }
-
-        F::validate_minification_filter(&sampler.data.extensions, sampler.minification_filter())?;
-        F::validate_magnification_filter(&sampler.data.extensions, sampler.magnification_filter())?;
-
-        Ok(UnsignedIntegerSampledTexture3D {
-            sampler_data: sampler.data().clone(),
-            texture_data: texture.data().clone(),
-            _marker: marker::PhantomData,
-        })
-    }
-}
-
-#[derive(Clone)]
-pub struct FloatSampledTextureCube<'a> {
-    pub(crate) sampler_data: Arc<SamplerData>,
-    pub(crate) texture_data: Arc<TextureCubeData>,
-    _marker: marker::PhantomData<&'a ()>,
-}
-
-impl<'a> FloatSampledTextureCube<'a> {
-    pub fn new<F>(
-        texture: &'a TextureCube<F>,
-        sampler: &'a Sampler,
-    ) -> Result<Self, IncompatibleSampler>
-    where
-        F: TextureFormat + FloatSamplable + 'static,
-    {
-        if texture.data().context_id() != sampler.data.context_id {
-            panic!("Texture and sampler do not belong to the same context.");
-        }
-
-        F::validate_minification_filter(&sampler.data.extensions, sampler.minification_filter())?;
-        F::validate_magnification_filter(&sampler.data.extensions, sampler.magnification_filter())?;
-
-        Ok(FloatSampledTextureCube {
-            sampler_data: sampler.data().clone(),
-            texture_data: texture.data().clone(),
-            _marker: marker::PhantomData,
-        })
-    }
-}
-
-#[derive(Clone)]
-pub struct IntegerSampledTextureCube<'a> {
-    pub(crate) sampler_data: Arc<SamplerData>,
-    pub(crate) texture_data: Arc<TextureCubeData>,
-    _marker: marker::PhantomData<&'a ()>,
-}
-
-impl<'a> IntegerSampledTextureCube<'a> {
-    pub fn new<F>(
-        texture: &'a TextureCube<F>,
-        sampler: &'a Sampler,
-    ) -> Result<Self, IncompatibleSampler>
-    where
-        F: TextureFormat + IntegerSamplable + 'static,
-    {
-        if texture.data().context_id() != sampler.data.context_id {
-            panic!("Texture and sampler do not belong to the same context.");
-        }
-
-        F::validate_minification_filter(&sampler.data.extensions, sampler.minification_filter())?;
-        F::validate_magnification_filter(&sampler.data.extensions, sampler.magnification_filter())?;
-
-        Ok(IntegerSampledTextureCube {
-            sampler_data: sampler.data().clone(),
-            texture_data: texture.data().clone(),
-            _marker: marker::PhantomData,
-        })
-    }
-}
-
-#[derive(Clone)]
-pub struct UnsignedIntegerSampledTextureCube<'a> {
-    pub(crate) sampler_data: Arc<SamplerData>,
-    pub(crate) texture_data: Arc<TextureCubeData>,
-    _marker: marker::PhantomData<&'a ()>,
-}
-
-impl<'a> UnsignedIntegerSampledTextureCube<'a> {
-    pub fn new<F>(
-        texture: &'a TextureCube<F>,
-        sampler: &'a Sampler,
-    ) -> Result<Self, IncompatibleSampler>
-    where
-        F: TextureFormat + UnsignedIntegerSamplable + 'static,
-    {
-        if texture.data().context_id() != sampler.data.context_id {
-            panic!("Texture and sampler do not belong to the same context.");
-        }
-
-        F::validate_minification_filter(&sampler.data.extensions, sampler.minification_filter())?;
-        F::validate_magnification_filter(&sampler.data.extensions, sampler.magnification_filter())?;
-
-        Ok(UnsignedIntegerSampledTextureCube {
-            sampler_data: sampler.data().clone(),
-            texture_data: texture.data().clone(),
-            _marker: marker::PhantomData,
-        })
-    }
-}
-
-#[derive(Clone)]
-pub struct ShadowSampledTextureCube<'a> {
-    pub(crate) sampler_data: Arc<SamplerData>,
-    pub(crate) texture_data: Arc<TextureCubeData>,
-    _marker: marker::PhantomData<&'a ()>,
-}
-
-impl<'a> ShadowSampledTextureCube<'a> {
-    pub fn new<F>(texture: &'a TextureCube<F>, sampler: &'a ShadowSampler) -> Self
-    where
-        F: TextureFormat + ShadowSamplable + 'static,
-    {
-        if texture.data().context_id() != sampler.data.context_id {
-            panic!("Texture and sampler do not belong to the same context.");
-        }
-
-        ShadowSampledTextureCube {
-            sampler_data: sampler.data().clone(),
-            texture_data: texture.data().clone(),
-            _marker: marker::PhantomData,
-        }
     }
 }

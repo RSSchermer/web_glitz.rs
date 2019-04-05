@@ -6,7 +6,7 @@ use futures::{Async, Poll};
 
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::buffer::{Buffer, UsageHint, IntoBuffer};
+use crate::buffer::{Buffer, IntoBuffer, UsageHint};
 use crate::image::format::{RenderbufferFormat, TextureFormat};
 use crate::image::renderbuffer::Renderbuffer;
 use crate::image::texture_2d::{Texture2D, Texture2DDescriptor};

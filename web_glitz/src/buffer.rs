@@ -57,7 +57,10 @@ where
     }
 }
 
-impl<T> Buffer<T> where T: Copy {
+impl<T> Buffer<T>
+where
+    T: Copy,
+{
     /// Returns a command which, when executed will replace the data contained in this [Buffer] with
     /// the given `data`.
     pub fn upload_command<D>(&self, data: D) -> UploadCommand<T, D>
@@ -146,7 +149,10 @@ impl<T> Buffer<[T]> {
     }
 }
 
-impl<T> Buffer<[T]> where T: Copy {
+impl<T> Buffer<[T]>
+where
+    T: Copy,
+{
     /// Returns a command which, when executed will replace the elements contained in this [Buffer]
     /// with the elements in given `data`.
     ///
@@ -157,8 +163,8 @@ impl<T> Buffer<[T]> where T: Copy {
     /// in the `data` will be used to update this [Buffer], where `M` is the number of elements in
     /// the [Buffer].
     pub fn upload_command<D>(&self, data: D) -> UploadCommand<[T], D>
-        where
-            D: Borrow<[T]> + Send + Sync + 'static,
+    where
+        D: Borrow<[T]> + Send + Sync + 'static,
     {
         UploadCommand {
             buffer_data: self.data.clone(),
@@ -216,7 +222,10 @@ where
     }
 }
 
-impl<'a, T> BufferView<'a, T> where T: Copy {
+impl<'a, T> BufferView<'a, T>
+where
+    T: Copy,
+{
     /// Returns a command which, when executed will replace the data viewed by this [BufferView]
     /// with the given `data`.
     ///
@@ -318,7 +327,10 @@ impl<'a, T> BufferView<'a, [T]> {
     }
 }
 
-impl<'a, T> BufferView<'a, [T]> where T: Copy {
+impl<'a, T> BufferView<'a, [T]>
+where
+    T: Copy,
+{
     /// Returns a command which, when executed will replace the elements viewed by this [BufferView]
     /// with the elements in given `data`.
     ///
@@ -333,8 +345,8 @@ impl<'a, T> BufferView<'a, [T]> where T: Copy {
     /// This will modify the viewed [Buffer], the buffer (and any other views on the same data) will
     /// be affected by this change.
     pub fn upload_command<D>(&self, data: D) -> UploadCommand<[T], D>
-        where
-            D: Borrow<[T]> + Send + Sync + 'static,
+    where
+        D: Borrow<[T]> + Send + Sync + 'static,
     {
         UploadCommand {
             buffer_data: self.buffer.data.clone(),
@@ -376,8 +388,8 @@ impl<'a, T> Clone for BufferView<'a, [T]> {
 /// buffer. WebGlitz relies on the semantics associated with the `Copy` trait to ensure that this
 /// is safe and does not result in memory leaks.
 pub trait IntoBuffer<T>
-    where
-        T: ?Sized,
+where
+    T: ?Sized,
 {
     /// Stores the data in a buffer belonging to the given [context], using the given [usage_hint].
     ///
@@ -387,18 +399,18 @@ pub trait IntoBuffer<T>
     /// The usage hint may be used by the GPU driver for performance optimizations, see [UsageHint]
     /// for details.
     fn into_buffer<Rc>(self, context: &Rc, usage_hint: UsageHint) -> Buffer<T>
-        where
-            Rc: RenderingContext + Clone + 'static;
+    where
+        Rc: RenderingContext + Clone + 'static;
 }
 
 impl<D, T> IntoBuffer<T> for D
-    where
-        D: Borrow<T> + 'static,
-        T: Copy + 'static,
+where
+    D: Borrow<T> + 'static,
+    T: Copy + 'static,
 {
     fn into_buffer<Rc>(self, context: &Rc, usage_hint: UsageHint) -> Buffer<T>
-        where
-            Rc: RenderingContext + Clone + 'static,
+    where
+        Rc: RenderingContext + Clone + 'static,
     {
         let data = Arc::new(BufferData {
             id: None,
@@ -422,13 +434,13 @@ impl<D, T> IntoBuffer<T> for D
 }
 
 impl<D, T> IntoBuffer<[T]> for D
-    where
-        D: Borrow<[T]> + 'static,
-        T: Copy + 'static,
+where
+    D: Borrow<[T]> + 'static,
+    T: Copy + 'static,
 {
     fn into_buffer<Rc>(self, context: &Rc, usage_hint: UsageHint) -> Buffer<[T]>
-        where
-            Rc: RenderingContext + Clone + 'static,
+    where
+        Rc: RenderingContext + Clone + 'static,
     {
         let len = self.borrow().len();
         let data = Arc::new(BufferData {
@@ -767,8 +779,8 @@ impl<'a, T> BufferIndex<BufferView<'a, [T]>> for RangeToInclusive<usize> {
 ///
 /// See [Buffer::upload_command] and [BufferView::upload_command] for details.
 pub struct UploadCommand<T, D>
-    where
-        T: ?Sized,
+where
+    T: ?Sized,
 {
     buffer_data: Arc<BufferData>,
     data: D,
@@ -778,8 +790,8 @@ pub struct UploadCommand<T, D>
 }
 
 unsafe impl<T, D> GpuTask<Connection> for UploadCommand<T, D>
-    where
-        D: Borrow<T>,
+where
+    D: Borrow<T>,
 {
     type Output = ();
 
@@ -820,8 +832,8 @@ unsafe impl<T, D> GpuTask<Connection> for UploadCommand<T, D>
 }
 
 unsafe impl<T, D> GpuTask<Connection> for UploadCommand<[T], D>
-    where
-        D: Borrow<[T]>,
+where
+    D: Borrow<[T]>,
 {
     type Output = ();
 
@@ -871,8 +883,8 @@ unsafe impl<T, D> GpuTask<Connection> for UploadCommand<[T], D>
 ///
 /// See [Buffer::download_command] and [BufferView::download_command] for details.
 pub struct DownloadCommand<T>
-    where
-        T: ?Sized,
+where
+    T: ?Sized,
 {
     data: Arc<BufferData>,
     state: DownloadState,
@@ -1043,8 +1055,8 @@ trait BufferObjectDropper {
 }
 
 impl<T> BufferObjectDropper for T
-    where
-        T: RenderingContext,
+where
+    T: RenderingContext,
 {
     fn drop_buffer_object(&self, id: JsId) {
         self.submit(DropCommand { id });

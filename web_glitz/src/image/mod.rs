@@ -1,5 +1,5 @@
-mod image_source;
-pub use self::image_source::{Alignment, FromPixelsError, Image2DSource, Image3DSource};
+pub(crate) mod image_source;
+pub use self::image_source::{FromPixelsError, Image2DSource, Image3DSource};
 
 pub mod format;
 pub mod renderbuffer;
@@ -10,6 +10,8 @@ pub mod texture_cube;
 
 mod texture_object_dropper;
 mod util;
+
+use crate::image::format::{InvalidMagnificationFilter, InvalidMinificationFilter};
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Region2D {
@@ -43,4 +45,21 @@ pub enum MipmapLevels {
 pub struct MaxMipmapLevelsExceeded {
     pub given: usize,
     pub max: usize,
+}
+
+pub enum IncompatibleSampler {
+    InvalidMagnificationFilter(InvalidMagnificationFilter),
+    InvalidMinificationFilter(InvalidMinificationFilter),
+}
+
+impl From<InvalidMagnificationFilter> for IncompatibleSampler {
+    fn from(err: InvalidMagnificationFilter) -> Self {
+        IncompatibleSampler::InvalidMagnificationFilter(err)
+    }
+}
+
+impl From<InvalidMinificationFilter> for IncompatibleSampler {
+    fn from(err: InvalidMinificationFilter) -> Self {
+        IncompatibleSampler::InvalidMinificationFilter(err)
+    }
 }

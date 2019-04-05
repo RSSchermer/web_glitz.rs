@@ -204,7 +204,8 @@ pub enum MatrixOrder {
     RowMajor,
 }
 
-/// Enumerates the kinds of memory unit layouts that can occur within an interface block.
+/// Enumerates the kinds of memory unit layouts for memory units that can occur within an interface
+/// block.
 #[derive(PartialEq, Clone, Debug)]
 pub enum UnitLayout {
     Float,

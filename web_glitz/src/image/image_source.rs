@@ -2,6 +2,34 @@ use std::borrow::Borrow;
 use std::marker;
 use std::mem;
 
+/// Encapsulates data that may be uploaded to a 2D texture (sub-)image.
+///
+/// # Example
+///
+/// ```rust
+/// # use web_glitz::runtime::RenderingContext;
+/// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
+/// use web_glitz::image::{Image2DSource, MipmapLevels};
+/// use web_glitz::image::format::RGB8;
+/// use web_glitz::image::texture_2d::Texture2DDescriptor;
+///
+/// let texture = context.create_texture_2d(&Texture2DDescriptor {
+///     format: RGB8,
+///     width: 256,
+///     height: 256,
+///     levels: MipmapLevels::Auto
+/// });
+///
+/// let data: Vec<[u8; 3]> = vec![[255, 0, 0]; 256 * 256];
+/// let image_source = Image2DSource::from_pixels(data, 256, 256).unwrap();
+///
+/// context.submit(texture.base_level().upload_command(image_source));
+/// # }
+/// ```
+///
+/// Note that the pixel data type (`[u8; 3]` in the example) must implement [ClientFormat] for the
+/// texture's [InternalFormat] (in this case that means `ClientFormat<RGB8>` must be implemented
+/// for `[u8; 3]`, which it is).
 pub struct Image2DSource<D, T> {
     pub(crate) internal: Image2DSourceInternal<D>,
     _marker: marker::PhantomData<[T]>,
@@ -20,6 +48,20 @@ impl<D, T> Image2DSource<D, T>
 where
     D: Borrow<[T]>,
 {
+    /// Creates a new [Image2DSource] from the `pixels` for an image with the given `width` and the
+    /// given `height`.
+    ///
+    /// Returns [FromPixelsError::NotEnoughPixels] if the `pixels` does not contain enough data for
+    /// at least `width * height` pixels.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use web_glitz::image::Image2DSource;
+    ///
+    /// let data: Vec<[u8; 3]> = vec![[255, 0, 0]; 256 * 256];
+    /// let image_source = Image2DSource::from_pixels(data, 256, 256).unwrap();
+    /// ```
     pub fn from_pixels(pixels: D, width: u32, height: u32) -> Result<Self, FromPixelsError> {
         let len = pixels.borrow().len();
         let expected_len = width * height;
@@ -48,6 +90,35 @@ where
     }
 }
 
+/// Encapsulates data that may be uploaded to a layered texture (sub-)image.
+///
+/// # Example
+///
+/// ```rust
+/// # use web_glitz::runtime::RenderingContext;
+/// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
+/// use web_glitz::image::{Image3DSource, MipmapLevels};
+/// use web_glitz::image::format::RGB8;
+/// use web_glitz::image::texture_2d::Texture3DDescriptor;
+///
+/// let texture = context.create_texture_3d(&Texture3DDescriptor {
+///     format: RGB8,
+///     width: 256,
+///     height: 256,
+///     depth: 256,
+///     levels: MipmapLevels::Auto
+/// });
+///
+/// let data: Vec<[u8; 3]> = vec![[255, 0, 0]; 256 * 256 * 256];
+/// let image_source = Image3DSource::from_pixels(data, 256, 256, 256).unwrap();
+///
+/// context.submit(texture.base_level().upload_command(image_source));
+/// # }
+/// ```
+///
+/// Note that the pixel data type (`[u8; 3]` in the example) must implement [ClientFormat] for the
+/// texture's [InternalFormat] (in this case that means `ClientFormat<RGB8>` must be implemented
+/// for `[u8; 3]`, which it is).
 pub struct Image3DSource<D, T> {
     pub(crate) internal: Image3DSourceInternal<D>,
     _marker: marker::PhantomData<[T]>,
@@ -67,6 +138,20 @@ impl<D, T> Image3DSource<D, T>
 where
     D: Borrow<[T]>,
 {
+    /// Creates a new [Image2DSource] from the `pixels` for an image with the given `width`, the
+    /// given `height` and the given `depth`.
+    ///
+    /// Returns [FromPixelsError::NotEnoughPixels] if the `pixels` does not contain enough data for
+    /// at least `width * height * depth` pixels.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use web_glitz::image::Image3DSource;
+    ///
+    /// let data: Vec<[u8; 3]> = vec![[255, 0, 0]; 256 * 256 * 256];
+    /// let image_source = Image3DSource::from_pixels(data, 256, 256, 256).unwrap();
+    /// ```
     pub fn from_pixels(
         pixels: D,
         width: u32,
@@ -101,13 +186,20 @@ where
     }
 }
 
+/// Error returned by [Image2DSource::from_pixels] or [Image3DSource::from_pixels].
+///
+/// See [Image2DSource::from_pixels] and [Image3DSource::from_pixels] for details.
 pub enum FromPixelsError {
+    /// Variant returned when the data does not contain enough pixels to describe an image of the
+    /// required dimensions.
     NotEnoughPixels(usize, u32),
+
+    /// Variant returned when the pixel data type has an unsupported alignment.
     UnsupportedAlignment(usize),
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
-pub enum Alignment {
+pub(crate) enum Alignment {
     Byte,
     Byte2,
     Byte4,

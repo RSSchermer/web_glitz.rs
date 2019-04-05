@@ -9,21 +9,26 @@ use std::hash::{Hash, Hasher};
 use js_sys::{Uint32Array, Uint8Array};
 use web_sys::{WebGl2RenderingContext as Gl, WebGlProgram, WebGlUniformLocation};
 
+/// Describes a slot for a resource in a GPU pipeline.
 pub struct ResourceSlotDescriptor {
     identifier: Identifier,
-    slot: Slot,
+    slot: SlotType,
 }
 
 impl ResourceSlotDescriptor {
-    pub(crate) fn new(identifier: Identifier, slot: Slot) -> Self {
+    pub(crate) fn new(identifier: Identifier, slot: SlotType) -> Self {
         ResourceSlotDescriptor { identifier, slot }
     }
 
+    /// Returns the identifier for the slot.
     pub fn identifier(&self) -> &Identifier {
         &self.identifier
     }
 
-    pub fn slot(&self) -> &Slot {
+    /// Returns information about the type of the slot.
+    ///
+    /// See [SlotType] for details.
+    pub fn slot_type(&self) -> &SlotType {
         &self.slot
     }
 }
@@ -62,20 +67,20 @@ impl PartialEq for Identifier {
     }
 }
 
-pub enum Slot {
+pub enum SlotType {
     UniformBlock(UniformBlockSlot),
     TextureSampler(TextureSamplerSlot),
 }
 
-impl From<UniformBlockSlot> for Slot {
+impl From<UniformBlockSlot> for SlotType {
     fn from(slot: UniformBlockSlot) -> Self {
-        Slot::UniformBlock(slot)
+        SlotType::UniformBlock(slot)
     }
 }
 
-impl From<TextureSamplerSlot> for Slot {
+impl From<TextureSamplerSlot> for SlotType {
     fn from(slot: TextureSamplerSlot) -> Self {
-        Slot::TextureSampler(slot)
+        SlotType::TextureSampler(slot)
     }
 }
 
@@ -591,13 +596,13 @@ impl<'a> SlotBindingConfirmer for SlotBindingChecker<'a> {
         descriptor: &ResourceSlotDescriptor,
         binding: usize,
     ) -> Result<(), SlotBindingMismatch> {
-        let initial_binding = match descriptor.slot() {
-            Slot::TextureSampler(slot) => self
+        let initial_binding = match descriptor.slot_type() {
+            SlotType::TextureSampler(slot) => self
                 .gl
                 .get_uniform(&self.program, slot.location())
                 .as_f64()
                 .unwrap() as usize,
-            Slot::UniformBlock(slot) => self
+            SlotType::UniformBlock(slot) => self
                 .gl
                 .get_active_uniform_block_parameter(
                     &self.program,
@@ -637,11 +642,11 @@ impl<'a> SlotBindingConfirmer for SlotBindingUpdater<'a> {
         descriptor: &ResourceSlotDescriptor,
         binding: usize,
     ) -> Result<(), SlotBindingMismatch> {
-        match descriptor.slot() {
-            Slot::TextureSampler(slot) => {
+        match descriptor.slot_type() {
+            SlotType::TextureSampler(slot) => {
                 self.gl.uniform1i(Some(slot.location()), binding as i32);
             }
-            Slot::UniformBlock(slot) => {
+            SlotType::UniformBlock(slot) => {
                 self.gl
                     .uniform_block_binding(self.program, slot.index(), binding as u32);
             }

@@ -138,7 +138,7 @@ where
 
         gl.renderbuffer_storage(
             Gl::RENDERBUFFER,
-            F::id(),
+            F::ID,
             data.width as i32,
             data.height as i32,
         );
