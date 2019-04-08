@@ -8,7 +8,7 @@ use std::mem;
 ///
 /// ```rust
 /// # use web_glitz::runtime::RenderingContext;
-/// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
+/// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
 /// use web_glitz::image::{Image2DSource, MipmapLevels};
 /// use web_glitz::image::format::RGB8;
 /// use web_glitz::image::texture_2d::Texture2DDescriptor;
@@ -18,7 +18,7 @@ use std::mem;
 ///     width: 256,
 ///     height: 256,
 ///     levels: MipmapLevels::Auto
-/// });
+/// }).unwrap();
 ///
 /// let data: Vec<[u8; 3]> = vec![[255, 0, 0]; 256 * 256];
 /// let image_source = Image2DSource::from_pixels(data, 256, 256).unwrap();
@@ -96,7 +96,7 @@ where
 ///
 /// ```rust
 /// # use web_glitz::runtime::RenderingContext;
-/// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
+/// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
 /// use web_glitz::image::{Image3DSource, MipmapLevels};
 /// use web_glitz::image::format::RGB8;
 /// use web_glitz::image::texture_2d::Texture3DDescriptor;
@@ -107,7 +107,7 @@ where
 ///     height: 256,
 ///     depth: 256,
 ///     levels: MipmapLevels::Auto
-/// });
+/// }).unwrap();
 ///
 /// let data: Vec<[u8; 3]> = vec![[255, 0, 0]; 256 * 256 * 256];
 /// let image_source = Image3DSource::from_pixels(data, 256, 256, 256).unwrap();
