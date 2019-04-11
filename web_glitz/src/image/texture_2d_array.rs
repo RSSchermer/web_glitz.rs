@@ -9,7 +9,10 @@ use std::sync::Arc;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::image::format::{ClientFormat, Filterable, TextureFormat, FloatSamplable, IntegerSamplable, UnsignedIntegerSamplable, ShadowSamplable};
+use crate::image::format::{
+    ClientFormat, Filterable, FloatSamplable, IntegerSamplable, ShadowSamplable, TextureFormat,
+    UnsignedIntegerSamplable,
+};
 use crate::image::image_source::{Image2DSourceInternal, LayeredImageSourceInternal};
 use crate::image::texture_object_dropper::TextureObjectDropper;
 use crate::image::util::{
@@ -17,12 +20,15 @@ use crate::image::util::{
     region_2d_sub_image, region_3d_overlap_depth, region_3d_overlap_height,
     region_3d_overlap_width, region_3d_sub_image,
 };
-use crate::image::{Image2DSource, LayeredImageSource, Region2D, Region3D, MaxMipmapLevelsExceeded, MipmapLevels, IncompatibleSampler};
+use crate::image::{
+    Image2DSource, IncompatibleSampler, LayeredImageSource, MaxMipmapLevelsExceeded, MipmapLevels,
+    Region2D, Region3D,
+};
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
+use crate::sampler::{Sampler, SamplerData, ShadowSampler};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, JsId};
-use crate::sampler::{Sampler, SamplerData, ShadowSampler};
 
 /// Provides the information necessary for the creation of a [Texture2DArray].
 ///
@@ -294,17 +300,17 @@ where
         }
     }
 
-    /// The width of this [Texture2D].
+    /// The width of this [Texture2DArray].
     pub fn width(&self) -> u32 {
         self.data.width
     }
 
-    /// The height of this [Texture2D].
+    /// The height of this [Texture2DArray].
     pub fn height(&self) -> u32 {
         self.data.height
     }
 
-    /// The depth of this [Texture2D].
+    /// The depth of this [Texture2DArray].
     pub fn depth(&self) -> u32 {
         self.data.depth
     }
@@ -334,27 +340,36 @@ where
 }
 
 impl<F> Texture2DArray<F>
-    where
-        F: TextureFormat + FloatSamplable + 'static,
+where
+    F: TextureFormat + FloatSamplable + 'static,
 {
     /// Combines this [Texture2DArray] with the `sampler` as a [FloatSampledTexture2DArray], which
     /// can be bound to a pipeline as a texture resource.
-    /// 
-    /// Returns an [IncompatibleSampler] error if the `sampler` is not compatible with this 
+    ///
+    /// Returns an [IncompatibleSampler] error if the `sampler` is not compatible with this
     /// texture's format.
-    /// 
+    ///
     /// See also [web_glitz::pipeline::resources::Resources].
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if this texture and the `sampler` do not belong to the same [RenderingContext].
-    pub fn float_sampled(&self, sampler: &Sampler) -> Result<FloatSampledTexture2DArray, IncompatibleSampler> {
+    pub fn float_sampled(
+        &self,
+        sampler: &Sampler,
+    ) -> Result<FloatSampledTexture2DArray, IncompatibleSampler> {
         if self.data().context_id() != sampler.data().context_id() {
             panic!("Texture and sampler do not belong to the same context.");
         }
 
-        F::validate_minification_filter(&sampler.data().extensions(), sampler.minification_filter())?;
-        F::validate_magnification_filter(&sampler.data().extensions(), sampler.magnification_filter())?;
+        F::validate_minification_filter(
+            &sampler.data().extensions(),
+            sampler.minification_filter(),
+        )?;
+        F::validate_magnification_filter(
+            &sampler.data().extensions(),
+            sampler.magnification_filter(),
+        )?;
 
         Ok(FloatSampledTexture2DArray {
             sampler_data: sampler.data().clone(),
@@ -374,27 +389,36 @@ pub struct FloatSampledTexture2DArray<'a> {
 }
 
 impl<F> Texture2DArray<F>
-    where
-        F: TextureFormat + IntegerSamplable + 'static,
+where
+    F: TextureFormat + IntegerSamplable + 'static,
 {
     /// Combines this [Texture2DArray] with the `sampler` as a [IntegerSampledTexture2DArray], which
     /// can be bound to a pipeline as a texture resource.
-    /// 
-    /// Returns an [IncompatibleSampler] error if the `sampler` is not compatible with this 
+    ///
+    /// Returns an [IncompatibleSampler] error if the `sampler` is not compatible with this
     /// texture's format.
     ///
     /// See also [web_glitz::pipeline::resources::Resources].
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if this texture and the `sampler` do not belong to the same [RenderingContext].
-    pub fn integer_sampled(&self, sampler: &Sampler) -> Result<IntegerSampledTexture2DArray, IncompatibleSampler> {
+    pub fn integer_sampled(
+        &self,
+        sampler: &Sampler,
+    ) -> Result<IntegerSampledTexture2DArray, IncompatibleSampler> {
         if self.data().context_id() != sampler.data().context_id() {
             panic!("Texture and sampler do not belong to the same context.");
         }
 
-        F::validate_minification_filter(&sampler.data().extensions(), sampler.minification_filter())?;
-        F::validate_magnification_filter(&sampler.data().extensions(), sampler.magnification_filter())?;
+        F::validate_minification_filter(
+            &sampler.data().extensions(),
+            sampler.minification_filter(),
+        )?;
+        F::validate_magnification_filter(
+            &sampler.data().extensions(),
+            sampler.magnification_filter(),
+        )?;
 
         Ok(IntegerSampledTexture2DArray {
             sampler_data: sampler.data().clone(),
@@ -414,28 +438,37 @@ pub struct IntegerSampledTexture2DArray<'a> {
 }
 
 impl<F> Texture2DArray<F>
-    where
-        F: TextureFormat + UnsignedIntegerSamplable + 'static,
+where
+    F: TextureFormat + UnsignedIntegerSamplable + 'static,
 {
     /// Combines this [Texture2DArray] with the `sampler` as a
     /// [UnsignedIntegerSampledTexture2DArray], which can be bound to a pipeline as a texture
     /// resource.
-    /// 
-    /// Returns an [IncompatibleSampler] error if the `sampler` is not compatible with this 
+    ///
+    /// Returns an [IncompatibleSampler] error if the `sampler` is not compatible with this
     /// texture's format.
     ///
     /// See also [web_glitz::pipeline::resources::Resources].
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if this texture and the `sampler` do not belong to the same [RenderingContext].
-    pub fn unsigned_integer_sampled(&self, sampler: &Sampler) -> Result<UnsignedIntegerSampledTexture2DArray, IncompatibleSampler> {
+    pub fn unsigned_integer_sampled(
+        &self,
+        sampler: &Sampler,
+    ) -> Result<UnsignedIntegerSampledTexture2DArray, IncompatibleSampler> {
         if self.data().context_id() != sampler.data().context_id() {
             panic!("Texture and sampler do not belong to the same context.");
         }
 
-        F::validate_minification_filter(&sampler.data().extensions(), sampler.minification_filter())?;
-        F::validate_magnification_filter(&sampler.data().extensions(), sampler.magnification_filter())?;
+        F::validate_minification_filter(
+            &sampler.data().extensions(),
+            sampler.minification_filter(),
+        )?;
+        F::validate_magnification_filter(
+            &sampler.data().extensions(),
+            sampler.magnification_filter(),
+        )?;
 
         Ok(UnsignedIntegerSampledTexture2DArray {
             sampler_data: sampler.data().clone(),
@@ -455,17 +488,17 @@ pub struct UnsignedIntegerSampledTexture2DArray<'a> {
 }
 
 impl<F> Texture2DArray<F>
-    where
-        F: TextureFormat + ShadowSamplable + 'static,
+where
+    F: TextureFormat + ShadowSamplable + 'static,
 {
     /// Combines this [Texture2DArray] with the `shadow_sampler` as a [ShadowSampledTexture2DArray],
     /// which can be bound to a pipeline as a texture resource.
-    /// 
+    ///
     /// See also [web_glitz::pipeline::resources::Resources].
-    /// 
+    ///
     /// # Panics
-    /// 
-    /// Panics if this texture and the `shadow_sampler` do not belong to the same 
+    ///
+    /// Panics if this texture and the `shadow_sampler` do not belong to the same
     /// [RenderingContext].
     pub fn shadow_sampled(&self, shadow_sampler: &ShadowSampler) -> ShadowSampledTexture2DArray {
         if self.data().context_id() != shadow_sampler.data().context_id() {
@@ -903,7 +936,6 @@ where
         self.handle.data.depth
     }
 
-
     /// Returns a reference to the layers of this [Level].
     ///
     /// # Examples
@@ -1026,7 +1058,10 @@ where
     /// context.submit(texture.base_level().upload_command(data));
     /// # }
     /// ```
-    pub fn upload_command<D, T>(&self, data: LayeredImageSource<D, T>) -> LevelUploadCommand<D, T, F>
+    pub fn upload_command<D, T>(
+        &self,
+        data: LayeredImageSource<D, T>,
+    ) -> LevelUploadCommand<D, T, F>
     where
         T: ClientFormat<F>,
     {
@@ -1610,7 +1645,10 @@ where
     /// image region with the image data provided in `data`.
     ///
     /// See also [Level::upload_command].
-    pub fn upload_command<D, T>(&self, data: LayeredImageSource<D, T>) -> LevelUploadCommand<D, T, F>
+    pub fn upload_command<D, T>(
+        &self,
+        data: LayeredImageSource<D, T>,
+    ) -> LevelUploadCommand<D, T, F>
     where
         T: ClientFormat<F>,
     {

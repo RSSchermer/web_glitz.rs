@@ -1,21 +1,17 @@
 use crate::buffer::BufferView;
 use crate::image::texture_2d::{
-    FloatSampledTexture2D, IntegerSampledTexture2D,  ShadowSampledTexture2D,
+    FloatSampledTexture2D, IntegerSampledTexture2D, ShadowSampledTexture2D,
     UnsignedIntegerSampledTexture2D,
 };
 use crate::image::texture_2d_array::{
-    FloatSampledTexture2DArray, IntegerSampledTexture2DArray,
-    ShadowSampledTexture2DArray,
+    FloatSampledTexture2DArray, IntegerSampledTexture2DArray, ShadowSampledTexture2DArray,
     UnsignedIntegerSampledTexture2DArray,
 };
 use crate::image::texture_3d::{
-    FloatSampledTexture3D,
-
-    IntegerSampledTexture3D,  UnsignedIntegerSampledTexture3D,
+    FloatSampledTexture3D, IntegerSampledTexture3D, UnsignedIntegerSampledTexture3D,
 };
 use crate::image::texture_cube::{
-
-    FloatSampledTextureCube, IntegerSampledTextureCube,  ShadowSampledTextureCube,
+    FloatSampledTextureCube, IntegerSampledTextureCube, ShadowSampledTextureCube,
     UnsignedIntegerSampledTextureCube,
 };
 use crate::pipeline::interface_block;

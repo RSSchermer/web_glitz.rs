@@ -1,5 +1,5 @@
-use crate::runtime::Connection;
 use crate::runtime::state::ContextUpdate;
+use crate::runtime::Connection;
 
 /// Describes the viewport used by by a [GraphicsPipeline].
 ///

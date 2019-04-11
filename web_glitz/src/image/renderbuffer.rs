@@ -15,7 +15,10 @@ use std::hash::Hasher;
 /// Provides the information necessary for the creation of a [Renderbuffer].
 ///
 /// See [RenderingContext::create_renderbuffer] for details.
-pub struct RenderbufferDescriptor<F> where F: RenderbufferFormat {
+pub struct RenderbufferDescriptor<F>
+where
+    F: RenderbufferFormat,
+{
     /// The format type the [Renderbuffer] will use to store its image data.
     ///
     /// Must implement [RenderbufferFormat].

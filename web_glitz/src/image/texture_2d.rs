@@ -8,19 +8,24 @@ use std::sync::Arc;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::image::format::{ClientFormat, Filterable, TextureFormat, FloatSamplable, IntegerSamplable, UnsignedIntegerSamplable, ShadowSamplable};
+use crate::image::format::{
+    ClientFormat, Filterable, FloatSamplable, IntegerSamplable, ShadowSamplable, TextureFormat,
+    UnsignedIntegerSamplable,
+};
 use crate::image::image_source::Image2DSourceInternal;
 use crate::image::texture_object_dropper::TextureObjectDropper;
 use crate::image::util::{
     max_mipmap_levels, mipmap_size, region_2d_overlap_height, region_2d_overlap_width,
     region_2d_sub_image,
 };
-use crate::image::{Image2DSource, Region2D, IncompatibleSampler, MaxMipmapLevelsExceeded, MipmapLevels};
+use crate::image::{
+    Image2DSource, IncompatibleSampler, MaxMipmapLevelsExceeded, MipmapLevels, Region2D,
+};
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
+use crate::sampler::{Sampler, SamplerData, ShadowSampler};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::{arc_get_mut_unchecked, slice_make_mut, JsId};
-use crate::sampler::{Sampler, SamplerData, ShadowSampler};
 
 /// Provides the information necessary for the creation of a [Texture2D].
 ///
@@ -273,8 +278,8 @@ where
 }
 
 impl<F> Texture2D<F>
-    where
-        F: TextureFormat + Filterable + 'static,
+where
+    F: TextureFormat + Filterable + 'static,
 {
     /// Returns a command which, when executed, will generate new mipmap data for the [Texture2D].
     ///
@@ -295,8 +300,8 @@ impl<F> Texture2D<F>
 }
 
 impl<F> Texture2D<F>
-    where
-        F: TextureFormat + FloatSamplable + 'static,
+where
+    F: TextureFormat + FloatSamplable + 'static,
 {
     /// Combines this [Texture2D] with the `sampler` as a [FloatSampledTexture2D], which can be
     /// bound to a pipeline as a texture resource.
@@ -309,13 +314,22 @@ impl<F> Texture2D<F>
     /// # Panics
     ///
     /// Panics if this texture and the `sampler` do not belong to the same [RenderingContext].
-    pub fn float_sampled(&self, sampler: &Sampler) -> Result<FloatSampledTexture2D, IncompatibleSampler> {
+    pub fn float_sampled(
+        &self,
+        sampler: &Sampler,
+    ) -> Result<FloatSampledTexture2D, IncompatibleSampler> {
         if self.data().context_id() != sampler.data().context_id() {
             panic!("Texture and sampler do not belong to the same context.");
         }
 
-        F::validate_minification_filter(&sampler.data().extensions(), sampler.minification_filter())?;
-        F::validate_magnification_filter(&sampler.data().extensions(), sampler.magnification_filter())?;
+        F::validate_minification_filter(
+            &sampler.data().extensions(),
+            sampler.minification_filter(),
+        )?;
+        F::validate_magnification_filter(
+            &sampler.data().extensions(),
+            sampler.magnification_filter(),
+        )?;
 
         Ok(FloatSampledTexture2D {
             sampler_data: sampler.data().clone(),
@@ -335,8 +349,8 @@ pub struct FloatSampledTexture2D<'a> {
 }
 
 impl<F> Texture2D<F>
-    where
-        F: TextureFormat + IntegerSamplable + 'static,
+where
+    F: TextureFormat + IntegerSamplable + 'static,
 {
     /// Combines this [Texture2D] with the `sampler` as a [IntegerSampledTexture2D], which can be
     /// bound to a pipeline as a texture resource.
@@ -349,13 +363,22 @@ impl<F> Texture2D<F>
     /// # Panics
     ///
     /// Panics if this texture and the `sampler` do not belong to the same [RenderingContext].
-    pub fn integer_sampled(&self, sampler: &Sampler) -> Result<IntegerSampledTexture2D, IncompatibleSampler> {
+    pub fn integer_sampled(
+        &self,
+        sampler: &Sampler,
+    ) -> Result<IntegerSampledTexture2D, IncompatibleSampler> {
         if self.data().context_id() != sampler.data().context_id() {
             panic!("Texture and sampler do not belong to the same context.");
         }
 
-        F::validate_minification_filter(&sampler.data().extensions(), sampler.minification_filter())?;
-        F::validate_magnification_filter(&sampler.data().extensions(), sampler.magnification_filter())?;
+        F::validate_minification_filter(
+            &sampler.data().extensions(),
+            sampler.minification_filter(),
+        )?;
+        F::validate_magnification_filter(
+            &sampler.data().extensions(),
+            sampler.magnification_filter(),
+        )?;
 
         Ok(IntegerSampledTexture2D {
             sampler_data: sampler.data().clone(),
@@ -375,8 +398,8 @@ pub struct IntegerSampledTexture2D<'a> {
 }
 
 impl<F> Texture2D<F>
-    where
-        F: TextureFormat + UnsignedIntegerSamplable + 'static,
+where
+    F: TextureFormat + UnsignedIntegerSamplable + 'static,
 {
     /// Combines this [Texture2D] with the `sampler` as a [UnsignedIntegerSampledTexture2D], which
     /// can be bound to a pipeline as a texture resource.
@@ -389,13 +412,22 @@ impl<F> Texture2D<F>
     /// # Panics
     ///
     /// Panics if this texture and the `sampler` do not belong to the same [RenderingContext].
-    pub fn unsigned_integer_sampled(&self, sampler: &Sampler) -> Result<UnsignedIntegerSampledTexture2D, IncompatibleSampler> {
+    pub fn unsigned_integer_sampled(
+        &self,
+        sampler: &Sampler,
+    ) -> Result<UnsignedIntegerSampledTexture2D, IncompatibleSampler> {
         if self.data().context_id() != sampler.data().context_id() {
             panic!("Texture and sampler do not belong to the same context.");
         }
 
-        F::validate_minification_filter(&sampler.data().extensions(), sampler.minification_filter())?;
-        F::validate_magnification_filter(&sampler.data().extensions(), sampler.magnification_filter())?;
+        F::validate_minification_filter(
+            &sampler.data().extensions(),
+            sampler.minification_filter(),
+        )?;
+        F::validate_magnification_filter(
+            &sampler.data().extensions(),
+            sampler.magnification_filter(),
+        )?;
 
         Ok(UnsignedIntegerSampledTexture2D {
             sampler_data: sampler.data().clone(),
@@ -415,8 +447,8 @@ pub struct UnsignedIntegerSampledTexture2D<'a> {
 }
 
 impl<F> Texture2D<F>
-    where
-        F: TextureFormat + ShadowSamplable + 'static,
+where
+    F: TextureFormat + ShadowSamplable + 'static,
 {
     /// Combines this [Texture2D] with the `shadow_sampler` as a [ShadowSampledTexture2D], which
     /// can be bound to a pipeline as a texture resource.
