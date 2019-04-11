@@ -10,7 +10,7 @@ use web_sys::{HtmlCanvasElement, WebGl2RenderingContext as Gl};
 
 use crate::buffer::{Buffer, IntoBuffer, UsageHint};
 use crate::image::format::{RenderbufferFormat, TextureFormat};
-use crate::image::renderbuffer::Renderbuffer;
+use crate::image::renderbuffer::{Renderbuffer, RenderbufferDescriptor};
 use crate::image::texture_2d::{Texture2D, Texture2DDescriptor};
 use crate::image::texture_2d_array::{Texture2DArray, Texture2DArrayDescriptor};
 use crate::image::texture_3d::{Texture3D, Texture3DDescriptor};
@@ -87,11 +87,11 @@ impl RenderingContext for SingleThreadedContext {
         data.into_buffer(self, usage_hint)
     }
 
-    fn create_renderbuffer<F>(&self, width: u32, height: u32) -> Renderbuffer<F>
+    fn create_renderbuffer<F>(&self, descriptor: &RenderbufferDescriptor<F>) -> Renderbuffer<F>
     where
         F: RenderbufferFormat + 'static,
     {
-        Renderbuffer::new(self, width, height)
+        Renderbuffer::new(self, descriptor)
     }
 
     fn create_vertex_shader<S>(&self, source: S) -> Result<VertexShader, ShaderCompilationError>

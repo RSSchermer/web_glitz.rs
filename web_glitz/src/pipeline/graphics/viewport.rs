@@ -1,5 +1,4 @@
 use crate::runtime::Connection;
-
 use crate::runtime::state::ContextUpdate;
 
 /// Describes the viewport used by by a [GraphicsPipeline].
@@ -19,6 +18,8 @@ use crate::runtime::state::ContextUpdate;
 ///
 /// 1. With explicit values:
 ///    ```
+///    use web_glitz::pipeline::graphics::Viewport;
+///
 ///    let viewport = Viewport::Region((X_vp, Y_vp), width, height);
 ///    ```
 ///    Where `X_vp`, `Y_vp`, `width` and `height` correspond to the values used in the description
@@ -26,6 +27,8 @@ use crate::runtime::state::ContextUpdate;
 ///
 /// 2. With automatic values:
 ///    ```
+///    use web_glitz::pipeline::graphics::Viewport;
+///
 ///    let viewport = Viewport::Auto;
 ///    ```
 ///    In this case, the origin will always be `(0, 0)`; determination of the `width` and `height`

@@ -10,14 +10,14 @@ use std::sync::Arc;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::image::format::{ClientFormat, Filterable, TextureFormat, FloatSamplable, IntegerSamplable, UnsignedIntegerSamplable};
-use crate::image::image_source::{Image2DSourceInternal, Image3DSourceInternal};
+use crate::image::image_source::{Image2DSourceInternal, LayeredImageSourceInternal};
 use crate::image::texture_object_dropper::TextureObjectDropper;
 use crate::image::util::{
     max_mipmap_levels, mipmap_size, region_2d_overlap_height, region_2d_overlap_width,
     region_2d_sub_image, region_3d_overlap_depth, region_3d_overlap_height,
     region_3d_overlap_width, region_3d_sub_image,
 };
-use crate::image::{Image2DSource, Image3DSource, Region2D, Region3D, IncompatibleSampler};
+use crate::image::{Image2DSource, LayeredImageSource, Region2D, Region3D, IncompatibleSampler};
 use crate::image::{MaxMipmapLevelsExceeded, MipmapLevels};
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
@@ -68,8 +68,8 @@ where
         let max_mipmap_levels = max_mipmap_levels(*width, *height);
 
         let levels = match levels {
-            MipmapLevels::Auto => max_mipmap_levels,
-            MipmapLevels::Manual(levels) => {
+            MipmapLevels::Complete => max_mipmap_levels,
+            MipmapLevels::Partial(levels) => {
                 if *levels > max_mipmap_levels {
                     return Err(MaxMipmapLevelsExceeded {
                         given: *levels,
@@ -598,7 +598,7 @@ where
         }
     }
 
-    pub fn upload_command<D, T>(&self, data: Image3DSource<D, T>) -> LevelUploadCommand<D, T, F>
+    pub fn upload_command<D, T>(&self, data: LayeredImageSource<D, T>) -> LevelUploadCommand<D, T, F>
     where
         T: ClientFormat<F>,
     {
@@ -977,7 +977,7 @@ where
         }
     }
 
-    pub fn upload_command<D, T>(&self, data: Image3DSource<D, T>) -> LevelUploadCommand<D, T, F>
+    pub fn upload_command<D, T>(&self, data: LayeredImageSource<D, T>) -> LevelUploadCommand<D, T, F>
     where
         T: ClientFormat<F>,
     {
@@ -1929,7 +1929,7 @@ where
 }
 
 pub struct LevelUploadCommand<D, T, F> {
-    data: Image3DSource<D, T>,
+    data: LayeredImageSource<D, T>,
     texture_data: Arc<Texture3DData>,
     level: usize,
     region: Region3D,
@@ -1961,7 +1961,7 @@ where
         let (gl, state) = unsafe { connection.unpack_mut() };
 
         match &self.data.internal {
-            Image3DSourceInternal::PixelData {
+            LayeredImageSourceInternal::PixelData {
                 data,
                 row_length,
                 image_height,

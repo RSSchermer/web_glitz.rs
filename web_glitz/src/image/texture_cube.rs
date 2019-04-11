@@ -63,8 +63,8 @@ where
         let max_mipmap_levels = max_mipmap_levels(*width, *height);
 
         let levels = match levels {
-            MipmapLevels::Auto => max_mipmap_levels,
-            MipmapLevels::Manual(levels) => {
+            MipmapLevels::Complete => max_mipmap_levels,
+            MipmapLevels::Partial(levels) => {
                 if *levels > max_mipmap_levels {
                     return Err(MaxMipmapLevelsExceeded {
                         given: *levels,

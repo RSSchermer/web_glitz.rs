@@ -17,7 +17,7 @@ use std::mem;
 ///     format: RGB8,
 ///     width: 256,
 ///     height: 256,
-///     levels: MipmapLevels::Auto
+///     levels: MipmapLevels::Complete
 /// }).unwrap();
 ///
 /// let data: Vec<[u8; 3]> = vec![[255, 0, 0]; 256 * 256];
@@ -97,7 +97,7 @@ where
 /// ```rust
 /// # use web_glitz::runtime::RenderingContext;
 /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
-/// use web_glitz::image::{Image3DSource, MipmapLevels};
+/// use web_glitz::image::{LayeredImageSource, MipmapLevels};
 /// use web_glitz::image::format::RGB8;
 /// use web_glitz::image::texture_2d::Texture3DDescriptor;
 ///
@@ -106,11 +106,11 @@ where
 ///     width: 256,
 ///     height: 256,
 ///     depth: 256,
-///     levels: MipmapLevels::Auto
+///     levels: MipmapLevels::Complete
 /// }).unwrap();
 ///
 /// let data: Vec<[u8; 3]> = vec![[255, 0, 0]; 256 * 256 * 256];
-/// let image_source = Image3DSource::from_pixels(data, 256, 256, 256).unwrap();
+/// let image_source = LayeredImageSource::from_pixels(data, 256, 256, 256).unwrap();
 ///
 /// context.submit(texture.base_level().upload_command(image_source));
 /// # }
@@ -119,12 +119,12 @@ where
 /// Note that the pixel data type (`[u8; 3]` in the example) must implement [ClientFormat] for the
 /// texture's [InternalFormat] (in this case that means `ClientFormat<RGB8>` must be implemented
 /// for `[u8; 3]`, which it is).
-pub struct Image3DSource<D, T> {
-    pub(crate) internal: Image3DSourceInternal<D>,
+pub struct LayeredImageSource<D, T> {
+    pub(crate) internal: LayeredImageSourceInternal<D>,
     _marker: marker::PhantomData<[T]>,
 }
 
-pub(crate) enum Image3DSourceInternal<D> {
+pub(crate) enum LayeredImageSourceInternal<D> {
     PixelData {
         data: D,
         row_length: u32,
@@ -134,12 +134,14 @@ pub(crate) enum Image3DSourceInternal<D> {
     },
 }
 
-impl<D, T> Image3DSource<D, T>
+impl<D, T> LayeredImageSource<D, T>
 where
     D: Borrow<[T]>,
 {
-    /// Creates a new [Image2DSource] from the `pixels` for an image with the given `width`, the
-    /// given `height` and the given `depth`.
+    /// Creates a new [LayeredImageSource] from the `pixels` for an image with the given `width`,
+    /// the given `height` and the given `depth`.
+    ///
+    /// In this context the `depth` of the image corresponds to its number of layers.
     ///
     /// Returns [FromPixelsError::NotEnoughPixels] if the `pixels` does not contain enough data for
     /// at least `width * height * depth` pixels.
@@ -147,10 +149,10 @@ where
     /// # Example
     ///
     /// ```rust
-    /// use web_glitz::image::Image3DSource;
+    /// use web_glitz::image::LayeredImageSource;
     ///
     /// let data: Vec<[u8; 3]> = vec![[255, 0, 0]; 256 * 256 * 256];
-    /// let image_source = Image3DSource::from_pixels(data, 256, 256, 256).unwrap();
+    /// let image_source = LayeredImageSource::from_pixels(data, 256, 256, 256).unwrap();
     /// ```
     pub fn from_pixels(
         pixels: D,
@@ -173,8 +175,8 @@ where
             a => return Err(FromPixelsError::UnsupportedAlignment(a)),
         };
 
-        Ok(Image3DSource {
-            internal: Image3DSourceInternal::PixelData {
+        Ok(LayeredImageSource {
+            internal: LayeredImageSourceInternal::PixelData {
                 data: pixels,
                 row_length: width,
                 image_height: height,

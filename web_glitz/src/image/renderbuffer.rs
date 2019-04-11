@@ -12,6 +12,60 @@ use crate::util::{arc_get_mut_unchecked, JsId};
 use std::hash::Hash;
 use std::hash::Hasher;
 
+/// Provides the information necessary for the creation of a [Renderbuffer].
+///
+/// See [RenderingContext::create_renderbuffer] for details.
+pub struct RenderbufferDescriptor<F> where F: RenderbufferFormat {
+    /// The format type the [Renderbuffer] will use to store its image data.
+    ///
+    /// Must implement [RenderbufferFormat].
+    pub format: F,
+
+    /// The width of the [Renderbuffer].
+    pub width: u32,
+
+    /// The height of the [Renderbuffer].
+    pub height: u32,
+}
+
+/// Stores a single 2-dimensional image, optimized for use as a [RenderTarget] attachment.
+///
+/// Unlike a [Texture2D], which can also hold a single 2-dimensional image, a [Renderbuffer] cannot
+/// be sampled. However, a [Renderbuffer] is optimized for use as a render target, whereas a
+/// [Texture2D] may not be. A [Renderbuffer] is therefor the logical choice for a [RenderTarget]
+/// attachment that does not need to be sampled.
+///
+/// See [RenderingContext::create_renderbuffer] for details on how a [Renderbuffer] is created.
+///
+/// # Example
+///
+/// The following example creates a [Renderbuffer] and uses it as the color attachment in a render
+/// pass, which clears a central square to blue pixels:
+///
+/// ```rust
+/// # use web_glitz::runtime::RenderingContext;
+/// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
+/// use web_glitz::image::Region2D;
+/// use web_glitz::image::format::RGB8;
+/// use web_glitz::image::renderbuffer::RenderbufferDescriptor;
+/// use web_glitz::render_pass::RenderTarget;
+///
+/// let mut renderbuffer = context.create_renderbuffer(&RenderbufferDescriptor {
+///     format: RGB8,
+///     width: 256,
+///     height: 256
+/// }).unwrap();
+///
+/// let render_pass = context.create_render_pass(RenderTarget {
+///     color: &mut renderbuffer,
+///     depth_stencil: ()
+/// }, |framebuffer| {
+///     framebuffer.color.clear_command([0, 0, 255], Region2D::Area((64, 64), 128, 128))
+/// }).unwrap();
+///
+/// context.submit(render_pass);
+/// # }
+/// ```
 pub struct Renderbuffer<F> {
     data: Arc<RenderbufferData>,
     _marker: marker::PhantomData<[F]>,
@@ -21,7 +75,7 @@ impl<F> Renderbuffer<F>
 where
     F: RenderbufferFormat + 'static,
 {
-    pub(crate) fn new<Rc>(context: &Rc, width: u32, height: u32) -> Self
+    pub(crate) fn new<Rc>(context: &Rc, descriptor: &RenderbufferDescriptor<F>) -> Self
     where
         Rc: RenderingContext + Clone + 'static,
     {
@@ -29,8 +83,8 @@ where
             id: None,
             context_id: context.id(),
             dropper: Box::new(context.clone()),
-            width,
-            height,
+            width: descriptor.width,
+            height: descriptor.height,
         });
 
         context.submit(RenderbufferAllocateCommand::<F> {
@@ -48,10 +102,12 @@ where
         &self.data
     }
 
+    /// The width of this [Renderbuffer].
     pub fn width(&self) -> u32 {
         self.data.width
     }
 
+    /// The height of this [Renderbuffer].
     pub fn height(&self) -> u32 {
         self.data.height
     }
