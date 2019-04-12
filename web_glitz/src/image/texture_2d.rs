@@ -86,7 +86,7 @@ where
 ///
 /// The following example creates a 2d texture with a width of 256 pixels and a height of 256
 /// pixels stored in the [RGB8] format, with a complete mipmap chain. All pixels in the base image
-/// are set to `[256, 0, 0]` (red) with an "upload" command and then the pixel data for all other
+/// are set to `[255, 0, 0]` (red) with an "upload" command and then the pixel data for all other
 /// levels is generated with a "generate mipmap" command:
 ///
 /// ```rust
@@ -103,7 +103,7 @@ where
 ///     levels: MipmapLevels::Complete
 /// }).unwrap();
 ///
-/// let pixels: Vec<[u8; 3]> = vec![[256, 0, 0]; 256 * 256];
+/// let pixels: Vec<[u8; 3]> = vec![[255, 0, 0]; 256 * 256];
 /// let data = Image2DSource::from_pixels(pixels, 256, 256).unwrap();
 ///
 /// context.submit(sequence_all![

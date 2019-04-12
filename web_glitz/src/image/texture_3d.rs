@@ -61,15 +61,11 @@ where
 /// images.
 ///
 /// A [Texture3D] is a layered image and has a width, a height and a depth; depth here corresponds
-/// to the length of the array (see also the "Layered Image" section below). A [Texture3D] defines a
-/// [TextureFormat] `F`: all image data stored in the texture is stored in this format.
+/// to the number of layers (the module documentation for [web_glitz::image] goes into more detail
+/// on layered image storage). A [Texture3D] defines a [TextureFormat] `F`: all image data stored in
+/// the texture is stored in this format.
 ///
 /// See [RenderingContext::create_texture_3d] for details on how a [Texture3D] is created.
-///
-/// # Layered Image
-///
-/// A [Texture3D] is layered image storage. The module documentation for [web_glitz::image] goes
-/// into more detail on layered image storage.
 ///
 /// # Mipmap
 ///
@@ -102,7 +98,7 @@ where
 ///
 /// The following example creates a 2d array texture with a width of 256 pixels, a height of 256 and
 /// a depth of 16 layers stored in the [RGB8] format, with a complete mipmap chain. All pixels in
-/// the base image are set to `[256, 0, 0]` (red) with an "upload" command and then the pixel data
+/// the base image are set to `[255, 0, 0]` (red) with an "upload" command and then the pixel data
 /// for all other levels is generated with a "generate mipmap" command:
 ///
 /// ```rust
@@ -120,7 +116,7 @@ where
 ///     levels: MipmapLevels::Complete
 /// }).unwrap();
 ///
-/// let pixels: Vec<[u8; 3]> = vec![[256, 0, 0]; 256 * 256 * 16];
+/// let pixels: Vec<[u8; 3]> = vec![[255, 0, 0]; 256 * 256 * 16];
 /// let data = LayeredImageSource::from_pixels(pixels, 256, 256, 16).unwrap();
 ///
 /// context.submit(sequence_all![
@@ -1001,7 +997,7 @@ where
     ///     levels: MipmapLevels::Complete
     /// }).unwrap();
     ///
-    /// let pixels: Vec<[u8; 3]> = vec![[256, 0, 0]; 256 * 256 * 16];
+    /// let pixels: Vec<[u8; 3]> = vec![[255, 0, 0]; 256 * 256 * 16];
     /// let data = LayeredImageSource::from_pixels(pixels, 256, 256, 16).unwrap();
     ///
     /// context.submit(texture.base_level().upload_command(data));
@@ -1491,7 +1487,7 @@ where
     ///
     /// let layer = texture.base_level().layers().get(0).unwrap();
     ///
-    /// let pixels: Vec<[u8; 3]> = vec![[256, 0, 0]; 256 * 256];
+    /// let pixels: Vec<[u8; 3]> = vec![[255, 0, 0]; 256 * 256];
     /// let data = Image2DSource::from_pixels(pixels, 256, 256).unwrap();
     ///
     /// context.submit(layer.upload_command(data));
@@ -2081,7 +2077,7 @@ where
     /// let layer = level.layers().get(0).unwrap();
     /// let sub_image = layer.sub_image(Region2D::Area((0, 0), 128, 128));
     ///
-    /// let pixels: Vec<[u8; 3]> = vec![[256, 0, 0]; 128 * 128];
+    /// let pixels: Vec<[u8; 3]> = vec![[255, 0, 0]; 128 * 128];
     /// let data = Image2DSource::from_pixels(pixels, 128, 128).unwrap();
     ///
     /// context.submit(sub_image.upload_command(data));
