@@ -24,11 +24,8 @@ use crate::image::texture_cube::{
 };
 use crate::image::Region2D;
 use crate::pipeline::graphics::primitive_assembly::Topology;
-use crate::pipeline::graphics::vertex_input::{
-    InputAttributeLayout, VertexInputStreamDescription, VertexInputStreamDescriptor,
-};
 use crate::pipeline::graphics::{
-    Blending, DepthTest, GraphicsPipeline, PrimitiveAssembly, StencilTest, Viewport,
+    Blending, DepthTest, GraphicsPipeline, PrimitiveAssembly, StencilTest, Viewport, AttributeSlotLayoutCompatible
 };
 use crate::pipeline::resources::bind_group_encoding::{
     BindGroupEncodingContext, BindingDescriptor,
@@ -39,6 +36,7 @@ use crate::runtime::state::ContextUpdate;
 use crate::runtime::Connection;
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::{slice_make_mut, JsId};
+use crate::vertex::{VertexStreamDescriptor, VertexStreamDescription};
 
 pub struct BlitSourceContextMismatch;
 
@@ -52,13 +50,13 @@ pub struct Framebuffer<C, Ds> {
 }
 
 impl<C, Ds> Framebuffer<C, Ds> {
-    pub fn pipeline_task<Vl, R, Tf, F, T>(
+    pub fn pipeline_task<V, R, Tf, F, T>(
         &mut self,
-        pipeline: &GraphicsPipeline<Vl, R, Tf>,
+        pipeline: &GraphicsPipeline<V, R, Tf>,
         f: F,
     ) -> PipelineTask<T>
     where
-        F: Fn(&ActiveGraphicsPipeline<Vl, R>) -> T,
+        F: Fn(&ActiveGraphicsPipeline<V, R>) -> T,
         for<'a> T: GpuTask<PipelineTaskContext<'a>>,
     {
         if self.context_id != pipeline.context_id() {
@@ -79,7 +77,7 @@ impl<C, Ds> Framebuffer<C, Ds> {
             context_id: self.context_id,
             topology: pipeline.primitive_assembly().topology(),
             pipeline_task_id,
-            _input_attribute_layout_marker: marker::PhantomData,
+            _vertex_attribute_layout_marker: marker::PhantomData,
             _resources_marker: marker::PhantomData,
         });
 
@@ -385,17 +383,17 @@ where
     }
 }
 
-pub struct ActiveGraphicsPipeline<Il, R> {
+pub struct ActiveGraphicsPipeline<V, R> {
     context_id: usize,
     topology: Topology,
     pipeline_task_id: usize,
-    _input_attribute_layout_marker: marker::PhantomData<Il>,
+    _vertex_attribute_layout_marker: marker::PhantomData<V>,
     _resources_marker: marker::PhantomData<R>,
 }
 
-impl<Il, R> ActiveGraphicsPipeline<Il, R>
+impl<V, R> ActiveGraphicsPipeline<V, R>
 where
-    Il: InputAttributeLayout,
+    V: AttributeSlotLayoutCompatible,
     R: Resources,
 {
     /// Creates a [DrawCommand] that will execute this [ActiveGraphicsPipeline] on the
@@ -407,13 +405,13 @@ where
     ///   than this [ActiveGraphicsPipeline].
     /// - Panics when [resources] specifies a resource that belongs to a different context than this
     ///   [ActiveGraphicsPipeline].
-    pub fn draw_command<V>(
+    pub fn draw_command<Vs>(
         &self,
-        vertex_input_stream: &V,
+        vertex_input_stream: &Vs,
         resources: &R,
     ) -> DrawCommand<R::Bindings>
     where
-        V: VertexInputStreamDescription<Layout = Il>,
+        Vs: VertexStreamDescription<AttributeLayout=V>,
         R: Resources,
     {
         let input_stream_descriptor = vertex_input_stream.descriptor();
@@ -424,7 +422,7 @@ where
 
         DrawCommand {
             pipeline_task_id: self.pipeline_task_id,
-            vertex_input_stream_descriptor: vertex_input_stream.descriptor(),
+            vertex_stream_descriptor: vertex_input_stream.descriptor(),
             topology: self.topology,
             binding_group: resources
                 .encode_bind_group(&mut BindGroupEncodingContext::new(self.context_id))
@@ -435,7 +433,7 @@ where
 
 pub struct DrawCommand<B> {
     pipeline_task_id: usize,
-    vertex_input_stream_descriptor: VertexInputStreamDescriptor,
+    vertex_stream_descriptor: VertexStreamDescriptor,
     topology: Topology,
     binding_group: B,
 }
@@ -454,7 +452,7 @@ where
         let (gl, state) = unsafe { context.connection.unpack_mut() };
 
         unsafe {
-            self.vertex_input_stream_descriptor
+            self.vertex_stream_descriptor
                 .vertex_array_data
                 .id()
                 .unwrap()
@@ -469,40 +467,40 @@ where
 
         let (gl, _) = unsafe { context.connection.unpack_mut() };
 
-        if let Some(format) = self.vertex_input_stream_descriptor.index_format_kind() {
-            let VertexInputStreamDescriptor {
+        if let Some(index_type) = self.vertex_stream_descriptor.index_type() {
+            let VertexStreamDescriptor {
                 offset,
                 count,
                 instance_count,
                 ref vertex_array_data,
                 ..
-            } = self.vertex_input_stream_descriptor;
+            } = self.vertex_stream_descriptor;
 
-            let offset = vertex_array_data.offset + offset as u32 * format.size_in_bytes();
+            let offset = vertex_array_data.offset + offset as u32 * index_type.size_in_bytes();
 
             if instance_count == 1 {
                 gl.draw_elements_with_i32(
                     self.topology.id(),
                     count as i32,
-                    format.id(),
+                    index_type.id(),
                     offset as i32,
                 );
             } else {
                 gl.draw_elements_instanced_with_i32(
                     self.topology.id(),
                     count as i32,
-                    format.id(),
+                    index_type.id(),
                     offset as i32,
                     instance_count as i32,
                 );
             }
         } else {
-            let VertexInputStreamDescriptor {
+            let VertexStreamDescriptor {
                 offset,
                 count,
                 instance_count,
                 ..
-            } = self.vertex_input_stream_descriptor;
+            } = self.vertex_stream_descriptor;
 
             if instance_count == 1 {
                 gl.draw_arrays(self.topology.id(), offset as i32, count as i32);

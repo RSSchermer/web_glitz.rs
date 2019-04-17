@@ -1,15 +1,17 @@
-use super::Vertex;
+use std::borrow::Borrow;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
-pub unsafe trait InputAttributeLayout {
+use crate::vertex::VertexAttributeLayout;
+
+pub unsafe trait AttributeSlotLayoutCompatible {
     fn check_compatibility(
         slot_descriptors: &[AttributeSlotDescriptor],
-    ) -> Result<(), Incompatible>;
+    ) -> Result<(), IncompatibleAttributeLayout>;
 }
 
 #[derive(Debug)]
-pub enum Incompatible {
+pub enum IncompatibleAttributeLayout {
     MissingAttribute { location: u32 },
     TypeMismatch { location: u32 },
 }
@@ -83,45 +85,26 @@ impl AttributeType {
     }
 }
 
-macro_rules! impl_input_attribute_layout {
-    ($($T:ident),*) => {
-        unsafe impl<$($T),*> InputAttributeLayout for ($($T),*) where $($T: Vertex),* {
-            fn check_compatibility(slot_descriptors: &[AttributeSlotDescriptor]) -> Result<(), Incompatible> {
-                'outer: for slot in slot_descriptors.iter() {
-                    $(
-                        for attribute in $T::input_attribute_descriptors().iter() {
-                            if attribute.location == slot.location() {
-                                if !attribute.format.is_compatible(slot.attribute_type) {
-                                    return Err(Incompatible::TypeMismatch { location: slot.location() })
-                                }
-
-                                continue 'outer;
-                            }
+unsafe impl<T> AttributeSlotLayoutCompatible for T where T: VertexAttributeLayout {
+    fn check_compatibility(
+        slot_descriptors: &[AttributeSlotDescriptor],
+    ) -> Result<(), IncompatibleAttributeLayout> {
+        'outer: for slot in slot_descriptors.iter() {
+            for bind_group in T::input_attribute_bindings().borrow() {
+                for attribute_descriptor in bind_group.iter() {
+                    if attribute_descriptor.location == slot.location() {
+                        if !attribute_descriptor.format.is_compatible(slot.attribute_type) {
+                            return Err(IncompatibleAttributeLayout::TypeMismatch { location: slot.location() })
                         }
-                    )*
 
-                    return Err(Incompatible::MissingAttribute { location: slot.location() })
+                        continue 'outer;
+                    }
                 }
-
-                Ok(())
             }
+
+            return Err(IncompatibleAttributeLayout::MissingAttribute { location: slot.location() })
         }
+
+        Ok(())
     }
 }
-
-impl_input_attribute_layout!(T0);
-impl_input_attribute_layout!(T0, T1);
-impl_input_attribute_layout!(T0, T1, T2);
-impl_input_attribute_layout!(T0, T1, T2, T3);
-impl_input_attribute_layout!(T0, T1, T2, T3, T4);
-impl_input_attribute_layout!(T0, T1, T2, T3, T4, T5);
-impl_input_attribute_layout!(T0, T1, T2, T3, T4, T5, T6);
-impl_input_attribute_layout!(T0, T1, T2, T3, T4, T5, T6, T7);
-impl_input_attribute_layout!(T0, T1, T2, T3, T4, T5, T6, T7, T8);
-impl_input_attribute_layout!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9);
-impl_input_attribute_layout!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
-impl_input_attribute_layout!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11);
-impl_input_attribute_layout!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
-impl_input_attribute_layout!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13);
-impl_input_attribute_layout!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14);
-impl_input_attribute_layout!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15);

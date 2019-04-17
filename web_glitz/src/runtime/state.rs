@@ -13,12 +13,7 @@ use web_sys::{
     WebGl2RenderingContext as Gl, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlRenderbuffer,
     WebGlSampler, WebGlTexture, WebGlVertexArrayObject,
 };
-
-use crate::pipeline::graphics::vertex_input::{AttributeSlotDescriptor, AttributeType};
-use crate::pipeline::graphics::{
-    BlendEquation, BlendFactor, CullingMode, DepthRange, PolygonOffset, StencilOperation,
-    TestFunction, WindingOrder,
-};
+use crate::pipeline::graphics::{BlendEquation, BlendFactor, CullingMode, DepthRange, PolygonOffset, StencilOperation, TestFunction, WindingOrder, AttributeType, AttributeSlotDescriptor};
 use crate::pipeline::resources::resource_slot::{
     Identifier, ResourceSlotDescriptor, SamplerKind, TextureSamplerSlot, UniformBlockSlot,
 };

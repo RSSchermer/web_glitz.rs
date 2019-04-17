@@ -11,11 +11,11 @@ use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
 use web_glitz::buffer::UsageHint;
-use web_glitz::pipeline::graphics::vertex_input::VertexArrayDescriptor;
 use web_glitz::pipeline::graphics::{
     CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
+use web_glitz::vertex::VertexArrayDescriptor;
 
 use web_sys::{window, HtmlCanvasElement};
 
@@ -165,8 +165,8 @@ pub fn start() {
     // Initialize a vertex array using our vertex buffer. We'll tell WebGlitz we wont be using an
     // index buffer with this vertex array by passing an empty tuple `()`.
     let vertex_array = context.create_vertex_array(&VertexArrayDescriptor {
-        vertex_buffers: vertex_buffer,
-        index_buffer: (),
+        vertex_input_state: &vertex_buffer,
+        indices: (),
     });
 
     // Create a render pass for our default render target.

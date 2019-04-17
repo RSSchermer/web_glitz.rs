@@ -61,10 +61,10 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
                     match <#ty as #mod_path::BufferResource>::Binding::compatibility(slot) {
                         Ok(()) => (),
                         Err(#mod_path::binding::Incompatible::TypeMismatch) => {
-                            return Err(#mod_path::Incompatible::ResourceTypeMismatch(descriptor.identifier().clone()));
+                            return Err(#mod_path::IncompatibleResources::ResourceTypeMismatch(descriptor.identifier().clone()));
                         },
                         Err(#mod_path::binding::Incompatible::LayoutMismatch(err)) => {
-                            return Err(#mod_path::Incompatible::IncompatibleBlockLayout(descriptor.identifier().clone(), err));
+                            return Err(#mod_path::IncompatibleResources::IncompatibleBlockLayout(descriptor.identifier().clone(), err));
                         }
                     };
 
@@ -132,7 +132,7 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
                 fn confirm_slot_bindings<C>(
                     confirmer: &C,
                     descriptors: &[#mod_path::resource_slot::ResourceSlotDescriptor],
-                ) -> Result<(), #mod_path::Incompatible>
+                ) -> Result<(), #mod_path::IncompatibleResources>
                 where
                     C: #mod_path::resource_slot::SlotBindingConfirmer
                 {
@@ -142,7 +142,7 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
                         match descriptor.identifier().hash_fnv64() {
                             #(#buffer_resource_confirmations)*
                             #(#texture_resource_confirmations)*
-                            _=> return Err(#mod_path::Incompatible::MissingResource(descriptor.identifier().clone()))
+                            _=> return Err(#mod_path::IncompatibleResources::MissingResource(descriptor.identifier().clone()))
                         }
                     }
 

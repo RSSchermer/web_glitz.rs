@@ -3,14 +3,14 @@ use std::sync::Arc;
 
 use crate::image::Region2D;
 use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
-use crate::pipeline::graphics::vertex_input::InputAttributeLayout;
+use crate::pipeline::graphics::AttributeSlotLayoutCompatible;
 use crate::pipeline::graphics::{
     Blending, DepthTest, FragmentShader, PrimitiveAssembly, StencilTest, VertexShader, Viewport,
 };
 use crate::pipeline::resources::Resources;
 
-pub struct GraphicsPipelineDescriptor<Il, R, Tf> {
-    _vertex_input_layout: marker::PhantomData<Il>,
+pub struct GraphicsPipelineDescriptor<V, R, Tf> {
+    _vertex_attribute_layout: marker::PhantomData<V>,
     _resource_layout: marker::PhantomData<R>,
     _transform_feedback: marker::PhantomData<Tf>,
     pub(crate) vertex_shader_data: Arc<VertexShaderData>,
@@ -37,7 +37,7 @@ impl GraphicsPipelineDescriptor<(), (), ()> {
             _primitive_assembly: marker::PhantomData,
             _fragment_shader: marker::PhantomData,
             _transform_feedback: marker::PhantomData,
-            _vertex_input_layout: marker::PhantomData,
+            _vertex_attribute_layout: marker::PhantomData,
             _resource_layout: marker::PhantomData,
             vertex_shader: None,
             fragment_shader: None,
@@ -52,12 +52,12 @@ impl GraphicsPipelineDescriptor<(), (), ()> {
     }
 }
 
-pub struct GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R, Tf> {
+pub struct GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, Tf> {
     _vertex_shader: marker::PhantomData<Vs>,
     _primitive_assembly: marker::PhantomData<Pa>,
     _fragment_shader: marker::PhantomData<Fs>,
     _transform_feedback: marker::PhantomData<Tf>,
-    _vertex_input_layout: marker::PhantomData<Il>,
+    _vertex_attribute_layout: marker::PhantomData<V>,
     _resource_layout: marker::PhantomData<R>,
     vertex_shader: Option<Arc<VertexShaderData>>,
     fragment_shader: Option<Arc<FragmentShaderData>>,
@@ -70,17 +70,17 @@ pub struct GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R, Tf> {
     binding_strategy: BindingStrategy,
 }
 
-impl<Vs, Pa, Fs, Il, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R, Tf> {
+impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, Tf> {
     pub fn vertex_shader(
         self,
         vertex_shader: &VertexShader,
-    ) -> GraphicsPipelineDescriptorBuilder<VertexShader, Pa, Fs, Il, R, Tf> {
+    ) -> GraphicsPipelineDescriptorBuilder<VertexShader, Pa, Fs, V, R, Tf> {
         GraphicsPipelineDescriptorBuilder {
             _vertex_shader: marker::PhantomData,
             _primitive_assembly: marker::PhantomData,
             _fragment_shader: marker::PhantomData,
             _transform_feedback: marker::PhantomData,
-            _vertex_input_layout: marker::PhantomData,
+            _vertex_attribute_layout: marker::PhantomData,
             _resource_layout: marker::PhantomData,
             vertex_shader: Some(vertex_shader.data().clone()),
             primitive_assembly: self.primitive_assembly,
@@ -97,13 +97,13 @@ impl<Vs, Pa, Fs, Il, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R,
     pub fn primitive_assembly(
         self,
         primitive_assembly: PrimitiveAssembly,
-    ) -> GraphicsPipelineDescriptorBuilder<Vs, PrimitiveAssembly, Fs, Il, R, Tf> {
+    ) -> GraphicsPipelineDescriptorBuilder<Vs, PrimitiveAssembly, Fs, V, R, Tf> {
         GraphicsPipelineDescriptorBuilder {
             _vertex_shader: marker::PhantomData,
             _primitive_assembly: marker::PhantomData,
             _fragment_shader: marker::PhantomData,
             _transform_feedback: marker::PhantomData,
-            _vertex_input_layout: marker::PhantomData,
+            _vertex_attribute_layout: marker::PhantomData,
             _resource_layout: marker::PhantomData,
             vertex_shader: self.vertex_shader,
             primitive_assembly: Some(primitive_assembly),
@@ -120,13 +120,13 @@ impl<Vs, Pa, Fs, Il, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R,
     pub fn fragment_shader(
         self,
         fragment_shader: &FragmentShader,
-    ) -> GraphicsPipelineDescriptorBuilder<Vs, Pa, FragmentShader, Il, R, Tf> {
+    ) -> GraphicsPipelineDescriptorBuilder<Vs, Pa, FragmentShader, V, R, Tf> {
         GraphicsPipelineDescriptorBuilder {
             _vertex_shader: marker::PhantomData,
             _primitive_assembly: marker::PhantomData,
             _fragment_shader: marker::PhantomData,
             _transform_feedback: marker::PhantomData,
-            _vertex_input_layout: marker::PhantomData,
+            _vertex_attribute_layout: marker::PhantomData,
             _resource_layout: marker::PhantomData,
             vertex_shader: self.vertex_shader,
             primitive_assembly: self.primitive_assembly,
@@ -142,14 +142,14 @@ impl<Vs, Pa, Fs, Il, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R,
 
     pub fn vertex_input_layout<T>(self) -> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, T, R, Tf>
     where
-        T: InputAttributeLayout,
+        T: AttributeSlotLayoutCompatible,
     {
         GraphicsPipelineDescriptorBuilder {
             _vertex_shader: marker::PhantomData,
             _primitive_assembly: marker::PhantomData,
             _fragment_shader: marker::PhantomData,
             _transform_feedback: marker::PhantomData,
-            _vertex_input_layout: marker::PhantomData,
+            _vertex_attribute_layout: marker::PhantomData,
             _resource_layout: marker::PhantomData,
             vertex_shader: self.vertex_shader,
             primitive_assembly: self.primitive_assembly,
@@ -166,7 +166,7 @@ impl<Vs, Pa, Fs, Il, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R,
     pub fn resource_layout<T>(
         self,
         strategy: BindingStrategy,
-    ) -> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, T, Tf>
+    ) -> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, T, Tf>
     where
         T: Resources,
     {
@@ -175,7 +175,7 @@ impl<Vs, Pa, Fs, Il, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R,
             _primitive_assembly: marker::PhantomData,
             _fragment_shader: marker::PhantomData,
             _transform_feedback: marker::PhantomData,
-            _vertex_input_layout: marker::PhantomData,
+            _vertex_attribute_layout: marker::PhantomData,
             _resource_layout: marker::PhantomData,
             vertex_shader: self.vertex_shader,
             primitive_assembly: self.primitive_assembly,
@@ -243,15 +243,15 @@ impl<Vs, Pa, Fs, Il, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Il, R,
     }
 }
 
-impl<Il, R>
-    GraphicsPipelineDescriptorBuilder<VertexShader, PrimitiveAssembly, FragmentShader, Il, R, ()>
+impl<V, R>
+    GraphicsPipelineDescriptorBuilder<VertexShader, PrimitiveAssembly, FragmentShader, V, R, ()>
 where
-    Il: InputAttributeLayout,
+    V: AttributeSlotLayoutCompatible,
     R: Resources,
 {
-    pub fn finish(self) -> GraphicsPipelineDescriptor<Il, R, ()> {
+    pub fn finish(self) -> GraphicsPipelineDescriptor<V, R, ()> {
         GraphicsPipelineDescriptor {
-            _vertex_input_layout: marker::PhantomData,
+            _vertex_attribute_layout: marker::PhantomData,
             _resource_layout: marker::PhantomData,
             _transform_feedback: marker::PhantomData,
             vertex_shader_data: self.vertex_shader.unwrap(),

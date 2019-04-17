@@ -14,6 +14,9 @@ pub use self::fragment_test::{
 mod graphics_pipeline;
 pub use self::graphics_pipeline::{GraphicsPipeline, ShaderLinkingError};
 
+mod input_attribute_layout;
+pub use self::input_attribute_layout::{AttributeSlotLayoutCompatible, AttributeSlotDescriptor, AttributeType, IncompatibleAttributeLayout};
+
 pub(crate) mod primitive_assembly;
 pub use self::primitive_assembly::{CullingMode, LineWidth, PrimitiveAssembly, WindingOrder};
 
@@ -22,5 +25,3 @@ pub use self::shader::{FragmentShader, ShaderCompilationError, VertexShader};
 
 mod viewport;
 pub use self::viewport::Viewport;
-
-pub mod vertex_input;

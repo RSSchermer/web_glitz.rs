@@ -14,13 +14,13 @@
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
+use web_glitz::{repr_std140, std140};
 use web_glitz::buffer::{Buffer, UsageHint};
-use web_glitz::pipeline::graphics::vertex_input::VertexArrayDescriptor;
 use web_glitz::pipeline::graphics::{
     BindingStrategy, CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
-use web_glitz::{repr_std140, std140};
+use web_glitz::vertex::VertexArrayDescriptor;
 
 use web_sys::{window, HtmlCanvasElement};
 
@@ -172,8 +172,8 @@ pub fn start() {
     let vertex_buffer = context.create_buffer(vertex_data, UsageHint::StreamDraw);
 
     let vertex_array = context.create_vertex_array(&VertexArrayDescriptor {
-        vertex_buffers: vertex_buffer,
-        index_buffer: (),
+        vertex_input_state: &vertex_buffer,
+        indices: (),
     });
 
     // Create an instance of our `Uniforms` type.

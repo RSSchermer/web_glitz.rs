@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::image::Region2D;
 use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
-use crate::pipeline::graphics::vertex_input::InputAttributeLayout;
+use crate::pipeline::graphics::AttributeSlotLayoutCompatible;
 use crate::pipeline::graphics::{
     BindingStrategy, Blending, DepthTest, GraphicsPipelineDescriptor, PrimitiveAssembly,
     StencilTest, Viewport,
@@ -19,8 +19,8 @@ use crate::util::JsId;
 /// Encapsulates the state for a graphics pipeline.
 ///
 ///
-pub struct GraphicsPipeline<Il, R, Tf> {
-    _input_attribute_layout_marker: marker::PhantomData<Il>,
+pub struct GraphicsPipeline<V, R, Tf> {
+    _vertex_attribute_layout_marker: marker::PhantomData<V>,
     _resources_marker: marker::PhantomData<R>,
     _transform_feedback_varyings_marker: marker::PhantomData<Tf>,
     context_id: usize,
@@ -38,7 +38,7 @@ pub struct GraphicsPipeline<Il, R, Tf> {
     viewport: Viewport,
 }
 
-impl<Il, R, Tf> GraphicsPipeline<Il, R, Tf> {
+impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
     pub(crate) fn context_id(&self) -> usize {
         self.context_id
     }
@@ -72,15 +72,15 @@ impl<Il, R, Tf> GraphicsPipeline<Il, R, Tf> {
     }
 }
 
-impl<Il, R, Tf> GraphicsPipeline<Il, R, Tf>
+impl<V, R, Tf> GraphicsPipeline<V, R, Tf>
 where
-    Il: InputAttributeLayout,
+    V: AttributeSlotLayoutCompatible,
     R: Resources + 'static,
 {
     pub(crate) fn create<Rc>(
         context: &Rc,
         connection: &mut Connection,
-        descriptor: &GraphicsPipelineDescriptor<Il, R, Tf>,
+        descriptor: &GraphicsPipelineDescriptor<V, R, Tf>,
     ) -> Result<Self, CreateGraphicsPipelineError>
     where
         Rc: RenderingContext + Clone + 'static,
@@ -105,7 +105,7 @@ where
             gl,
         )?;
 
-        Il::check_compatibility(program.attribute_slot_descriptors())?;
+        V::check_compatibility(program.attribute_slot_descriptors())?;
 
         match descriptor.binding_strategy {
             BindingStrategy::Check => {
@@ -121,7 +121,7 @@ where
         };
 
         Ok(GraphicsPipeline {
-            _input_attribute_layout_marker: marker::PhantomData,
+            _vertex_attribute_layout_marker: marker::PhantomData,
             _resources_marker: marker::PhantomData,
             _transform_feedback_varyings_marker: marker::PhantomData,
             context_id: context.id(),
@@ -214,7 +214,7 @@ unsafe impl GpuTask<Connection> for ProgramObjectDropCommand {
     }
 }
 
-impl<Il, R, Tf> Drop for GraphicsPipeline<Il, R, Tf> {
+impl<V, R, Tf> Drop for GraphicsPipeline<V, R, Tf> {
     fn drop(&mut self) {
         self.dropper.drop_program_object(self.program_id);
     }

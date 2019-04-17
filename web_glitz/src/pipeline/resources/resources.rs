@@ -141,7 +141,7 @@ pub unsafe trait Resources {
     fn confirm_slot_bindings<C>(
         confirmer: &C,
         descriptors: &[ResourceSlotDescriptor],
-    ) -> Result<(), Incompatible>
+    ) -> Result<(), IncompatibleResources>
     where
         C: SlotBindingConfirmer;
 
@@ -159,12 +159,12 @@ unsafe impl Resources for () {
     fn confirm_slot_bindings<C>(
         _confirmer: &C,
         descriptors: &[ResourceSlotDescriptor],
-    ) -> Result<(), Incompatible>
+    ) -> Result<(), IncompatibleResources>
     where
         C: SlotBindingConfirmer,
     {
         if let Some(descriptor) = descriptors.first() {
-            Err(Incompatible::MissingResource(
+            Err(IncompatibleResources::MissingResource(
                 descriptor.identifier().clone(),
             ))
         } else {
@@ -183,16 +183,16 @@ unsafe impl Resources for () {
 /// Error returned by [Resources::confirm_slot_bindings] when the [Resources] don't match the
 /// resource slot bindings.
 #[derive(Debug)]
-pub enum Incompatible {
+pub enum IncompatibleResources {
     MissingResource(Identifier),
     ResourceTypeMismatch(Identifier),
     IncompatibleBlockLayout(Identifier, interface_block::Incompatible),
     SlotBindingMismatch { expected: usize, actual: usize },
 }
 
-impl From<SlotBindingMismatch> for Incompatible {
+impl From<SlotBindingMismatch> for IncompatibleResources {
     fn from(err: SlotBindingMismatch) -> Self {
-        Incompatible::SlotBindingMismatch {
+        IncompatibleResources::SlotBindingMismatch {
             expected: err.expected,
             actual: err.actual,
         }

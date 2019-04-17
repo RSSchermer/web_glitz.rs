@@ -8,7 +8,7 @@ use crate::util::ErrorLog;
 pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> {
     if let Data::Struct(ref data) = input.data {
         let struct_name = &input.ident;
-        let mod_path = quote!(_web_glitz::pipeline::graphics::vertex_input);
+        let mod_path = quote!(_web_glitz::vertex);
         let mut log = ErrorLog::new();
 
         let mut position = 0;
@@ -38,12 +38,12 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
                 quote_spanned!(span=> {
                     assert_format_compatible::<#ty, #ident>();
 
-                    <#ident as AttributeFormat>::KIND
+                    <#ident as AttributeFormatIdentifier>::FORMAT
                 })
             };
 
             quote! {
-                #mod_path::VertexInputAttributeDescriptor {
+                #mod_path::VertexAttributeDescriptor {
                     location: #location,
                     format: #format_kind,
                     offset: offset_of!(#struct_name, #field_name) as u8
@@ -54,13 +54,13 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
         let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
         let impl_block = quote! {
-            const INPUT_ATTRIBUTE_DESCRIPTORS: [#mod_path::VertexInputAttributeDescriptor;#len] = [
+            const INPUT_ATTRIBUTE_DESCRIPTORS: [#mod_path::VertexAttributeDescriptor;#len] = [
                 #(#recurse),*
             ];
 
             #[automatically_derived]
             unsafe impl #impl_generics #mod_path::Vertex for #struct_name #ty_generics #where_clause {
-                fn input_attribute_descriptors() -> &'static [#mod_path::VertexInputAttributeDescriptor] {
+                fn attribute_descriptors() -> &'static [#mod_path::VertexAttributeDescriptor] {
                     &INPUT_ATTRIBUTE_DESCRIPTORS
                 }
             }
@@ -98,8 +98,8 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
 
                 const fn assert_format_compatible<T, F>()
                 where
-                    T: #mod_path::FormatCompatible<F>,
-                    F: #mod_path::attribute_format::AttributeFormat
+                    T: #mod_path::attribute_format::FormatCompatible<F>,
+                    F: #mod_path::attribute_format::AttributeFormatIdentifier
                 {}
 
                 #offset_of

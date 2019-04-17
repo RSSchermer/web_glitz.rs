@@ -19,13 +19,9 @@ use crate::image::MaxMipmapLevelsExceeded;
 use crate::pipeline::graphics::shader::{
     FragmentShaderAllocateCommand, VertexShaderAllocateCommand,
 };
-use crate::pipeline::graphics::vertex_input::{
-    IndexBufferDescription, InputAttributeLayout, VertexArray, VertexArrayDescriptor,
-    VertexBuffersDescription,
-};
 use crate::pipeline::graphics::{
     FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, ShaderCompilationError,
-    VertexShader,
+    VertexShader, AttributeSlotLayoutCompatible
 };
 use crate::pipeline::resources::Resources;
 use crate::render_pass::{
@@ -42,6 +38,7 @@ use crate::runtime::state::DynamicState;
 use crate::runtime::{Connection, ContextOptions, Execution, PowerPreference, RenderingContext};
 use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
 use crate::task::{GpuTask, Progress};
+use crate::vertex::{VertexArray, VertexArrayDescriptor, IndexBufferDescription, VertexInputStateDescription};
 
 thread_local!(static ID_GEN: IdGen = IdGen::new());
 
@@ -118,12 +115,12 @@ impl RenderingContext for SingleThreadedContext {
         }
     }
 
-    fn create_graphics_pipeline<Il, R, Tf>(
+    fn create_graphics_pipeline<V, R, Tf>(
         &self,
-        descriptor: &GraphicsPipelineDescriptor<Il, R, Tf>,
-    ) -> Result<GraphicsPipeline<Il, R, Tf>, CreateGraphicsPipelineError>
+        descriptor: &GraphicsPipelineDescriptor<V, R, Tf>,
+    ) -> Result<GraphicsPipeline<V, R, Tf>, CreateGraphicsPipelineError>
     where
-        Il: InputAttributeLayout,
+        V: AttributeSlotLayoutCompatible,
         R: Resources + 'static,
         Tf: TransformFeedbackVaryings,
     {
@@ -195,9 +192,10 @@ impl RenderingContext for SingleThreadedContext {
     fn create_vertex_array<V, I>(
         &self,
         descriptor: &VertexArrayDescriptor<V, I>,
-    ) -> VertexArray<V::Layout>
+    ) -> VertexArray<V::AttributeLayout>
     where
-        V: VertexBuffersDescription,
+        V: VertexInputStateDescription,
+
         I: IndexBufferDescription,
     {
         VertexArray::new(self, descriptor)

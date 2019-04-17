@@ -14,21 +14,14 @@ use crate::image::texture_2d_array::{Texture2DArray, Texture2DArrayDescriptor};
 use crate::image::texture_3d::{Texture3D, Texture3DDescriptor};
 use crate::image::texture_cube::{TextureCube, TextureCubeDescriptor};
 use crate::image::MaxMipmapLevelsExceeded;
-use crate::pipeline::graphics::vertex_input::{
-    IndexBufferDescription, InputAttributeLayout, VertexArray, VertexArrayDescriptor,
-    VertexBuffersDescription,
-};
-use crate::pipeline::graphics::{
-    vertex_input, FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor,
-    ShaderCompilationError, ShaderLinkingError, VertexShader,
-};
-use crate::pipeline::resources;
+use crate::pipeline::graphics::{FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, ShaderCompilationError, ShaderLinkingError, VertexShader, AttributeSlotLayoutCompatible, IncompatibleAttributeLayout};
 use crate::pipeline::resources::resource_slot::Identifier;
-use crate::pipeline::resources::Resources;
+use crate::pipeline::resources::{Resources, IncompatibleResources};
 use crate::render_pass::{RenderPass, RenderPassContext, RenderTargetDescription};
 use crate::runtime::state::{CreateProgramError, DynamicState};
 use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
 use crate::task::GpuTask;
+use crate::vertex::{VertexArray, VertexArrayDescriptor, IndexBufferDescription, VertexInputStateDescription};
 
 pub trait RenderingContext {
     fn id(&self) -> usize;
@@ -55,12 +48,12 @@ pub trait RenderingContext {
     where
         S: Borrow<str> + 'static;
 
-    fn create_graphics_pipeline<Il, R, Tf>(
+    fn create_graphics_pipeline<V, R, Tf>(
         &self,
-        descriptor: &GraphicsPipelineDescriptor<Il, R, Tf>,
-    ) -> Result<GraphicsPipeline<Il, R, Tf>, CreateGraphicsPipelineError>
+        descriptor: &GraphicsPipelineDescriptor<V, R, Tf>,
+    ) -> Result<GraphicsPipeline<V, R, Tf>, CreateGraphicsPipelineError>
     where
-        Il: InputAttributeLayout,
+        V: AttributeSlotLayoutCompatible,
         R: Resources + 'static,
         Tf: TransformFeedbackVaryings;
 
@@ -105,9 +98,10 @@ pub trait RenderingContext {
     fn create_vertex_array<V, I>(
         &self,
         descriptor: &VertexArrayDescriptor<V, I>,
-    ) -> VertexArray<V::Layout>
+    ) -> VertexArray<V::AttributeLayout>
     where
-        V: VertexBuffersDescription,
+        V: VertexInputStateDescription,
+
         I: IndexBufferDescription;
 
     fn submit<T>(&self, task: T) -> Execution<T::Output>
@@ -158,8 +152,8 @@ unsafe impl TransformFeedbackVaryings for () {}
 pub enum CreateGraphicsPipelineError {
     ShaderLinkingError(ShaderLinkingError),
     UnsupportedUniformType(Identifier, &'static str),
-    IncompatibleInputAttributeLayout(vertex_input::Incompatible),
-    IncompatibleResources(resources::Incompatible),
+    IncompatibleInputAttributeLayout(IncompatibleAttributeLayout),
+    IncompatibleResources(IncompatibleResources),
 }
 
 impl From<CreateProgramError> for CreateGraphicsPipelineError {
@@ -181,14 +175,14 @@ impl From<ShaderLinkingError> for CreateGraphicsPipelineError {
     }
 }
 
-impl From<vertex_input::Incompatible> for CreateGraphicsPipelineError {
-    fn from(error: vertex_input::Incompatible) -> Self {
+impl From<IncompatibleAttributeLayout> for CreateGraphicsPipelineError {
+    fn from(error: IncompatibleAttributeLayout) -> Self {
         CreateGraphicsPipelineError::IncompatibleInputAttributeLayout(error)
     }
 }
 
-impl From<resources::Incompatible> for CreateGraphicsPipelineError {
-    fn from(error: resources::Incompatible) -> Self {
+impl From<IncompatibleResources> for CreateGraphicsPipelineError {
+    fn from(error: IncompatibleResources) -> Self {
         CreateGraphicsPipelineError::IncompatibleResources(error)
     }
 }
