@@ -10,18 +10,36 @@ use crate::task::{GpuTask, ContextId, Progress};
 use crate::runtime::state::ContextUpdate;
 
 use wasm_bindgen::JsCast;
+use web_glitz::vertex::VertexArrayDescriptor;
 
+/// Provides the information necessary for the creation of a [VertexArray].
+///
+/// See [RenderingContext::create_vertex_array] for details.
 pub struct VertexArrayDescriptor<V, I>
     where
         V: VertexInputStateDescription,
         I: IndexBufferDescription,
 {
+    /// The vertex input state for the [VertexArray].
+    ///
+    /// See [VertexInputStateDescription] for details.
     pub vertex_input_state: V,
+
+    /// The index data for the [VertexArray].
+    ///
+    /// See [IndexBufferDescription] for details.
     pub indices: I,
 }
 
+/// Wraps a [VertexArraySlice] to represent an instanced vertex stream.
+///
+/// See [VertexArray::instanced] and [VertexArraySlice::instanced].
 pub struct Instanced<T>(pub(crate) T, pub(crate) usize);
 
+/// Encapsulates the state of a [VertexArray] from which vertices may be streamed as the input to
+/// a graphics pipeline.
+///
+/// See [RenderingContext::create_vertex_array] for details on how a [VertexArray] is created.
 pub struct VertexArray<L> {
     pub(crate) data: Arc<VertexArrayData>,
     pub(crate) len: usize,
@@ -106,10 +124,77 @@ impl<L> VertexArray<L> {
         }
     }
 
+    /// Returns the number of vertices that can be streamed from this [VertexArray] without
+    /// instancing.
+    ///
+    /// If this vertex array uses indexing, then this number is equal to the number of indices. If
+    /// the vertex array does not use indexing, then the vertex input source that can provide the
+    /// fewest input sets determines this number and is calculated as
+    /// `size_in_bytes / stride_in_bytes` (rounded down), where `size_in_bytes` is the size in
+    /// bytes of the vertex input source (see [VertexInputDescriptor::size_in_bytes] and
+    /// `stride_in_bytes` is the stride in bytes of the vertex input source (see
+    /// [VertexInputDescriptor::stride_in_bytes]).
+    ///
+    /// This number is based only on how many "per vertex" attribute inputs can be generated from
+    /// the input data, "per instance" attribute inputs do not affect this count (see
+    /// [VertexInputDescriptor::input_rate]).
     pub fn len(&self) -> usize {
         self.len
     }
 
+    /// Returns a reference to a sub-range of the [VertexArray], or `None` if the range is out of
+    /// bounds.
+    ///
+    /// This may be used to limit the vertices streamed from this array to only a sub-range of the
+    /// array when it is used as a vertex input stream description for a graphics pipeline.
+    ///
+    /// See also [range_unchecked] for an unsafe variant that does not do any bounds checking.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::{DefaultRenderTarget, DefaultRGBBuffer};
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # use web_glitz::vertex::{Vertex, VertexArrayDescriptor};
+    /// # use web_glitz::buffer::UsageHint;
+    /// # use web_glitz::pipeline::graphics::GraphicsPipeline;
+    /// # fn wrapper<Rc, V>(
+    /// #     context: &Rc,
+    /// #     render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
+    /// #     vertex_data: [V; 100],
+    /// #     graphics_pipeline: GraphicsPipeline<V, (), ()>
+    /// # )
+    /// # where
+    /// #     Rc: RenderingContext,
+    /// #     V: Vertex
+    /// # {
+    /// # let vertex_buffer = context.create_buffer(vertex_data, UsageHint::StaticDraw);
+    /// let vertex_array = context.create_vertex_array(&VertexArrayDescriptor {
+    ///     vertex_input_state: &vertex_buffer,
+    ///     indices: ()
+    /// });
+    ///
+    /// assert_eq!(vertex_array.len(), 100);
+    ///
+    /// let range_in_bounds = vertex_array.range(10..20);
+    ///
+    /// assert!(range_in_bounds.is_some());
+    ///
+    /// let range_out_of_bounds = vertex_array.range(10..101);
+    ///
+    /// assert!(range_out_of_bounds.is_none());
+    ///
+    /// let range = range_in_bounds.unwrap();
+    ///
+    /// assert_eq!(range.len(), 10);
+    ///
+    /// let render_pass = context.create_render_pass(render_target, |framebuffer| {
+    ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
+    ///         active_pipeline.draw_command(&range, &());
+    ///     })
+    /// });
+    /// # }
+    /// ```
     pub fn range<R>(&self, range: R) -> Option<VertexArraySlice<L>>
         where
             R: VertexArrayRange,
@@ -121,6 +206,50 @@ impl<L> VertexArray<L> {
         })
     }
 
+    /// Returns a reference to a sub-range of the [VertexArray] without doing any bounds checks.
+    ///
+    /// This may be used to limit the vertices streamed from this array to only a sub-range of the
+    /// array when it is used as a vertex input stream description for a graphics pipeline.
+    ///
+    /// See also [range] for a safe variant that does bounds checking.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::{DefaultRenderTarget, DefaultRGBBuffer};
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # use web_glitz::vertex::{Vertex, VertexArrayDescriptor};
+    /// # use web_glitz::buffer::UsageHint;
+    /// # use web_glitz::pipeline::graphics::GraphicsPipeline;
+    /// # fn wrapper<Rc, V>(
+    /// #     context: &Rc,
+    /// #     render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
+    /// #     vertex_data: [V; 100],
+    /// #     graphics_pipeline: GraphicsPipeline<V, (), ()>
+    /// # )
+    /// # where
+    /// #     Rc: RenderingContext,
+    /// #     V: Vertex
+    /// # {
+    /// # let vertex_buffer = context.create_buffer(vertex_data, UsageHint::StaticDraw);
+    /// let vertex_array = context.create_vertex_array(&VertexArrayDescriptor {
+    ///     vertex_input_state: &vertex_buffer,
+    ///     indices: ()
+    /// });
+    ///
+    /// assert_eq!(vertex_array.len(), 100);
+    ///
+    /// let range = unsafe { vertex_array.range_unchecked(10..20) };
+    ///
+    /// assert_eq!(range.len(), 10);
+    ///
+    /// let render_pass = context.create_render_pass(render_target, |framebuffer| {
+    ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
+    ///         active_pipeline.draw_command(&range, &());
+    ///     })
+    /// });
+    /// # }
+    /// ```
     pub unsafe fn range_unchecked<R>(&self, range: R) -> VertexArraySlice<L>
         where
             R: VertexArrayRange,
@@ -132,6 +261,42 @@ impl<L> VertexArray<L> {
         })
     }
 
+    /// Wraps this [VertexArray] to represent an instanced vertex stream with the given
+    /// `instance_count`.
+    ///
+    /// This may be used to describe an instanced vertex input stream for a graphics pipeline.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::{DefaultRenderTarget, DefaultRGBBuffer};
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # use web_glitz::vertex::{Vertex, VertexArrayDescriptor};
+    /// # use web_glitz::buffer::UsageHint;
+    /// # use web_glitz::pipeline::graphics::GraphicsPipeline;
+    /// # fn wrapper<Rc, V>(
+    /// #     context: &Rc,
+    /// #     render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
+    /// #     vertex_data: [V; 100],
+    /// #     graphics_pipeline: GraphicsPipeline<V, (), ()>
+    /// # )
+    /// # where
+    /// #     Rc: RenderingContext,
+    /// #     V: Vertex
+    /// # {
+    /// # let vertex_buffer = context.create_buffer(vertex_data, UsageHint::StaticDraw);
+    /// let vertex_array = context.create_vertex_array(&VertexArrayDescriptor {
+    ///     vertex_input_state: &vertex_buffer,
+    ///     indices: ()
+    /// });
+    ///
+    /// let render_pass = context.create_render_pass(render_target, |framebuffer| {
+    ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
+    ///         active_pipeline.draw_command(&vertex_array.instanced(10), &());
+    ///     })
+    /// });
+    /// # }
+    /// ```
     pub fn instanced(&self, instance_count: usize) -> Instanced<VertexArraySlice<L>> {
         Instanced(
             VertexArraySlice {
@@ -144,18 +309,26 @@ impl<L> VertexArray<L> {
     }
 }
 
+/// Helper trait for selecting a sub-range of a [VertexArray].
+///
+/// See [VertexArray::range] and [VertexArray::range_unchecked].
 pub trait VertexArrayRange {
+    /// Returns the output for this operation if in bounds, or `None` otherwise.
     fn range<'a, L>(
         self,
         vertex_array: &VertexArraySlice<'a, L>,
     ) -> Option<VertexArraySlice<'a, L>>;
 
+    /// Returns the output for this operation, without performing any bounds checking.
     unsafe fn range_unchecked<'a, L>(
         self,
         vertex_array: &VertexArraySlice<'a, L>,
     ) -> VertexArraySlice<'a, L>;
 }
 
+/// A reference to a sub-range of the [VertexArray].
+///
+/// See [VertexArray::range] and [VertexArray::range_unchecked].
 #[derive(Clone, Copy)]
 pub struct VertexArraySlice<'a, L> {
     pub(crate) vertex_array: &'a VertexArray<L>,
@@ -164,10 +337,18 @@ pub struct VertexArraySlice<'a, L> {
 }
 
 impl<'a, L> VertexArraySlice<'a, L> {
+    /// Returns the number of vertices that can be streamed from this [VertexArraySlice] without
+    /// instancing.
+    ///
+    /// See also [VertexArray::len].
     pub fn len(&self) -> usize {
         self.len
     }
 
+    /// Returns a reference to a sub-range of the [VertexArray], or `None` if the range is out of
+    /// bounds.
+    ///
+    /// See also [VertexArray::range].
     pub fn range<R>(&self, range: R) -> Option<VertexArraySlice<L>>
         where
             R: VertexArrayRange,
@@ -175,6 +356,9 @@ impl<'a, L> VertexArraySlice<'a, L> {
         range.range(self)
     }
 
+    /// Returns a reference to a sub-range of the [VertexArray] without doing any bounds checks.
+    ///
+    /// See also [VertexArray::range_unchecked].
     pub unsafe fn range_unchecked<R>(&self, range: R) -> VertexArraySlice<L>
         where
             R: VertexArrayRange,
@@ -182,6 +366,10 @@ impl<'a, L> VertexArraySlice<'a, L> {
         range.range_unchecked(self)
     }
 
+    /// Wraps this [VertexArraySlice] to represent an instanced vertex stream with the given
+    /// `instance_count`.
+    ///
+    /// See also [VertexArray::instanced].
     pub fn instanced(&self, instance_count: usize) -> Instanced<VertexArraySlice<L>> {
         Instanced(
             VertexArraySlice {

@@ -2,12 +2,17 @@ use std::sync::Arc;
 use crate::vertex::vertex_array::VertexArrayData;
 use crate::vertex::{IndexType, VertexArray, VertexArraySlice, Instanced};
 
+/// Describes a stream of vertices that may serve as the input for a graphics pipeline.
 pub trait VertexStreamDescription {
+    /// Type associated with the vertex attribute layout of vertices in the vertex stream.
     type AttributeLayout;
 
+    /// Returns a descriptor that encapsulates the state necessary for drawing with this vertex
+    /// stream.
     fn descriptor(&self) -> VertexStreamDescriptor;
 }
 
+/// Describes a vertex stream that may serve as the input for a graphics pipeline.
 #[derive(Clone)]
 pub struct VertexStreamDescriptor {
     pub(crate) vertex_array_data: Arc<VertexArrayData>,

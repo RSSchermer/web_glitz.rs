@@ -2,9 +2,24 @@ use std::borrow::Borrow;
 
 use crate::vertex::{Vertex, VertexAttributeDescriptor};
 
+/// Describes a [VertexAttributeLayout] attached to a type.
+///
+/// The attribute layout is described by sequence of grouped [VertexAttributeDescriptor]s.
+/// Together with a sequence of [VertexInputDescriptor]s, these may be used to describe the vertex
+/// input state for a [VertexArray], see [VertexInputStateDescription].
+///
+/// # Unsafe
+///
+/// The value returned by [input_attribute_bindings] must describe the same attribute layout on
+/// every invocation.
 pub unsafe trait VertexAttributeLayout {
+    /// The type returned by [input_attribute_bindings].
     type InputAttributeBindings: Borrow<[&'static [VertexAttributeDescriptor]]> + 'static;
 
+    /// Returns a sequence of grouped [VertexAttributeDescriptor]s.
+    ///
+    /// Together with a sequence of [VertexInputDescriptor]s, these may be used to describe the
+    /// vertex input state for a [VertexArray], see [VertexInputStateDescription].
     fn input_attribute_bindings() -> Self::InputAttributeBindings;
 }
 

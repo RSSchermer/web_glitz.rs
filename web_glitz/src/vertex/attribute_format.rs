@@ -2,856 +2,875 @@
 
 use crate::pipeline::graphics::AttributeType;
 
-pub unsafe trait AttributeFormatIdentifier {
+/// Trait implemented by attribute format identifiers.
+///
+/// Helper trait which, in conjunction with [FormatCompatible], allows the derive macro for the
+/// [Vertex] trait to verify at compile time that an attribute field type is compatible with the
+/// specified attribute format.
+pub trait AttributeFormatIdentifier {
+    /// The [AttributeFormat] associated with this [AttributeFormatIdentifier].
     const FORMAT: AttributeFormat;
 }
 
 pub struct Float_f32;
 
-unsafe impl AttributeFormatIdentifier for Float_f32 {
+impl AttributeFormatIdentifier for Float_f32 {
     const FORMAT: AttributeFormat = AttributeFormat::Float_f32;
 }
 
 pub struct Float_i8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float_i8_fixed {
+impl AttributeFormatIdentifier for Float_i8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float_i8_fixed;
 }
 
 pub struct Float_i8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float_i8_norm {
+impl AttributeFormatIdentifier for Float_i8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float_i8_norm;
 }
 
 pub struct Float_i16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float_i16_fixed {
+impl AttributeFormatIdentifier for Float_i16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float_i16_fixed;
 }
 
 pub struct Float_i16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float_i16_norm {
+impl AttributeFormatIdentifier for Float_i16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float_i16_norm;
 }
 
 pub struct Float_u8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float_u8_fixed {
+impl AttributeFormatIdentifier for Float_u8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float_u8_fixed;
 }
 
 pub struct Float_u8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float_u8_norm {
+impl AttributeFormatIdentifier for Float_u8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float_u8_norm;
 }
 
 pub struct Float_u16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float_u16_fixed {
+impl AttributeFormatIdentifier for Float_u16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float_u16_fixed;
 }
 
 pub struct Float_u16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float_u16_norm {
+impl AttributeFormatIdentifier for Float_u16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float_u16_norm;
 }
 
 pub struct Float2_f32;
 
-unsafe impl AttributeFormatIdentifier for Float2_f32 {
+impl AttributeFormatIdentifier for Float2_f32 {
     const FORMAT: AttributeFormat = AttributeFormat::Float2_f32;
 }
 
 pub struct Float2_i8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float2_i8_fixed {
+impl AttributeFormatIdentifier for Float2_i8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float2_i8_fixed;
 }
 
 pub struct Float2_i8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float2_i8_norm {
+impl AttributeFormatIdentifier for Float2_i8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float2_i8_norm;
 }
 
 pub struct Float2_i16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float2_i16_fixed {
+impl AttributeFormatIdentifier for Float2_i16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float2_i16_fixed;
 }
 
 pub struct Float2_i16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float2_i16_norm {
+impl AttributeFormatIdentifier for Float2_i16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float2_i16_norm;
 }
 
 pub struct Float2_u8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float2_u8_fixed {
+impl AttributeFormatIdentifier for Float2_u8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float2_u8_fixed;
 }
 
 pub struct Float2_u8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float2_u8_norm {
+impl AttributeFormatIdentifier for Float2_u8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float2_u8_norm;
 }
 
 pub struct Float2_u16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float2_u16_fixed {
+impl AttributeFormatIdentifier for Float2_u16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float2_u16_fixed;
 }
 
 pub struct Float2_u16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float2_u16_norm {
+impl AttributeFormatIdentifier for Float2_u16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float2_u16_norm;
 }
 
 pub struct Float3_f32;
 
-unsafe impl AttributeFormatIdentifier for Float3_f32 {
+impl AttributeFormatIdentifier for Float3_f32 {
     const FORMAT: AttributeFormat = AttributeFormat::Float3_f32;
 }
 
 pub struct Float3_i8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float3_i8_fixed {
+impl AttributeFormatIdentifier for Float3_i8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float3_i8_fixed;
 }
 
 pub struct Float3_i8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float3_i8_norm {
+impl AttributeFormatIdentifier for Float3_i8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float3_i8_norm;
 }
 
 pub struct Float3_i16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float3_i16_fixed {
+impl AttributeFormatIdentifier for Float3_i16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float3_i16_fixed;
 }
 
 pub struct Float3_i16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float3_i16_norm {
+impl AttributeFormatIdentifier for Float3_i16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float3_i16_norm;
 }
 
 pub struct Float3_u8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float3_u8_fixed {
+impl AttributeFormatIdentifier for Float3_u8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float3_u8_fixed;
 }
 
 pub struct Float3_u8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float3_u8_norm {
+impl AttributeFormatIdentifier for Float3_u8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float3_u8_norm;
 }
 
 pub struct Float3_u16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float3_u16_fixed {
+impl AttributeFormatIdentifier for Float3_u16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float3_u16_fixed;
 }
 
 pub struct Float3_u16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float3_u16_norm {
+impl AttributeFormatIdentifier for Float3_u16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float3_u16_norm;
 }
 
 pub struct Float4_f32;
 
-unsafe impl AttributeFormatIdentifier for Float4_f32 {
+impl AttributeFormatIdentifier for Float4_f32 {
     const FORMAT: AttributeFormat = AttributeFormat::Float4_f32;
 }
 
 pub struct Float4_i8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float4_i8_fixed {
+impl AttributeFormatIdentifier for Float4_i8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float4_i8_fixed;
 }
 
 pub struct Float4_i8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float4_i8_norm {
+impl AttributeFormatIdentifier for Float4_i8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float4_i8_norm;
 }
 
 pub struct Float4_i16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float4_i16_fixed {
+impl AttributeFormatIdentifier for Float4_i16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float4_i16_fixed;
 }
 
 pub struct Float4_i16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float4_i16_norm {
+impl AttributeFormatIdentifier for Float4_i16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float4_i16_norm;
 }
 
 pub struct Float4_u8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float4_u8_fixed {
+impl AttributeFormatIdentifier for Float4_u8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float4_u8_fixed;
 }
 
 pub struct Float4_u8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float4_u8_norm {
+impl AttributeFormatIdentifier for Float4_u8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float4_u8_norm;
 }
 
 pub struct Float4_u16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float4_u16_fixed {
+impl AttributeFormatIdentifier for Float4_u16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float4_u16_fixed;
 }
 
 pub struct Float4_u16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float4_u16_norm {
+impl AttributeFormatIdentifier for Float4_u16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float4_u16_norm;
 }
 
 pub struct Float2x2_f32;
 
-unsafe impl AttributeFormatIdentifier for Float2x2_f32 {
+impl AttributeFormatIdentifier for Float2x2_f32 {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x2_f32;
 }
 
 pub struct Float2x2_i8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float2x2_i8_fixed {
+impl AttributeFormatIdentifier for Float2x2_i8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x2_i8_fixed;
 }
 
 pub struct Float2x2_i8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float2x2_i8_norm {
+impl AttributeFormatIdentifier for Float2x2_i8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x2_i8_norm;
 }
 
 pub struct Float2x2_i16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float2x2_i16_fixed {
+impl AttributeFormatIdentifier for Float2x2_i16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x2_i16_fixed;
 }
 
 pub struct Float2x2_i16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float2x2_i16_norm {
+impl AttributeFormatIdentifier for Float2x2_i16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x2_i16_norm;
 }
 
 pub struct Float2x2_u8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float2x2_u8_fixed {
+impl AttributeFormatIdentifier for Float2x2_u8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x2_u8_fixed;
 }
 
 pub struct Float2x2_u8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float2x2_u8_norm {
+impl AttributeFormatIdentifier for Float2x2_u8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x2_u8_norm;
 }
 
 pub struct Float2x2_u16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float2x2_u16_fixed {
+impl AttributeFormatIdentifier for Float2x2_u16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x2_u16_fixed;
 }
 
 pub struct Float2x2_u16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float2x2_u16_norm {
+impl AttributeFormatIdentifier for Float2x2_u16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x2_u16_norm;
 }
 
 pub struct Float2x3_f32;
 
-unsafe impl AttributeFormatIdentifier for Float2x3_f32 {
+impl AttributeFormatIdentifier for Float2x3_f32 {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x3_f32;
 }
 
 pub struct Float2x3_i8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float2x3_i8_fixed {
+impl AttributeFormatIdentifier for Float2x3_i8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x3_i8_fixed;
 }
 
 pub struct Float2x3_i8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float2x3_i8_norm {
+impl AttributeFormatIdentifier for Float2x3_i8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x3_i8_norm;
 }
 
 pub struct Float2x3_i16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float2x3_i16_fixed {
+impl AttributeFormatIdentifier for Float2x3_i16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x3_i16_fixed;
 }
 
 pub struct Float2x3_i16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float2x3_i16_norm {
+impl AttributeFormatIdentifier for Float2x3_i16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x3_i16_norm;
 }
 
 pub struct Float2x3_u8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float2x3_u8_fixed {
+impl AttributeFormatIdentifier for Float2x3_u8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x3_u8_fixed;
 }
 
 pub struct Float2x3_u8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float2x3_u8_norm {
+impl AttributeFormatIdentifier for Float2x3_u8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x3_u8_norm;
 }
 
 pub struct Float2x3_u16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float2x3_u16_fixed {
+impl AttributeFormatIdentifier for Float2x3_u16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x3_u16_fixed;
 }
 
 pub struct Float2x3_u16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float2x3_u16_norm {
+impl AttributeFormatIdentifier for Float2x3_u16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x3_u16_norm;
 }
 
 pub struct Float2x4_f32;
 
-unsafe impl AttributeFormatIdentifier for Float2x4_f32 {
+impl AttributeFormatIdentifier for Float2x4_f32 {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x4_f32;
 }
 
 pub struct Float2x4_i8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float2x4_i8_fixed {
+impl AttributeFormatIdentifier for Float2x4_i8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x4_i8_fixed;
 }
 
 pub struct Float2x4_i8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float2x4_i8_norm {
+impl AttributeFormatIdentifier for Float2x4_i8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x4_i8_norm;
 }
 
 pub struct Float2x4_i16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float2x4_i16_fixed {
+impl AttributeFormatIdentifier for Float2x4_i16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x4_i16_fixed;
 }
 
 pub struct Float2x4_i16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float2x4_i16_norm {
+impl AttributeFormatIdentifier for Float2x4_i16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x4_i16_norm;
 }
 
 pub struct Float2x4_u8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float2x4_u8_fixed {
+impl AttributeFormatIdentifier for Float2x4_u8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x4_u8_fixed;
 }
 
 pub struct Float2x4_u8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float2x4_u8_norm {
+impl AttributeFormatIdentifier for Float2x4_u8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x4_u8_norm;
 }
 
 pub struct Float2x4_u16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float2x4_u16_fixed {
+impl AttributeFormatIdentifier for Float2x4_u16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x4_u16_fixed;
 }
 
 pub struct Float2x4_u16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float2x4_u16_norm {
+impl AttributeFormatIdentifier for Float2x4_u16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float2x4_u16_norm;
 }
 
 pub struct Float3x2_f32;
 
-unsafe impl AttributeFormatIdentifier for Float3x2_f32 {
+impl AttributeFormatIdentifier for Float3x2_f32 {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x2_f32;
 }
 
 pub struct Float3x2_i8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float3x2_i8_fixed {
+impl AttributeFormatIdentifier for Float3x2_i8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x2_i8_fixed;
 }
 
 pub struct Float3x2_i8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float3x2_i8_norm {
+impl AttributeFormatIdentifier for Float3x2_i8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x2_i8_norm;
 }
 
 pub struct Float3x2_i16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float3x2_i16_fixed {
+impl AttributeFormatIdentifier for Float3x2_i16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x2_i16_fixed;
 }
 
 pub struct Float3x2_i16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float3x2_i16_norm {
+impl AttributeFormatIdentifier for Float3x2_i16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x2_i16_norm;
 }
 
 pub struct Float3x2_u8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float3x2_u8_fixed {
+impl AttributeFormatIdentifier for Float3x2_u8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x2_u8_fixed;
 }
 
 pub struct Float3x2_u8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float3x2_u8_norm {
+impl AttributeFormatIdentifier for Float3x2_u8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x2_u8_norm;
 }
 
 pub struct Float3x2_u16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float3x2_u16_fixed {
+impl AttributeFormatIdentifier for Float3x2_u16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x2_u16_fixed;
 }
 
 pub struct Float3x2_u16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float3x2_u16_norm {
+impl AttributeFormatIdentifier for Float3x2_u16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x2_u16_norm;
 }
 
 pub struct Float3x3_f32;
 
-unsafe impl AttributeFormatIdentifier for Float3x3_f32 {
+impl AttributeFormatIdentifier for Float3x3_f32 {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x3_f32;
 }
 
 pub struct Float3x3_i8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float3x3_i8_fixed {
+impl AttributeFormatIdentifier for Float3x3_i8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x3_i8_fixed;
 }
 
 pub struct Float3x3_i8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float3x3_i8_norm {
+impl AttributeFormatIdentifier for Float3x3_i8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x3_i8_norm;
 }
 
 pub struct Float3x3_i16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float3x3_i16_fixed {
+impl AttributeFormatIdentifier for Float3x3_i16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x3_i16_fixed;
 }
 
 pub struct Float3x3_i16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float3x3_i16_norm {
+impl AttributeFormatIdentifier for Float3x3_i16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x3_i16_norm;
 }
 
 pub struct Float3x3_u8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float3x3_u8_fixed {
+impl AttributeFormatIdentifier for Float3x3_u8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x3_u8_fixed;
 }
 
 pub struct Float3x3_u8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float3x3_u8_norm {
+impl AttributeFormatIdentifier for Float3x3_u8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x3_u8_norm;
 }
 
 pub struct Float3x3_u16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float3x3_u16_fixed {
+impl AttributeFormatIdentifier for Float3x3_u16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x3_u16_fixed;
 }
 
 pub struct Float3x3_u16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float3x3_u16_norm {
+impl AttributeFormatIdentifier for Float3x3_u16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x3_u16_norm;
 }
 
 pub struct Float3x4_f32;
 
-unsafe impl AttributeFormatIdentifier for Float3x4_f32 {
+impl AttributeFormatIdentifier for Float3x4_f32 {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x4_f32;
 }
 
 pub struct Float3x4_i8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float3x4_i8_fixed {
+impl AttributeFormatIdentifier for Float3x4_i8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x4_i8_fixed;
 }
 
 pub struct Float3x4_i8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float3x4_i8_norm {
+impl AttributeFormatIdentifier for Float3x4_i8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x4_i8_norm;
 }
 
 pub struct Float3x4_i16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float3x4_i16_fixed {
+impl AttributeFormatIdentifier for Float3x4_i16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x4_i16_fixed;
 }
 
 pub struct Float3x4_i16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float3x4_i16_norm {
+impl AttributeFormatIdentifier for Float3x4_i16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x4_i16_norm;
 }
 
 pub struct Float3x4_u8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float3x4_u8_fixed {
+impl AttributeFormatIdentifier for Float3x4_u8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x4_u8_fixed;
 }
 
 pub struct Float3x4_u8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float3x4_u8_norm {
+impl AttributeFormatIdentifier for Float3x4_u8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x4_u8_norm;
 }
 
 pub struct Float3x4_u16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float3x4_u16_fixed {
+impl AttributeFormatIdentifier for Float3x4_u16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x4_u16_fixed;
 }
 
 pub struct Float3x4_u16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float3x4_u16_norm {
+impl AttributeFormatIdentifier for Float3x4_u16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float3x4_u16_norm;
 }
 
 pub struct Float4x2_f32;
 
-unsafe impl AttributeFormatIdentifier for Float4x2_f32 {
+impl AttributeFormatIdentifier for Float4x2_f32 {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x2_f32;
 }
 
 pub struct Float4x2_i8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float4x2_i8_fixed {
+impl AttributeFormatIdentifier for Float4x2_i8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x2_i8_fixed;
 }
 
 pub struct Float4x2_i8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float4x2_i8_norm {
+impl AttributeFormatIdentifier for Float4x2_i8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x2_i8_norm;
 }
 
 pub struct Float4x2_i16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float4x2_i16_fixed {
+impl AttributeFormatIdentifier for Float4x2_i16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x2_i16_fixed;
 }
 
 pub struct Float4x2_i16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float4x2_i16_norm {
+impl AttributeFormatIdentifier for Float4x2_i16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x2_i16_norm;
 }
 
 pub struct Float4x2_u8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float4x2_u8_fixed {
+impl AttributeFormatIdentifier for Float4x2_u8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x2_u8_fixed;
 }
 
 pub struct Float4x2_u8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float4x2_u8_norm {
+impl AttributeFormatIdentifier for Float4x2_u8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x2_u8_norm;
 }
 
 pub struct Float4x2_u16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float4x2_u16_fixed {
+impl AttributeFormatIdentifier for Float4x2_u16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x2_u16_fixed;
 }
 
 pub struct Float4x2_u16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float4x2_u16_norm {
+impl AttributeFormatIdentifier for Float4x2_u16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x2_u16_norm;
 }
 
 pub struct Float4x3_f32;
 
-unsafe impl AttributeFormatIdentifier for Float4x3_f32 {
+impl AttributeFormatIdentifier for Float4x3_f32 {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x3_f32;
 }
 
 pub struct Float4x3_i8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float4x3_i8_fixed {
+impl AttributeFormatIdentifier for Float4x3_i8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x3_i8_fixed;
 }
 
 pub struct Float4x3_i8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float4x3_i8_norm {
+impl AttributeFormatIdentifier for Float4x3_i8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x3_i8_norm;
 }
 
 pub struct Float4x3_i16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float4x3_i16_fixed {
+impl AttributeFormatIdentifier for Float4x3_i16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x3_i16_fixed;
 }
 
 pub struct Float4x3_i16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float4x3_i16_norm {
+impl AttributeFormatIdentifier for Float4x3_i16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x3_i16_norm;
 }
 
 pub struct Float4x3_u8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float4x3_u8_fixed {
+impl AttributeFormatIdentifier for Float4x3_u8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x3_u8_fixed;
 }
 
 pub struct Float4x3_u8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float4x3_u8_norm {
+impl AttributeFormatIdentifier for Float4x3_u8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x3_u8_norm;
 }
 
 pub struct Float4x3_u16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float4x3_u16_fixed {
+impl AttributeFormatIdentifier for Float4x3_u16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x3_u16_fixed;
 }
 
 pub struct Float4x3_u16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float4x3_u16_norm {
+impl AttributeFormatIdentifier for Float4x3_u16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x3_u16_norm;
 }
 
 pub struct Float4x4_f32;
 
-unsafe impl AttributeFormatIdentifier for Float4x4_f32 {
+impl AttributeFormatIdentifier for Float4x4_f32 {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x4_f32;
 }
 
 pub struct Float4x4_i8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float4x4_i8_fixed {
+impl AttributeFormatIdentifier for Float4x4_i8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x4_i8_fixed;
 }
 
 pub struct Float4x4_i8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float4x4_i8_norm {
+impl AttributeFormatIdentifier for Float4x4_i8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x4_i8_norm;
 }
 
 pub struct Float4x4_i16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float4x4_i16_fixed {
+impl AttributeFormatIdentifier for Float4x4_i16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x4_i16_fixed;
 }
 
 pub struct Float4x4_i16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float4x4_i16_norm {
+impl AttributeFormatIdentifier for Float4x4_i16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x4_i16_norm;
 }
 
 pub struct Float4x4_u8_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float4x4_u8_fixed {
+impl AttributeFormatIdentifier for Float4x4_u8_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x4_u8_fixed;
 }
 
 pub struct Float4x4_u8_norm;
 
-unsafe impl AttributeFormatIdentifier for Float4x4_u8_norm {
+impl AttributeFormatIdentifier for Float4x4_u8_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x4_u8_norm;
 }
 
 pub struct Float4x4_u16_fixed;
 
-unsafe impl AttributeFormatIdentifier for Float4x4_u16_fixed {
+impl AttributeFormatIdentifier for Float4x4_u16_fixed {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x4_u16_fixed;
 }
 
 pub struct Float4x4_u16_norm;
 
-unsafe impl AttributeFormatIdentifier for Float4x4_u16_norm {
+impl AttributeFormatIdentifier for Float4x4_u16_norm {
     const FORMAT: AttributeFormat = AttributeFormat::Float4x4_u16_norm;
 }
 
 pub struct Integer_i8;
 
-unsafe impl AttributeFormatIdentifier for Integer_i8 {
+impl AttributeFormatIdentifier for Integer_i8 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer_i8;
 }
 
 pub struct Integer_u8;
 
-unsafe impl AttributeFormatIdentifier for Integer_u8 {
+impl AttributeFormatIdentifier for Integer_u8 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer_u8;
 }
 
 pub struct Integer_i16;
 
-unsafe impl AttributeFormatIdentifier for Integer_i16 {
+impl AttributeFormatIdentifier for Integer_i16 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer_i16;
 }
 
 pub struct Integer_u16;
 
-unsafe impl AttributeFormatIdentifier for Integer_u16 {
+impl AttributeFormatIdentifier for Integer_u16 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer_u16;
 }
 
 pub struct Integer_i32;
 
-unsafe impl AttributeFormatIdentifier for Integer_i32 {
+impl AttributeFormatIdentifier for Integer_i32 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer_i32;
 }
 
 pub struct Integer_u32;
 
-unsafe impl AttributeFormatIdentifier for Integer_u32 {
+impl AttributeFormatIdentifier for Integer_u32 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer_u32;
 }
 
 pub struct Integer2_i8;
 
-unsafe impl AttributeFormatIdentifier for Integer2_i8 {
+impl AttributeFormatIdentifier for Integer2_i8 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer2_i8;
 }
 
 pub struct Integer2_u8;
 
-unsafe impl AttributeFormatIdentifier for Integer2_u8 {
+impl AttributeFormatIdentifier for Integer2_u8 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer2_u8;
 }
 
 pub struct Integer2_i16;
 
-unsafe impl AttributeFormatIdentifier for Integer2_i16 {
+impl AttributeFormatIdentifier for Integer2_i16 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer2_i16;
 }
 
 pub struct Integer2_u16;
 
-unsafe impl AttributeFormatIdentifier for Integer2_u16 {
+impl AttributeFormatIdentifier for Integer2_u16 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer2_u16;
 }
 
 pub struct Integer2_i32;
 
-unsafe impl AttributeFormatIdentifier for Integer2_i32 {
+impl AttributeFormatIdentifier for Integer2_i32 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer2_i32;
 }
 
 pub struct Integer2_u32;
 
-unsafe impl AttributeFormatIdentifier for Integer2_u32 {
+impl AttributeFormatIdentifier for Integer2_u32 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer2_u32;
 }
 
 pub struct Integer3_i8;
 
-unsafe impl AttributeFormatIdentifier for Integer3_i8 {
+impl AttributeFormatIdentifier for Integer3_i8 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer3_i8;
 }
 
 pub struct Integer3_u8;
 
-unsafe impl AttributeFormatIdentifier for Integer3_u8 {
+impl AttributeFormatIdentifier for Integer3_u8 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer3_u8;
 }
 
 pub struct Integer3_i16;
 
-unsafe impl AttributeFormatIdentifier for Integer3_i16 {
+impl AttributeFormatIdentifier for Integer3_i16 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer3_i16;
 }
 
 pub struct Integer3_u16;
 
-unsafe impl AttributeFormatIdentifier for Integer3_u16 {
+impl AttributeFormatIdentifier for Integer3_u16 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer3_u16;
 }
 
 pub struct Integer3_i32;
 
-unsafe impl AttributeFormatIdentifier for Integer3_i32 {
+impl AttributeFormatIdentifier for Integer3_i32 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer3_i32;
 }
 
 pub struct Integer3_u32;
 
-unsafe impl AttributeFormatIdentifier for Integer3_u32 {
+impl AttributeFormatIdentifier for Integer3_u32 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer3_u32;
 }
 
 pub struct Integer4_i8;
 
-unsafe impl AttributeFormatIdentifier for Integer4_i8 {
+impl AttributeFormatIdentifier for Integer4_i8 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer4_i8;
 }
 
 pub struct Integer4_u8;
 
-unsafe impl AttributeFormatIdentifier for Integer4_u8 {
+impl AttributeFormatIdentifier for Integer4_u8 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer4_u8;
 }
 
 pub struct Integer4_i16;
 
-unsafe impl AttributeFormatIdentifier for Integer4_i16 {
+impl AttributeFormatIdentifier for Integer4_i16 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer4_i16;
 }
 
 pub struct Integer4_u16;
 
-unsafe impl AttributeFormatIdentifier for Integer4_u16 {
+impl AttributeFormatIdentifier for Integer4_u16 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer4_u16;
 }
 
 pub struct Integer4_i32;
 
-unsafe impl AttributeFormatIdentifier for Integer4_i32 {
+impl AttributeFormatIdentifier for Integer4_i32 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer4_i32;
 }
 
 pub struct Integer4_u32;
 
-unsafe impl AttributeFormatIdentifier for Integer4_u32 {
+impl AttributeFormatIdentifier for Integer4_u32 {
     const FORMAT: AttributeFormat = AttributeFormat::Integer4_u32;
 }
 
+/// Trait implemented for types that are memory compatible with the attribute format associated with
+/// an [AttributeFormatIdentifier].
+///
+/// If a type implemented `FormatCompatible<F>`, where `F` is an [AttributeFormatIdentifier], then
+/// that type can be used as the field type for a [Vertex] field that is marked as an attribute with
+/// format `F`.
+///
+/// See also [Vertex].
+///
+/// # Unsafe
+///
+/// Only safe to implement for a type if the memory for any value of that type can be cast to an
+/// attribute value in the format associated with the [AttributeFormatIdentifier].
 pub unsafe trait FormatCompatible<F>
     where
         F: AttributeFormatIdentifier,
@@ -1000,6 +1019,7 @@ unsafe impl FormatCompatible<Integer4_u8> for [u8; 4] {}
 unsafe impl FormatCompatible<Integer4_u16> for [u16; 4] {}
 unsafe impl FormatCompatible<Integer4_u32> for [u32; 4] {}
 
+/// Enumerates all available attribute memory formats.
 #[derive(Clone, Copy, PartialEq, Debug)]
 #[allow(non_camel_case_types)]
 pub enum AttributeFormat {
@@ -1147,6 +1167,8 @@ pub enum AttributeFormat {
 }
 
 impl AttributeFormat {
+    /// Whether or not this [AttributeFormat] is compatible with an [AttributeSlotDescriptor] of
+    /// the given [AttributeType].
     pub fn is_compatible(&self, attribute_type: AttributeType) -> bool {
         match self {
             AttributeFormat::Float_f32 => attribute_type == AttributeType::Float,

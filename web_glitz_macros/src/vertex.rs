@@ -46,7 +46,7 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
                 #mod_path::VertexAttributeDescriptor {
                     location: #location,
                     format: #format_kind,
-                    offset: offset_of!(#struct_name, #field_name) as u8
+                    offset_in_bytes: offset_of!(#struct_name, #field_name) as u8
                 }
             }
         });
