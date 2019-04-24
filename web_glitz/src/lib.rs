@@ -8,6 +8,7 @@ pub mod buffer;
 pub mod image;
 pub mod pipeline;
 pub mod render_pass;
+pub mod render_target;
 pub mod runtime;
 pub mod sampler;
 pub mod std140;

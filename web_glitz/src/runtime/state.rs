@@ -17,10 +17,10 @@ use crate::pipeline::graphics::{BlendEquation, BlendFactor, CullingMode, DepthRa
 use crate::pipeline::resources::resource_slot::{
     Identifier, ResourceSlotDescriptor, SamplerKind, TextureSamplerSlot, UniformBlockSlot,
 };
-use crate::render_pass::FramebufferAttachment;
+use crate::render_target::AttachableImageRef;
 use crate::runtime::index_lru::IndexLRU;
-use crate::util::identical;
-use crate::util::JsId;
+use crate::util::{identical, JsId};
+use crate::render_target::render_target_attachment::AttachableImageData;
 
 pub struct DynamicState {
     framebuffer_cache: FnvHashMap<u64, (Framebuffer, [Option<JsId>; 17])>,
@@ -1793,16 +1793,16 @@ impl<'a> FramebufferCache<'a> {
 }
 
 pub(crate) trait AttachmentSet: Hash {
-    fn color_attachments(&self) -> &[Option<FramebufferAttachment>];
+    fn color_attachments(&self) -> &[Option<AttachableImageData>];
 
     fn depth_stencil_attachment(&self) -> &DepthStencilAttachmentDescriptor;
 }
 
 #[derive(PartialEq, Hash)]
 pub(crate) enum DepthStencilAttachmentDescriptor {
-    Depth(FramebufferAttachment),
-    Stencil(FramebufferAttachment),
-    DepthStencil(FramebufferAttachment),
+    Depth(AttachableImageData),
+    Stencil(AttachableImageData),
+    DepthStencil(AttachableImageData),
     None,
 }
 

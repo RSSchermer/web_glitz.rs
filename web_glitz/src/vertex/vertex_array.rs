@@ -1,16 +1,14 @@
-use crate::vertex::{VertexInputStateDescription, IndexBufferDescription, VertexAttributeLayout, IndexBufferDescriptor, VertexInputDescriptor, IndexType};
+use crate::vertex::{VertexInputStateDescription, IndexBufferDescription, VertexAttributeLayout, IndexBufferDescriptor, VertexInputDescriptor, IndexType, VertexAttributeDescriptor};
 use std::sync::Arc;
 use std::marker;
 use crate::runtime::{RenderingContext, Connection};
 use crate::util::{JsId, arc_get_mut_unchecked};
 use crate::buffer::BufferData;
-use crate::vertex::vertex_input_state_description::VertexAttributeDescriptor;
 use std::borrow::Borrow;
 use crate::task::{GpuTask, ContextId, Progress};
 use crate::runtime::state::ContextUpdate;
 
 use wasm_bindgen::JsCast;
-use web_glitz::vertex::VertexArrayDescriptor;
 
 /// Provides the information necessary for the creation of a [VertexArray].
 ///

@@ -31,12 +31,14 @@ use crate::pipeline::resources::bind_group_encoding::{
     BindGroupEncodingContext, BindingDescriptor,
 };
 use crate::pipeline::resources::Resources;
-use crate::render_pass::{FramebufferAttachment, RenderPassContext};
+use crate::render_pass::RenderPassContext;
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::Connection;
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::{slice_make_mut, JsId};
 use crate::vertex::{VertexStreamDescriptor, VertexStreamDescription};
+use crate::render_target::AttachableImageRef;
+use crate::render_target::render_target_attachment::{AttachableImageRefKind, AttachableImageData};
 
 pub struct BlitSourceContextMismatch;
 
@@ -623,7 +625,7 @@ pub trait BlitSource {
 }
 
 pub struct BlitSourceDescriptor {
-    attachment: FramebufferAttachment,
+    attachment: AttachableImageData,
     region: ((u32, u32), u32, u32),
     context_id: usize,
 }
@@ -636,7 +638,7 @@ where
 
     fn descriptor(&self) -> BlitSourceDescriptor {
         BlitSourceDescriptor {
-            attachment: FramebufferAttachment::from_texture_2d_level(self),
+            attachment: AttachableImageRef::from_texture_2d_level(self).into_data(),
             region: ((0, 0), self.width(), self.height()),
             context_id: self.texture_data().context_id(),
         }
@@ -656,7 +658,7 @@ where
         };
 
         BlitSourceDescriptor {
-            attachment: FramebufferAttachment::from_texture_2d_level(&self.level_ref()),
+            attachment: AttachableImageRef::from_texture_2d_level(&self.level_ref()).into_data(),
             region: (origin, self.width(), self.height()),
             context_id: self.texture_data().context_id(),
         }
@@ -671,7 +673,7 @@ where
 
     fn descriptor(&self) -> BlitSourceDescriptor {
         BlitSourceDescriptor {
-            attachment: FramebufferAttachment::from_texture_2d_array_level_layer(self),
+            attachment: AttachableImageRef::from_texture_2d_array_level_layer(self).into_data(),
             region: ((0, 0), self.width(), self.height()),
             context_id: self.texture_data().context_id(),
         }
@@ -691,9 +693,9 @@ where
         };
 
         BlitSourceDescriptor {
-            attachment: FramebufferAttachment::from_texture_2d_array_level_layer(
+            attachment: AttachableImageRef::from_texture_2d_array_level_layer(
                 &self.level_layer_ref(),
-            ),
+            ).into_data(),
             region: (origin, self.width(), self.height()),
             context_id: self.texture_data().context_id(),
         }
@@ -708,7 +710,7 @@ where
 
     fn descriptor(&self) -> BlitSourceDescriptor {
         BlitSourceDescriptor {
-            attachment: FramebufferAttachment::from_texture_3d_level_layer(self),
+            attachment: AttachableImageRef::from_texture_3d_level_layer(self).into_data(),
             region: ((0, 0), self.width(), self.height()),
             context_id: self.texture_data().context_id(),
         }
@@ -728,7 +730,7 @@ where
         };
 
         BlitSourceDescriptor {
-            attachment: FramebufferAttachment::from_texture_3d_level_layer(&self.level_layer_ref()),
+            attachment: AttachableImageRef::from_texture_3d_level_layer(&self.level_layer_ref()).into_data(),
             region: (origin, self.width(), self.height()),
             context_id: self.texture_data().context_id(),
         }
@@ -743,7 +745,7 @@ where
 
     fn descriptor(&self) -> BlitSourceDescriptor {
         BlitSourceDescriptor {
-            attachment: FramebufferAttachment::from_texture_cube_level_face(self),
+            attachment: AttachableImageRef::from_texture_cube_level_face(self).into_data(),
             region: ((0, 0), self.width(), self.height()),
             context_id: self.texture_data().context_id(),
         }
@@ -763,7 +765,7 @@ where
         };
 
         BlitSourceDescriptor {
-            attachment: FramebufferAttachment::from_texture_cube_level_face(&self.level_face_ref()),
+            attachment: AttachableImageRef::from_texture_cube_level_face(&self.level_face_ref()).into_data(),
             region: (origin, self.width(), self.height()),
             context_id: self.texture_data().context_id(),
         }
@@ -778,7 +780,7 @@ where
 
     fn descriptor(&self) -> BlitSourceDescriptor {
         BlitSourceDescriptor {
-            attachment: FramebufferAttachment::from_renderbuffer(self),
+            attachment: AttachableImageRef::from_renderbuffer(self).into_data(),
             region: ((0, 0), self.width(), self.height()),
             context_id: self.data().context_id(),
         }
@@ -793,12 +795,14 @@ where
     T::Format: FloatRenderable,
 {
 }
+
 unsafe impl<T> BlitColorCompatible<IntegerBuffer<T::Format>> for T
 where
     T: BlitSource,
     T::Format: IntegerRenderable,
 {
 }
+
 unsafe impl<T> BlitColorCompatible<UnsignedIntegerBuffer<T::Format>> for T
 where
     T: BlitSource,

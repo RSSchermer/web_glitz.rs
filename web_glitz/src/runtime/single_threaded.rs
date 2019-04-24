@@ -26,9 +26,9 @@ use crate::pipeline::graphics::{
 use crate::pipeline::resources::Resources;
 use crate::render_pass::{
     DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
-    DefaultRenderTarget, DefaultStencilBuffer, RenderPass, RenderPassContext,
-    RenderTargetDescription,
+    DefaultStencilBuffer, RenderPass, RenderPassContext,
 };
+use crate::render_target::{RenderTargetDescription, DefaultRenderTarget};
 use crate::runtime::executor_job::job;
 use crate::runtime::fenced::JsTimeoutFencedTaskRunner;
 use crate::runtime::rendering_context::{

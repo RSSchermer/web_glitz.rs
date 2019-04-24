@@ -6,8 +6,4 @@ pub use self::framebuffer::{
 };
 
 mod render_pass;
-pub use self::render_pass::{
-    DefaultRenderTarget, FramebufferAttachment, IntoFramebufferAttachment, LoadOp, RenderPass,
-    RenderPassContext, RenderTarget, RenderTargetDescription, RenderTargetEncoder,
-    RenderTargetEncoding, StoreOp,
-};
+pub use self::render_pass::{RenderPass, RenderPassId, RenderPassContext};
