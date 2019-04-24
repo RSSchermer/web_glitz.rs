@@ -6,4 +6,4 @@ pub use self::framebuffer::{
 };
 
 mod render_pass;
-pub use self::render_pass::{RenderPass, RenderPassId, RenderPassContext};
+pub use self::render_pass::{RenderPass, RenderPassContext, RenderPassId};

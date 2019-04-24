@@ -1,6 +1,6 @@
-use crate::buffer::{BufferData, Buffer, BufferView};
-use std::sync::Arc;
+use crate::buffer::{Buffer, BufferData, BufferView};
 use std::mem;
+use std::sync::Arc;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
@@ -88,8 +88,8 @@ unsafe impl<'a> IndexBufferDescription for () {
 }
 
 unsafe impl<'a, F> IndexBufferDescription for &'a Buffer<[F]>
-    where
-        F: IndexFormat,
+where
+    F: IndexFormat,
 {
     fn descriptor(&self) -> Option<IndexBufferDescriptor> {
         Some(IndexBufferDescriptor {
@@ -102,8 +102,8 @@ unsafe impl<'a, F> IndexBufferDescription for &'a Buffer<[F]>
 }
 
 unsafe impl<'a, F> IndexBufferDescription for BufferView<'a, [F]>
-    where
-        F: IndexFormat,
+where
+    F: IndexFormat,
 {
     fn descriptor(&self) -> Option<IndexBufferDescriptor> {
         Some(IndexBufferDescriptor {

@@ -25,20 +25,21 @@ use crate::image::texture_cube::{
 use crate::image::Region2D;
 use crate::pipeline::graphics::primitive_assembly::Topology;
 use crate::pipeline::graphics::{
-    Blending, DepthTest, GraphicsPipeline, PrimitiveAssembly, StencilTest, Viewport, AttributeSlotLayoutCompatible
+    AttributeSlotLayoutCompatible, Blending, DepthTest, GraphicsPipeline, PrimitiveAssembly,
+    StencilTest, Viewport,
 };
 use crate::pipeline::resources::bind_group_encoding::{
     BindGroupEncodingContext, BindingDescriptor,
 };
 use crate::pipeline::resources::Resources;
 use crate::render_pass::RenderPassContext;
+use crate::render_target::render_target_attachment::AttachableImageData;
+use crate::render_target::AttachableImageRef;
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::Connection;
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::{slice_make_mut, JsId};
-use crate::vertex::{VertexStreamDescriptor, VertexStreamDescription};
-use crate::render_target::AttachableImageRef;
-use crate::render_target::render_target_attachment::{AttachableImageRefKind, AttachableImageData};
+use crate::vertex::{VertexStreamDescription, VertexStreamDescriptor};
 
 pub struct BlitSourceContextMismatch;
 
@@ -413,7 +414,7 @@ where
         resources: &R,
     ) -> DrawCommand<R::Bindings>
     where
-        Vs: VertexStreamDescription<AttributeLayout=V>,
+        Vs: VertexStreamDescription<AttributeLayout = V>,
         R: Resources,
     {
         let input_stream_descriptor = vertex_input_stream.descriptor();
@@ -695,7 +696,8 @@ where
         BlitSourceDescriptor {
             attachment: AttachableImageRef::from_texture_2d_array_level_layer(
                 &self.level_layer_ref(),
-            ).into_data(),
+            )
+            .into_data(),
             region: (origin, self.width(), self.height()),
             context_id: self.texture_data().context_id(),
         }
@@ -730,7 +732,8 @@ where
         };
 
         BlitSourceDescriptor {
-            attachment: AttachableImageRef::from_texture_3d_level_layer(&self.level_layer_ref()).into_data(),
+            attachment: AttachableImageRef::from_texture_3d_level_layer(&self.level_layer_ref())
+                .into_data(),
             region: (origin, self.width(), self.height()),
             context_id: self.texture_data().context_id(),
         }
@@ -765,7 +768,8 @@ where
         };
 
         BlitSourceDescriptor {
-            attachment: AttachableImageRef::from_texture_cube_level_face(&self.level_face_ref()).into_data(),
+            attachment: AttachableImageRef::from_texture_cube_level_face(&self.level_face_ref())
+                .into_data(),
             region: (origin, self.width(), self.height()),
             context_id: self.texture_data().context_id(),
         }

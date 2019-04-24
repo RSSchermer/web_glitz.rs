@@ -1,11 +1,17 @@
 mod vertex_input_state_description;
-pub use self::vertex_input_state_description::{VertexInputStateDescription, VertexInputDescriptor, VertexAttributeDescriptor, PerInstance};
+pub use self::vertex_input_state_description::{
+    PerInstance, VertexAttributeDescriptor, VertexInputDescriptor, VertexInputStateDescription,
+};
 
 mod index_buffer_description;
-pub use self::index_buffer_description::{IndexBufferDescription, IndexBufferDescriptor, IndexFormat, IndexType};
+pub use self::index_buffer_description::{
+    IndexBufferDescription, IndexBufferDescriptor, IndexFormat, IndexType,
+};
 
 mod vertex_array;
-pub use self::vertex_array::{VertexArray, VertexArrayDescriptor, VertexArrayRange, VertexArraySlice, Instanced};
+pub use self::vertex_array::{
+    Instanced, VertexArray, VertexArrayDescriptor, VertexArrayRange, VertexArraySlice,
+};
 
 mod vertex_attribute_layout;
 pub use self::vertex_attribute_layout::VertexAttributeLayout;

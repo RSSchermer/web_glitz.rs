@@ -14,13 +14,13 @@
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 
-use web_glitz::{repr_std140, std140};
 use web_glitz::buffer::{Buffer, UsageHint};
 use web_glitz::pipeline::graphics::{
     BindingStrategy, CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 use web_glitz::vertex::VertexArrayDescriptor;
+use web_glitz::{repr_std140, std140};
 
 use web_sys::{window, HtmlCanvasElement};
 

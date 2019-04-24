@@ -1,4 +1,4 @@
-use crate::image::format::{InternalFormat, TextureFormat, RenderbufferFormat};
+use crate::image::format::{InternalFormat, RenderbufferFormat, TextureFormat};
 use crate::image::renderbuffer::Renderbuffer;
 use crate::image::texture_2d::LevelMut as Texture2DLevelMut;
 use crate::image::texture_2d_array::LevelLayerMut as Texture2DArrayLevelLayerMut;
@@ -18,8 +18,8 @@ pub trait AsAttachableImageRef {
 }
 
 impl<'a, F> AsAttachableImageRef for Texture2DLevelMut<'a, F>
-    where
-        F: TextureFormat,
+where
+    F: TextureFormat,
 {
     type Format = F;
 
@@ -29,8 +29,8 @@ impl<'a, F> AsAttachableImageRef for Texture2DLevelMut<'a, F>
 }
 
 impl<'a, F> AsAttachableImageRef for Texture2DArrayLevelLayerMut<'a, F>
-    where
-        F: TextureFormat,
+where
+    F: TextureFormat,
 {
     type Format = F;
 
@@ -39,9 +39,9 @@ impl<'a, F> AsAttachableImageRef for Texture2DArrayLevelLayerMut<'a, F>
     }
 }
 
-impl<'a, F> AsAttachableImageRef<'a> for Texture3DLevelLayerMut<'a, F>
-    where
-        F: TextureFormat,
+impl<'a, F> AsAttachableImageRef for Texture3DLevelLayerMut<'a, F>
+where
+    F: TextureFormat,
 {
     type Format = F;
 
@@ -51,8 +51,8 @@ impl<'a, F> AsAttachableImageRef<'a> for Texture3DLevelLayerMut<'a, F>
 }
 
 impl<'a, F> AsAttachableImageRef for TextureCubeLevelFaceMut<'a, F>
-    where
-        F: TextureFormat,
+where
+    F: TextureFormat,
 {
     type Format = F;
 
@@ -62,8 +62,8 @@ impl<'a, F> AsAttachableImageRef for TextureCubeLevelFaceMut<'a, F>
 }
 
 impl<F> AsAttachableImageRef for Renderbuffer<F>
-    where
-        F: RenderbufferFormat + 'static,
+where
+    F: RenderbufferFormat + 'static,
 {
     type Format = F;
 

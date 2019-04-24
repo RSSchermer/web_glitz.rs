@@ -85,7 +85,10 @@ impl AttributeType {
     }
 }
 
-unsafe impl<T> AttributeSlotLayoutCompatible for T where T: VertexAttributeLayout {
+unsafe impl<T> AttributeSlotLayoutCompatible for T
+where
+    T: VertexAttributeLayout,
+{
     fn check_compatibility(
         slot_descriptors: &[AttributeSlotDescriptor],
     ) -> Result<(), IncompatibleAttributeLayout> {
@@ -93,8 +96,13 @@ unsafe impl<T> AttributeSlotLayoutCompatible for T where T: VertexAttributeLayou
             for bind_group in T::input_attribute_bindings().borrow() {
                 for attribute_descriptor in bind_group.iter() {
                     if attribute_descriptor.location == slot.location() {
-                        if !attribute_descriptor.format.is_compatible(slot.attribute_type) {
-                            return Err(IncompatibleAttributeLayout::TypeMismatch { location: slot.location() })
+                        if !attribute_descriptor
+                            .format
+                            .is_compatible(slot.attribute_type)
+                        {
+                            return Err(IncompatibleAttributeLayout::TypeMismatch {
+                                location: slot.location(),
+                            });
                         }
 
                         continue 'outer;
@@ -102,7 +110,9 @@ unsafe impl<T> AttributeSlotLayoutCompatible for T where T: VertexAttributeLayou
                 }
             }
 
-            return Err(IncompatibleAttributeLayout::MissingAttribute { location: slot.location() })
+            return Err(IncompatibleAttributeLayout::MissingAttribute {
+                location: slot.location(),
+            });
         }
 
         Ok(())

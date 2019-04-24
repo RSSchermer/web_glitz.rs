@@ -872,8 +872,8 @@ impl AttributeFormatIdentifier for Integer4_u32 {
 /// Only safe to implement for a type if the memory for any value of that type can be cast to an
 /// attribute value in the format associated with the [AttributeFormatIdentifier].
 pub unsafe trait FormatCompatible<F>
-    where
-        F: AttributeFormatIdentifier,
+where
+    F: AttributeFormatIdentifier,
 {
 }
 
@@ -1297,21 +1297,33 @@ impl AttributeFormat {
             AttributeFormat::Integer2_i8 => attribute_type == AttributeType::IntegerVector2,
             AttributeFormat::Integer2_u8 => attribute_type == AttributeType::UnsignedIntegerVector2,
             AttributeFormat::Integer2_i16 => attribute_type == AttributeType::IntegerVector2,
-            AttributeFormat::Integer2_u16 => attribute_type == AttributeType::UnsignedIntegerVector2,
+            AttributeFormat::Integer2_u16 => {
+                attribute_type == AttributeType::UnsignedIntegerVector2
+            }
             AttributeFormat::Integer2_i32 => attribute_type == AttributeType::IntegerVector2,
-            AttributeFormat::Integer2_u32 => attribute_type == AttributeType::UnsignedIntegerVector2,
+            AttributeFormat::Integer2_u32 => {
+                attribute_type == AttributeType::UnsignedIntegerVector2
+            }
             AttributeFormat::Integer3_i8 => attribute_type == AttributeType::IntegerVector3,
             AttributeFormat::Integer3_u8 => attribute_type == AttributeType::UnsignedIntegerVector3,
             AttributeFormat::Integer3_i16 => attribute_type == AttributeType::IntegerVector3,
-            AttributeFormat::Integer3_u16 => attribute_type == AttributeType::UnsignedIntegerVector3,
+            AttributeFormat::Integer3_u16 => {
+                attribute_type == AttributeType::UnsignedIntegerVector3
+            }
             AttributeFormat::Integer3_i32 => attribute_type == AttributeType::IntegerVector3,
-            AttributeFormat::Integer3_u32 => attribute_type == AttributeType::UnsignedIntegerVector3,
+            AttributeFormat::Integer3_u32 => {
+                attribute_type == AttributeType::UnsignedIntegerVector3
+            }
             AttributeFormat::Integer4_i8 => attribute_type == AttributeType::IntegerVector4,
             AttributeFormat::Integer4_u8 => attribute_type == AttributeType::UnsignedIntegerVector4,
             AttributeFormat::Integer4_i16 => attribute_type == AttributeType::IntegerVector4,
-            AttributeFormat::Integer4_u16 => attribute_type == AttributeType::UnsignedIntegerVector4,
+            AttributeFormat::Integer4_u16 => {
+                attribute_type == AttributeType::UnsignedIntegerVector4
+            }
             AttributeFormat::Integer4_i32 => attribute_type == AttributeType::IntegerVector4,
-            AttributeFormat::Integer4_u32 => attribute_type == AttributeType::UnsignedIntegerVector4,
+            AttributeFormat::Integer4_u32 => {
+                attribute_type == AttributeType::UnsignedIntegerVector4
+            }
         }
     }
 }

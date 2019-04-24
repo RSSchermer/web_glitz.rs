@@ -14,15 +14,20 @@ use crate::image::texture_2d_array::{Texture2DArray, Texture2DArrayDescriptor};
 use crate::image::texture_3d::{Texture3D, Texture3DDescriptor};
 use crate::image::texture_cube::{TextureCube, TextureCubeDescriptor};
 use crate::image::MaxMipmapLevelsExceeded;
-use crate::pipeline::graphics::{FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, ShaderCompilationError, ShaderLinkingError, VertexShader, AttributeSlotLayoutCompatible, IncompatibleAttributeLayout};
+use crate::pipeline::graphics::{
+    AttributeSlotLayoutCompatible, FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor,
+    IncompatibleAttributeLayout, ShaderCompilationError, ShaderLinkingError, VertexShader,
+};
 use crate::pipeline::resources::resource_slot::Identifier;
-use crate::pipeline::resources::{Resources, IncompatibleResources};
+use crate::pipeline::resources::{IncompatibleResources, Resources};
 use crate::render_pass::{RenderPass, RenderPassContext};
 use crate::render_target::RenderTargetDescription;
 use crate::runtime::state::{CreateProgramError, DynamicState};
 use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
 use crate::task::GpuTask;
-use crate::vertex::{VertexArray, VertexArrayDescriptor, IndexBufferDescription, VertexInputStateDescription};
+use crate::vertex::{
+    IndexBufferDescription, VertexArray, VertexArrayDescriptor, VertexInputStateDescription,
+};
 
 pub trait RenderingContext {
     fn id(&self) -> usize;

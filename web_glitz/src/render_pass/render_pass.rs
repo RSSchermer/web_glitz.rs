@@ -1,14 +1,11 @@
-
 use js_sys::Uint32Array;
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::runtime::state::{
-    ContextUpdate, DepthStencilAttachmentDescriptor, DynamicState,
-};
-use crate::runtime::{Connection, RenderingContext};
+use crate::render_target::render_target_description::RenderTargetData;
+use crate::render_target::StoreOp;
+use crate::runtime::state::{ContextUpdate, DepthStencilAttachmentDescriptor, DynamicState};
+use crate::runtime::Connection;
 use crate::task::{ContextId, GpuTask, Progress};
-use crate::render_target::{RenderTargetDescription, EncodingContext, StoreOp};
-use crate::render_target::render_target_encoding::RenderTargetData;
 
 /// Encapsulates a render pass command.
 ///

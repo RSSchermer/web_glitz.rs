@@ -20,15 +20,15 @@ use crate::pipeline::graphics::shader::{
     FragmentShaderAllocateCommand, VertexShaderAllocateCommand,
 };
 use crate::pipeline::graphics::{
-    FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, ShaderCompilationError,
-    VertexShader, AttributeSlotLayoutCompatible
+    AttributeSlotLayoutCompatible, FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor,
+    ShaderCompilationError, VertexShader,
 };
 use crate::pipeline::resources::Resources;
 use crate::render_pass::{
     DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
-    DefaultStencilBuffer, RenderPass, RenderPassContext,
+    DefaultStencilBuffer, RenderPass, RenderPassContext, RenderPassId,
 };
-use crate::render_target::{RenderTargetDescription, DefaultRenderTarget};
+use crate::render_target::{DefaultRenderTarget, RenderTargetDescription};
 use crate::runtime::executor_job::job;
 use crate::runtime::fenced::JsTimeoutFencedTaskRunner;
 use crate::runtime::rendering_context::{
@@ -38,7 +38,9 @@ use crate::runtime::state::DynamicState;
 use crate::runtime::{Connection, ContextOptions, Execution, PowerPreference, RenderingContext};
 use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
 use crate::task::{GpuTask, Progress};
-use crate::vertex::{VertexArray, VertexArrayDescriptor, IndexBufferDescription, VertexInputStateDescription};
+use crate::vertex::{
+    IndexBufferDescription, VertexArray, VertexArrayDescriptor, VertexInputStateDescription,
+};
 
 thread_local!(static ID_GEN: IdGen = IdGen::new());
 
@@ -130,7 +132,7 @@ impl RenderingContext for SingleThreadedContext {
         GraphicsPipeline::create(self, &mut connection, descriptor)
     }
 
-    fn create_render_pass<R, F, T>(&self, render_target: R, f: F) -> RenderPass<T>
+    fn create_render_pass<R, F, T>(&self, mut render_target: R, f: F) -> RenderPass<T>
     where
         R: RenderTargetDescription,
         F: FnOnce(&mut R::Framebuffer) -> T,
@@ -138,7 +140,13 @@ impl RenderingContext for SingleThreadedContext {
     {
         let id = ID_GEN.with(|id_gen| id_gen.next());
 
-        RenderPass::new(id, self, render_target, f)
+        render_target.create_render_pass(
+            RenderPassId {
+                id,
+                context_id: self.id(),
+            },
+            f,
+        )
     }
 
     fn create_sampler(&self, descriptor: &SamplerDescriptor) -> Sampler {

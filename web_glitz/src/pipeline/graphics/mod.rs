@@ -15,7 +15,10 @@ mod graphics_pipeline;
 pub use self::graphics_pipeline::{GraphicsPipeline, ShaderLinkingError};
 
 mod input_attribute_layout;
-pub use self::input_attribute_layout::{AttributeSlotLayoutCompatible, AttributeSlotDescriptor, AttributeType, IncompatibleAttributeLayout};
+pub use self::input_attribute_layout::{
+    AttributeSlotDescriptor, AttributeSlotLayoutCompatible, AttributeType,
+    IncompatibleAttributeLayout,
+};
 
 pub(crate) mod primitive_assembly;
 pub use self::primitive_assembly::{CullingMode, LineWidth, PrimitiveAssembly, WindingOrder};

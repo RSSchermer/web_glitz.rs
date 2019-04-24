@@ -1,8 +1,12 @@
 use std::marker;
 
-use crate::render_pass::{DefaultRGBBuffer, Framebuffer, DefaultDepthStencilBuffer, DefaultDepthBuffer, DefaultStencilBuffer, DefaultRGBABuffer};
-use crate::render_target::{RenderTargetDescription, EncodingContext, RenderTargetEncoding};
-use crate::render_target::render_target_encoding::RenderTargetData;
+use crate::render_pass::{
+    DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
+    DefaultStencilBuffer, Framebuffer, RenderPass, RenderPassContext, RenderPassId,
+};
+use crate::render_target::render_target_description::RenderTargetData;
+use crate::render_target::RenderTargetDescription;
+use crate::task::{ContextId, GpuTask};
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct DefaultRenderTarget<C, Ds> {
@@ -24,21 +28,35 @@ impl<C, Ds> DefaultRenderTarget<C, Ds> {
 impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, ()> {
     type Framebuffer = Framebuffer<DefaultRGBBuffer, ()>;
 
-    fn into_encoding(
-        self,
-        context: &mut EncodingContext,
-    ) -> RenderTargetEncoding<Self::Framebuffer> {
-        RenderTargetEncoding {
-            framebuffer: Framebuffer {
-                color: DefaultRGBBuffer::new(context.render_pass_id),
-                depth_stencil: (),
-                context_id: context.context_id,
-                render_pass_id: context.render_pass_id,
-                last_id: 0,
-                dimensions: None,
-            },
-            context,
-            data: RenderTargetData::Default,
+    fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
+    where
+        F: FnOnce(&mut Self::Framebuffer) -> T,
+        for<'a> T: GpuTask<RenderPassContext<'a>>,
+    {
+        let RenderPassId { id, context_id } = id;
+
+        let mut framebuffer = Framebuffer {
+            color: DefaultRGBBuffer::new(id),
+            depth_stencil: (),
+            dimensions: None,
+            context_id,
+            render_pass_id: id,
+            last_id: 0,
+        };
+
+        let task = f(&mut framebuffer);
+
+        if let ContextId::Id(render_pass_id) = task.context_id() {
+            if render_pass_id != id {
+                panic!("The render pass task belongs to a different render pass.")
+            }
+        }
+
+        RenderPass {
+            id,
+            context_id,
+            render_target: RenderTargetData::Default,
+            task,
         }
     }
 }
@@ -46,21 +64,35 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, ()> {
 impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, DefaultDepthStencilBuffer> {
     type Framebuffer = Framebuffer<DefaultRGBBuffer, DefaultDepthStencilBuffer>;
 
-    fn into_encoding(
-        self,
-        context: &mut EncodingContext,
-    ) -> RenderTargetEncoding<Self::Framebuffer> {
-        RenderTargetEncoding {
-            framebuffer: Framebuffer {
-                color: DefaultRGBBuffer::new(context.render_pass_id),
-                depth_stencil: DefaultDepthStencilBuffer::new(context.render_pass_id),
-                context_id: context.context_id,
-                render_pass_id: context.render_pass_id,
-                last_id: 0,
-                dimensions: None,
-            },
-            context,
-            data: RenderTargetData::Default,
+    fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
+    where
+        F: FnOnce(&mut Self::Framebuffer) -> T,
+        for<'a> T: GpuTask<RenderPassContext<'a>>,
+    {
+        let RenderPassId { id, context_id } = id;
+
+        let mut framebuffer = Framebuffer {
+            color: DefaultRGBBuffer::new(id),
+            depth_stencil: DefaultDepthStencilBuffer::new(id),
+            dimensions: None,
+            context_id,
+            render_pass_id: id,
+            last_id: 0,
+        };
+
+        let task = f(&mut framebuffer);
+
+        if let ContextId::Id(render_pass_id) = task.context_id() {
+            if render_pass_id != id {
+                panic!("The render pass task belongs to a different render pass.")
+            }
+        }
+
+        RenderPass {
+            id,
+            context_id,
+            render_target: RenderTargetData::Default,
+            task,
         }
     }
 }
@@ -68,21 +100,35 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, DefaultDe
 impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, DefaultDepthBuffer> {
     type Framebuffer = Framebuffer<DefaultRGBBuffer, DefaultDepthBuffer>;
 
-    fn into_encoding(
-        self,
-        context: &mut EncodingContext,
-    ) -> RenderTargetEncoding<Self::Framebuffer> {
-        RenderTargetEncoding {
-            framebuffer: Framebuffer {
-                color: DefaultRGBBuffer::new(context.render_pass_id),
-                depth_stencil: DefaultDepthBuffer::new(context.render_pass_id),
-                context_id: context.context_id,
-                render_pass_id: context.render_pass_id,
-                last_id: 0,
-                dimensions: None,
-            },
-            context,
-            data: RenderTargetData::Default,
+    fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
+    where
+        F: FnOnce(&mut Self::Framebuffer) -> T,
+        for<'a> T: GpuTask<RenderPassContext<'a>>,
+    {
+        let RenderPassId { id, context_id } = id;
+
+        let mut framebuffer = Framebuffer {
+            color: DefaultRGBBuffer::new(id),
+            depth_stencil: DefaultDepthBuffer::new(id),
+            dimensions: None,
+            context_id,
+            render_pass_id: id,
+            last_id: 0,
+        };
+
+        let task = f(&mut framebuffer);
+
+        if let ContextId::Id(render_pass_id) = task.context_id() {
+            if render_pass_id != id {
+                panic!("The render pass task belongs to a different render pass.")
+            }
+        }
+
+        RenderPass {
+            id,
+            context_id,
+            render_target: RenderTargetData::Default,
+            task,
         }
     }
 }
@@ -90,21 +136,35 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, DefaultDe
 impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, DefaultStencilBuffer> {
     type Framebuffer = Framebuffer<DefaultRGBBuffer, DefaultStencilBuffer>;
 
-    fn into_encoding(
-        self,
-        context: &mut EncodingContext,
-    ) -> RenderTargetEncoding<Self::Framebuffer> {
-        RenderTargetEncoding {
-            framebuffer: Framebuffer {
-                color: DefaultRGBBuffer::new(context.render_pass_id),
-                depth_stencil: DefaultStencilBuffer::new(context.render_pass_id),
-                context_id: context.context_id,
-                render_pass_id: context.render_pass_id,
-                last_id: 0,
-                dimensions: None,
-            },
-            context,
-            data: RenderTargetData::Default,
+    fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
+    where
+        F: FnOnce(&mut Self::Framebuffer) -> T,
+        for<'a> T: GpuTask<RenderPassContext<'a>>,
+    {
+        let RenderPassId { id, context_id } = id;
+
+        let mut framebuffer = Framebuffer {
+            color: DefaultRGBBuffer::new(id),
+            depth_stencil: DefaultStencilBuffer::new(id),
+            dimensions: None,
+            context_id,
+            render_pass_id: id,
+            last_id: 0,
+        };
+
+        let task = f(&mut framebuffer);
+
+        if let ContextId::Id(render_pass_id) = task.context_id() {
+            if render_pass_id != id {
+                panic!("The render pass task belongs to a different render pass.")
+            }
+        }
+
+        RenderPass {
+            id,
+            context_id,
+            render_target: RenderTargetData::Default,
+            task,
         }
     }
 }
@@ -112,21 +172,35 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, DefaultSt
 impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, ()> {
     type Framebuffer = Framebuffer<DefaultRGBABuffer, ()>;
 
-    fn into_encoding(
-        self,
-        context: &mut EncodingContext,
-    ) -> RenderTargetEncoding<Self::Framebuffer> {
-        RenderTargetEncoding {
-            framebuffer: Framebuffer {
-                color: DefaultRGBABuffer::new(context.render_pass_id),
-                depth_stencil: (),
-                context_id: context.context_id,
-                render_pass_id: context.render_pass_id,
-                last_id: 0,
-                dimensions: None,
-            },
-            context,
-            data: RenderTargetData::Default,
+    fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
+    where
+        F: FnOnce(&mut Self::Framebuffer) -> T,
+        for<'a> T: GpuTask<RenderPassContext<'a>>,
+    {
+        let RenderPassId { id, context_id } = id;
+
+        let mut framebuffer = Framebuffer {
+            color: DefaultRGBABuffer::new(id),
+            depth_stencil: (),
+            dimensions: None,
+            context_id,
+            render_pass_id: id,
+            last_id: 0,
+        };
+
+        let task = f(&mut framebuffer);
+
+        if let ContextId::Id(render_pass_id) = task.context_id() {
+            if render_pass_id != id {
+                panic!("The render pass task belongs to a different render pass.")
+            }
+        }
+
+        RenderPass {
+            id,
+            context_id,
+            render_target: RenderTargetData::Default,
+            task,
         }
     }
 }
@@ -134,21 +208,35 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, ()> {
 impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, DefaultDepthStencilBuffer> {
     type Framebuffer = Framebuffer<DefaultRGBABuffer, DefaultDepthStencilBuffer>;
 
-    fn into_encoding(
-        self,
-        context: &mut EncodingContext,
-    ) -> RenderTargetEncoding<Self::Framebuffer> {
-        RenderTargetEncoding {
-            framebuffer: Framebuffer {
-                color: DefaultRGBABuffer::new(context.render_pass_id),
-                depth_stencil: DefaultDepthStencilBuffer::new(context.render_pass_id),
-                context_id: context.context_id,
-                render_pass_id: context.render_pass_id,
-                last_id: 0,
-                dimensions: None,
-            },
-            context,
-            data: RenderTargetData::Default,
+    fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
+    where
+        F: FnOnce(&mut Self::Framebuffer) -> T,
+        for<'a> T: GpuTask<RenderPassContext<'a>>,
+    {
+        let RenderPassId { id, context_id } = id;
+
+        let mut framebuffer = Framebuffer {
+            color: DefaultRGBABuffer::new(id),
+            depth_stencil: DefaultDepthStencilBuffer::new(id),
+            dimensions: None,
+            context_id,
+            render_pass_id: id,
+            last_id: 0,
+        };
+
+        let task = f(&mut framebuffer);
+
+        if let ContextId::Id(render_pass_id) = task.context_id() {
+            if render_pass_id != id {
+                panic!("The render pass task belongs to a different render pass.")
+            }
+        }
+
+        RenderPass {
+            id,
+            context_id,
+            render_target: RenderTargetData::Default,
+            task,
         }
     }
 }
@@ -156,21 +244,35 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, DefaultD
 impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, DefaultDepthBuffer> {
     type Framebuffer = Framebuffer<DefaultRGBABuffer, DefaultDepthBuffer>;
 
-    fn into_encoding(
-        self,
-        context: &mut EncodingContext,
-    ) -> RenderTargetEncoding<Self::Framebuffer> {
-        RenderTargetEncoding {
-            framebuffer: Framebuffer {
-                color: DefaultRGBABuffer::new(context.render_pass_id),
-                depth_stencil: DefaultDepthBuffer::new(context.render_pass_id),
-                context_id: context.context_id,
-                render_pass_id: context.render_pass_id,
-                last_id: 0,
-                dimensions: None,
-            },
-            context,
-            data: RenderTargetData::Default,
+    fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
+    where
+        F: FnOnce(&mut Self::Framebuffer) -> T,
+        for<'a> T: GpuTask<RenderPassContext<'a>>,
+    {
+        let RenderPassId { id, context_id } = id;
+
+        let mut framebuffer = Framebuffer {
+            color: DefaultRGBABuffer::new(id),
+            depth_stencil: DefaultDepthBuffer::new(id),
+            dimensions: None,
+            context_id,
+            render_pass_id: id,
+            last_id: 0,
+        };
+
+        let task = f(&mut framebuffer);
+
+        if let ContextId::Id(render_pass_id) = task.context_id() {
+            if render_pass_id != id {
+                panic!("The render pass task belongs to a different render pass.")
+            }
+        }
+
+        RenderPass {
+            id,
+            context_id,
+            render_target: RenderTargetData::Default,
+            task,
         }
     }
 }
@@ -178,21 +280,35 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, DefaultD
 impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, DefaultStencilBuffer> {
     type Framebuffer = Framebuffer<DefaultRGBABuffer, DefaultStencilBuffer>;
 
-    fn into_encoding(
-        self,
-        context: &mut EncodingContext,
-    ) -> RenderTargetEncoding<Self::Framebuffer> {
-        RenderTargetEncoding {
-            framebuffer: Framebuffer {
-                color: DefaultRGBABuffer::new(context.render_pass_id),
-                depth_stencil: DefaultStencilBuffer::new(context.render_pass_id),
-                context_id: context.context_id,
-                render_pass_id: context.render_pass_id,
-                last_id: 0,
-                dimensions: None,
-            },
-            context,
-            data: RenderTargetData::Default,
+    fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
+    where
+        F: FnOnce(&mut Self::Framebuffer) -> T,
+        for<'a> T: GpuTask<RenderPassContext<'a>>,
+    {
+        let RenderPassId { id, context_id } = id;
+
+        let mut framebuffer = Framebuffer {
+            color: DefaultRGBABuffer::new(id),
+            depth_stencil: DefaultStencilBuffer::new(id),
+            dimensions: None,
+            context_id,
+            render_pass_id: id,
+            last_id: 0,
+        };
+
+        let task = f(&mut framebuffer);
+
+        if let ContextId::Id(render_pass_id) = task.context_id() {
+            if render_pass_id != id {
+                panic!("The render pass task belongs to a different render pass.")
+            }
+        }
+
+        RenderPass {
+            id,
+            context_id,
+            render_target: RenderTargetData::Default,
+            task,
         }
     }
 }

@@ -8,10 +8,13 @@ pub(crate) mod render_target;
 pub use self::render_target::RenderTarget;
 
 pub(crate) mod render_target_attachment;
-pub use self::render_target_attachment::{ColorAttachmentDescription, DepthStencilAttachmentDescription, AttachableImageRef, FloatAttachment, IntegerAttachment, UnsignedIntegerAttachment, DepthStencilAttachment, DepthAttachment, StencilAttachment, LoadOp, StoreOp};
+pub use self::render_target_attachment::{
+    AttachableImageRef, ColorAttachmentDescription, ColorAttachmentEncoding,
+    ColorAttachmentEncodingContext, DepthAttachment, DepthStencilAttachment,
+    DepthStencilAttachmentDescription, DepthStencilAttachmentEncoding,
+    DepthStencilAttachmentEncodingContext, FloatAttachment, IntegerAttachment, LoadOp,
+    StencilAttachment, StoreOp, UnsignedIntegerAttachment,
+};
 
 pub(crate) mod render_target_description;
 pub use self::render_target_description::RenderTargetDescription;
-
-pub(crate) mod render_target_encoding;
-pub use self::render_target_encoding::{EncodingContext, MaxColorAttachmentsExceeded, RenderTargetEncoder, RenderTargetEncoding};

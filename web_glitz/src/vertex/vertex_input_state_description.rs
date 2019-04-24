@@ -4,9 +4,9 @@ use std::sync::Arc;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::buffer::{BufferData, BufferView, Buffer};
-use crate::vertex::{VertexAttributeLayout, Vertex};
+use crate::buffer::{Buffer, BufferData, BufferView};
 use crate::vertex::attribute_format::AttributeFormat;
+use crate::vertex::{Vertex, VertexAttributeLayout};
 
 /// Describes the attribute layout and input data sources for a [VertexArray].
 ///
@@ -157,7 +157,7 @@ impl VertexInputDescriptor {
             stride_in_bytes: mem::size_of::<T>() as u8,
             offset_in_bytes: buffer_view.offset_in_bytes() as u32,
             size_in_bytes: (mem::size_of::<T>() * buffer_view.len()) as u32,
-            input_rate
+            input_rate,
         }
     }
 
@@ -202,32 +202,34 @@ impl VertexInputDescriptor {
 }
 
 unsafe impl<'a, T> VertexInputStateDescription for &'a Buffer<[T]>
-    where
-        T: Vertex,
+where
+    T: Vertex,
 {
     type AttributeLayout = T;
 
     type InputDescriptors = [VertexInputDescriptor; 1];
 
     fn vertex_input_descriptors(&self) -> Self::InputDescriptors {
-        [
-            VertexInputDescriptor::from_buffer_view(self.view(), InputRate::PerVertex)
-        ]
+        [VertexInputDescriptor::from_buffer_view(
+            self.view(),
+            InputRate::PerVertex,
+        )]
     }
 }
 
 unsafe impl<'a, T> VertexInputStateDescription for BufferView<'a, [T]>
-    where
-        T: Vertex,
+where
+    T: Vertex,
 {
     type AttributeLayout = T;
 
     type InputDescriptors = [VertexInputDescriptor; 1];
 
     fn vertex_input_descriptors(&self) -> Self::InputDescriptors {
-        [
-            VertexInputDescriptor::from_buffer_view(self.clone(), InputRate::PerVertex)
-        ]
+        [VertexInputDescriptor::from_buffer_view(
+            self.clone(),
+            InputRate::PerVertex,
+        )]
     }
 }
 
@@ -238,32 +240,34 @@ unsafe impl<'a, T> VertexInputStateDescription for BufferView<'a, [T]>
 pub struct PerInstance<T>(pub T);
 
 unsafe impl<'a, T> VertexInputStateDescription for PerInstance<&'a Buffer<[T]>>
-    where
-        T: Vertex,
+where
+    T: Vertex,
 {
     type AttributeLayout = T;
 
     type InputDescriptors = [VertexInputDescriptor; 1];
 
     fn vertex_input_descriptors(&self) -> Self::InputDescriptors {
-        [
-            VertexInputDescriptor::from_buffer_view(self.0.view(), InputRate::PerInstance)
-        ]
+        [VertexInputDescriptor::from_buffer_view(
+            self.0.view(),
+            InputRate::PerInstance,
+        )]
     }
 }
 
 unsafe impl<'a, T> VertexInputStateDescription for PerInstance<BufferView<'a, [T]>>
-    where
-        T: Vertex,
+where
+    T: Vertex,
 {
     type AttributeLayout = T;
 
     type InputDescriptors = [VertexInputDescriptor; 1];
 
     fn vertex_input_descriptors(&self) -> Self::InputDescriptors {
-        [
-            VertexInputDescriptor::from_buffer_view(self.0.clone(), InputRate::PerInstance)
-        ]
+        [VertexInputDescriptor::from_buffer_view(
+            self.0.clone(),
+            InputRate::PerInstance,
+        )]
     }
 }
 
@@ -309,7 +313,9 @@ impl_vertex_input_state_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10
 impl_vertex_input_state_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11);
 impl_vertex_input_state_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
 impl_vertex_input_state_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13);
-impl_vertex_input_state_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14);
+impl_vertex_input_state_description!(
+    T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14
+);
 impl_vertex_input_state_description!(
     T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15
 );

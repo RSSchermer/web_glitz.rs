@@ -1,6 +1,6 @@
-use std::sync::Arc;
 use crate::vertex::vertex_array::VertexArrayData;
-use crate::vertex::{IndexType, VertexArray, VertexArraySlice, Instanced};
+use crate::vertex::{IndexType, Instanced, VertexArray, VertexArraySlice};
+use std::sync::Arc;
 
 /// Describes a stream of vertices that may serve as the input for a graphics pipeline.
 pub trait VertexStreamDescription {

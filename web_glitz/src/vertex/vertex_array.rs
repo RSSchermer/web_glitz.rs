@@ -1,12 +1,15 @@
-use crate::vertex::{VertexInputStateDescription, IndexBufferDescription, VertexAttributeLayout, IndexBufferDescriptor, VertexInputDescriptor, IndexType, VertexAttributeDescriptor};
-use std::sync::Arc;
-use std::marker;
-use crate::runtime::{RenderingContext, Connection};
-use crate::util::{JsId, arc_get_mut_unchecked};
 use crate::buffer::BufferData;
-use std::borrow::Borrow;
-use crate::task::{GpuTask, ContextId, Progress};
 use crate::runtime::state::ContextUpdate;
+use crate::runtime::{Connection, RenderingContext};
+use crate::task::{ContextId, GpuTask, Progress};
+use crate::util::{arc_get_mut_unchecked, JsId};
+use crate::vertex::{
+    IndexBufferDescription, IndexBufferDescriptor, IndexType, VertexAttributeDescriptor,
+    VertexAttributeLayout, VertexInputDescriptor, VertexInputStateDescription,
+};
+use std::borrow::Borrow;
+use std::marker;
+use std::sync::Arc;
 
 use wasm_bindgen::JsCast;
 
@@ -14,9 +17,9 @@ use wasm_bindgen::JsCast;
 ///
 /// See [RenderingContext::create_vertex_array] for details.
 pub struct VertexArrayDescriptor<V, I>
-    where
-        V: VertexInputStateDescription,
-        I: IndexBufferDescription,
+where
+    V: VertexInputStateDescription,
+    I: IndexBufferDescription,
 {
     /// The vertex input state for the [VertexArray].
     ///
@@ -46,11 +49,11 @@ pub struct VertexArray<L> {
 
 impl<L> VertexArray<L> {
     pub(crate) fn new<Rc, V, I>(context: &Rc, descriptor: &VertexArrayDescriptor<V, I>) -> Self
-        where
-            Rc: RenderingContext + Clone + 'static,
-            V: VertexInputStateDescription<AttributeLayout = L>,
-            I: IndexBufferDescription,
-            L: VertexAttributeLayout
+    where
+        Rc: RenderingContext + Clone + 'static,
+        V: VertexInputStateDescription<AttributeLayout = L>,
+        I: IndexBufferDescription,
+        L: VertexAttributeLayout,
     {
         let VertexArrayDescriptor {
             vertex_input_state,
@@ -194,8 +197,8 @@ impl<L> VertexArray<L> {
     /// # }
     /// ```
     pub fn range<R>(&self, range: R) -> Option<VertexArraySlice<L>>
-        where
-            R: VertexArrayRange,
+    where
+        R: VertexArrayRange,
     {
         range.range(&VertexArraySlice {
             vertex_array: self,
@@ -249,8 +252,8 @@ impl<L> VertexArray<L> {
     /// # }
     /// ```
     pub unsafe fn range_unchecked<R>(&self, range: R) -> VertexArraySlice<L>
-        where
-            R: VertexArrayRange,
+    where
+        R: VertexArrayRange,
     {
         range.range_unchecked(&VertexArraySlice {
             vertex_array: self,
@@ -348,8 +351,8 @@ impl<'a, L> VertexArraySlice<'a, L> {
     ///
     /// See also [VertexArray::range].
     pub fn range<R>(&self, range: R) -> Option<VertexArraySlice<L>>
-        where
-            R: VertexArrayRange,
+    where
+        R: VertexArrayRange,
     {
         range.range(self)
     }
@@ -358,8 +361,8 @@ impl<'a, L> VertexArraySlice<'a, L> {
     ///
     /// See also [VertexArray::range_unchecked].
     pub unsafe fn range_unchecked<R>(&self, range: R) -> VertexArraySlice<L>
-        where
-            R: VertexArrayRange,
+    where
+        R: VertexArrayRange,
     {
         range.range_unchecked(self)
     }
@@ -380,14 +383,13 @@ impl<'a, L> VertexArraySlice<'a, L> {
     }
 }
 
-
 trait VertexArrayObjectDropper {
     fn drop_vertex_array_object(&self, id: JsId);
 }
 
 impl<T> VertexArrayObjectDropper for T
-    where
-        T: RenderingContext,
+where
+    T: RenderingContext,
 {
     fn drop_vertex_array_object(&self, id: JsId) {
         self.submit(VertexArrayDropCommand { id });
@@ -431,7 +433,11 @@ struct VertexArrayAllocateCommand<A, I> {
     index_buffer_descriptor: Option<IndexBufferDescriptor>,
 }
 
-unsafe impl<A, I> GpuTask<Connection> for VertexArrayAllocateCommand<A, I> where A: Borrow<[&'static [VertexAttributeDescriptor]]>, I: Borrow<[VertexInputDescriptor]> {
+unsafe impl<A, I> GpuTask<Connection> for VertexArrayAllocateCommand<A, I>
+where
+    A: Borrow<[&'static [VertexAttributeDescriptor]]>,
+    I: Borrow<[VertexInputDescriptor]>,
+{
     type Output = ();
 
     fn context_id(&self) -> ContextId {
@@ -445,7 +451,11 @@ unsafe impl<A, I> GpuTask<Connection> for VertexArrayAllocateCommand<A, I> where
 
         state.set_bound_vertex_array(Some(&vao)).apply(gl).unwrap();
 
-        let iter = self.attribute_layout.borrow().iter().zip(self.input_descriptors.borrow().iter());
+        let iter = self
+            .attribute_layout
+            .borrow()
+            .iter()
+            .zip(self.input_descriptors.borrow().iter());
 
         for (bind_group, input_descriptor) in iter {
             unsafe {
@@ -462,9 +472,12 @@ unsafe impl<A, I> GpuTask<Connection> for VertexArrayAllocateCommand<A, I> where
             }
 
             for attribute_descriptor in bind_group.iter() {
-                attribute_descriptor.apply(gl, input_descriptor.stride_in_bytes as i32,
-                                           input_descriptor.offset_in_bytes as i32,
-                                           input_descriptor.input_rate);
+                attribute_descriptor.apply(
+                    gl,
+                    input_descriptor.stride_in_bytes as i32,
+                    input_descriptor.offset_in_bytes as i32,
+                    input_descriptor.input_rate,
+                );
             }
         }
 
