@@ -17,6 +17,14 @@ pub trait AsAttachableImageRef {
     fn as_attachable_image_ref(&mut self) -> AttachableImageRef;
 }
 
+impl<'a, T> AsAttachableImageRef for &'a mut T where T: AsAttachableImageRef {
+    type Format = T::Format;
+
+    fn as_attachable_image_ref(&mut self) -> AttachableImageRef {
+        (*self).as_attachable_image_ref()
+    }
+}
+
 impl<'a, F> AsAttachableImageRef for Texture2DLevelMut<'a, F>
 where
     F: TextureFormat,

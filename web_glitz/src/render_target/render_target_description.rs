@@ -33,6 +33,18 @@ pub trait RenderTargetDescription {
         for<'a> T: GpuTask<RenderPassContext<'a>>;
 }
 
+impl<'a, T> RenderTargetDescription for &'a mut T where T: RenderTargetDescription {
+    type Framebuffer = T::Framebuffer;
+
+    fn create_render_pass<F, Rt>(&mut self, id: RenderPassId, f: F) -> RenderPass<Rt>
+        where
+            F: FnOnce(&mut Self::Framebuffer) -> Rt,
+            for<'b> Rt: GpuTask<RenderPassContext<'b>>
+    {
+        (*self).create_render_pass(id, f)
+    }
+}
+
 macro_rules! impl_render_target_description {
     ($C0:ident $(,$C:ident)*) => {
         impl<$C0 $(,$C)*> RenderTargetDescription for RenderTarget<($C0 $(,$C)*), ()>
