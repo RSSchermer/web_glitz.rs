@@ -41,7 +41,7 @@ pub struct ColorAttachmentEncoding<'a, 'b, B> {
     pub(crate) store_op: StoreOp,
     pub(crate) image: AttachableImageData,
     _context: &'a mut ColorAttachmentEncodingContext,
-    _image_ref: marker::PhantomData<AttachableImageRef<'b>>,
+    _image_ref: marker::PhantomData<&'b ()>,
 }
 
 impl<'a, 'b, F> ColorAttachmentEncoding<'a, 'b, FloatBuffer<F>>
@@ -157,7 +157,7 @@ pub struct DepthStencilAttachmentEncoding<'a, 'b, B> {
     pub(crate) depth_stencil_type: DepthStencilAttachmentType,
     pub(crate) image: AttachableImageData,
     _context: &'a mut DepthStencilAttachmentEncodingContext,
-    _image_ref: marker::PhantomData<AttachableImageRef<'b>>,
+    _image_ref: marker::PhantomData<&'b ()>,
 }
 
 pub(crate) enum DepthStencilAttachmentType {
@@ -262,13 +262,13 @@ where
     }
 }
 
-pub struct AttachableImageRef<'a> {
+pub struct AttachableImageRef<'a, F> {
     data: AttachableImageData,
-    marker: marker::PhantomData<&'a ()>,
+    marker: marker::PhantomData<&'a F>,
 }
 
-impl<'a> AttachableImageRef<'a> {
-    pub(crate) fn from_texture_2d_level<F>(image: &Texture2DLevel<'a, F>) -> Self
+impl<'a, F> AttachableImageRef<'a, F> {
+    pub(crate) fn from_texture_2d_level(image: &Texture2DLevel<'a, F>) -> Self
     where
         F: TextureFormat,
     {
@@ -286,7 +286,7 @@ impl<'a> AttachableImageRef<'a> {
         }
     }
 
-    pub(crate) fn from_texture_2d_array_level_layer<F>(
+    pub(crate) fn from_texture_2d_array_level_layer(
         image: &Texture2DArrayLevelLayer<'a, F>,
     ) -> Self
     where
@@ -307,7 +307,7 @@ impl<'a> AttachableImageRef<'a> {
         }
     }
 
-    pub(crate) fn from_texture_3d_level_layer<F>(image: &Texture3DLevelLayer<'a, F>) -> Self
+    pub(crate) fn from_texture_3d_level_layer(image: &Texture3DLevelLayer<'a, F>) -> Self
     where
         F: TextureFormat,
     {
@@ -326,7 +326,7 @@ impl<'a> AttachableImageRef<'a> {
         }
     }
 
-    pub(crate) fn from_texture_cube_level_face<F>(image: &TextureCubeLevelFace<'a, F>) -> Self
+    pub(crate) fn from_texture_cube_level_face(image: &TextureCubeLevelFace<'a, F>) -> Self
     where
         F: TextureFormat,
     {
@@ -345,7 +345,7 @@ impl<'a> AttachableImageRef<'a> {
         }
     }
 
-    pub(crate) fn from_renderbuffer<F>(render_buffer: &'a Renderbuffer<F>) -> Self
+    pub(crate) fn from_renderbuffer(render_buffer: &'a Renderbuffer<F>) -> Self
     where
         F: RenderbufferFormat + 'static,
     {
@@ -360,6 +360,14 @@ impl<'a> AttachableImageRef<'a> {
             },
             marker: marker::PhantomData,
         }
+    }
+
+    pub fn width(&self) -> u32 {
+        self.data.width
+    }
+
+    pub fn height(&self) -> u32 {
+        self.data.height
     }
 
     pub(crate) fn into_data(self) -> AttachableImageData {
@@ -474,16 +482,6 @@ pub(crate) enum AttachableImageRefKind {
     Renderbuffer {
         data: Arc<RenderbufferData>,
     },
-}
-
-impl<'a> AttachableImageRef<'a> {
-    pub fn width(&self) -> u32 {
-        self.data.width
-    }
-
-    pub fn height(&self) -> u32 {
-        self.data.height
-    }
 }
 
 #[derive(Clone, Copy, PartialEq)]

@@ -14,13 +14,13 @@ pub trait AsAttachableImageRef {
     type Format: InternalFormat;
 
     /// Converts the image reference into a render target attachment.
-    fn as_attachable_image_ref(&mut self) -> AttachableImageRef;
+    fn as_attachable_image_ref(&mut self) -> AttachableImageRef<Self::Format>;
 }
 
 impl<'a, T> AsAttachableImageRef for &'a mut T where T: AsAttachableImageRef {
     type Format = T::Format;
 
-    fn as_attachable_image_ref(&mut self) -> AttachableImageRef {
+    fn as_attachable_image_ref(&mut self) -> AttachableImageRef<Self::Format> {
         (*self).as_attachable_image_ref()
     }
 }
@@ -31,7 +31,7 @@ where
 {
     type Format = F;
 
-    fn as_attachable_image_ref(&mut self) -> AttachableImageRef {
+    fn as_attachable_image_ref(&mut self) -> AttachableImageRef<Self::Format> {
         AttachableImageRef::from_texture_2d_level(&self)
     }
 }
@@ -42,7 +42,7 @@ where
 {
     type Format = F;
 
-    fn as_attachable_image_ref(&mut self) -> AttachableImageRef {
+    fn as_attachable_image_ref(&mut self) -> AttachableImageRef<Self::Format> {
         AttachableImageRef::from_texture_2d_array_level_layer(&self)
     }
 }
@@ -53,7 +53,7 @@ where
 {
     type Format = F;
 
-    fn as_attachable_image_ref(&mut self) -> AttachableImageRef {
+    fn as_attachable_image_ref(&mut self) -> AttachableImageRef<Self::Format> {
         AttachableImageRef::from_texture_3d_level_layer(&self)
     }
 }
@@ -64,7 +64,7 @@ where
 {
     type Format = F;
 
-    fn as_attachable_image_ref(&mut self) -> AttachableImageRef {
+    fn as_attachable_image_ref(&mut self) -> AttachableImageRef<Self::Format> {
         AttachableImageRef::from_texture_cube_level_face(&self)
     }
 }
@@ -75,7 +75,7 @@ where
 {
     type Format = F;
 
-    fn as_attachable_image_ref(&mut self) -> AttachableImageRef {
+    fn as_attachable_image_ref(&mut self) -> AttachableImageRef<Self::Format> {
         AttachableImageRef::from_renderbuffer(self)
     }
 }
