@@ -1,6 +1,7 @@
 use crate::render_pass::{Framebuffer, RenderPass, RenderPassContext, RenderPassId};
+use crate::render_target::attachable_image_ref::AttachableImageData;
 use crate::render_target::render_target_attachment::{
-    AttachableImageData, ColorAttachmentEncoding, ColorAttachmentEncodingContext, LoadAction,
+    ColorAttachmentEncoding, ColorAttachmentEncodingContext, LoadAction,
 };
 use crate::render_target::{
     ColorAttachmentDescription, DepthStencilAttachmentDescription, DepthStencilAttachmentEncoding,
@@ -10,6 +11,7 @@ use crate::runtime::state::{AttachmentSet, DepthStencilAttachmentDescriptor, Dra
 use crate::task::{ContextId, GpuTask};
 use std::cmp;
 use std::hash::{Hash, Hasher};
+
 
 /// Describes a render target against which may be used with a render pass task.
 ///

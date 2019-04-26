@@ -16,7 +16,7 @@ use crate::pipeline::graphics::{
 use crate::pipeline::resources::resource_slot::{
     Identifier, ResourceSlotDescriptor, SamplerKind, TextureSamplerSlot, UniformBlockSlot,
 };
-use crate::render_target::render_target_attachment::AttachableImageData;
+use crate::render_target::attachable_image_ref::AttachableImageData;
 use crate::runtime::index_lru::IndexLRU;
 use crate::util::{identical, JsId};
 use web_sys::{

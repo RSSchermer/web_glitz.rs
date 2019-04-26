@@ -1,5 +1,5 @@
 pub(crate) mod attachable_image_ref;
-pub use self::attachable_image_ref::AsAttachableImageRef;
+pub use self::attachable_image_ref::{AsAttachableImageRef, AttachableImageRef};
 
 pub(crate) mod default_render_target;
 pub use self::default_render_target::DefaultRenderTarget;
@@ -9,7 +9,7 @@ pub use self::render_target::RenderTarget;
 
 pub(crate) mod render_target_attachment;
 pub use self::render_target_attachment::{
-    AttachableImageRef, ColorAttachmentDescription, ColorAttachmentEncoding,
+    ColorAttachmentDescription, ColorAttachmentEncoding,
     ColorAttachmentEncodingContext, DepthAttachment, DepthStencilAttachment,
     DepthStencilAttachmentDescription, DepthStencilAttachmentEncoding,
     DepthStencilAttachmentEncodingContext, FloatAttachment, IntegerAttachment, LoadOp,
