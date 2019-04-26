@@ -12,7 +12,6 @@ use crate::task::{ContextId, GpuTask};
 use std::cmp;
 use std::hash::{Hash, Hasher};
 
-
 /// Describes a render target against which may be used with a render pass task.
 ///
 /// See [RenderingContext::create_render_pass] for details.
@@ -35,13 +34,16 @@ pub trait RenderTargetDescription {
         for<'a> T: GpuTask<RenderPassContext<'a>>;
 }
 
-impl<'a, T> RenderTargetDescription for &'a mut T where T: RenderTargetDescription {
+impl<'a, T> RenderTargetDescription for &'a mut T
+where
+    T: RenderTargetDescription,
+{
     type Framebuffer = T::Framebuffer;
 
     fn create_render_pass<F, Rt>(&mut self, id: RenderPassId, f: F) -> RenderPass<Rt>
-        where
-            F: FnOnce(&mut Self::Framebuffer) -> Rt,
-            for<'b> Rt: GpuTask<RenderPassContext<'b>>
+    where
+        F: FnOnce(&mut Self::Framebuffer) -> Rt,
+        for<'b> Rt: GpuTask<RenderPassContext<'b>>,
     {
         (*self).create_render_pass(id, f)
     }

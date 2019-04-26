@@ -3,15 +3,15 @@ use std::marker;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::image::format::{
-    DepthRenderable, DepthStencilRenderable, FloatRenderable, IntegerRenderable,
-    StencilRenderable, UnsignedIntegerRenderable,
+    DepthRenderable, DepthStencilRenderable, FloatRenderable, IntegerRenderable, StencilRenderable,
+    UnsignedIntegerRenderable,
 };
 use crate::render_pass::{
     DepthBuffer, DepthStencilBuffer, FloatBuffer, IntegerBuffer, RenderBuffer, StencilBuffer,
     UnsignedIntegerBuffer,
 };
-use crate::render_target::AsAttachableImageRef;
 use crate::render_target::attachable_image_ref::AttachableImageData;
+use crate::render_target::AsAttachableImageRef;
 use crate::runtime::state::DepthStencilAttachmentDescriptor;
 use crate::util::slice_make_mut;
 

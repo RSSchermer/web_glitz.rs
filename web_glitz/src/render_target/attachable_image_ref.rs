@@ -5,10 +5,20 @@ use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::image::format::{InternalFormat, RenderbufferFormat, TextureFormat};
 use crate::image::renderbuffer::{Renderbuffer, RenderbufferData};
-use crate::image::texture_2d::{LevelMut as Texture2DLevelMut, Level as Texture2DLevel, Texture2DData};
-use crate::image::texture_2d_array::{LevelLayerMut as Texture2DArrayLevelLayerMut, LevelLayer as Texture2DArrayLevelLayer, Texture2DArrayData};
-use crate::image::texture_3d::{LevelLayerMut as Texture3DLevelLayerMut, LevelLayer as Texture3DLevelLayer, Texture3DData};
-use crate::image::texture_cube::{LevelFaceMut as TextureCubeLevelFaceMut, LevelFace as TextureCubeLevelFace, TextureCubeData, CubeFace};
+use crate::image::texture_2d::{
+    Level as Texture2DLevel, LevelMut as Texture2DLevelMut, Texture2DData,
+};
+use crate::image::texture_2d_array::{
+    LevelLayer as Texture2DArrayLevelLayer, LevelLayerMut as Texture2DArrayLevelLayerMut,
+    Texture2DArrayData,
+};
+use crate::image::texture_3d::{
+    LevelLayer as Texture3DLevelLayer, LevelLayerMut as Texture3DLevelLayerMut, Texture3DData,
+};
+use crate::image::texture_cube::{
+    CubeFace, LevelFace as TextureCubeLevelFace, LevelFaceMut as TextureCubeLevelFaceMut,
+    TextureCubeData,
+};
 use crate::util::JsId;
 
 /// Trait implemented for image references that can be attached to a render target.
@@ -22,7 +32,10 @@ pub trait AsAttachableImageRef {
     fn as_attachable_image_ref(&mut self) -> AttachableImageRef<Self::Format>;
 }
 
-impl<'a, T> AsAttachableImageRef for &'a mut T where T: AsAttachableImageRef {
+impl<'a, T> AsAttachableImageRef for &'a mut T
+where
+    T: AsAttachableImageRef,
+{
     type Format = T::Format;
 
     fn as_attachable_image_ref(&mut self) -> AttachableImageRef<Self::Format> {
@@ -92,8 +105,8 @@ pub struct AttachableImageRef<'a, F> {
 
 impl<'a, F> AttachableImageRef<'a, F> {
     pub(crate) fn from_texture_2d_level(image: &Texture2DLevel<'a, F>) -> Self
-        where
-            F: TextureFormat,
+    where
+        F: TextureFormat,
     {
         AttachableImageRef {
             data: AttachableImageData {
@@ -109,11 +122,9 @@ impl<'a, F> AttachableImageRef<'a, F> {
         }
     }
 
-    pub(crate) fn from_texture_2d_array_level_layer(
-        image: &Texture2DArrayLevelLayer<'a, F>,
-    ) -> Self
-        where
-            F: TextureFormat,
+    pub(crate) fn from_texture_2d_array_level_layer(image: &Texture2DArrayLevelLayer<'a, F>) -> Self
+    where
+        F: TextureFormat,
     {
         AttachableImageRef {
             data: AttachableImageData {
@@ -131,8 +142,8 @@ impl<'a, F> AttachableImageRef<'a, F> {
     }
 
     pub(crate) fn from_texture_3d_level_layer(image: &Texture3DLevelLayer<'a, F>) -> Self
-        where
-            F: TextureFormat,
+    where
+        F: TextureFormat,
     {
         AttachableImageRef {
             data: AttachableImageData {
@@ -150,8 +161,8 @@ impl<'a, F> AttachableImageRef<'a, F> {
     }
 
     pub(crate) fn from_texture_cube_level_face(image: &TextureCubeLevelFace<'a, F>) -> Self
-        where
-            F: TextureFormat,
+    where
+        F: TextureFormat,
     {
         AttachableImageRef {
             data: AttachableImageData {
@@ -169,8 +180,8 @@ impl<'a, F> AttachableImageRef<'a, F> {
     }
 
     pub(crate) fn from_renderbuffer(render_buffer: &'a Renderbuffer<F>) -> Self
-        where
-            F: RenderbufferFormat + 'static,
+    where
+        F: RenderbufferFormat + 'static,
     {
         AttachableImageRef {
             data: AttachableImageData {

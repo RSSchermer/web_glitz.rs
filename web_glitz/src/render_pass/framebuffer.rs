@@ -33,7 +33,7 @@ use crate::pipeline::resources::bind_group_encoding::{
 };
 use crate::pipeline::resources::Resources;
 use crate::render_pass::RenderPassContext;
-use crate::render_target::attachable_image_ref::{AttachableImageRef, AttachableImageData};
+use crate::render_target::attachable_image_ref::{AttachableImageData, AttachableImageRef};
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::Connection;
 use crate::task::{ContextId, GpuTask, Progress};
