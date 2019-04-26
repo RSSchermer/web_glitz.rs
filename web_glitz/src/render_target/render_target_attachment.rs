@@ -60,7 +60,7 @@ where
                 image.width,
                 image.height,
             ),
-            load_action: load_op.as_action(context.buffer_index),
+            load_action: load_op.as_load_float_action(context.buffer_index),
             store_op,
             image,
             _context: context,
@@ -91,7 +91,7 @@ where
                 image.width,
                 image.height,
             ),
-            load_action: load_op.as_action(context.buffer_index),
+            load_action: load_op.as_load_integer_action(context.buffer_index),
             store_op,
             image,
             _context: context,
@@ -122,7 +122,7 @@ where
                 image.width,
                 image.height,
             ),
-            load_action: load_op.as_action(context.buffer_index),
+            load_action: load_op.as_load_unsigned_integer_action(context.buffer_index),
             store_op,
             image,
             _context: context,
@@ -192,7 +192,7 @@ where
 
         DepthStencilAttachmentEncoding {
             buffer: DepthStencilBuffer::new(context.render_pass_id, image.width, image.height),
-            load_action: load_op.as_action(),
+            load_action: load_op.as_load_depth_stencil_action(),
             store_op,
             depth_stencil_type: DepthStencilAttachmentType::DepthStencil,
             image,
@@ -219,7 +219,7 @@ where
 
         DepthStencilAttachmentEncoding {
             buffer: DepthBuffer::new(context.render_pass_id, image.width, image.height),
-            load_action: load_op.as_action(),
+            load_action: load_op.as_load_depth_action(),
             store_op,
             depth_stencil_type: DepthStencilAttachmentType::Depth,
             image,
@@ -246,7 +246,7 @@ where
 
         DepthStencilAttachmentEncoding {
             buffer: StencilBuffer::new(context.render_pass_id, image.width, image.height),
-            load_action: load_op.as_action(),
+            load_action: load_op.as_load_stencil_action(),
             store_op,
             depth_stencil_type: DepthStencilAttachmentType::Stencil,
             image,
@@ -256,8 +256,6 @@ where
     }
 }
 
-
-
 #[derive(Clone, Copy, PartialEq)]
 pub enum LoadOp<T> {
     Load,
@@ -265,7 +263,7 @@ pub enum LoadOp<T> {
 }
 
 impl LoadOp<[f32; 4]> {
-    pub(crate) fn as_action(&self, index: i32) -> LoadAction {
+    pub(crate) fn as_load_float_action(&self, index: i32) -> LoadAction {
         match self {
             LoadOp::Load => LoadAction::Load,
             LoadOp::Clear(value) => LoadAction::ClearColorFloat(index, *value),
@@ -274,7 +272,7 @@ impl LoadOp<[f32; 4]> {
 }
 
 impl LoadOp<[i32; 4]> {
-    pub(crate) fn as_action(&self, index: i32) -> LoadAction {
+    pub(crate) fn as_load_integer_action(&self, index: i32) -> LoadAction {
         match self {
             LoadOp::Load => LoadAction::Load,
             LoadOp::Clear(value) => LoadAction::ClearColorInteger(index, *value),
@@ -283,7 +281,7 @@ impl LoadOp<[i32; 4]> {
 }
 
 impl LoadOp<[u32; 4]> {
-    pub(crate) fn as_action(&self, index: i32) -> LoadAction {
+    pub(crate) fn as_load_unsigned_integer_action(&self, index: i32) -> LoadAction {
         match self {
             LoadOp::Load => LoadAction::Load,
             LoadOp::Clear(value) => LoadAction::ClearColorUnsignedInteger(index, *value),
@@ -292,7 +290,7 @@ impl LoadOp<[u32; 4]> {
 }
 
 impl LoadOp<(f32, i32)> {
-    pub(crate) fn as_action(&self) -> LoadAction {
+    pub(crate) fn as_load_depth_stencil_action(&self) -> LoadAction {
         match self {
             LoadOp::Load => LoadAction::Load,
             LoadOp::Clear((depth, stencil)) => LoadAction::ClearDepthStencil(*depth, *stencil),
@@ -301,7 +299,7 @@ impl LoadOp<(f32, i32)> {
 }
 
 impl LoadOp<f32> {
-    pub(crate) fn as_action(&self) -> LoadAction {
+    pub(crate) fn as_load_depth_action(&self) -> LoadAction {
         match self {
             LoadOp::Load => LoadAction::Load,
             LoadOp::Clear(depth) => LoadAction::ClearDepth(*depth),
@@ -310,7 +308,7 @@ impl LoadOp<f32> {
 }
 
 impl LoadOp<i32> {
-    pub(crate) fn as_action(&self) -> LoadAction {
+    pub(crate) fn as_load_stencil_action(&self) -> LoadAction {
         match self {
             LoadOp::Load => LoadAction::Load,
             LoadOp::Clear(stencil) => LoadAction::ClearStencil(*stencil),
