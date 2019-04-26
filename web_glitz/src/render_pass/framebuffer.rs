@@ -62,7 +62,7 @@ impl<C, Ds> Framebuffer<C, Ds> {
         for<'a> T: GpuTask<PipelineTaskContext<'a>>,
     {
         if self.context_id != pipeline.context_id() {
-            panic!("The pipeline does not belong to the same context as the frambuffer.");
+            panic!("The pipeline does not belong to the same context as the framebuffer.");
         }
 
         let id = self.last_id;

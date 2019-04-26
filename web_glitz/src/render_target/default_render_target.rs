@@ -8,6 +8,7 @@ use crate::render_target::render_target_description::RenderTargetData;
 use crate::render_target::RenderTargetDescription;
 use crate::task::{ContextId, GpuTask};
 
+/// A handle to the default render target associated with a [RenderingContext].
 #[derive(Clone, Copy, PartialEq)]
 pub struct DefaultRenderTarget<C, Ds> {
     context_id: usize,

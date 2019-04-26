@@ -15,20 +15,34 @@ use crate::render_target::AsAttachableImageRef;
 use crate::runtime::state::DepthStencilAttachmentDescriptor;
 use crate::util::slice_make_mut;
 
+/// Trait implemented by types that describe a color image attachment for a [RenderTarget].
+///
+/// See [RenderTarget] for details.
 pub trait ColorAttachmentDescription {
+    /// The type of [RenderBuffer] that is allocated in the framebuffer to buffer modifications to
+    /// the attached image.
     type Buffer: RenderBuffer;
 
+    /// Returns an encoding of the information needed by a [RenderPass] to load data from the
+    /// attached image into the framebuffer before the render pass, and to store data from the
+    /// framebuffer back into the attached image after the render pass.
     fn encode<'a, 'b>(
         &'a mut self,
         context: &'b mut ColorAttachmentEncodingContext,
     ) -> ColorAttachmentEncoding<'b, 'a, Self::Buffer>;
 }
 
+/// Provides the context for encoding a [ColorAttachmentDescription].
+///
+/// See [ColorAttachmentDescription::encode].
 pub struct ColorAttachmentEncodingContext {
     pub(crate) render_pass_id: usize,
     pub(crate) buffer_index: i32,
 }
 
+/// An encoding of the information needed by a [RenderPass] to load data from an attached image
+/// into the framebuffer before the render pass, and to store data from the framebuffer back into
+/// the attached image after the render pass.
 pub struct ColorAttachmentEncoding<'a, 'b, B> {
     pub(crate) buffer: B,
     pub(crate) load_action: LoadAction,

@@ -98,6 +98,10 @@ where
     }
 }
 
+/// Exclusive reference to an image that may be attached to a [RenderTarget].
+///
+/// See also [FloatAttachment], [IntegerAttachment], [UnsignedIntegerAttachment],
+/// [DepthStencilAttachment], [DepthAttachment], [StencilAttachment].
 pub struct AttachableImageRef<'a, F> {
     data: AttachableImageData,
     marker: marker::PhantomData<&'a F>,
@@ -194,14 +198,6 @@ impl<'a, F> AttachableImageRef<'a, F> {
             },
             marker: marker::PhantomData,
         }
-    }
-
-    pub fn width(&self) -> u32 {
-        self.data.width
-    }
-
-    pub fn height(&self) -> u32 {
-        self.data.height
     }
 
     pub(crate) fn into_data(self) -> AttachableImageData {
