@@ -1,4 +1,5 @@
 use std::borrow::Borrow;
+use std::cell::Cell;
 use std::hash::{Hash, Hasher};
 use std::marker;
 
@@ -40,20 +41,25 @@ use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::{slice_make_mut, JsId};
 use crate::vertex::{VertexStreamDescription, VertexStreamDescriptor};
 
-pub struct BlitSourceContextMismatch;
-
+/// Represents a set of image memory buffers that serve as the rendering destination for a
+/// [RenderPass].
+///
+/// The image buffers allocated in the framebuffer correspond to to the images attached to the
+/// [RenderTargetDescription] that was used to define the [RenderPass] (see also [RenderTarget]);
+/// specifically, [color] provides handles to the color buffers (if any), and [depth_stencil]
+/// provides a handle to the depth-stencil buffer (if any).
 pub struct Framebuffer<C, Ds> {
     pub color: C,
     pub depth_stencil: Ds,
     pub(crate) dimensions: Option<(u32, u32)>,
     pub(crate) context_id: usize,
     pub(crate) render_pass_id: usize,
-    pub(crate) last_id: usize,
+    pub(crate) last_pipeline_task_id: Cell<usize>,
 }
 
 impl<C, Ds> Framebuffer<C, Ds> {
     pub fn pipeline_task<V, R, Tf, F, T>(
-        &mut self,
+        &self,
         pipeline: &GraphicsPipeline<V, R, Tf>,
         f: F,
     ) -> PipelineTask<T>
@@ -65,9 +71,9 @@ impl<C, Ds> Framebuffer<C, Ds> {
             panic!("The pipeline does not belong to the same context as the framebuffer.");
         }
 
-        let id = self.last_id;
+        let id = self.last_pipeline_task_id.get();
 
-        self.last_id += 1;
+        self.last_pipeline_task_id.set(id + 1);
 
         let mut hasher = FnvHasher::default();
 
@@ -106,21 +112,64 @@ impl<C, Ds> Framebuffer<C, Ds>
 where
     C: BlitColorTarget,
 {
-    pub fn blit_color_command<S>(
+    /// Transfers a rectangle of pixels from the `source` onto a `region` of each of the color
+    /// buffers in framebuffer, using "nearest" filtering if the `source` and the `region` have
+    /// different sizes.
+    ///
+    /// The image data stored in `source` must be stored in a format that is [BlitColorCompatible]
+    /// with each of the color buffers in the framebuffer. If the `source` image has a different
+    /// size (width or height) than the `region`, then the `source` will be scaled to match the size
+    /// of the `region`. If scaling is required, then "nearest" filtering is used to obtain pixel
+    /// values for the resized image, where for each pixel value in the resized image, the value
+    /// of the pixel that is at the nearest corresponding relative position is used. See
+    /// [blit_color_linear_command] for a similar operation that uses linear filtering instead.
+    ///
+    /// The `region` of the color buffers is constrained to the area of intersection of all color
+    /// buffers; a `region` value of [Region::Fill] will match this area of intersection (note that
+    /// the origin of a region is in its bottom-left corner). If a `region` bigger than the
+    /// intersection is specified with [Region::Area], then any pixels that would be copied outside
+    /// the region of overlap are discarded for all color buffers (even color buffers that would by
+    /// themselves have been large enough to contain the `region`). However, the amount of scaling
+    /// that is applied is based solely on the size of the `region`, it is not affected by the area
+    /// of intersection.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use web_glitz::render_target::DefaultRenderTarget;
+    /// # use web_glitz::render_pass::DefaultRGBABuffer;
+    /// # use web_glitz::image::texture_2d::Texture2D;
+    /// # use web_glitz::image::format::RGBA8;
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # fn wrapper<Rc>(
+    /// # context: &Rc,
+    /// # mut render_target: DefaultRenderTarget<DefaultRGBABuffer, ()>,
+    /// # texture: Texture2D<RGBA8>
+    /// # ) where Rc: RenderingContext {
+    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    ///     framebuffer.blit_color_nearest_command(Region::Fill, texture.base_level())
+    /// });
+    /// # }
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if `source` belongs to a different context than the framebuffer.
+    pub fn blit_color_nearest_command<S>(
         &self,
         region: Region2D,
         source: &S,
-    ) -> Result<BlitCommand, BlitSourceContextMismatch>
+    ) -> BlitCommand
     where
         S: BlitColorCompatible<C>,
     {
         let source_descriptor = source.descriptor();
 
         if source_descriptor.context_id != self.context_id {
-            return Err(BlitSourceContextMismatch);
+            panic!("The source image belongs to a different context than the framebuffer.");
         }
 
-        Ok(BlitCommand {
+        BlitCommand {
             render_pass_id: self.render_pass_id,
             read_slot: Gl::COLOR_ATTACHMENT0,
             bitmask: Gl::COLOR_BUFFER_BIT,
@@ -128,14 +177,58 @@ where
             target_region: region,
             target: self.color.descriptor(),
             source: source_descriptor,
-        })
+        }
     }
 
+    /// Transfers a rectangle of pixels from the `source` onto a `region` of each of the color
+    /// buffers in framebuffer, using "linear" filtering if the `source` and the `region` have
+    /// different sizes.
+    ///
+    /// The image data stored in `source` must be stored in a format that is [BlitColorCompatible]
+    /// with each of the color buffers in the framebuffer. If the `source` image has a different
+    /// size (width or height) than the `region`, then the `source` will be scaled to match the size
+    /// of the `region`. If scaling is required, then "linear" filtering is used to obtain pixel
+    /// values for the resized image, where for each pixel value in the resized image, the value is
+    /// obtained by linear interpolation of the 4 pixels that are nearest to corresponding relative
+    /// position in the source image. See [blit_color_nearest_command] for a similar operation that
+    /// uses "nearest" filtering instead.
+    ///
+    /// The `region` of the color buffers is constrained to the area of intersection of all color
+    /// buffers; a `region` value of [Region::Fill] will match this area of intersection (note that
+    /// the origin of a region is in its bottom-left corner). If a `region` bigger than the
+    /// intersection is specified with [Region::Area], then any pixels that would be copied outside
+    /// the region of overlap are discarded for all color buffers (even color buffers that would by
+    /// themselves have been large enough to contain the `region`). However, the amount of scaling
+    /// that is applied is based solely on the size of the `region`, it is not affected by the area
+    /// of intersection.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use web_glitz::render_target::DefaultRenderTarget;
+    /// # use web_glitz::render_pass::DefaultRGBABuffer;
+    /// # use web_glitz::image::texture_2d::Texture2D;
+    /// # use web_glitz::image::format::RGBA8;
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # fn wrapper<Rc>(
+    /// # context: &Rc,
+    /// # mut render_target: DefaultRenderTarget<DefaultRGBABuffer, ()>,
+    /// # texture: Texture2D<RGBA8>
+    /// # ) where Rc: RenderingContext {
+    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    ///     framebuffer.blit_color_linear_command(Region::Fill, texture.base_level())
+    /// });
+    /// # }
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if `source` belongs to a different context than the framebuffer.
     pub fn blit_color_linear_command<S>(
         &self,
         region: Region2D,
         source: &S,
-    ) -> Result<BlitCommand, BlitSourceContextMismatch>
+    ) -> BlitCommand
     where
         S: BlitColorCompatible<C>,
         S::Format: Filterable,
@@ -143,10 +236,10 @@ where
         let source_descriptor = source.descriptor();
 
         if source_descriptor.context_id != self.context_id {
-            return Err(BlitSourceContextMismatch);
+            panic!("The source image belongs to a different context than the framebuffer.");
         }
 
-        Ok(BlitCommand {
+        BlitCommand {
             render_pass_id: self.render_pass_id,
             read_slot: Gl::COLOR_ATTACHMENT0,
             bitmask: Gl::COLOR_BUFFER_BIT,
@@ -154,7 +247,7 @@ where
             target_region: region,
             target: self.color.descriptor(),
             source: source_descriptor,
-        })
+        }
     }
 }
 
@@ -162,21 +255,63 @@ impl<C, F> Framebuffer<C, DepthStencilBuffer<F>>
 where
     F: DepthStencilRenderable,
 {
+    /// Transfers a rectangle of both depth and stencil values from the `source` depth-stencil image
+    /// onto a `region` of the depth-stencil buffer in framebuffer, using "nearest" filtering if the
+    /// `source` and the `region` have different sizes.
+    ///
+    /// The depth-stencil data stored in `source` must be stored in the same format as the storage
+    /// format format used by the framebuffer's depth-stencil buffer. If the `source` image has a
+    /// different size (width or height) than the `region`, then the `source` will be scaled to
+    /// match the size of the `region`. If scaling is required, then "nearest" filtering is used to
+    /// obtain pixel values for the resized image, where for each pixel value in the resized image,
+    /// the value of the pixel that is at the nearest corresponding relative position is used.
+    ///
+    /// If a `region` bigger than depth-stencil buffer is specified with [Region::Area], then any
+    /// pixels that would be copied outside the depth-stencil buffer will be discarded. However, the
+    /// amount of scaling that is applied is based solely on the size of the `region`, it is not
+    /// affected by the size of the depth-stencil buffer.
+    ///
+    /// See also [blit_depth_command] and [blit_stencil_command].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use web_glitz::render_target::RenderTargetDescription;
+    /// # use web_glitz::render_pass::{ Framebuffer, DepthStencilBuffer};
+    /// # use web_glitz::image::format::Depth24Stencil8;
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # use web_glitz::image::renderbuffer::Renderbuffer;
+    /// # fn wrapper<Rc, T>(
+    /// # context: &Rc,
+    /// # mut render_target: T,
+    /// # renderbuffer: Renderbuffer<Depth24Stencil8>
+    /// # ) where
+    /// # Rc: RenderingContext,
+    /// # T: RenderTargetDescription<Framebuffer=Framebuffer<(), DepthStencilBuffer<Depth24Stencil8>>> {
+    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    ///     framebuffer.blit_depth_stencil_command(Region::Fill, &renderbuffer)
+    /// });
+    /// # }
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if `source` belongs to a different context than the framebuffer.
     pub fn blit_depth_stencil_command<S>(
         &self,
         region: Region2D,
         source: &S,
-    ) -> Result<BlitCommand, BlitSourceContextMismatch>
+    ) -> BlitCommand
     where
         S: BlitSource<Format = F>,
     {
         let source_descriptor = source.descriptor();
 
         if source_descriptor.context_id != self.context_id {
-            return Err(BlitSourceContextMismatch);
+            panic!("The source image belongs to a different context than the framebuffer.");
         }
 
-        Ok(BlitCommand {
+        BlitCommand {
             render_pass_id: self.render_pass_id,
             read_slot: Gl::DEPTH_STENCIL_ATTACHMENT,
             bitmask: Gl::DEPTH_BUFFER_BIT & Gl::STENCIL_BUFFER_BIT,
@@ -184,24 +319,66 @@ where
             target_region: region,
             target: self.depth_stencil.descriptor(),
             source: source_descriptor,
-        })
+        }
     }
 
+    /// Transfers a rectangle of only depth values from the `source` depth-stencil image onto a
+    /// `region` of the depth-stencil buffer in framebuffer, using "nearest" filtering if the
+    /// `source` and the `region` have different sizes.
+    ///
+    /// The depth-stencil data stored in `source` must be stored in the same format as the storage
+    /// format format used by the framebuffer's depth-stencil buffer. If the `source` image has a
+    /// different size (width or height) than the `region`, then the `source` will be scaled to
+    /// match the size of the `region`. If scaling is required, then "nearest" filtering is used to
+    /// obtain pixel values for the resized image, where for each pixel value in the resized image,
+    /// the value of the pixel that is at the nearest corresponding relative position is used.
+    ///
+    /// If a `region` bigger than depth-stencil buffer is specified with [Region::Area], then any
+    /// pixels that would be copied outside the depth-stencil buffer will be discarded. However, the
+    /// amount of scaling that is applied is based solely on the size of the `region`, it is not
+    /// affected by the size of the depth-stencil buffer.
+    ///
+    /// See also [blit_depth_stencil_command] and [blit_stencil_command].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use web_glitz::render_target::RenderTargetDescription;
+    /// # use web_glitz::render_pass::{ Framebuffer, DepthStencilBuffer};
+    /// # use web_glitz::image::format::Depth24Stencil8;
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # use web_glitz::image::renderbuffer::Renderbuffer;
+    /// # fn wrapper<Rc, T>(
+    /// # context: &Rc,
+    /// # mut render_target: T,
+    /// # renderbuffer: Renderbuffer<Depth24Stencil8>
+    /// # ) where
+    /// # Rc: RenderingContext,
+    /// # T: RenderTargetDescription<Framebuffer=Framebuffer<(), DepthStencilBuffer<Depth24Stencil8>>> {
+    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    ///     framebuffer.blit_depth_command(Region::Fill, &renderbuffer)
+    /// });
+    /// # }
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if `source` belongs to a different context than the framebuffer.
     pub fn blit_depth_command<S>(
         &self,
         region: Region2D,
         source: &S,
-    ) -> Result<BlitCommand, BlitSourceContextMismatch>
+    ) -> BlitCommand
     where
         S: BlitSource<Format = F>,
     {
         let source_descriptor = source.descriptor();
 
         if source_descriptor.context_id != self.context_id {
-            return Err(BlitSourceContextMismatch);
+            panic!("The source image belongs to a different context than the framebuffer.");
         }
 
-        Ok(BlitCommand {
+        BlitCommand {
             render_pass_id: self.render_pass_id,
             read_slot: Gl::DEPTH_STENCIL_ATTACHMENT,
             bitmask: Gl::DEPTH_BUFFER_BIT,
@@ -209,24 +386,66 @@ where
             target_region: region,
             target: self.depth_stencil.descriptor(),
             source: source_descriptor,
-        })
+        }
     }
 
+    /// Transfers a rectangle of only stencil values from the `source` depth-stencil image onto a
+    /// `region` of the depth-stencil buffer in framebuffer, using "nearest" filtering if the
+    /// `source` and the `region` have different sizes.
+    ///
+    /// The depth-stencil data stored in `source` must be stored in the same format as the storage
+    /// format format used by the framebuffer's depth-stencil buffer. If the `source` image has a
+    /// different size (width or height) than the `region`, then the `source` will be scaled to
+    /// match the size of the `region`. If scaling is required, then "nearest" filtering is used to
+    /// obtain pixel values for the resized image, where for each pixel value in the resized image,
+    /// the value of the pixel that is at the nearest corresponding relative position is used.
+    ///
+    /// If a `region` bigger than depth-stencil buffer is specified with [Region::Area], then any
+    /// pixels that would be copied outside the depth-stencil buffer will be discarded. However, the
+    /// amount of scaling that is applied is based solely on the size of the `region`, it is not
+    /// affected by the size of the depth-stencil buffer.
+    ///
+    /// See also [blit_depth_stencil_command] and [blit_depth_command].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use web_glitz::render_target::RenderTargetDescription;
+    /// # use web_glitz::render_pass::{ Framebuffer, DepthStencilBuffer};
+    /// # use web_glitz::image::format::Depth24Stencil8;
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # use web_glitz::image::renderbuffer::Renderbuffer;
+    /// # fn wrapper<Rc, T>(
+    /// # context: &Rc,
+    /// # mut render_target: T,
+    /// # renderbuffer: Renderbuffer<Depth24Stencil8>
+    /// # ) where
+    /// # Rc: RenderingContext,
+    /// # T: RenderTargetDescription<Framebuffer=Framebuffer<(), DepthStencilBuffer<Depth24Stencil8>>> {
+    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    ///     framebuffer.blit_depth_command(Region::Fill, &renderbuffer)
+    /// });
+    /// # }
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if `source` belongs to a different context than the framebuffer.
     pub fn blit_stencil_command<S>(
         &self,
         region: Region2D,
         source: &S,
-    ) -> Result<BlitCommand, BlitSourceContextMismatch>
+    ) -> BlitCommand
     where
         S: BlitSource<Format = F>,
     {
         let source_descriptor = source.descriptor();
 
         if source_descriptor.context_id != self.context_id {
-            return Err(BlitSourceContextMismatch);
+            panic!("The source image belongs to a different context than the framebuffer.");
         }
 
-        Ok(BlitCommand {
+        BlitCommand {
             render_pass_id: self.render_pass_id,
             read_slot: Gl::DEPTH_STENCIL_ATTACHMENT,
             bitmask: Gl::STENCIL_BUFFER_BIT,
@@ -234,7 +453,7 @@ where
             target_region: region,
             target: self.depth_stencil.descriptor(),
             source: source_descriptor,
-        })
+        }
     }
 }
 
@@ -242,21 +461,61 @@ impl<C, F> Framebuffer<C, DepthBuffer<F>>
 where
     F: DepthRenderable,
 {
+    /// Transfers a rectangle of depth values from the `source` depth image onto a `region` of the
+    /// depth buffer in framebuffer, using "nearest" filtering if the `source` and the `region` have
+    /// different sizes.
+    ///
+    /// The depth data stored in `source` must be stored in the same format as the storage format
+    /// format used by the framebuffer's depth buffer. If the `source` image has a different size
+    /// (width or height) than the `region`, then the `source` will be scaled to match the size of
+    /// the `region`. If scaling is required, then "nearest" filtering is used to obtain pixel
+    /// values for the resized image, where for each pixel value in the resized image, the value of
+    /// the pixel that is at the nearest corresponding relative position is used.
+    ///
+    /// If a `region` bigger than depth buffer is specified with [Region::Area], then any pixels
+    /// that would be copied outside the depth buffer will be discarded. However, the amount of
+    /// scaling that is applied is based solely on the size of the `region`, it is not affected by
+    /// the size of the depth buffer.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use web_glitz::render_target::RenderTargetDescription;
+    /// # use web_glitz::render_pass::{Framebuffer, DepthBuffer};
+    /// # use web_glitz::image::format::DepthComponent24;
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # use web_glitz::image::renderbuffer::Renderbuffer;
+    /// # fn wrapper<Rc, T>(
+    /// # context: &Rc,
+    /// # mut render_target: T,
+    /// # renderbuffer: Renderbuffer<DepthComponent24>
+    /// # ) where
+    /// # Rc: RenderingContext,
+    /// # T: RenderTargetDescription<Framebuffer=Framebuffer<(), DepthBuffer<DepthComponent24>>> {
+    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    ///     framebuffer.blit_depth_command(Region::Fill, &renderbuffer)
+    /// });
+    /// # }
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if `source` belongs to a different context than the framebuffer.
     pub fn blit_depth_command<S>(
         &self,
         region: Region2D,
         source: &S,
-    ) -> Result<BlitCommand, BlitSourceContextMismatch>
+    ) -> BlitCommand
     where
         S: BlitSource<Format = F>,
     {
         let source_descriptor = source.descriptor();
 
         if source_descriptor.context_id != self.context_id {
-            return Err(BlitSourceContextMismatch);
+            panic!("The source image belongs to a different context than the framebuffer.");
         }
 
-        Ok(BlitCommand {
+        BlitCommand {
             render_pass_id: self.render_pass_id,
             read_slot: Gl::DEPTH_ATTACHMENT,
             bitmask: Gl::DEPTH_BUFFER_BIT,
@@ -264,7 +523,7 @@ where
             target_region: region,
             target: self.depth_stencil.descriptor(),
             source: source_descriptor,
-        })
+        }
     }
 }
 
@@ -272,21 +531,61 @@ impl<C, F> Framebuffer<C, StencilBuffer<F>>
 where
     F: StencilRenderable,
 {
+    /// Transfers a rectangle of stencil values from the `source` depth image onto a `region` of the
+    /// stencil buffer in framebuffer, using "nearest" filtering if the `source` and the `region`
+    /// have different sizes.
+    ///
+    /// The stencil data stored in `source` must be stored in the same format as the storage format
+    /// format used by the framebuffer's stencil buffer. If the `source` image has a different size
+    /// (width or height) than the `region`, then the `source` will be scaled to match the size of
+    /// the `region`. If scaling is required, then "nearest" filtering is used to obtain pixel
+    /// values for the resized image, where for each pixel value in the resized image, the value of
+    /// the pixel that is at the nearest corresponding relative position is used.
+    ///
+    /// If a `region` bigger than stencil buffer is specified with [Region::Area], then any pixels
+    /// that would be copied outside the stencil buffer will be discarded. However, the amount of
+    /// scaling that is applied is based solely on the size of the `region`, it is not affected by
+    /// the size of the stencil buffer.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use web_glitz::render_target::RenderTargetDescription;
+    /// # use web_glitz::render_pass::{Framebuffer, StencilBuffer};
+    /// # use web_glitz::image::format::StencilIndex8;
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # use web_glitz::image::renderbuffer::Renderbuffer;
+    /// # fn wrapper<Rc, T>(
+    /// # context: &Rc,
+    /// # mut render_target: T,
+    /// # renderbuffer: Renderbuffer<StencilIndex8>
+    /// # ) where
+    /// # Rc: RenderingContext,
+    /// # T: RenderTargetDescription<Framebuffer=Framebuffer<(), StencilBuffer<StencilIndex8>>> {
+    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    ///     framebuffer.blit_stencil_command(Region::Fill, &renderbuffer)
+    /// });
+    /// # }
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if `source` belongs to a different context than the framebuffer.
     pub fn blit_stencil_command<S>(
         &self,
         region: Region2D,
         source: &S,
-    ) -> Result<BlitCommand, BlitSourceContextMismatch>
+    ) -> BlitCommand
     where
         S: BlitSource<Format = F>,
     {
         let source_descriptor = source.descriptor();
 
         if source_descriptor.context_id != self.context_id {
-            return Err(BlitSourceContextMismatch);
+            panic!("The source image belongs to a different context than the framebuffer.");
         }
 
-        Ok(BlitCommand {
+        BlitCommand {
             render_pass_id: self.render_pass_id,
             read_slot: Gl::STENCIL_ATTACHMENT,
             bitmask: Gl::STENCIL_BUFFER_BIT,
@@ -294,14 +593,19 @@ where
             target_region: region,
             target: self.depth_stencil.descriptor(),
             source: source_descriptor,
-        })
+        }
     }
 }
 
+/// Provides the context necessary for making progress on a [PipelineTask].
 pub struct PipelineTaskContext<'a> {
     connection: &'a mut Connection,
 }
 
+/// Returned from [Framebuffer::pipeline_task], a series of commands that is executed while a
+/// specific [GraphicsPipeline] is bound as the [ActiveGraphicsPipeline].
+///
+/// See [Framebuffer::pipeline_task].
 pub struct PipelineTask<T> {
     render_pass_id: usize,
     task: T,
@@ -385,6 +689,10 @@ where
     }
 }
 
+/// An activated [GraphicsPipeline] which may be used to draw to a [Framebuffer].
+///
+/// A handle to an [ActiveGraphicsPipeline] is obtained by using a [GraphicsPipeline] to create
+/// a [PipelineTask] for a [Framebuffer], see [Framebuffer::pipeline_task].
 pub struct ActiveGraphicsPipeline<V, R> {
     context_id: usize,
     topology: Topology,
@@ -398,8 +706,54 @@ where
     V: AttributeSlotLayoutCompatible,
     R: Resources,
 {
-    /// Creates a [DrawCommand] that will execute this [ActiveGraphicsPipeline] on the
-    /// [vertex_input_stream] with the [resources] bound to the pipeline's resource slots.
+    /// Creates a [DrawCommand] that will execute this [ActiveGraphicsPipeline], using the
+    /// [vertex_input_stream] as input and with the [resources] bound to the pipeline's resource
+    /// slots.
+    ///
+    /// This will draw to the framebuffer that created the encapsulating [PipelineTask] (see
+    /// [Framebuffer::pipeline_task]). The pipeline's first color output will be stored to the
+    /// framebuffer's first color buffer (if present), the second color output will be stored to the
+    /// framebuffer's second color buffer (if present), etc. The pipeline's depth test (if enabled)
+    /// may update the framebuffer's depth-stencil buffer (if it present and is a [DepthRenderable]
+    /// or [DepthStencilRenderable] format, otherwise the depth test will act as if it was
+    /// disabled). The pipeline's stencil test (if enabled) may update the framebuffer's
+    /// depth-stencil buffer (if it is present and is [StencilRenderable] or
+    /// [DepthStencilRenderable] format, otherwise the stencil test will act as if was disabled).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::{DefaultRenderTarget, DefaultRGBBuffer};
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # use web_glitz::vertex::{Vertex, VertexArray};
+    /// # use web_glitz::buffer::UsageHint;
+    /// # use web_glitz::pipeline::graphics::GraphicsPipeline;
+    /// # use web_glitz::pipeline::resources::Resources;
+    /// # fn wrapper<Rc, V, R>(
+    /// #     context: &Rc,
+    /// #     mut render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
+    /// #     vertex_stream: VertexArray<V>,
+    /// #     resources: R,
+    /// #     graphics_pipeline: GraphicsPipeline<V, R, ()>
+    /// # )
+    /// # where
+    /// #     Rc: RenderingContext,
+    /// #     V: Vertex,
+    /// #     R: Resources
+    /// # {
+    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
+    ///         active_pipeline.draw_command(&vertex_stream, &resources);
+    ///     })
+    /// });
+    /// # }
+    /// ```
+    ///
+    /// In this example `graphics_pipeline` is a [GraphicsPipeline] , see [GraphicsPipeline] and
+    /// [RenderingContext::create_graphics_pipeline] for details; `vertex_stream` is a
+    /// [VertexStreamDescription], see [VertexStreamDescription], [VertexArray] and
+    /// [RenderingContext::create_vertex_array] for details; `resources` is a user-defined type for
+    /// which the [Resources] trait is implemented, see [Resources] for details.
     ///
     /// # Panic
     ///
@@ -433,6 +787,9 @@ where
     }
 }
 
+/// Returned from [ActiveGraphicsPipeline::draw_command].
+///
+/// See [ActiveGraphicsPipeline::draw_command] for details.
 pub struct DrawCommand<B> {
     pipeline_task_id: usize,
     vertex_stream_descriptor: VertexStreamDescriptor,
@@ -520,7 +877,10 @@ where
     }
 }
 
+/// Helper trait implemented by color buffers that can serve as a target for a [BlitCommand],
+/// see [Framebuffer::blit_color_nearest_command] and [Framebuffer::blit_color_linear_command].
 pub trait BlitColorTarget {
+    /// Encapsulates the information about the color target needed by the [BlitCommand].
     fn descriptor(&self) -> BlitTargetDescriptor;
 }
 
@@ -609,6 +969,8 @@ impl_blit_color_target!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C
 impl_blit_color_target!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14);
 impl_blit_color_target!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15);
 
+/// Returned from [BlitColorTarget::descriptor], encapsulates the information about the target
+/// buffer needed by the [BlitCommand].
 pub struct BlitTargetDescriptor {
     internal: BlitTargetDescriptorInternal,
 }
@@ -618,12 +980,20 @@ enum BlitTargetDescriptorInternal {
     FBO { width: u32, height: u32 },
 }
 
+/// Trait implemented by image reference types that can serve as the image data source for a color
+/// [BlitCommand].
+///
+/// See [Framebuffer::blit_color_nearest_command] and [Framebuffer::blit_color_linear_command].
 pub trait BlitSource {
+    /// The image storage format used by the source image.
     type Format: InternalFormat;
 
+    /// Encapsulates the information about the blit source required by the [BlitCommand].
     fn descriptor(&self) -> BlitSourceDescriptor;
 }
 
+/// Returned from [BlitSource::descriptor], encapsulates the information about the blit source
+/// required by the [BlitCommand].
 pub struct BlitSourceDescriptor {
     attachment: AttachableImageData,
     region: ((u32, u32), u32, u32),
@@ -790,6 +1160,8 @@ where
     }
 }
 
+/// Marker trait that identifies [BlitSource] types that can be safely blitted to a typed color
+/// buffer or set of color buffers.
 pub unsafe trait BlitColorCompatible<C>: BlitSource {}
 
 unsafe impl<T> BlitColorCompatible<FloatBuffer<T::Format>> for T
@@ -836,6 +1208,12 @@ impl_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C1
 impl_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14);
 impl_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15);
 
+/// Encapsulates a command that transfers a rectangle of pixels from a source image into the
+/// framebuffer.
+///
+/// See [Framebuffer::blit_color_nearest_command], [Framebuffer::blit_color_linear_command],
+/// [Framebuffer::blit_depth_stencil_command], [Framebuffer::blit_depth_command] and
+/// [Framebuffer::blit_stencil_command]
 pub struct BlitCommand {
     render_pass_id: usize,
     read_slot: u32,
@@ -900,6 +1278,7 @@ unsafe impl<'a> GpuTask<RenderPassContext<'a>> for BlitCommand {
     }
 }
 
+/// Represents the color buffer for a [DefaultRenderTarget] without an alpha channel.
 pub struct DefaultRGBBuffer {
     render_pass_id: usize,
 }
@@ -909,6 +1288,34 @@ impl DefaultRGBBuffer {
         DefaultRGBBuffer { render_pass_id }
     }
 
+    /// Returns a command that clears a `region` of the buffer to `clear_value`.
+    ///
+    /// All pixels in the region are set to the `clear_value`; values outside the region are
+    /// unaffected.
+    ///
+    /// # Examples
+    ///
+    /// The following command will clear the entire buffer to "transparent black":
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DefaultRGBBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # fn wrapper(buffer: &DefaultRGBBuffer) {
+    /// let command = buffer.clear_command([0.0, 0.0, 0.0, 0.0], Region2D::Fill);
+    /// # }
+    /// ```
+    ///
+    /// It's also possible to only clear a specific rectangular area of the buffer:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DefaultRGBBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # fn wrapper(buffer: &DefaultRGBBuffer) {
+    /// let command = buffer.clear_command([0.0, 0.0, 0.0, 0.0], Region2D::Area((0, 0), 100, 100));
+    /// # }
+    /// ```
+    ///
+    /// See also [Region2D].
     pub fn clear_command(&self, clear_value: [f32; 4], region: Region2D) -> ClearFloatCommand {
         ClearFloatCommand {
             render_pass_id: self.render_pass_id,
@@ -919,6 +1326,7 @@ impl DefaultRGBBuffer {
     }
 }
 
+/// Represents the color buffer for a [DefaultRenderTarget] with an alpha channel.
 pub struct DefaultRGBABuffer {
     render_pass_id: usize,
 }
@@ -928,6 +1336,34 @@ impl DefaultRGBABuffer {
         DefaultRGBABuffer { render_pass_id }
     }
 
+    /// Returns a command that clears a `region` of the buffer to `clear_value`.
+    ///
+    /// All pixels in the region are set to the `clear_value`; values outside the region are
+    /// unaffected.
+    ///
+    /// # Examples
+    ///
+    /// The following command will clear the entire buffer to "transparent black":
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DefaultRGBABuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # fn wrapper(buffer: &DefaultRGBABuffer) {
+    /// let command = buffer.clear_command([0.0, 0.0, 0.0, 0.0], Region2D::Fill);
+    /// # }
+    /// ```
+    ///
+    /// It's also possible to only clear a specific rectangular area of the buffer:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DefaultRGBABuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # fn wrapper(buffer: &DefaultRGBABuffer) {
+    /// let command = buffer.clear_command([0.0, 0.0, 0.0, 0.0], Region2D::Area((0, 0), 100, 100));
+    /// # }
+    /// ```
+    ///
+    /// See also [Region2D].
     pub fn clear_command(&self, clear_value: [f32; 4], region: Region2D) -> ClearFloatCommand {
         ClearFloatCommand {
             render_pass_id: self.render_pass_id,
@@ -938,6 +1374,8 @@ impl DefaultRGBABuffer {
     }
 }
 
+/// Represents the depth-stencil buffer for a [DefaultRenderTarget] with both a depth and a stencil
+/// channel.
 pub struct DefaultDepthStencilBuffer {
     render_pass_id: usize,
 }
@@ -947,8 +1385,39 @@ impl DefaultDepthStencilBuffer {
         DefaultDepthStencilBuffer { render_pass_id }
     }
 
+    /// Returns a command that clears all depth values in the `region` to `depth` and all stencil
+    /// values in the `region` to `stencil`.
+    ///
+    /// Values outside the region are unaffected. See also [clear_depth_command] for a command that
+    /// clears only depth values, and [clear_stencil_command] for a command that clears only stencil
+    /// values.
+    ///
+    /// # Examples
+    ///
+    /// The following command will clear the entire depth-stencil buffer to a depth value of `1.0`
+    /// and a stencil value of `0`:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DefaultDepthStencilBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # fn wrapper(buffer: &DefaultDepthStencilBuffer) {
+    /// let command = buffer.clear_command(1.0, 0, Region2D::Fill);
+    /// # }
+    /// ```
+    ///
+    /// It's also possible to only clear a specific rectangular area of the buffer:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DefaultDepthStencilBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # fn wrapper(buffer: &DefaultDepthStencilBuffer) {
+    /// let command = buffer.clear_command(1.0, 0, Region2D::Area((0, 0), 100, 100));
+    /// # }
+    /// ```
+    ///
+    /// See also [Region2D].
     pub fn clear_command(
-        &mut self,
+        &self,
         depth: f32,
         stencil: i32,
         region: Region2D,
@@ -961,7 +1430,38 @@ impl DefaultDepthStencilBuffer {
         }
     }
 
-    pub fn clear_depth_command(&mut self, depth: f32, region: Region2D) -> ClearDepthCommand {
+    /// Returns a command that clears all depth values in the `region` to `depth`.
+    ///
+    /// Stencil values and depth values outside the region are unaffected. See also
+    /// [clear_stencil_command] for a command that clears stencil values, and [clear_command] for
+    /// a command that clears both depth and stencil values.
+    ///
+    /// # Examples
+    ///
+    /// The following command will clear the entire depth-stencil buffer to a depth value of `1.0`:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DefaultDepthStencilBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # fn wrapper(buffer: &DefaultDepthStencilBuffer) {
+    /// let command = buffer.clear_depth_command(1.0, Region2D::Fill);
+    /// # }
+    /// ```
+    ///
+    /// The stencil values in the depth-stencil buffer will not change.
+    ///
+    /// It's also possible to only clear a specific rectangular area of the buffer:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DefaultDepthStencilBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # fn wrapper(buffer: &DefaultDepthStencilBuffer) {
+    /// let command = buffer.clear_depth_command(1.0, Region2D::Area((0, 0), 100, 100));
+    /// # }
+    /// ```
+    ///
+    /// See also [Region2D].
+    pub fn clear_depth_command(&self, depth: f32, region: Region2D) -> ClearDepthCommand {
         ClearDepthCommand {
             render_pass_id: self.render_pass_id,
             depth,
@@ -969,7 +1469,38 @@ impl DefaultDepthStencilBuffer {
         }
     }
 
-    pub fn clear_stencil_command(&mut self, stencil: i32, region: Region2D) -> ClearStencilCommand {
+    /// Returns a command that clears all stencil values in the `region` to `stencil`.
+    ///
+    /// Depth values and stencil values outside the region are unaffected. See also
+    /// [clear_depth_command] for a command that clears depth values, and [clear_command] for
+    /// a command that clears both depth and stencil values.
+    ///
+    /// # Examples
+    ///
+    /// The following command will clear the entire depth-stencil buffer to a stencil value of `0`:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DefaultDepthStencilBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # fn wrapper(buffer: &DefaultDepthStencilBuffer) {
+    /// let command = buffer.clear_stencil_command(0, Region2D::Fill);
+    /// # }
+    /// ```
+    ///
+    /// The depth values in the depth-stencil buffer will not change.
+    ///
+    /// It's also possible to only clear a specific rectangular area of the buffer:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DefaultDepthStencilBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # fn wrapper(buffer: &DefaultDepthStencilBuffer) {
+    /// let command = buffer.clear_stencil_command(0, Region2D::Area((0, 0), 100, 100));
+    /// # }
+    /// ```
+    ///
+    /// See also [Region2D].
+    pub fn clear_stencil_command(&self, stencil: i32, region: Region2D) -> ClearStencilCommand {
         ClearStencilCommand {
             render_pass_id: self.render_pass_id,
             stencil,
@@ -978,6 +1509,8 @@ impl DefaultDepthStencilBuffer {
     }
 }
 
+/// Represents the depth-stencil buffer for a [DefaultRenderTarget] with only a depth channel and
+/// no stencil channel.
 pub struct DefaultDepthBuffer {
     render_pass_id: usize,
 }
@@ -987,7 +1520,34 @@ impl DefaultDepthBuffer {
         DefaultDepthBuffer { render_pass_id }
     }
 
-    pub fn clear_command(&mut self, depth: f32, region: Region2D) -> ClearDepthCommand {
+    /// Returns a command that clears all depth values in the `region` to `depth`.
+    ///
+    /// Values outside the region are unaffected.
+    ///
+    /// # Examples
+    ///
+    /// The following command will clear the entire depth-stencil buffer to a depth value of `1.0`:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DefaultDepthBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # fn wrapper(buffer: &DefaultDepthBuffer) {
+    /// let command = buffer.clear_command(1.0, Region2D::Fill);
+    /// # }
+    /// ```
+    ///
+    /// It's also possible to only clear a specific rectangular area of the buffer:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DefaultDepthBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # fn wrapper(buffer: &DefaultDepthBuffer) {
+    /// let command = buffer.clear_command(1.0, Region2D::Area((0, 0), 100, 100));
+    /// # }
+    /// ```
+    ///
+    /// See also [Region2D].
+    pub fn clear_command(&self, depth: f32, region: Region2D) -> ClearDepthCommand {
         ClearDepthCommand {
             render_pass_id: self.render_pass_id,
             depth,
@@ -996,6 +1556,8 @@ impl DefaultDepthBuffer {
     }
 }
 
+/// Represents the depth-stencil buffer for a [DefaultRenderTarget] with only a stencil channel and
+/// no depth channel.
 pub struct DefaultStencilBuffer {
     render_pass_id: usize,
 }
@@ -1005,7 +1567,34 @@ impl DefaultStencilBuffer {
         DefaultStencilBuffer { render_pass_id }
     }
 
-    pub fn clear_command(&mut self, stencil: i32, region: Region2D) -> ClearStencilCommand {
+    /// Returns a command that clears all stencil values in the `region` to `stencil`.
+    ///
+    /// Values outside the region are unaffected.
+    ///
+    /// # Examples
+    ///
+    /// The following command will clear the entire depth-stencil buffer to a stencil value of `0`:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DefaultStencilBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # fn wrapper(buffer: &DefaultStencilBuffer) {
+    /// let command = buffer.clear_command(0, Region2D::Fill);
+    /// # }
+    /// ```
+    ///
+    /// It's also possible to only clear a specific rectangular area of the buffer:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DefaultStencilBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # fn wrapper(buffer: &DefaultStencilBuffer) {
+    /// let command = buffer.clear_command(0, Region2D::Area((0, 0), 100, 100));
+    /// # }
+    /// ```
+    ///
+    /// See also [Region2D].
+    pub fn clear_command(&self, stencil: i32, region: Region2D) -> ClearStencilCommand {
         ClearStencilCommand {
             render_pass_id: self.render_pass_id,
             stencil,
@@ -1014,14 +1603,21 @@ impl DefaultStencilBuffer {
     }
 }
 
+/// Trait implemented by types that represent a buffer in the framebuffer for a custom render
+/// target.
 pub trait RenderBuffer {
+    /// The type image storage format used by the buffer.
     type Format: InternalFormat;
 
+    /// The width of the buffer (in pixels).
     fn width(&self) -> u32;
 
+    /// The height of the buffer (in pixels).
     fn height(&self) -> u32;
 }
 
+/// Represents a color buffer that stores floating point values in a framebuffer for a custom render
+/// target.
 pub struct FloatBuffer<F>
 where
     F: FloatRenderable,
@@ -1047,7 +1643,36 @@ where
         }
     }
 
-    pub fn clear_command(&mut self, clear_value: [f32; 4], region: Region2D) -> ClearFloatCommand {
+    /// Returns a command that clears all pixel values in the `region` to `clear_value`.
+    ///
+    /// Values outside the region are unaffected.
+    ///
+    /// # Examples
+    ///
+    /// The following command will clear the entire buffer to a value of "transparent black":
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::FloatBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # use web_glitz::image::format::RGBA8;
+    /// # fn wrapper(buffer: &FloatBuffer<RGBA8>) {
+    /// let command = buffer.clear_command([0.0, 0.0, 0.0, 0.0], Region2D::Fill);
+    /// # }
+    /// ```
+    ///
+    /// It's also possible to only clear a specific rectangular area of the buffer:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::FloatBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # use web_glitz::image::format::RGBA8;
+    /// # fn wrapper(buffer: &FloatBuffer<RGBA8>) {
+    /// let command = buffer.clear_command([0.0, 0.0, 0.0, 0.0], Region2D::Area((0, 0), 100, 100));
+    /// # }
+    /// ```
+    ///
+    /// See also [Region2D].
+    pub fn clear_command(&self, clear_value: [f32; 4], region: Region2D) -> ClearFloatCommand {
         ClearFloatCommand {
             render_pass_id: self.render_pass_id,
             buffer_index: self.index,
@@ -1072,6 +1697,8 @@ where
     }
 }
 
+/// Represents a color buffer that stores integer values in a framebuffer for a custom render
+/// target.
 pub struct IntegerBuffer<F>
 where
     F: IntegerRenderable,
@@ -1097,8 +1724,37 @@ where
         }
     }
 
+    /// Returns a command that clears all pixel values in the `region` to `clear_value`.
+    ///
+    /// Values outside the region are unaffected.
+    ///
+    /// # Examples
+    ///
+    /// The following command will clear all pixels in the buffer to all zeroes:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::IntegerBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # use web_glitz::image::format::RGBA8I;
+    /// # fn wrapper(buffer: &IntegerBuffer<RGBA8I>) {
+    /// let command = buffer.clear_command([0, 0, 0, 0], Region2D::Fill);
+    /// # }
+    /// ```
+    ///
+    /// It's also possible to only clear a specific rectangular area of the buffer:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::IntegerBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # use web_glitz::image::format::RGBA8I;
+    /// # fn wrapper(buffer: &IntegerBuffer<RGBA8I>) {
+    /// let command = buffer.clear_command([0, 0, 0, 0], Region2D::Area((0, 0), 100, 100));
+    /// # }
+    /// ```
+    ///
+    /// See also [Region2D].
     pub fn clear_command(
-        &mut self,
+        &self,
         clear_value: [i32; 4],
         region: Region2D,
     ) -> ClearIntegerCommand {
@@ -1125,6 +1781,8 @@ where
     }
 }
 
+/// Represents a color buffer that stores unsigned integer values in a framebuffer for a custom
+/// render target.
 pub struct UnsignedIntegerBuffer<F>
 where
     F: UnsignedIntegerRenderable,
@@ -1150,8 +1808,37 @@ where
         }
     }
 
+    /// Returns a command that clears all pixel values in the `region` to `clear_value`.
+    ///
+    /// Values outside the region are unaffected.
+    ///
+    /// # Examples
+    ///
+    /// The following command will clear all pixels in the buffer to all zeroes:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::UnsignedIntegerBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # use web_glitz::image::format::RGBA8UI;
+    /// # fn wrapper(buffer: &UnsignedIntegerBuffer<RGBA8UI>) {
+    /// let command = buffer.clear_command([0, 0, 0, 0], Region2D::Fill);
+    /// # }
+    /// ```
+    ///
+    /// It's also possible to only clear a specific rectangular area of the buffer:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::UnsignedIntegerBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # use web_glitz::image::format::RGBA8UI;
+    /// # fn wrapper(buffer: &UnsignedIntegerBuffer<RGBA8UI>) {
+    /// let command = buffer.clear_command([0, 0, 0, 0], Region2D::Area((0, 0), 100, 100));
+    /// # }
+    /// ```
+    ///
+    /// See also [Region2D].
     pub fn clear_command(
-        &mut self,
+        &self,
         clear_value: [u32; 4],
         region: Region2D,
     ) -> ClearUnsignedIntegerCommand {
@@ -1179,6 +1866,8 @@ where
     }
 }
 
+/// Represents a depth-stencil buffer that stores both depth and stencil values in a framebuffer for
+/// a custom render target.
 pub struct DepthStencilBuffer<F>
 where
     F: DepthStencilRenderable,
@@ -1202,8 +1891,41 @@ where
         }
     }
 
+    /// Returns a command that clears all depth values in the `region` to `depth` and all stencil
+    /// values in the `region` to `stencil`.
+    ///
+    /// Values outside the region are unaffected. See also [clear_depth_command] for a command that
+    /// clears only depth values, and [clear_stencil_command] for a command that clears only stencil
+    /// values.
+    ///
+    /// # Examples
+    ///
+    /// The following command will clear the entire depth-stencil buffer to a depth value of `1.0`
+    /// and a stencil value of `0`:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DepthStencilBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # use web_glitz::image::format::Depth24Stencil8;
+    /// # fn wrapper(buffer: &DepthStencilBuffer<Depth24Stencil8>) {
+    /// let command = buffer.clear_command(1.0, 0, Region2D::Fill);
+    /// # }
+    /// ```
+    ///
+    /// It's also possible to only clear a specific rectangular area of the buffer:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DepthStencilBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # use web_glitz::image::format::Depth24Stencil8;
+    /// # fn wrapper(buffer: &DepthStencilBuffer<Depth24Stencil8>) {
+    /// let command = buffer.clear_command(1.0, 0, Region2D::Area((0, 0), 100, 100));
+    /// # }
+    /// ```
+    ///
+    /// See also [Region2D].
     pub fn clear_command(
-        &mut self,
+        &self,
         depth: f32,
         stencil: i32,
         region: Region2D,
@@ -1216,7 +1938,40 @@ where
         }
     }
 
-    pub fn clear_depth_command(&mut self, depth: f32, region: Region2D) -> ClearDepthCommand {
+    /// Returns a command that clears all depth values in the `region` to `depth`.
+    ///
+    /// Stencil values and depth values outside the region are unaffected. See also
+    /// [clear_stencil_command] for a command that clears stencil values, and [clear_command] for
+    /// a command that clears both depth and stencil values.
+    ///
+    /// # Examples
+    ///
+    /// The following command will clear the entire depth-stencil buffer to a depth value of `1.0`:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DepthStencilBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # use web_glitz::image::format::Depth24Stencil8;
+    /// # fn wrapper(buffer: &DepthStencilBuffer<Depth24Stencil8>) {
+    /// let command = buffer.clear_depth_command(1.0, Region2D::Fill);
+    /// # }
+    /// ```
+    ///
+    /// The stencil values in the depth-stencil buffer will not change.
+    ///
+    /// It's also possible to only clear a specific rectangular area of the buffer:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DepthStencilBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # use web_glitz::image::format::Depth24Stencil8;
+    /// # fn wrapper(buffer: &DepthStencilBuffer<Depth24Stencil8>) {
+    /// let command = buffer.clear_depth_command(1.0, Region2D::Area((0, 0), 100, 100));
+    /// # }
+    /// ```
+    ///
+    /// See also [Region2D].
+    pub fn clear_depth_command(&self, depth: f32, region: Region2D) -> ClearDepthCommand {
         ClearDepthCommand {
             render_pass_id: self.render_pass_id,
             depth,
@@ -1224,7 +1979,40 @@ where
         }
     }
 
-    pub fn clear_stencil_command(&mut self, stencil: i32, region: Region2D) -> ClearStencilCommand {
+    /// Returns a command that clears all stencil values in the `region` to `stencil`.
+    ///
+    /// Depth values and stencil values outside the region are unaffected. See also
+    /// [clear_depth_command] for a command that clears depth values, and [clear_command] for
+    /// a command that clears both depth and stencil values.
+    ///
+    /// # Examples
+    ///
+    /// The following command will clear the entire depth-stencil buffer to a stencil value of `0`:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DepthStencilBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # use web_glitz::image::format::Depth24Stencil8;
+    /// # fn wrapper(buffer: &DepthStencilBuffer<Depth24Stencil8>) {
+    /// let command = buffer.clear_stencil_command(0, Region2D::Fill);
+    /// # }
+    /// ```
+    ///
+    /// The depth values in the depth-stencil buffer will not change.
+    ///
+    /// It's also possible to only clear a specific rectangular area of the buffer:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DepthStencilBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # use web_glitz::image::format::Depth24Stencil8;
+    /// # fn wrapper(buffer: &DepthStencilBuffer<Depth24Stencil8>) {
+    /// let command = buffer.clear_stencil_command(0, Region2D::Area((0, 0), 100, 100));
+    /// # }
+    /// ```
+    ///
+    /// See also [Region2D].
+    pub fn clear_stencil_command(&self, stencil: i32, region: Region2D) -> ClearStencilCommand {
         ClearStencilCommand {
             render_pass_id: self.render_pass_id,
             stencil,
@@ -1248,6 +2036,8 @@ where
     }
 }
 
+/// Represents a depth-stencil buffer that stores only depth values in a framebuffer for a custom
+/// render target.
 pub struct DepthBuffer<F>
 where
     F: DepthRenderable,
@@ -1271,7 +2061,36 @@ where
         }
     }
 
-    pub fn clear_command(&mut self, depth: f32, region: Region2D) -> ClearDepthCommand {
+    /// Returns a command that clears all depth values in the `region` to `depth`.
+    ///
+    /// Values outside the region are unaffected.
+    ///
+    /// # Examples
+    ///
+    /// The following command will clear the entire depth-stencil buffer to a depth value of `1.0`:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DepthBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # use web_glitz::image::format::DepthComponent24;
+    /// # fn wrapper(buffer: &DepthBuffer<DepthComponent24>) {
+    /// let command = buffer.clear_command(1.0, Region2D::Fill);
+    /// # }
+    /// ```
+    ///
+    /// It's also possible to only clear a specific rectangular area of the buffer:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DepthBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # use web_glitz::image::format::DepthComponent24;
+    /// # fn wrapper(buffer: &DepthBuffer<DepthComponent24>) {
+    /// let command = buffer.clear_command(1.0, Region2D::Area((0, 0), 100, 100));
+    /// # }
+    /// ```
+    ///
+    /// See also [Region2D].
+    pub fn clear_command(&self, depth: f32, region: Region2D) -> ClearDepthCommand {
         ClearDepthCommand {
             render_pass_id: self.render_pass_id,
             depth,
@@ -1318,7 +2137,36 @@ where
         }
     }
 
-    pub fn clear_command(&mut self, stencil: i32, region: Region2D) -> ClearStencilCommand {
+    /// Returns a command that clears all stencil values in the `region` to `stencil`.
+    ///
+    /// Values outside the region are unaffected.
+    ///
+    /// # Examples
+    ///
+    /// The following command will clear the entire depth-stencil buffer to a stencil value of `0`:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::StencilBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # use web_glitz::image::format::StencilIndex8;
+    /// # fn wrapper(buffer: &StencilBuffer<StencilIndex8>) {
+    /// let command = buffer.clear_command(0, Region2D::Fill);
+    /// # }
+    /// ```
+    ///
+    /// It's also possible to only clear a specific rectangular area of the buffer:
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::StencilBuffer;
+    /// # use web_glitz::image::Region2D;
+    /// # use web_glitz::image::format::StencilIndex8;
+    /// # fn wrapper(buffer: &StencilBuffer<StencilIndex8>) {
+    /// let command = buffer.clear_command(0, Region2D::Area((0, 0), 100, 100));
+    /// # }
+    /// ```
+    ///
+    /// See also [Region2D].
+    pub fn clear_command(&self, stencil: i32, region: Region2D) -> ClearStencilCommand {
         ClearStencilCommand {
             render_pass_id: self.render_pass_id,
             stencil,
@@ -1342,6 +2190,10 @@ where
     }
 }
 
+/// Command that will clear a region of a color buffer that stores floating point values.
+///
+/// See [FloatBuffer::clear_command], [DefaultRGBBuffer::clear_command] and
+/// [DefaultRGBABuffer::clear_command].
 pub struct ClearFloatCommand {
     render_pass_id: usize,
     buffer_index: i32,
@@ -1378,6 +2230,9 @@ unsafe impl<'a> GpuTask<RenderPassContext<'a>> for ClearFloatCommand {
     }
 }
 
+/// Command that will clear a region of a color buffer that stores integer values.
+///
+/// See [IntegerBuffer::clear_command].
 pub struct ClearIntegerCommand {
     render_pass_id: usize,
     buffer_index: i32,
@@ -1414,6 +2269,9 @@ unsafe impl<'a> GpuTask<RenderPassContext<'a>> for ClearIntegerCommand {
     }
 }
 
+/// Command that will clear a region of a color buffer that stores unsigned integer values.
+///
+/// See [UnsignedIntegerBuffer::clear_command].
 pub struct ClearUnsignedIntegerCommand {
     render_pass_id: usize,
     buffer_index: i32,
@@ -1450,6 +2308,9 @@ unsafe impl<'a> GpuTask<RenderPassContext<'a>> for ClearUnsignedIntegerCommand {
     }
 }
 
+/// Command that will clear the depth and stencil values in a region of a depth-stencil buffer.
+///
+/// See [DepthStencilBuffer::clear_command] and [DefaultDepthStencilBuffer::clear_command].
 pub struct ClearDepthStencilCommand {
     render_pass_id: usize,
     depth: f32,
@@ -1484,6 +2345,10 @@ unsafe impl<'a> GpuTask<RenderPassContext<'a>> for ClearDepthStencilCommand {
     }
 }
 
+/// Command that will clear the depth values in a region of a depth-stencil buffer.
+///
+/// See [DepthStencilBuffer::clear_depth_command], [DepthBuffer::clear_command],
+/// [DefaultDepthStencilBuffer::clear_depth_command] and [DefaultDepthBuffer::clear_command].
 pub struct ClearDepthCommand {
     render_pass_id: usize,
     depth: f32,
@@ -1517,6 +2382,10 @@ unsafe impl<'a> GpuTask<RenderPassContext<'a>> for ClearDepthCommand {
     }
 }
 
+/// Command that will clear the stencil values in a region of a depth-stencil buffer.
+///
+/// See [DepthStencilBuffer::clear_stencil_command], [StencilBuffer::clear_command],
+/// [DefaultDepthStencilBuffer::clear_stencil_command] and [DefaultStencilBuffer::clear_command].
 pub struct ClearStencilCommand {
     render_pass_id: usize,
     stencil: i32,

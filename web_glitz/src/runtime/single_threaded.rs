@@ -1,11 +1,11 @@
 use std::borrow::Borrow;
 use std::cell::{Cell, RefCell};
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
+use fnv::FnvHasher;
 use serde_derive::Serialize;
-
 use wasm_bindgen::{JsCast, JsValue};
-
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext as Gl};
 
 use crate::buffer::{Buffer, IntoBuffer, UsageHint};
@@ -41,6 +41,7 @@ use crate::task::{GpuTask, Progress};
 use crate::vertex::{
     IndexBufferDescription, VertexArray, VertexArrayDescriptor, VertexInputStateDescription,
 };
+use std::any::TypeId;
 
 thread_local!(static ID_GEN: IdGen = IdGen::new());
 
@@ -67,6 +68,7 @@ pub struct SingleThreadedContext {
     executor: Rc<RefCell<SingleThreadedExecutor>>,
     id: usize,
     extensions: Extensions,
+    last_render_pass_id: Cell<usize>
 }
 
 impl RenderingContext for SingleThreadedContext {
@@ -135,10 +137,18 @@ impl RenderingContext for SingleThreadedContext {
     fn create_render_pass<R, F, T>(&self, mut render_target: R, f: F) -> RenderPass<T>
     where
         R: RenderTargetDescription,
-        F: FnOnce(&mut R::Framebuffer) -> T,
+        F: FnOnce(&R::Framebuffer) -> T,
         for<'a> T: GpuTask<RenderPassContext<'a>>,
     {
-        let id = ID_GEN.with(|id_gen| id_gen.next());
+        let id = self.last_render_pass_id.get();
+
+        self.last_render_pass_id.set(id + 1);
+
+        let mut hasher = FnvHasher::default();
+
+        (self.id, id).hash(&mut hasher);
+
+        let id = hasher.finish() as usize;
 
         render_target.create_render_pass(
             RenderPassId {
@@ -147,14 +157,6 @@ impl RenderingContext for SingleThreadedContext {
             },
             f,
         )
-    }
-
-    fn create_sampler(&self, descriptor: &SamplerDescriptor) -> Sampler {
-        Sampler::new(self, descriptor)
-    }
-
-    fn create_shadow_sampler(&self, descriptor: &ShadowSamplerDescriptor) -> ShadowSampler {
-        ShadowSampler::new(self, descriptor)
     }
 
     fn create_texture_2d<F>(
@@ -197,6 +199,14 @@ impl RenderingContext for SingleThreadedContext {
         TextureCube::new(self, descriptor)
     }
 
+    fn create_sampler(&self, descriptor: &SamplerDescriptor) -> Sampler {
+        Sampler::new(self, descriptor)
+    }
+
+    fn create_shadow_sampler(&self, descriptor: &ShadowSamplerDescriptor) -> ShadowSampler {
+        ShadowSampler::new(self, descriptor)
+    }
+
     fn create_vertex_array<V, I>(
         &self,
         descriptor: &VertexArrayDescriptor<V, I>,
@@ -221,11 +231,18 @@ impl SingleThreadedContext {
     pub unsafe fn from_webgl2_context(gl: Gl, state: DynamicState) -> Self {
         let id = ID_GEN.with(|id_gen| id_gen.next());
 
+        let mut hasher = FnvHasher::default();
+
+        (TypeId::of::<Self>(), id).hash(&mut hasher);
+
+        let id = hasher.finish() as usize;
+
         SingleThreadedContext {
             executor: RefCell::new(SingleThreadedExecutor::new(Connection::new(id, gl, state)))
                 .into(),
             id,
             extensions: Extensions::default(),
+            last_render_pass_id: Cell::new(0)
         }
     }
 }

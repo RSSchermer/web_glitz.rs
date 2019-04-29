@@ -1,3 +1,5 @@
+use std::cell::Cell;
+
 use crate::render_pass::{Framebuffer, RenderPass, RenderPassContext, RenderPassId};
 use crate::render_target::attachable_image_ref::AttachableImageData;
 use crate::render_target::render_target_attachment::{
@@ -30,7 +32,7 @@ pub trait RenderTargetDescription {
     /// Panics if the render pass task returned from `f` is associated with a different render pass.
     fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
     where
-        F: FnOnce(&mut Self::Framebuffer) -> T,
+        F: FnOnce(&Self::Framebuffer) -> T,
         for<'a> T: GpuTask<RenderPassContext<'a>>;
 }
 
@@ -42,7 +44,7 @@ where
 
     fn create_render_pass<F, Rt>(&mut self, id: RenderPassId, f: F) -> RenderPass<Rt>
     where
-        F: FnOnce(&mut Self::Framebuffer) -> Rt,
+        F: FnOnce(&Self::Framebuffer) -> Rt,
         for<'b> Rt: GpuTask<RenderPassContext<'b>>,
     {
         (*self).create_render_pass(id, f)
@@ -60,7 +62,7 @@ macro_rules! impl_render_target_description {
             #[allow(non_snake_case, unused_mut, unused_parens)]
             fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
                 where
-                    F: FnOnce(&mut Self::Framebuffer) -> T,
+                    F: FnOnce(&Self::Framebuffer) -> T,
                     for<'a> T: GpuTask<RenderPassContext<'a>>
             {
                 let RenderPassId { id, context_id } = id;
@@ -162,16 +164,14 @@ macro_rules! impl_render_target_description {
 
                 render_target.color_count = color_count;
 
-                let mut framebuffer = Framebuffer {
+                let task = f(&Framebuffer {
                     color: ($C0  $(,$C)*),
                     depth_stencil: (),
                     dimensions: Some((width, height)),
                     context_id,
                     render_pass_id: id,
-                    last_id: 0,
-                };
-
-                let task = f(&mut framebuffer);
+                    last_pipeline_task_id: Cell::new(0),
+                });
 
                 if let ContextId::Id(render_pass_id) = task.context_id() {
                     if render_pass_id != id {
@@ -221,7 +221,7 @@ macro_rules! impl_render_target_description_depth_stencil {
             #[allow(non_snake_case, unused_parens)]
             fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
                 where
-                    F: FnOnce(&mut Self::Framebuffer) -> T,
+                    F: FnOnce(&Self::Framebuffer) -> T,
                     for<'a> T: GpuTask<RenderPassContext<'a>>
             {
                 let RenderPassId { id, context_id } = id;
@@ -315,16 +315,14 @@ macro_rules! impl_render_target_description_depth_stencil {
 
                 render_target.color_count = color_count;
 
-                let mut framebuffer = Framebuffer {
+                let task = f(&Framebuffer {
                     color: ($($C),*),
                     depth_stencil: buffer,
                     dimensions: Some((width, height)),
                     context_id,
                     render_pass_id: id,
-                    last_id: 0,
-                };
-
-                let task = f(&mut framebuffer);
+                    last_pipeline_task_id: Cell::new(0),
+                });
 
                 if let ContextId::Id(render_pass_id) = task.context_id() {
                     if render_pass_id != id {

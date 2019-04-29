@@ -66,7 +66,7 @@ pub trait RenderingContext {
     fn create_render_pass<R, F, T>(&self, render_target: R, f: F) -> RenderPass<T>
     where
         R: RenderTargetDescription,
-        F: FnOnce(&mut R::Framebuffer) -> T,
+        F: FnOnce(&R::Framebuffer) -> T,
         for<'a> T: GpuTask<RenderPassContext<'a>>;
 
     fn create_texture_2d<F>(
