@@ -7,7 +7,8 @@ use web_sys::WebGl2RenderingContext as Gl;
 use crate::runtime::{Connection, Extensions, RenderingContext};
 use crate::task::Progress;
 use crate::task::{ContextId, GpuTask};
-use crate::util::{arc_get_mut_unchecked, JsId};
+use crate::util::JsId;
+use std::cell::UnsafeCell;
 
 /// Enumerates the filters available to a [Sampler] for magnification filtering.
 ///
@@ -219,7 +220,7 @@ impl Sampler {
         Rc: RenderingContext + Clone + 'static,
     {
         let data = Arc::new(SamplerData {
-            id: None,
+            id: UnsafeCell::new(None),
             context_id: context.id(),
             dropper: Box::new(context.clone()),
             extensions: context.extensions().clone(),
@@ -401,7 +402,7 @@ impl ShadowSampler {
         Rc: RenderingContext + Clone + 'static,
     {
         let data = Arc::new(SamplerData {
-            id: None,
+            id: UnsafeCell::new(None),
             context_id: context.id(),
             dropper: Box::new(context.clone()),
             extensions: context.extensions().clone(),
@@ -469,7 +470,7 @@ where
 }
 
 pub(crate) struct SamplerData {
-    id: Option<JsId>,
+    id: UnsafeCell<Option<JsId>>,
     context_id: usize,
     dropper: Box<SamplerObjectDropper>,
     extensions: Extensions,
@@ -477,7 +478,9 @@ pub(crate) struct SamplerData {
 
 impl SamplerData {
     pub(crate) fn id(&self) -> Option<JsId> {
-        self.id
+        unsafe {
+            *self.id.get()
+        }
     }
 
     pub(crate) fn context_id(&self) -> usize {
@@ -491,7 +494,7 @@ impl SamplerData {
 
 impl Drop for SamplerData {
     fn drop(&mut self) {
-        if let Some(id) = self.id {
+        if let Some(id) = self.id() {
             self.dropper.drop_sampler_object(id);
         }
     }
@@ -511,7 +514,7 @@ unsafe impl GpuTask<Connection> for SamplerAllocateCommand {
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, _) = unsafe { connection.unpack_mut() };
-        let data = unsafe { arc_get_mut_unchecked(&mut self.data) };
+        let data = &self.data;
         let object = gl.create_sampler().unwrap();
         let descriptor = &self.descriptor;
 
@@ -551,7 +554,9 @@ unsafe impl GpuTask<Connection> for SamplerAllocateCommand {
             gl.sampler_parameteri(&object, Gl::TEXTURE_WRAP_R, descriptor.wrap_r as i32);
         }
 
-        data.id = Some(JsId::from_value(object.into()));
+        unsafe {
+            *data.id.get() = Some(JsId::from_value(object.into()));
+        }
 
         Progress::Finished(())
     }
@@ -571,7 +576,7 @@ unsafe impl GpuTask<Connection> for ShadowSamplerAllocateCommand {
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, _) = unsafe { connection.unpack_mut() };
-        let data = unsafe { arc_get_mut_unchecked(&mut self.data) };
+        let data = &self.data;
         let object = gl.create_sampler().unwrap();
         let descriptor = &self.descriptor;
 
@@ -591,7 +596,9 @@ unsafe impl GpuTask<Connection> for ShadowSamplerAllocateCommand {
             gl.sampler_parameteri(&object, Gl::TEXTURE_WRAP_R, descriptor.wrap_r as i32);
         }
 
-        data.id = Some(JsId::from_value(object.into()));
+        unsafe {
+            *data.id.get() = Some(JsId::from_value(object.into()));
+        }
 
         Progress::Finished(())
     }

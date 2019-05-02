@@ -3,7 +3,7 @@ pub use self::blending::{BlendEquation, BlendFactor, Blending};
 
 mod descriptor;
 pub use self::descriptor::{
-    BindingStrategy, GraphicsPipelineDescriptor, GraphicsPipelineDescriptorBuilder,
+    SlotBindingStrategy, GraphicsPipelineDescriptor, GraphicsPipelineDescriptorBuilder,
 };
 
 mod fragment_test;

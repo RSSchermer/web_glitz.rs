@@ -1,11 +1,12 @@
 use crate::runtime::{Connection, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
-use crate::util::{arc_get_mut_unchecked, JsId};
+use crate::util::JsId;
 use std::borrow::Borrow;
 use std::sync::Arc;
 
 use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
+use std::cell::UnsafeCell;
 
 #[derive(PartialEq, Debug)]
 pub struct ShaderCompilationError(String);
@@ -31,14 +32,16 @@ impl FragmentShader {
 }
 
 pub(crate) struct VertexShaderData {
-    id: Option<JsId>,
+    id: UnsafeCell<Option<JsId>>,
     context_id: usize,
     dropper: Box<VertexShaderObjectDropper>,
 }
 
 impl VertexShaderData {
     pub(crate) fn id(&self) -> Option<JsId> {
-        self.id
+        unsafe {
+            *self.id.get()
+        }
     }
 
     pub(crate) fn context_id(&self) -> usize {
@@ -47,14 +50,16 @@ impl VertexShaderData {
 }
 
 pub(crate) struct FragmentShaderData {
-    id: Option<JsId>,
+    id: UnsafeCell<Option<JsId>>,
     context_id: usize,
     dropper: Box<FragmentShaderObjectDropper>,
 }
 
 impl FragmentShaderData {
     pub(crate) fn id(&self) -> Option<JsId> {
-        self.id
+        unsafe {
+            *self.id.get()
+        }
     }
 
     pub(crate) fn context_id(&self) -> usize {
@@ -77,7 +82,7 @@ where
 
 impl Drop for VertexShaderData {
     fn drop(&mut self) {
-        if let Some(id) = self.id {
+        if let Some(id) = self.id() {
             self.dropper.drop_shader_object(id);
         }
     }
@@ -98,7 +103,7 @@ where
 
 impl Drop for FragmentShaderData {
     fn drop(&mut self) {
-        if let Some(id) = self.id {
+        if let Some(id) = self.id() {
             self.dropper.drop_shader_object(id);
         }
     }
@@ -118,7 +123,7 @@ where
         Rc: RenderingContext + Clone + 'static,
     {
         let data = Arc::new(VertexShaderData {
-            id: None,
+            id: UnsafeCell::new(None),
             context_id: context.id(),
             dropper: Box::new(context.clone()),
         });
@@ -139,7 +144,7 @@ where
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, _) = unsafe { connection.unpack_mut() };
-        let data = unsafe { arc_get_mut_unchecked(&mut self.data) };
+        let data = &self.data;
 
         let shader_object = gl.create_shader(Gl::VERTEX_SHADER).unwrap();
 
@@ -155,7 +160,9 @@ where
 
             Progress::Finished(Err(ShaderCompilationError(error)))
         } else {
-            data.id = Some(JsId::from_value(shader_object.into()));
+            unsafe{
+                *data.id.get() = Some(JsId::from_value(shader_object.into()));
+            }
 
             Progress::Finished(Ok(VertexShader {
                 data: self.data.clone(),
@@ -178,7 +185,7 @@ where
         Rc: RenderingContext + Clone + 'static,
     {
         let data = Arc::new(FragmentShaderData {
-            id: None,
+            id: UnsafeCell::new(None),
             context_id: context.id(),
             dropper: Box::new(context.clone()),
         });
@@ -199,7 +206,7 @@ where
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, _) = unsafe { connection.unpack_mut() };
-        let data = unsafe { arc_get_mut_unchecked(&mut self.data) };
+        let data = &self.data;
 
         let shader_object = gl.create_shader(Gl::FRAGMENT_SHADER).unwrap();
 
@@ -215,7 +222,9 @@ where
 
             Progress::Finished(Err(ShaderCompilationError(error)))
         } else {
-            data.id = Some(JsId::from_value(shader_object.into()));
+            unsafe {
+                *data.id.get() = Some(JsId::from_value(shader_object.into()));
+            }
 
             Progress::Finished(Ok(FragmentShader {
                 data: self.data.clone(),

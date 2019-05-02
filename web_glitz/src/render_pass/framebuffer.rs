@@ -58,16 +58,68 @@ pub struct Framebuffer<C, Ds> {
 }
 
 impl<C, Ds> Framebuffer<C, Ds> {
+    /// Creates a pipeline task using the given `graphics_pipeline`.
+    ///
+    /// The second parameter `f` must be a function that returns the task that is to be executed
+    /// while the `graphics_pipeline` is bound as the active graphics pipeline. This function
+    /// will receive a reference to this [ActiveGraphicsPipeline] which may be used to encode
+    /// draw commands (see [ActiveGraphicsPipeline::draw_command]). The task returned by the
+    /// function typically consists of 1 ore more draw commands that were created in this way. The
+    /// current framebuffer serves as the output target for the `graphics_pipeline` (your draw
+    /// commands may modify the current framebuffer).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::{DefaultRenderTarget, DefaultRGBBuffer};
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # use web_glitz::vertex::{Vertex, VertexArray};
+    /// # use web_glitz::buffer::UsageHint;
+    /// # use web_glitz::pipeline::graphics::GraphicsPipeline;
+    /// # use web_glitz::pipeline::resources::Resources;
+    /// # fn wrapper<Rc, V, R>(
+    /// #     context: &Rc,
+    /// #     mut render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
+    /// #     vertex_stream: VertexArray<V>,
+    /// #     resources: R,
+    /// #     graphics_pipeline: GraphicsPipeline<V, R, ()>
+    /// # )
+    /// # where
+    /// #     Rc: RenderingContext,
+    /// #     V: Vertex,
+    /// #     R: Resources
+    /// # {
+    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
+    ///         active_pipeline.draw_command(&vertex_stream, &resources);
+    ///     })
+    /// });
+    /// # }
+    /// ```
+    ///
+    /// In this example `graphics_pipeline` is a [GraphicsPipeline] , see [GraphicsPipeline] and
+    /// [RenderingContext::create_graphics_pipeline] for details; `vertex_stream` is a
+    /// [VertexStreamDescription], see [VertexStreamDescription], [VertexArray] and
+    /// [RenderingContext::create_vertex_array] for details; `resources` is a user-defined type for
+    /// which the [Resources] trait is implemented, see [Resources] for details.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `graphics_pipeline` belongs to a different context than the framebuffer for
+    /// which this pipeline task is being created.
+    ///
+    /// Panics if the task returned by `f` contains commands that were constructed for a different
+    /// pipeline task context.
     pub fn pipeline_task<V, R, Tf, F, T>(
         &self,
-        pipeline: &GraphicsPipeline<V, R, Tf>,
+        graphics_pipeline: &GraphicsPipeline<V, R, Tf>,
         f: F,
     ) -> PipelineTask<T>
     where
         F: Fn(&ActiveGraphicsPipeline<V, R>) -> T,
         for<'a> T: GpuTask<PipelineTaskContext<'a>>,
     {
-        if self.context_id != pipeline.context_id() {
+        if self.context_id != graphics_pipeline.context_id() {
             panic!("The pipeline does not belong to the same context as the framebuffer.");
         }
 
@@ -83,7 +135,7 @@ impl<C, Ds> Framebuffer<C, Ds> {
 
         let task = f(&ActiveGraphicsPipeline {
             context_id: self.context_id,
-            topology: pipeline.primitive_assembly().topology(),
+            topology: graphics_pipeline.primitive_assembly().topology(),
             pipeline_task_id,
             _vertex_attribute_layout_marker: marker::PhantomData,
             _resources_marker: marker::PhantomData,
@@ -96,13 +148,13 @@ impl<C, Ds> Framebuffer<C, Ds> {
         PipelineTask {
             render_pass_id: self.render_pass_id,
             task,
-            program_id: pipeline.program_id(),
-            primitive_assembly: pipeline.primitive_assembly().clone(),
-            depth_test: pipeline.depth_test().clone(),
-            stencil_test: pipeline.stencil_test().clone(),
-            scissor_region: pipeline.scissor_region().clone(),
-            blending: pipeline.blending().clone(),
-            viewport: pipeline.viewport().clone(),
+            program_id: graphics_pipeline.program_id(),
+            primitive_assembly: graphics_pipeline.primitive_assembly().clone(),
+            depth_test: graphics_pipeline.depth_test().clone(),
+            stencil_test: graphics_pipeline.stencil_test().clone(),
+            scissor_region: graphics_pipeline.scissor_region().clone(),
+            blending: graphics_pipeline.blending().clone(),
+            viewport: graphics_pipeline.viewport().clone(),
             framebuffer_dimensions: self.dimensions,
         }
     }
@@ -151,6 +203,8 @@ where
     /// });
     /// # }
     /// ```
+    ///
+    /// Here `render_target` is a [RenderTargetDescription] and `texture` is a [Texture2D].
     ///
     /// # Panics
     ///
@@ -220,6 +274,8 @@ where
     /// });
     /// # }
     /// ```
+    ///
+    /// Here `render_target` is a [RenderTargetDescription] and `texture` is a [Texture2D].
     ///
     /// # Panics
     ///
@@ -294,6 +350,8 @@ where
     /// # }
     /// ```
     ///
+    /// Here `render_target` is a [RenderTargetDescription] and `renderbuffer` is a [Renderbuffer].
+    ///
     /// # Panics
     ///
     /// Panics if `source` belongs to a different context than the framebuffer.
@@ -361,6 +419,8 @@ where
     /// # }
     /// ```
     ///
+    /// Here `render_target` is a [RenderTargetDescription] and `renderbuffer` is a [Renderbuffer].
+    ///
     /// # Panics
     ///
     /// Panics if `source` belongs to a different context than the framebuffer.
@@ -427,6 +487,8 @@ where
     /// });
     /// # }
     /// ```
+    ///
+    /// Here `render_target` is a [RenderTargetDescription] and `renderbuffer` is a [Renderbuffer].
     ///
     /// # Panics
     ///
@@ -498,6 +560,8 @@ where
     /// # }
     /// ```
     ///
+    /// Here `render_target` is a [RenderTargetDescription] and `renderbuffer` is a [Renderbuffer].
+    ///
     /// # Panics
     ///
     /// Panics if `source` belongs to a different context than the framebuffer.
@@ -567,6 +631,8 @@ where
     /// });
     /// # }
     /// ```
+    ///
+    /// Here `render_target` is a [RenderTargetDescription] and `renderbuffer` is a [Renderbuffer].
     ///
     /// # Panics
     ///

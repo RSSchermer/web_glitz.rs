@@ -4,33 +4,68 @@ use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::vertex::VertexAttributeLayout;
 
+/// Trait implemented by vertex types that may be compatible with a [GraphicsPipeline]'s attribute
+/// slot layout.
+///
+/// A [GraphicsPipeline] may specify its vertex type to be an [AttributeSlotLayoutCompatible] type
+/// (see, [GraphicsPipelineDescriptorBuilder::vertex_input_layout]). If it does, then when the
+/// graphics pipeline is being created (see [RenderingContext::create_graphics_pipeline]),
+/// [check_compatibility] will be called with the actual set of [AttributeSlotDescriptor]s defined
+/// by the pipeline's programmable shaders (as obtained by reflection on the shader source code). If
+/// [check_compatibility] returns an error, then [RenderingContext::create_graphics_pipeline] will
+/// fail to create the pipeline and will return an error; if [check_compatibility] does not return
+/// an error, then any [VertexStreamDescription] that uses the type as its vertex type may be safely
+/// used as the vertex stream for a draw command that uses the pipeline (see
+/// [PipelineTask::draw_command]), without additional runtime compatibility checks.
+///
+/// # Unsafe
+///
+/// If the implementation of [check_compatibility] for some type does not return an error when
+/// called with a certain set of [AttributeSlotDescriptor]s, then any safely constructed
+/// [VertexArray] that uses that type as its vertex type must provide attribute data that is
+/// compatible with that set of [AttributeSlotDescriptor]s.
 pub unsafe trait AttributeSlotLayoutCompatible {
+    /// Returns `Ok` if this type is compatible with the pipeline attribute slot layout described by
+    /// `slot_descriptors`, or an returns an [IncompatibleAttributeLayout] otherwise.
     fn check_compatibility(
         slot_descriptors: &[AttributeSlotDescriptor],
     ) -> Result<(), IncompatibleAttributeLayout>;
 }
 
+/// Error returned by [AttributeSlotLayoutCompatible::check_compatibility].
 #[derive(Debug)]
 pub enum IncompatibleAttributeLayout {
+    /// Variant returned if no attribute data is available for the [AttributeSlotDescriptor] with
+    /// at the `location`.
     MissingAttribute { location: u32 },
+
+    /// Variant returned if attribute data is available for the [AttributeSlotDescriptor] with
+    /// at the `location`. but attribute data is not compatible with the [AttributeType] of the
+    /// [AttributeSlotDescriptor] (see [AttributeSlotDescriptor::attribute_type]).
     TypeMismatch { location: u32 },
 }
 
+/// Describes an input slot on a [GraphicsPipeline].
 pub struct AttributeSlotDescriptor {
     pub(crate) location: u32,
     pub(crate) attribute_type: AttributeType,
 }
 
 impl AttributeSlotDescriptor {
+    /// The shader location of the attribute slot.
     pub fn location(&self) -> u32 {
         self.location
     }
 
+    /// The type of attribute required to fill the slot.
     pub fn attribute_type(&self) -> AttributeType {
         self.attribute_type
     }
 }
 
+/// Enumerates the possible attribute types that might be required to fill an attribute slot.
+///
+/// See also [AttributeSlotDescriptor].
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum AttributeType {
     Float,

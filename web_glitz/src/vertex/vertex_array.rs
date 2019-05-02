@@ -2,7 +2,7 @@ use crate::buffer::BufferData;
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
-use crate::util::{arc_get_mut_unchecked, JsId};
+use crate::util::JsId;
 use crate::vertex::{
     IndexBufferDescription, IndexBufferDescriptor, IndexType, VertexAttributeDescriptor,
     VertexAttributeLayout, VertexInputDescriptor, VertexInputStateDescription,
@@ -12,6 +12,7 @@ use std::marker;
 use std::sync::Arc;
 
 use wasm_bindgen::JsCast;
+use std::cell::UnsafeCell;
 
 /// Provides the information necessary for the creation of a [VertexArray].
 ///
@@ -86,7 +87,7 @@ impl<L> VertexArray<L> {
         let (data, len) = if let Some(ref index_buffer_descriptor) = index_buffer_descriptor {
             (
                 Arc::new(VertexArrayData {
-                    id: None,
+                    id: UnsafeCell::new(None),
                     context_id: context.id(),
                     dropper: Box::new(context.clone()),
                     vertex_buffer_pointers: buffer_pointers,
@@ -99,7 +100,7 @@ impl<L> VertexArray<L> {
         } else {
             (
                 Arc::new(VertexArrayData {
-                    id: None,
+                    id: UnsafeCell::new(None),
                     context_id: context.id(),
                     dropper: Box::new(context.clone()),
                     vertex_buffer_pointers: buffer_pointers,
@@ -397,7 +398,7 @@ where
 }
 
 pub(crate) struct VertexArrayData {
-    id: Option<JsId>,
+    id: UnsafeCell<Option<JsId>>,
     context_id: usize,
     dropper: Box<VertexArrayObjectDropper>,
     #[allow(dead_code)] // Just holding on to these so they don't get dropped prematurely
@@ -410,7 +411,9 @@ pub(crate) struct VertexArrayData {
 
 impl VertexArrayData {
     pub(crate) fn id(&self) -> Option<JsId> {
-        self.id
+        unsafe {
+            *self.id.get()
+        }
     }
 
     pub(crate) fn context_id(&self) -> usize {
@@ -420,7 +423,7 @@ impl VertexArrayData {
 
 impl Drop for VertexArrayData {
     fn drop(&mut self) {
-        if let Some(id) = self.id {
+        if let Some(id) = self.id() {
             self.dropper.drop_vertex_array_object(id);
         }
     }
@@ -446,7 +449,7 @@ where
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, state) = unsafe { connection.unpack_mut() };
-        let data = unsafe { arc_get_mut_unchecked(&mut self.data) };
+        let data = &self.data;
         let vao = gl.create_vertex_array().unwrap();
 
         state.set_bound_vertex_array(Some(&vao)).apply(gl).unwrap();
@@ -496,7 +499,9 @@ where
             }
         }
 
-        data.id = Some(JsId::from_value(vao.into()));
+        unsafe {
+            *data.id.get() = Some(JsId::from_value(vao.into()));
+        }
 
         Progress::Finished(())
     }

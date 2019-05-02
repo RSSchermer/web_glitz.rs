@@ -25,7 +25,8 @@ use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
 use crate::sampler::{Sampler, SamplerData, ShadowSampler};
 use crate::task::{ContextId, GpuTask, Progress};
-use crate::util::{arc_get_mut_unchecked, slice_make_mut, JsId};
+use crate::util::{slice_make_mut, JsId};
+use std::cell::UnsafeCell;
 
 /// Provides the information necessary for the creation of a [Texture2D].
 ///
@@ -157,7 +158,7 @@ where
         };
 
         let data = Arc::new(Texture2DData {
-            id: None,
+            id: UnsafeCell::new(None),
             context_id: context.id(),
             dropper: Box::new(context.clone()),
             width: *width,
@@ -482,7 +483,7 @@ pub struct ShadowSampledTexture2D<'a> {
 }
 
 pub(crate) struct Texture2DData {
-    id: Option<JsId>,
+    id: UnsafeCell<Option<JsId>>,
     context_id: usize,
     dropper: Box<TextureObjectDropper>,
     width: u32,
@@ -492,7 +493,9 @@ pub(crate) struct Texture2DData {
 
 impl Texture2DData {
     pub(crate) fn id(&self) -> Option<JsId> {
-        self.id
+        unsafe {
+            *self.id.get()
+        }
     }
 
     pub(crate) fn context_id(&self) -> usize {
@@ -502,7 +505,7 @@ impl Texture2DData {
 
 impl PartialEq for Texture2DData {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
+        self.id() == other.id()
     }
 }
 
@@ -511,13 +514,13 @@ impl Hash for Texture2DData {
     where
         H: Hasher,
     {
-        self.id.hash(state);
+        self.id().hash(state);
     }
 }
 
 impl Drop for Texture2DData {
     fn drop(&mut self) {
-        if let Some(id) = self.id {
+        if let Some(id) = self.id() {
             self.dropper.drop_texture_object(id);
         }
     }
@@ -1478,7 +1481,7 @@ where
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, state) = unsafe { connection.unpack_mut() };
-        let data = unsafe { arc_get_mut_unchecked(&mut self.data) };
+        let data = &self.data;
 
         let texture_object = gl.create_texture().unwrap();
 
@@ -1500,7 +1503,9 @@ where
 
         gl.tex_parameteri(Gl::TEXTURE_2D, Gl::TEXTURE_MAX_LEVEL, levels);
 
-        data.id = Some(JsId::from_value(texture_object.into()));
+        unsafe {
+            *data.id.get() = Some(JsId::from_value(texture_object.into()));
+        }
 
         Progress::Finished(())
     }
@@ -1550,7 +1555,7 @@ where
 
                 unsafe {
                     self.texture_data
-                        .id
+                        .id()
                         .unwrap()
                         .with_value_unchecked(|texture_object| {
                             state
@@ -1635,7 +1640,7 @@ unsafe impl GpuTask<Connection> for GenerateMipmapCommand {
 
         unsafe {
             self.texture_data
-                .id
+                .id()
                 .unwrap()
                 .with_value_unchecked(|texture_object| {
                     state.set_bound_texture_2d(Some(texture_object));

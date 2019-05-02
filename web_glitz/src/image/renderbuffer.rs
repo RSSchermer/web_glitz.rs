@@ -8,9 +8,10 @@ use crate::image::format::RenderbufferFormat;
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
-use crate::util::{arc_get_mut_unchecked, JsId};
+use crate::util::{JsId};
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::cell::UnsafeCell;
 
 /// Provides the information necessary for the creation of a [Renderbuffer].
 ///
@@ -83,7 +84,7 @@ where
         Rc: RenderingContext + Clone + 'static,
     {
         let data = Arc::new(RenderbufferData {
-            id: None,
+            id: UnsafeCell::new(None),
             context_id: context.id(),
             dropper: Box::new(context.clone()),
             width: descriptor.width,
@@ -130,7 +131,7 @@ where
 }
 
 pub(crate) struct RenderbufferData {
-    id: Option<JsId>,
+    id: UnsafeCell<Option<JsId>>,
     context_id: usize,
     dropper: Box<RenderbufferObjectDropper>,
     width: u32,
@@ -139,7 +140,9 @@ pub(crate) struct RenderbufferData {
 
 impl RenderbufferData {
     pub(crate) fn id(&self) -> Option<JsId> {
-        self.id
+        unsafe{
+            *self.id.get()
+        }
     }
 
     pub(crate) fn context_id(&self) -> usize {
@@ -149,7 +152,7 @@ impl RenderbufferData {
 
 impl PartialEq for RenderbufferData {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
+        self.id() == other.id()
     }
 }
 
@@ -158,13 +161,13 @@ impl Hash for RenderbufferData {
     where
         H: Hasher,
     {
-        self.id.hash(state);
+        self.id().hash(state);
     }
 }
 
 impl Drop for RenderbufferData {
     fn drop(&mut self) {
-        if let Some(id) = self.id {
+        if let Some(id) = self.id() {
             self.dropper.drop_renderbuffer_object(id);
         }
     }
@@ -187,7 +190,7 @@ where
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, state) = unsafe { connection.unpack_mut() };
-        let data = unsafe { arc_get_mut_unchecked(&mut self.data) };
+        let data = &self.data;
         let object = gl.create_renderbuffer().unwrap();
 
         state
@@ -202,7 +205,9 @@ where
             data.height as i32,
         );
 
-        data.id = Some(JsId::from_value(object.into()));
+        unsafe {
+            *data.id.get() = Some(JsId::from_value(object.into()));
+        }
 
         Progress::Finished(())
     }

@@ -11,7 +11,8 @@ use web_sys::{WebGl2RenderingContext as GL, WebGlBuffer};
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
-use crate::util::{arc_get_mut_unchecked, slice_make_mut, JsId};
+use crate::util::{slice_make_mut, JsId};
+use std::cell::UnsafeCell;
 
 /// A GPU-accessible memory buffer that contains typed memory.
 ///
@@ -413,7 +414,7 @@ where
         Rc: RenderingContext + Clone + 'static,
     {
         let data = Arc::new(BufferData {
-            id: None,
+            id: UnsafeCell::new(None),
             context_id: context.id(),
             dropper: Box::new(context.clone()),
             usage_hint,
@@ -444,7 +445,7 @@ where
     {
         let len = self.borrow().len();
         let data = Arc::new(BufferData {
-            id: None,
+            id: UnsafeCell::new(None),
             context_id: context.id(),
             dropper: Box::new(context.clone()),
             usage_hint,
@@ -804,7 +805,7 @@ where
 
         unsafe {
             self.buffer_data
-                .id
+                .id()
                 .unwrap()
                 .with_value_unchecked(|buffer_object| {
                     state
@@ -846,7 +847,7 @@ where
 
         unsafe {
             self.buffer_data
-                .id
+                .id()
                 .unwrap()
                 .with_value_unchecked(|buffer_object| {
                     state
@@ -924,7 +925,7 @@ unsafe impl<T> GpuTask<Connection> for DownloadCommand<T> {
                 );
 
                 unsafe {
-                    self.data.id.unwrap().with_value_unchecked(|buffer_object| {
+                    self.data.id().unwrap().with_value_unchecked(|buffer_object| {
                         state
                             .set_bound_copy_read_buffer(Some(&buffer_object))
                             .apply(gl)
@@ -998,7 +999,7 @@ unsafe impl<T> GpuTask<Connection> for DownloadCommand<[T]> {
                 );
 
                 unsafe {
-                    self.data.id.unwrap().with_value_unchecked(|buffer_object| {
+                    self.data.id().unwrap().with_value_unchecked(|buffer_object| {
                         state
                             .set_bound_copy_read_buffer(Some(&buffer_object))
                             .apply(gl)
@@ -1064,7 +1065,7 @@ where
 }
 
 pub(crate) struct BufferData {
-    id: Option<JsId>,
+    id: UnsafeCell<Option<JsId>>,
     context_id: usize,
     dropper: Box<BufferObjectDropper>,
     len: usize,
@@ -1073,7 +1074,7 @@ pub(crate) struct BufferData {
 
 impl BufferData {
     pub(crate) fn id(&self) -> Option<JsId> {
-        self.id
+        unsafe { *self.id.get() }
     }
 
     pub(crate) fn context_id(&self) -> usize {
@@ -1083,7 +1084,7 @@ impl BufferData {
 
 impl Drop for BufferData {
     fn drop(&mut self) {
-        if let Some(id) = self.id {
+        if let Some(id) = self.id() {
             self.dropper.drop_buffer_object(id);
         }
     }
@@ -1110,7 +1111,7 @@ where
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, state) = unsafe { connection.unpack_mut() };
-        let data = unsafe { arc_get_mut_unchecked(&mut self.data) };
+        let data = &self.data;
 
         let buffer_object = GL::create_buffer(&gl).unwrap();
 
@@ -1132,7 +1133,9 @@ where
             );
         }
 
-        data.id = Some(JsId::from_value(buffer_object.into()));
+        unsafe {
+            *data.id.get() = Some(JsId::from_value(buffer_object.into()));
+        }
 
         Progress::Finished(())
     }
@@ -1150,7 +1153,7 @@ where
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, state) = unsafe { connection.unpack_mut() };
-        let data = unsafe { arc_get_mut_unchecked(&mut self.data) };
+        let data = &self.data;
 
         let buffer_object = GL::create_buffer(&gl).unwrap();
 
@@ -1171,7 +1174,9 @@ where
             );
         }
 
-        data.id = Some(JsId::from_value(buffer_object.into()));
+        unsafe {
+            *data.id.get() = Some(JsId::from_value(buffer_object.into()));
+        }
 
         Progress::Finished(())
     }

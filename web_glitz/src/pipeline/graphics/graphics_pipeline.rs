@@ -6,7 +6,7 @@ use crate::image::Region2D;
 use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
 use crate::pipeline::graphics::AttributeSlotLayoutCompatible;
 use crate::pipeline::graphics::{
-    BindingStrategy, Blending, DepthTest, GraphicsPipelineDescriptor, PrimitiveAssembly,
+    SlotBindingStrategy, Blending, DepthTest, GraphicsPipelineDescriptor, PrimitiveAssembly,
     StencilTest, Viewport,
 };
 use crate::pipeline::resources::resource_slot::{SlotBindingChecker, SlotBindingUpdater};
@@ -18,7 +18,9 @@ use crate::util::JsId;
 
 /// Encapsulates the state for a graphics pipeline.
 ///
-///
+/// See [RenderingContext::create_graphics_pipeline] for details on how a graphics pipeline is
+/// constructed. See [Framebuffer::pipeline_task] for details on how a graphics pipeline may be used
+/// to draw to the framebuffer.
 pub struct GraphicsPipeline<V, R, Tf> {
     _vertex_attribute_layout_marker: marker::PhantomData<V>,
     _resources_marker: marker::PhantomData<R>,
@@ -108,12 +110,12 @@ where
         V::check_compatibility(program.attribute_slot_descriptors())?;
 
         match descriptor.binding_strategy {
-            BindingStrategy::Check => {
+            SlotBindingStrategy::Check => {
                 let confirmer = SlotBindingChecker::new(gl, program.gl_object());
 
                 R::confirm_slot_bindings(&confirmer, program.resource_slot_descriptors())?;
             }
-            BindingStrategy::Update => {
+            SlotBindingStrategy::Update => {
                 let confirmer = SlotBindingUpdater::new(gl, program.gl_object());
 
                 R::confirm_slot_bindings(&confirmer, program.resource_slot_descriptors())?;

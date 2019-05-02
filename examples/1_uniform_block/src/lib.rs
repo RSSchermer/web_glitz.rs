@@ -16,7 +16,7 @@ use wasm_bindgen::JsCast;
 
 use web_glitz::buffer::{Buffer, UsageHint};
 use web_glitz::pipeline::graphics::{
-    BindingStrategy, CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
+    SlotBindingStrategy, CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 use web_glitz::vertex::VertexArrayDescriptor;
@@ -149,7 +149,7 @@ pub fn start() {
                 })
                 .fragment_shader(&fragment_shader)
                 .vertex_input_layout::<Vertex>()
-                .resource_layout::<Resources>(BindingStrategy::Update)
+                .resource_layout::<Resources>(SlotBindingStrategy::Update)
                 .finish(),
         )
         .unwrap();
