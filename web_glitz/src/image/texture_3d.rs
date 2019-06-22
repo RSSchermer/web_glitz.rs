@@ -481,9 +481,7 @@ pub(crate) struct Texture3DData {
 
 impl Texture3DData {
     pub(crate) fn id(&self) -> Option<JsId> {
-        unsafe {
-            *self.id.get()
-        }
+        unsafe { *self.id.get() }
     }
 
     pub(crate) fn context_id(&self) -> usize {

@@ -11,23 +11,28 @@ use std::borrow::Borrow;
 use std::marker;
 use std::sync::Arc;
 
-use wasm_bindgen::JsCast;
 use std::cell::UnsafeCell;
+use wasm_bindgen::JsCast;
 
 /// Provides the information necessary for the creation of a [VertexArray].
 ///
-/// See [RenderingContext::create_vertex_array] for details.
+/// See [RenderingContext::create_vertex_array] for examples of its use.
 pub struct VertexArrayDescriptor<V, I>
 where
     V: VertexInputStateDescription,
     I: IndexBufferDescription,
 {
-    /// The vertex input state for the [VertexArray].
+    /// The vertex input state for the [VertexArray], must be a [VertexInputStateDescription].
     ///
-    /// See [VertexInputStateDescription] for details.
+    /// See [VertexInputStateDescription] for details on defining a valid description. Note that
+    /// [VertexInputStateDescription] is implemented for a [Buffer] that holds any array of a type
+    /// that implements [Vertex] (e.g. `Buffer<[MyVertex]>` where `MyVertex` implements [Vertex]).
+    /// It is also implemented for any tuple of [Buffer]s that hold arrays of types that implement
+    /// [Vertex] (e.g. `(Buffer<[MyVertexA]>, Buffer<[MyVertexB]>)` where `MyVertexA` implements
+    /// [Vertex] and `MyVertexB` implements [Vertex]).
     pub vertex_input_state: V,
 
-    /// The index data for the [VertexArray].
+    /// The index data for the [VertexArray], must be an [IndexBufferDescription].
     ///
     /// See [IndexBufferDescription] for details.
     pub indices: I,
@@ -42,6 +47,50 @@ pub struct Instanced<T>(pub(crate) T, pub(crate) usize);
 /// a graphics pipeline.
 ///
 /// See [RenderingContext::create_vertex_array] for details on how a [VertexArray] is created.
+///
+/// A [VertexArray] may act as a [VertexStreamDescription] for a draw command:
+///
+/// ```
+/// # use web_glitz::render_pass::{DefaultRenderTarget, DefaultRGBBuffer};
+/// # use web_glitz::runtime::RenderingContext;
+/// # use web_glitz::vertex::{Vertex, VertexArrayDescriptor};
+/// # use web_glitz::buffer::UsageHint;
+/// # use web_glitz::pipeline::graphics::GraphicsPipeline;
+/// # fn wrapper<Rc, V>(
+/// #     context: &Rc,
+/// #     mut render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
+/// #     vertex_data: [V; 100],
+/// #     graphics_pipeline: GraphicsPipeline<V, (), ()>
+/// # )
+/// # where
+/// #     Rc: RenderingContext,
+/// #     V: Vertex
+/// # {
+/// # let vertex_buffer = context.create_buffer(vertex_data, UsageHint::StaticDraw);
+/// let vertex_array = context.create_vertex_array(&VertexArrayDescriptor {
+///     vertex_input_state: &vertex_buffer,
+///     indices: ()
+/// });
+///
+/// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
+///         active_pipeline.draw_command(&vertex_array, &());
+///     })
+/// });
+/// # }
+/// ```
+///
+/// Here `context` is a [RenderingContext], `vertex_buffer` is a [Buffer] that holds an array of
+/// a type that implements [Vertex], `render_target` is a [RenderTargetDescription] and
+/// `graphics_pipeline` is a [GraphicsPipeline] with a compatible vertex input layout  (see
+/// [PipelineTask::draw_command] for details).
+///
+/// It is also possible to select just a sub-range of the [VertexArray] with [range] and use only
+/// that sub-range as a [VertexStreamDescription], see [range] for details and an example.
+///
+/// Lastly, a [VertexStreamDescription] that uses instancing can be created with [instanced], see
+/// [instanced] for details and an example (this also works in a similar way with just a sub-range,
+/// see [VertexArrayRange::instanced]).
 pub struct VertexArray<L> {
     pub(crate) data: Arc<VertexArrayData>,
     pub(crate) len: usize,
@@ -411,9 +460,7 @@ pub(crate) struct VertexArrayData {
 
 impl VertexArrayData {
     pub(crate) fn id(&self) -> Option<JsId> {
-        unsafe {
-            *self.id.get()
-        }
+        unsafe { *self.id.get() }
     }
 
     pub(crate) fn context_id(&self) -> usize {

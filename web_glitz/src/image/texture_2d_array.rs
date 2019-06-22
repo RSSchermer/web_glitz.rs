@@ -28,7 +28,7 @@ use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
 use crate::sampler::{Sampler, SamplerData, ShadowSampler};
 use crate::task::{ContextId, GpuTask, Progress};
-use crate::util::{JsId};
+use crate::util::JsId;
 use std::cell::UnsafeCell;
 
 /// Provides the information necessary for the creation of a [Texture2DArray].
@@ -535,9 +535,7 @@ pub(crate) struct Texture2DArrayData {
 
 impl Texture2DArrayData {
     pub(crate) fn id(&self) -> Option<JsId> {
-        unsafe {
-            *self.id.get()
-        }
+        unsafe { *self.id.get() }
     }
 
     pub(crate) fn context_id(&self) -> usize {

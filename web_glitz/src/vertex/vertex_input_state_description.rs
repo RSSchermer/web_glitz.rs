@@ -19,12 +19,12 @@ use crate::vertex::{Vertex, VertexAttributeLayout};
 /// # Unsafe
 ///
 /// It must be valid to apply a group of [VertexAttributeDescriptor]s to the [VertexInputDescriptor]
-/// it is paired with: if a group contains a [VertexAttributeDescriptor] describes a certain
+/// it is paired with: if a group contains a [VertexAttributeDescriptor] that describes a certain
 /// [AttributeFormat] (see [VertexAttributeDescriptor::format]) at a certain offset (see
 /// [VertexAttributeDescriptor::offset_in_bytes]), then the [Buffer] region described by the
 /// [VertexInputDescriptor] must contain data that can be validly interpreted as that format
 /// starting at that offset, and at every multiple of [VertexInputDescriptor::stride_in_bytes] bytes
-/// added to that offset for the entire size of the input region (see
+/// added to that offset for the entire size of the input region (as defined by
 /// [VertexInputDescriptor::size_in_bytes]).
 ///
 /// # Example
@@ -131,6 +131,7 @@ pub enum InputRate {
     PerInstance,
 }
 
+/// Describes an input source for vertex attribute data.
 /// Describes an input source for vertex attribute data.
 #[derive(Clone)]
 pub struct VertexInputDescriptor {

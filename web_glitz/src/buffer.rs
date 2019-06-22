@@ -11,7 +11,7 @@ use web_sys::{WebGl2RenderingContext as GL, WebGlBuffer};
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
-use crate::util::{slice_make_mut, JsId};
+use crate::util::JsId;
 use std::cell::UnsafeCell;
 
 /// A GPU-accessible memory buffer that contains typed memory.
@@ -824,7 +824,7 @@ where
             gl.buffer_sub_data_with_i32_and_u8_array(
                 GL::COPY_WRITE_BUFFER,
                 self.offset_in_bytes as i32,
-                slice_make_mut(data),
+                data,
             );
         };
 
@@ -871,7 +871,7 @@ where
             gl.buffer_sub_data_with_i32_and_u8_array(
                 GL::COPY_WRITE_BUFFER,
                 self.offset_in_bytes as i32,
-                slice_make_mut(data),
+                data,
             );
         };
 
@@ -925,12 +925,15 @@ unsafe impl<T> GpuTask<Connection> for DownloadCommand<T> {
                 );
 
                 unsafe {
-                    self.data.id().unwrap().with_value_unchecked(|buffer_object| {
-                        state
-                            .set_bound_copy_read_buffer(Some(&buffer_object))
-                            .apply(gl)
-                            .unwrap();
-                    });
+                    self.data
+                        .id()
+                        .unwrap()
+                        .with_value_unchecked(|buffer_object| {
+                            state
+                                .set_bound_copy_read_buffer(Some(&buffer_object))
+                                .apply(gl)
+                                .unwrap();
+                        });
                 }
 
                 gl.copy_buffer_sub_data_with_i32_and_i32_and_i32(
@@ -999,12 +1002,15 @@ unsafe impl<T> GpuTask<Connection> for DownloadCommand<[T]> {
                 );
 
                 unsafe {
-                    self.data.id().unwrap().with_value_unchecked(|buffer_object| {
-                        state
-                            .set_bound_copy_read_buffer(Some(&buffer_object))
-                            .apply(gl)
-                            .unwrap();
-                    });
+                    self.data
+                        .id()
+                        .unwrap()
+                        .with_value_unchecked(|buffer_object| {
+                            state
+                                .set_bound_copy_read_buffer(Some(&buffer_object))
+                                .apply(gl)
+                                .unwrap();
+                        });
                 }
 
                 gl.copy_buffer_sub_data_with_i32_and_i32_and_i32(
@@ -1126,11 +1132,7 @@ where
                 mem::size_of::<T>(),
             );
 
-            gl.buffer_data_with_u8_array(
-                GL::COPY_WRITE_BUFFER,
-                slice_make_mut(initial),
-                data.usage_hint.gl_id(),
-            );
+            gl.buffer_data_with_u8_array(GL::COPY_WRITE_BUFFER, initial, data.usage_hint.gl_id());
         }
 
         unsafe {
@@ -1167,11 +1169,7 @@ where
             let size = initial.len() * mem::size_of::<T>();
             let initial = slice::from_raw_parts(initial as *const _ as *const u8, size);
 
-            gl.buffer_data_with_u8_array(
-                GL::COPY_WRITE_BUFFER,
-                slice_make_mut(initial),
-                data.usage_hint.gl_id(),
-            );
+            gl.buffer_data_with_u8_array(GL::COPY_WRITE_BUFFER, initial, data.usage_hint.gl_id());
         }
 
         unsafe {

@@ -139,10 +139,21 @@
 //! have finished. We therefor use [sequence] to sequence our combined upload command with the
 //! "generate mipmap" command.
 //!
+//! Note that all sequence and join functions and macros mentioned above also come in "left" and
+//! "right" variants. For example, [sequence5] is accompanied by [sequence5_left] and
+//! [sequence5_right]. The difference is in the combined task's output (the future result of the
+//! task when it is submitted with [RenderingContext::submit], see below). [sequence5] outputs a
+//! tuple of all 5 of the outputs of the 5 tasks it sequences. However, one is often only interested
+//! in just the output of either the left-most (the first) or right-most (the last) task in the
+//! sequence. This is where [sequence5_left] and [sequence5_right] come in: [sequence5_left] only
+//! outputs the output of the left-most task and [sequence5_right] only outputs the output of the
+//! right-most task. In all other aspects the behaviour of a task created with [sequence5_left] or
+//! [sequence5_right] is identical to the behaviour of a task created with [sequence5].
+//!
 //! # Submitting tasks
 //!
-//! A task does not actually do anything until it is submitted to a [RenderingContext] with
-//! [RenderingContext::submit]:
+//! A task merely describes work for the GPU, it does not actually do anything until it is submitted
+//! to a [RenderingContext] with [RenderingContext::submit]:
 //!
 //! ```rust
 //! # use web_glitz::runtime::RenderingContext;

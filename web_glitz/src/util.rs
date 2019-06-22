@@ -1,11 +1,9 @@
 use std::mem;
-use std::ops::Deref;
 
-use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
 
-// This is a hack untill wasm_bindgen's API settles around `anyref`, see
+// This is a hack until wasm_bindgen's API settles around `anyref`, see
 // https://github.com/rustwasm/wasm-bindgen/issues/999
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -48,8 +46,4 @@ where
     T: AsRef<JsValue>,
 {
     a.map(|t| t.as_ref()) == b.map(|t| t.as_ref())
-}
-
-pub(crate) unsafe fn slice_make_mut<T>(slice: &[T]) -> &mut [T] {
-    &mut *(slice as *const _ as *mut _)
 }

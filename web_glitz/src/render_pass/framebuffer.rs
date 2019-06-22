@@ -38,7 +38,7 @@ use crate::render_target::attachable_image_ref::{AttachableImageData, Attachable
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::Connection;
 use crate::task::{ContextId, GpuTask, Progress};
-use crate::util::{slice_make_mut, JsId};
+use crate::util::JsId;
 use crate::vertex::{VertexStreamDescription, VertexStreamDescriptor};
 
 /// Represents a set of image memory buffers that serve as the rendering destination for a
@@ -97,7 +97,9 @@ impl<C, Ds> Framebuffer<C, Ds> {
     /// # }
     /// ```
     ///
-    /// In this example `graphics_pipeline` is a [GraphicsPipeline] , see [GraphicsPipeline] and
+    /// In this example, `context` is a [RenderingContext]; `render_target` is a
+    /// [RenderTargetDescription], see also [DefaultRenderTarget] and [RenderTarget];
+    /// `graphics_pipeline` is a [GraphicsPipeline], see [GraphicsPipeline] and
     /// [RenderingContext::create_graphics_pipeline] for details; `vertex_stream` is a
     /// [VertexStreamDescription], see [VertexStreamDescription], [VertexArray] and
     /// [RenderingContext::create_vertex_array] for details; `resources` is a user-defined type for
@@ -209,11 +211,7 @@ where
     /// # Panics
     ///
     /// Panics if `source` belongs to a different context than the framebuffer.
-    pub fn blit_color_nearest_command<S>(
-        &self,
-        region: Region2D,
-        source: &S,
-    ) -> BlitCommand
+    pub fn blit_color_nearest_command<S>(&self, region: Region2D, source: &S) -> BlitCommand
     where
         S: BlitColorCompatible<C>,
     {
@@ -280,11 +278,7 @@ where
     /// # Panics
     ///
     /// Panics if `source` belongs to a different context than the framebuffer.
-    pub fn blit_color_linear_command<S>(
-        &self,
-        region: Region2D,
-        source: &S,
-    ) -> BlitCommand
+    pub fn blit_color_linear_command<S>(&self, region: Region2D, source: &S) -> BlitCommand
     where
         S: BlitColorCompatible<C>,
         S::Format: Filterable,
@@ -355,11 +349,7 @@ where
     /// # Panics
     ///
     /// Panics if `source` belongs to a different context than the framebuffer.
-    pub fn blit_depth_stencil_command<S>(
-        &self,
-        region: Region2D,
-        source: &S,
-    ) -> BlitCommand
+    pub fn blit_depth_stencil_command<S>(&self, region: Region2D, source: &S) -> BlitCommand
     where
         S: BlitSource<Format = F>,
     {
@@ -424,11 +414,7 @@ where
     /// # Panics
     ///
     /// Panics if `source` belongs to a different context than the framebuffer.
-    pub fn blit_depth_command<S>(
-        &self,
-        region: Region2D,
-        source: &S,
-    ) -> BlitCommand
+    pub fn blit_depth_command<S>(&self, region: Region2D, source: &S) -> BlitCommand
     where
         S: BlitSource<Format = F>,
     {
@@ -493,11 +479,7 @@ where
     /// # Panics
     ///
     /// Panics if `source` belongs to a different context than the framebuffer.
-    pub fn blit_stencil_command<S>(
-        &self,
-        region: Region2D,
-        source: &S,
-    ) -> BlitCommand
+    pub fn blit_stencil_command<S>(&self, region: Region2D, source: &S) -> BlitCommand
     where
         S: BlitSource<Format = F>,
     {
@@ -565,11 +547,7 @@ where
     /// # Panics
     ///
     /// Panics if `source` belongs to a different context than the framebuffer.
-    pub fn blit_depth_command<S>(
-        &self,
-        region: Region2D,
-        source: &S,
-    ) -> BlitCommand
+    pub fn blit_depth_command<S>(&self, region: Region2D, source: &S) -> BlitCommand
     where
         S: BlitSource<Format = F>,
     {
@@ -637,11 +615,7 @@ where
     /// # Panics
     ///
     /// Panics if `source` belongs to a different context than the framebuffer.
-    pub fn blit_stencil_command<S>(
-        &self,
-        region: Region2D,
-        source: &S,
-    ) -> BlitCommand
+    pub fn blit_stencil_command<S>(&self, region: Region2D, source: &S) -> BlitCommand
     where
         S: BlitSource<Format = F>,
     {
@@ -968,7 +942,7 @@ impl BlitColorTarget for DefaultRGBABuffer {
 
 impl<C> BlitColorTarget for C
 where
-    C: RenderBuffer,
+    C: RenderingOutputBuffer,
 {
     fn descriptor(&self) -> BlitTargetDescriptor {
         BlitTargetDescriptor {
@@ -1669,9 +1643,9 @@ impl DefaultStencilBuffer {
     }
 }
 
-/// Trait implemented by types that represent a buffer in the framebuffer for a custom render
-/// target.
-pub trait RenderBuffer {
+/// Trait implemented by types that represent a rendering output buffer in the framebuffer for a
+/// custom render target.
+pub trait RenderingOutputBuffer {
     /// The type image storage format used by the buffer.
     type Format: InternalFormat;
 
@@ -1748,7 +1722,7 @@ where
     }
 }
 
-impl<F> RenderBuffer for FloatBuffer<F>
+impl<F> RenderingOutputBuffer for FloatBuffer<F>
 where
     F: FloatRenderable,
 {
@@ -1819,11 +1793,7 @@ where
     /// ```
     ///
     /// See also [Region2D].
-    pub fn clear_command(
-        &self,
-        clear_value: [i32; 4],
-        region: Region2D,
-    ) -> ClearIntegerCommand {
+    pub fn clear_command(&self, clear_value: [i32; 4], region: Region2D) -> ClearIntegerCommand {
         ClearIntegerCommand {
             render_pass_id: self.render_pass_id,
             buffer_index: self.index,
@@ -1832,7 +1802,7 @@ where
         }
     }
 }
-impl<F> RenderBuffer for IntegerBuffer<F>
+impl<F> RenderingOutputBuffer for IntegerBuffer<F>
 where
     F: IntegerRenderable,
 {
@@ -1917,7 +1887,7 @@ where
     }
 }
 
-impl<F> RenderBuffer for UnsignedIntegerBuffer<F>
+impl<F> RenderingOutputBuffer for UnsignedIntegerBuffer<F>
 where
     F: UnsignedIntegerRenderable,
 {
@@ -2087,7 +2057,7 @@ where
     }
 }
 
-impl<F> RenderBuffer for DepthStencilBuffer<F>
+impl<F> RenderingOutputBuffer for DepthStencilBuffer<F>
 where
     F: DepthStencilRenderable,
 {
@@ -2165,7 +2135,7 @@ where
     }
 }
 
-impl<F> RenderBuffer for DepthBuffer<F>
+impl<F> RenderingOutputBuffer for DepthBuffer<F>
 where
     F: DepthRenderable,
 {
@@ -2241,7 +2211,7 @@ where
     }
 }
 
-impl<F> RenderBuffer for StencilBuffer<F>
+impl<F> RenderingOutputBuffer for StencilBuffer<F>
 where
     F: StencilRenderable,
 {
@@ -2288,9 +2258,7 @@ unsafe impl<'a> GpuTask<RenderPassContext<'a>> for ClearFloatCommand {
             }
         }
 
-        gl.clear_bufferfv_with_f32_array(Gl::COLOR, self.buffer_index, unsafe {
-            slice_make_mut(&self.clear_value)
-        });
+        gl.clear_bufferfv_with_f32_array(Gl::COLOR, self.buffer_index, &self.clear_value);
 
         Progress::Finished(())
     }
@@ -2327,9 +2295,7 @@ unsafe impl<'a> GpuTask<RenderPassContext<'a>> for ClearIntegerCommand {
             }
         }
 
-        gl.clear_bufferiv_with_i32_array(Gl::COLOR, self.buffer_index, unsafe {
-            slice_make_mut(&self.clear_value)
-        });
+        gl.clear_bufferiv_with_i32_array(Gl::COLOR, self.buffer_index, &self.clear_value);
 
         Progress::Finished(())
     }
@@ -2366,9 +2332,7 @@ unsafe impl<'a> GpuTask<RenderPassContext<'a>> for ClearUnsignedIntegerCommand {
             }
         }
 
-        gl.clear_bufferuiv_with_u32_array(Gl::COLOR, self.buffer_index, unsafe {
-            slice_make_mut(&self.clear_value)
-        });
+        gl.clear_bufferuiv_with_u32_array(Gl::COLOR, self.buffer_index, &self.clear_value);
 
         Progress::Finished(())
     }
@@ -2442,7 +2406,7 @@ unsafe impl<'a> GpuTask<RenderPassContext<'a>> for ClearDepthCommand {
             }
         }
 
-        gl.clear_bufferfv_with_f32_array(Gl::DEPTH, 0, unsafe { slice_make_mut(&[self.depth]) });
+        gl.clear_bufferfv_with_f32_array(Gl::DEPTH, 0, &[self.depth]);
 
         Progress::Finished(())
     }
@@ -2479,9 +2443,7 @@ unsafe impl<'a> GpuTask<RenderPassContext<'a>> for ClearStencilCommand {
             }
         }
 
-        gl.clear_bufferiv_with_i32_array(Gl::STENCIL, 0, unsafe {
-            slice_make_mut(&[self.stencil])
-        });
+        gl.clear_bufferiv_with_i32_array(Gl::STENCIL, 0, &[self.stencil]);
 
         Progress::Finished(())
     }

@@ -1,3 +1,71 @@
+//! This module implements a runtime designed to run on a single thread (the main thread). This
+//! runtime's [RenderingContext] implementation, [SingleThreadedContext], may be [Clone]d (which
+//! results in another handle to the same context), but neither it nor any of its clones may be
+//! send to or shared with other threads/workers.
+//!
+//! Tasks submitted to a single threaded context (see [RenderingContext::submit]) are executed
+//! immediately and typically don't involve dynamic dispatch (unless the task becomes fenced, in
+//! which case it will be "boxed" and stored in the "fenced-task queue" from where it will be
+//! invoked dynamically once its fence becomes signalled, see below).
+//!
+//! # Example
+//!
+//! A new single threaded runtime may be initialized by calling [init] with a
+//! [web_sys::HtmlCanvasElement] and [ContextOptions]:
+//!
+//! ```
+//! use web_glitz::runtime::{single_threaded, ContextOptions};
+//!
+//! let canvas: HtmlCanvasElement = window()
+//!     .unwrap()
+//!     .document()
+//!     .unwrap()
+//!     .get_element_by_id("canvas")
+//!     .unwrap()
+//!     .dyn_into()
+//!     .unwrap();
+//!
+//! let options = ContextOptions::default();
+//!
+//! let (context, render_target) = unsafe { single_threaded::init(&canvas, &options).unwrap() };
+//! ```
+//!
+//! This returns a tuple of the [SingleThreadedContext] and the [DefaultRenderTarget] for the canvas
+//! or an error if the requested [ContextOptions] could not be supported. For more details on the
+//! options available when initializing a single threaded runtime, see [ContextOptions].
+//!
+//! # Unsafe
+//!
+//! Note that the [init] function is marked `unsafe`: the canvas's WebGL2 context must be in its
+//! original state when [init] was called and for the lifetime of the [SingleThreadedContext] or any
+//! of its clones, the state of the context should not be modified through another handle to the
+//! canvas's raw WebGL2 context; the [SingleThreadedContext] tracks the changes it makes to the
+//! state of its associated WebGL2 context in a state cache and if at any point during the execution
+//! of a task the actual state of the WebGL2 and the state cache don't match, unexpected results may
+//! ocurr. In short: if you only initialize one WebGlitz [RenderingContext] or raw WebGL2 context
+//! per canvas, then calling [init] is safe.
+//!
+//! # Multi-part Tasks and Fencing
+//!
+//! A [GpuTask] may consists of multiple stages where in between stages the task has to wait for a
+//! GPU fence to become signalled. This mostly concerns tasks that contain "read" or download"
+//! commands (commands with non-void outputs), where the first part of the command sets up the
+//! command, then a fence is inserted and then the actual download occurs; this may avoid stalling
+//! both the CPU and GPU. This runtime handles such tasks by maintaining a "fenced-task" queue for
+//! tasks where [Gpu::progress] returns [Progress::ContinueFenced]. If this queue is not empty, then
+//! a 1ms timeout is scheduled with the JavaScript event queue. After this timeout expires it will
+//! try to again make progress on the tasks in the fenced-task queue (this shortcuts on the first
+//! fence that has not yet become signalled, as WebGL/OpenGL fences cannot become signalled out of
+//! order). If the fenced-task queue is not emptied (either because not all fences became signalled,
+//! or because one of the tasks again returned [Progress::ContinueFenced]), then a new 1ms timeout
+//! is scheduled on the JavaScript event loop. Note that such repeated scheduling of timeout events
+//! in nested callback results in throttling (to ~4ms) in most browsers after a certain number of
+//! iterations (5 in Chrome and FireFox, 6 in Safari and 3 in Edge, at the time of this writing).
+//! Note also that timeouts indicate a minimum timeout: if the JavaScript main thread is already
+//! busy, or higher priority events exists in the queue (micro-tasks or macro-tasks that were
+//! scheduled earlier), then the JavaScript/WASM runtime will finish this work before checking the
+//! fenced-task queue again.
+
 use std::borrow::Borrow;
 use std::cell::{Cell, RefCell};
 use std::hash::{Hash, Hasher};
@@ -63,12 +131,15 @@ impl IdGen {
     }
 }
 
+/// A handle to a single-threaded WebGlitz rendering context.
+///
+/// See the module documentation for [web_glitz::runtime::single_threaded] for details.
 #[derive(Clone)]
 pub struct SingleThreadedContext {
     executor: Rc<RefCell<SingleThreadedExecutor>>,
     id: usize,
     extensions: Extensions,
-    last_render_pass_id: Cell<usize>
+    last_render_pass_id: Cell<usize>,
 }
 
 impl RenderingContext for SingleThreadedContext {
@@ -242,7 +313,7 @@ impl SingleThreadedContext {
                 .into(),
             id,
             extensions: Extensions::default(),
-            last_render_pass_id: Cell::new(0)
+            last_render_pass_id: Cell::new(0),
         }
     }
 }
@@ -280,7 +351,12 @@ impl SingleThreadedExecutor {
     }
 }
 
-pub unsafe fn context<O>(canvas: &HtmlCanvasElement, options: &O) -> O::Output
+/// Initializes a single threaded WebGlitz runtime for the `canvas` using the `options` and returns
+/// a tuple of the WebGlitz [RenderingContext] and the [DefaultRenderTarget] associated with the
+/// canvas.
+///
+/// See the module documentation for [web_glitz::runtime::single_threaded] for details.
+pub unsafe fn init<O>(canvas: &HtmlCanvasElement, options: &O) -> O::Output
 where
     O: Options,
 {

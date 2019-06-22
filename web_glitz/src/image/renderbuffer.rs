@@ -8,10 +8,10 @@ use crate::image::format::RenderbufferFormat;
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
-use crate::util::{JsId};
+use crate::util::JsId;
+use std::cell::UnsafeCell;
 use std::hash::Hash;
 use std::hash::Hasher;
-use std::cell::UnsafeCell;
 
 /// Provides the information necessary for the creation of a [Renderbuffer].
 ///
@@ -140,9 +140,7 @@ pub(crate) struct RenderbufferData {
 
 impl RenderbufferData {
     pub(crate) fn id(&self) -> Option<JsId> {
-        unsafe{
-            *self.id.get()
-        }
+        unsafe { *self.id.get() }
     }
 
     pub(crate) fn context_id(&self) -> usize {

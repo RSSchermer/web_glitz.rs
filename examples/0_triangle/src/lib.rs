@@ -99,7 +99,7 @@ pub fn start() {
     // - a handle to the "default" render target, which is the render target the browser will
     //   display on the canvas element.
     let (context, render_target) =
-        unsafe { single_threaded::context(&canvas, &ContextOptions::default()).unwrap() };
+        unsafe { single_threaded::init(&canvas, &ContextOptions::default()).unwrap() };
 
     // Create and compile our vertex shader using the GLSL code in `/src/vertex.glsl`.
     let vertex_shader = context

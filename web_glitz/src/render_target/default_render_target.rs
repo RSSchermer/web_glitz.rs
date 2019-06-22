@@ -207,7 +207,6 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, DefaultD
     {
         let RenderPassId { id, context_id } = id;
 
-
         let task = f(&Framebuffer {
             color: DefaultRGBABuffer::new(id),
             depth_stencil: DefaultDepthStencilBuffer::new(id),

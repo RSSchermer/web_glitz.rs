@@ -1,3 +1,6 @@
+//! WebGlitz currently only provides a single threaded runtime that can run on the main WASM thread,
+//! see the documentation for the [single_threaded] module for details.
+
 mod context_options;
 pub use self::context_options::{ContextOptions, ContextOptionsBuilder, PowerPreference};
 

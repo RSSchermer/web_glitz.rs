@@ -6,22 +6,143 @@ use web_sys::WebGl2RenderingContext as Gl;
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::Connection;
 
+/// Enumerates the algorithms available for assembling a stream of vertices into a stream of
+/// primitives.
 #[derive(Clone, PartialEq, Debug)]
 pub enum PrimitiveAssembly {
+    /// Assembles the vertices into point primitives, where every vertex defined 1 point.
     Points,
+
+    /// The stream of vertices is assembled into lines.
+    ///
+    /// The stream of vertices is assembled into lines by partitioning the vertex sequence into
+    /// pairs: the first line is described by vertices `0` and `1`; the second line is described by
+    /// vertices `2` and `3`; etc.
+    ///
+    /// The width of the line is defined by the given [LineWidth].
     Lines(LineWidth),
+
+    /// The stream of vertices is assembled into lines.
+    ///
+    /// Suppose `v0` is the first vertex in the sequence, `v1` is the second vertex in the sequence,
+    /// `v2` is the third vertex in the sequence, etc. The first line is then described by `v0` and
+    /// `v1`, the second line is described by `v1` and `v2`, the third line is described by `v2` and
+    /// `v3`, etc.
+    ///
+    /// Note that `v1` is both the "end" vertex for the first line, as well the "start" vertex for
+    /// the second line; `v2` is both the "end" vertex for the second line, as well the "start"
+    /// vertex for the third line. In general: for each line in a line-strip the "start" vertex is
+    /// equal to the preceding line's "end" vertex. The first line is an exception as it has no
+    /// preceding line segment.
+    ///
+    /// The width of the line is defined by the given [LineWidth].
     LineStrip(LineWidth),
+
+    /// The stream of vertices is assembled into lines.
+    ///
+    /// Suppose `v0` is the first vertex in the sequence, `v1` is the second vertex in the sequence,
+    /// ..., `vn` is the last vertex in the sequence. The first line is then described by `v0` and
+    /// `v1`, the second line is described by `v1` and `v2`, the third line is described by `v2` and
+    /// `v3`, ..., the last line is described by `vn` and `v0`.
+    ///
+    /// Note that `v1` is both the "end" vertex for the first line, as well the "start" vertex for
+    /// the second line; `v2` is both the "end" vertex for the second line, as well the "start"
+    /// vertex for the third line. `v0` is special: it is both the "start" vertex of the first line,
+    /// as well as the "end" vertex of the last line, thus closing the loop.
+    ///
+    /// The width of the line is defined by the given [LineWidth].
     LineLoop(LineWidth),
+
+    /// The stream of vertices is assembled into triangles.
+    ///
+    /// The stream of vertices is assembled into triangles by partitioning the vertex sequence into
+    /// groups of 3: the first triangle is described by vertices `0`, `1` and `1`; the second
+    /// triangle is described by vertices `3`, `4` and `5`; etc.
     Triangles {
+        /// The winding order used to assemble the triangles.
+        ///
+        /// See [WindingOrder] for details.
         winding_order: WindingOrder,
+
+        /// The culling mode applied to the assembled triangles.
+        ///
+        /// See [CullingMode] for details.
         face_culling: CullingMode,
     },
+
+    /// The stream of vertices is combined into triangless.
+    ///
+    /// Suppose `v0` is the first vertex in the sequence, `v1` is the second vertex in the sequence,
+    /// `v2` is the third vertex in the sequence, etc. A triangle strip will then combine this
+    /// vertex sequence into the following triangle sequence:
+    ///
+    /// - Triangle `0`: `v0` -> `v1` -> `v2`
+    /// - Triangle `1`: `v2` -> `v1` -> `v3`
+    /// - Triangle `2`: `v2` -> `v3` -> `v4`
+    /// - Triangle `3`: `v4` -> `v3` -> `v5`
+    /// - Triangle `4`: `v4` -> `v5` -> `v6`
+    /// - Triangle `5`: `v6` -> `v5` -> `v7`
+    /// - Triangle `6`: ...
+    ///
+    /// The following diagram shows the connectedness of the vertices in a triangle strip:
+    ///
+    /// ```
+    /// // v1---v3---v5---v7
+    /// // |\   |\   |\   |
+    /// // | \  | \  | \  |
+    /// // |  \ |  \ |  \ |
+    /// // |   \|   \|   \|
+    /// // v0---v2---v4---v6
+    /// ```
     TriangleStrip {
+        /// The winding order used to assemble the triangles.
+        ///
+        /// See [WindingOrder] for details.
         winding_order: WindingOrder,
+
+        /// The culling mode applied to the assembled triangles.
+        ///
+        /// See [CullingMode] for details.
         face_culling: CullingMode,
     },
+
+    /// The stream of vertices is combined into triangless.
+    ///
+    /// Suppose `v0` is the first vertex in the sequence, `v1` is the second vertex in the sequence,
+    /// `v2` is the third vertex in the sequence, etc. A triangle strip will then combine this
+    /// vertex sequence into the following triangle sequence:
+    ///
+    /// - Triangle `0`: `v0` -> `v1` -> `v2`
+    /// - Triangle `1`: `v0` -> `v2` -> `v3`
+    /// - Triangle `2`: `v0` -> `v3` -> `v4`
+    /// - Triangle `3`: `v0` -> `v4` -> `v5`
+    /// - Triangle `4`: `v0` -> `v5` -> `v6`
+    /// - Triangle `5`: ...
+    ///
+    /// This diagram shows the connectedness of the vertices a triangle fan:
+    ///
+    /// ```
+    /// //      v4--------v3
+    /// //     / \       / \
+    /// //    /   \     /   \
+    /// //   /     \   /     \
+    /// //  /       \ /       \
+    /// // v5--------v0-------v2
+    /// //  \       / \       /
+    /// //   \     /   \     /
+    /// //    \   /     \   /
+    /// //     \ /       \ /
+    /// //      v6        v1
+    /// ```
     TriangleFan {
+        /// The winding order used to assemble the triangles.
+        ///
+        /// See [WindingOrder] for details.
         winding_order: WindingOrder,
+
+        /// The culling mode applied to the assembled triangles.
+        ///
+        /// See [CullingMode] for details.
         face_culling: CullingMode,
     },
 }

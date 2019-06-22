@@ -7,13 +7,12 @@ use crate::image::format::{
     UnsignedIntegerRenderable,
 };
 use crate::render_pass::{
-    DepthBuffer, DepthStencilBuffer, FloatBuffer, IntegerBuffer, RenderBuffer, StencilBuffer,
-    UnsignedIntegerBuffer,
+    DepthBuffer, DepthStencilBuffer, FloatBuffer, IntegerBuffer, RenderingOutputBuffer,
+    StencilBuffer, UnsignedIntegerBuffer,
 };
 use crate::render_target::attachable_image_ref::AttachableImageData;
 use crate::render_target::AsAttachableImageRef;
 use crate::runtime::state::DepthStencilAttachmentDescriptor;
-use crate::util::slice_make_mut;
 
 /// Trait implemented by types that describe a color image attachment for a [RenderTarget].
 ///
@@ -21,7 +20,7 @@ use crate::util::slice_make_mut;
 pub trait ColorAttachmentDescription {
     /// The type of [RenderBuffer] that is allocated in the framebuffer to buffer modifications to
     /// the attached image.
-    type Buffer: RenderBuffer;
+    type Buffer: RenderingOutputBuffer;
 
     /// Returns an encoding of the information needed by a [RenderPass] to load data from the
     /// attached image into the framebuffer before the render pass, and to store data from the
@@ -146,7 +145,7 @@ where
 }
 
 pub trait DepthStencilAttachmentDescription {
-    type Buffer: RenderBuffer;
+    type Buffer: RenderingOutputBuffer;
 
     fn encode<'a, 'b>(
         &'a mut self,
@@ -346,29 +345,22 @@ impl LoadAction {
         match self {
             LoadAction::Load => (),
             LoadAction::ClearColorFloat(index, value) => {
-                gl.clear_bufferfv_with_f32_array(Gl::COLOR, *index, unsafe {
-                    slice_make_mut(value)
-                })
+                gl.clear_bufferfv_with_f32_array(Gl::COLOR, *index, value)
             }
             LoadAction::ClearColorInteger(index, value) => {
-                gl.clear_bufferiv_with_i32_array(Gl::COLOR, *index, unsafe {
-                    slice_make_mut(value)
-                })
+                gl.clear_bufferiv_with_i32_array(Gl::COLOR, *index, value)
             }
-            LoadAction::ClearColorUnsignedInteger(index, value) => gl
-                .clear_bufferuiv_with_u32_array(Gl::COLOR, *index, unsafe {
-                    slice_make_mut(value)
-                }),
+            LoadAction::ClearColorUnsignedInteger(index, value) => {
+                gl.clear_bufferuiv_with_u32_array(Gl::COLOR, *index, value)
+            }
             LoadAction::ClearDepthStencil(depth, stencil) => {
                 gl.clear_bufferfi(Gl::DEPTH_STENCIL, 0, *depth, *stencil)
             }
             LoadAction::ClearDepth(value) => {
-                gl.clear_bufferfv_with_f32_array(Gl::DEPTH, 0, unsafe { slice_make_mut(&[*value]) })
+                gl.clear_bufferfv_with_f32_array(Gl::DEPTH, 0, &[*value])
             }
             LoadAction::ClearStencil(value) => {
-                gl.clear_bufferiv_with_i32_array(Gl::STENCIL, 0, unsafe {
-                    slice_make_mut(&[*value])
-                })
+                gl.clear_bufferiv_with_i32_array(Gl::STENCIL, 0, &[*value])
             }
         }
     }

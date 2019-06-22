@@ -16,7 +16,7 @@ use wasm_bindgen::JsCast;
 
 use web_glitz::buffer::{Buffer, UsageHint};
 use web_glitz::pipeline::graphics::{
-    SlotBindingStrategy, CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
+    CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, SlotBindingStrategy, WindingOrder,
 };
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 use web_glitz::vertex::VertexArrayDescriptor;
@@ -120,7 +120,7 @@ pub fn start() {
         .unwrap();
 
     let (context, render_target) =
-        unsafe { single_threaded::context(&canvas, &ContextOptions::default()).unwrap() };
+        unsafe { single_threaded::init(&canvas, &ContextOptions::default()).unwrap() };
 
     let vertex_shader = context
         .create_vertex_shader(include_str!("vertex.glsl"))

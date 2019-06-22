@@ -6,7 +6,7 @@ use crate::image::Region2D;
 use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
 use crate::pipeline::graphics::AttributeSlotLayoutCompatible;
 use crate::pipeline::graphics::{
-    SlotBindingStrategy, Blending, DepthTest, GraphicsPipelineDescriptor, PrimitiveAssembly,
+    Blending, DepthTest, GraphicsPipelineDescriptor, PrimitiveAssembly, SlotBindingStrategy,
     StencilTest, Viewport,
 };
 use crate::pipeline::resources::resource_slot::{SlotBindingChecker, SlotBindingUpdater};
