@@ -5,6 +5,7 @@ use std::mem;
 use std::ops::{Deref, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 use std::slice;
 use std::sync::Arc;
+use std::cell::UnsafeCell;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
@@ -26,7 +27,7 @@ use crate::runtime::{Connection, RenderingContext};
 use crate::sampler::{Sampler, SamplerData, ShadowSampler};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
-use std::cell::UnsafeCell;
+
 
 /// Provides the information necessary for the creation of a [TextureCube].
 ///
@@ -111,6 +112,7 @@ where
 /// use web_glitz::image::{Image2DSource, MipmapLevels};
 /// use web_glitz::image::format::RGB8;
 /// use web_glitz::image::texture_cube::TextureCubeDescriptor;
+/// use web_glitz::{join_all, sequence_all};
 ///
 /// let texture = context.create_texture_cube(&TextureCubeDescriptor {
 ///     format: RGB8,
@@ -120,17 +122,17 @@ where
 /// }).unwrap();
 ///
 /// let positive_x_pixels: Vec<[u8; 3]> = vec![[255, 0, 0]; 256 * 256];
-/// let positive_x_data = Image2DSource::from_pixels(pixels, 256, 256).unwrap();
+/// let positive_x_data = Image2DSource::from_pixels(positive_x_pixels, 256, 256).unwrap();
 /// let negative_x_pixels: Vec<[u8; 3]> = vec![[0, 255, 0]; 256 * 256];
-/// let negative_x_data = Image2DSource::from_pixels(pixels, 256, 256).unwrap();
+/// let negative_x_data = Image2DSource::from_pixels(negative_x_pixels, 256, 256).unwrap();
 /// let positive_y_pixels: Vec<[u8; 3]> = vec![[0, 0, 255]; 256 * 256];
-/// let positive_y_data = Image2DSource::from_pixels(pixels, 256, 256).unwrap();
+/// let positive_y_data = Image2DSource::from_pixels(positive_y_pixels, 256, 256).unwrap();
 /// let negative_y_pixels: Vec<[u8; 3]> = vec![[255, 255, 0]; 256 * 256];
-/// let negative_y_data = Image2DSource::from_pixels(pixels, 256, 256).unwrap();
+/// let negative_y_data = Image2DSource::from_pixels(negative_y_pixels, 256, 256).unwrap();
 /// let positive_z_pixels: Vec<[u8; 3]> = vec![[255, 0, 255]; 256 * 256];
-/// let positive_z_data = Image2DSource::from_pixels(pixels, 256, 256).unwrap();
+/// let positive_z_data = Image2DSource::from_pixels(positive_z_pixels, 256, 256).unwrap();
 /// let negative_z_pixels: Vec<[u8; 3]> = vec![[0, 255, 255]; 256 * 256];
-/// let negative_z_data = Image2DSource::from_pixels(pixels, 256, 256).unwrap();
+/// let negative_z_data = Image2DSource::from_pixels(negative_z_pixels, 256, 256).unwrap();
 ///
 /// context.submit(sequence_all![
 ///     join_all![
@@ -517,7 +519,7 @@ pub struct ShadowSampledTextureCube<'a> {
 pub(crate) struct TextureCubeData {
     id: UnsafeCell<Option<JsId>>,
     context_id: usize,
-    dropper: Box<TextureObjectDropper>,
+    dropper: Box<dyn TextureObjectDropper>,
     width: u32,
     height: u32,
     levels: usize,
@@ -630,7 +632,7 @@ where
     ///
     /// let level = unsafe { levels.get_unchecked(1) };
     ///
-    /// assert_eq!((level.width(), level.height()), Some((128, 128)));
+    /// assert_eq!((level.width(), level.height()), (128, 128));
     /// # }
     /// ```
     ///
@@ -663,7 +665,8 @@ where
     ///     levels: MipmapLevels::Partial(3)
     /// }).unwrap();
     ///
-    /// let mut iter = texture.levels().iter();
+    /// let levels = texture.levels();
+    /// let mut iter = levels.iter();
     ///
     /// assert_eq!(iter.next().map(|l| (l.width(), l.height())), Some((128, 128)));
     /// assert_eq!(iter.next().map(|l| (l.width(), l.height())), Some((64, 64)));
@@ -1116,7 +1119,7 @@ where
     ///     levels: MipmapLevels::Complete
     /// }).unwrap();
     ///
-    /// let pixels: Vec<[u8; 3]> = vec![[256, 0, 0]; 256 * 256];
+    /// let pixels: Vec<[u8; 3]> = vec![[255, 0, 0]; 256 * 256];
     /// let data = Image2DSource::from_pixels(pixels, 256, 256).unwrap();
     ///
     /// context.submit(texture.base_level().positive_x().upload_command(data));
@@ -1241,7 +1244,7 @@ where
     /// let face = level.positive_x();
     /// let sub_image = face.sub_image(Region2D::Area((0, 0), 128, 128));
     ///
-    /// let pixels: Vec<[u8; 3]> = vec![[256, 0, 0]; 128 * 128];
+    /// let pixels: Vec<[u8; 3]> = vec![[255, 0, 0]; 128 * 128];
     /// let data = Image2DSource::from_pixels(pixels, 128, 128).unwrap();
     ///
     /// context.submit(sub_image.upload_command(data));
@@ -1332,7 +1335,7 @@ where
     ///
     /// let level = unsafe { levels.get_unchecked_mut(1) };
     ///
-    /// assert_eq!((level.width(), level.height()), Some((128, 128)));
+    /// assert_eq!((level.width(), level.height()), (128, 128));
     /// # }
     /// ```
     ///
@@ -1365,7 +1368,8 @@ where
     ///     levels: MipmapLevels::Partial(3)
     /// }).unwrap();
     ///
-    /// let mut iter = texture.levels_mut().iter_mut();
+    /// let mut levels = texture.levels_mut();
+    /// let mut iter = levels.iter_mut();
     ///
     /// assert_eq!(iter.next().map(|l| (l.width(), l.height())), Some((128, 128)));
     /// assert_eq!(iter.next().map(|l| (l.width(), l.height())), Some((64, 64)));

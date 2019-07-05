@@ -6,6 +6,7 @@ use std::mem;
 use std::ops::{Deref, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 use std::slice;
 use std::sync::Arc;
+use std::cell::UnsafeCell;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
@@ -29,7 +30,6 @@ use crate::runtime::{Connection, RenderingContext};
 use crate::sampler::{Sampler, SamplerData};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
-use std::cell::UnsafeCell;
 
 /// Provides the information necessary for the creation of a [Texture3D].
 ///
@@ -108,6 +108,7 @@ where
 /// use web_glitz::image::{LayeredImageSource, MipmapLevels};
 /// use web_glitz::image::format::RGB8;
 /// use web_glitz::image::texture_3d::Texture3DDescriptor;
+/// use web_glitz::sequence_all;
 ///
 /// let texture = context.create_texture_3d(&Texture3DDescriptor {
 ///     format: RGB8,
@@ -222,7 +223,7 @@ where
     /// # use web_glitz::image::format::RGB8;
     /// # use web_glitz::image::texture_3d::Texture3DDescriptor;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
-    /// # let texture = context.create_texture_2d(&Texture3DDescriptor {
+    /// # let texture = context.create_texture_3d(&Texture3DDescriptor {
     /// #     format: RGB8,
     /// #     width: 256,
     /// #     height: 256,
@@ -472,7 +473,7 @@ pub struct UnsignedIntegerSampledTexture3D<'a> {
 pub(crate) struct Texture3DData {
     id: UnsafeCell<Option<JsId>>,
     context_id: usize,
-    dropper: Box<TextureObjectDropper>,
+    dropper: Box<dyn TextureObjectDropper>,
     width: u32,
     height: u32,
     depth: u32,
@@ -622,7 +623,8 @@ where
     ///     levels: MipmapLevels::Partial(3)
     /// }).unwrap();
     ///
-    /// let mut iter = texture.levels().iter();
+    /// let levels = texture.levels();
+    /// let mut iter = levels.iter();
     ///
     /// assert_eq!(iter.next().map(|l| (l.width(), l.height())), Some((128, 128)));
     /// assert_eq!(iter.next().map(|l| (l.width(), l.height())), Some((64, 64)));
@@ -941,7 +943,8 @@ where
     ///     levels: MipmapLevels::Complete
     /// }).unwrap();
     ///
-    /// let sub_image = texture.base_level().sub_image(Region3D::Area((0, 0, 0), 128, 128, 8));
+    /// let base_level = texture.base_level();
+    /// let sub_image = base_level.sub_image(Region3D::Area((0, 0, 0), 128, 128, 8));
     ///
     /// let pixels: Vec<[u8; 3]> = vec![[0, 0, 255]; 128 * 128 * 8];
     /// let data = LayeredImageSource::from_pixels(pixels, 128, 128, 8).unwrap();
@@ -1064,7 +1067,8 @@ where
     ///     levels: MipmapLevels::Partial(3)
     /// }).unwrap();
     ///
-    /// let layers = texture.base_level().layers();
+    /// let base_level = texture.base_level();
+    /// let layers = base_level.layers();
     ///
     /// assert_eq!(layers.get(1).map(|l| (l.width(), l.height())), Some((128, 128)));
     /// assert_eq!(layers.get(4).map(|l| (l.width(), l.height())), None);
@@ -1096,7 +1100,8 @@ where
     ///     levels: MipmapLevels::Partial(3)
     /// }).unwrap();
     ///
-    /// let layers = texture.base_level().layers();
+    /// let base_level = texture.base_level();
+    /// let layers = base_level.layers();
     ///
     /// let layer = unsafe { layers.get_unchecked(1) };
     ///
@@ -1134,7 +1139,9 @@ where
     ///     levels: MipmapLevels::Complete
     /// }).unwrap();
     ///
-    /// let mut iter = texture.base_level().layers().iter();
+    /// let base_level = texture.base_level();
+    /// let layers = base_level.layers();
+    /// let mut iter = layers.iter();
     ///
     /// assert!(iter.next().is_some());
     /// assert!(iter.next().is_some());
@@ -1419,7 +1426,7 @@ where
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
     /// use web_glitz::image::{Image2DSource, MipmapLevels, Region2D};
     /// use web_glitz::image::format::RGB8;
-    /// use web_glitz::image::texture_2d::Texture3DDescriptor;
+    /// use web_glitz::image::texture_3d::Texture3DDescriptor;
     ///
     /// let texture = context.create_texture_3d(&Texture3DDescriptor {
     ///     format: RGB8,
@@ -1429,7 +1436,9 @@ where
     ///     levels: MipmapLevels::Complete
     /// }).unwrap();
     ///
-    /// let layer = texture.base_level().layers().get(0).unwrap();
+    /// let base_level = texture.base_level();
+    /// let layers = base_level.layers();
+    /// let layer = layers.get(0).unwrap();
     /// let sub_image = layer.sub_image(Region2D::Area((0, 0), 128, 128));
     ///
     /// let pixels: Vec<[u8; 3]> = vec![[0, 0, 255]; 128 * 128];
@@ -1476,7 +1485,7 @@ where
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
     /// use web_glitz::image::{Image2DSource, MipmapLevels};
     /// use web_glitz::image::format::RGB8;
-    /// use web_glitz::image::texture_2d::Texture3DDescriptor;
+    /// use web_glitz::image::texture_3d::Texture3DDescriptor;
     ///
     /// let texture = context.create_texture_3d(&Texture3DDescriptor {
     ///     format: RGB8,
@@ -1486,7 +1495,9 @@ where
     ///     levels: MipmapLevels::Complete
     /// }).unwrap();
     ///
-    /// let layer = texture.base_level().layers().get(0).unwrap();
+    /// let base_level = texture.base_level();
+    /// let layers = base_level.layers();
+    /// let layer = layers.get(0).unwrap();
     ///
     /// let pixels: Vec<[u8; 3]> = vec![[255, 0, 0]; 256 * 256];
     /// let data = Image2DSource::from_pixels(pixels, 256, 256).unwrap();
@@ -1650,7 +1661,8 @@ where
     ///     levels: MipmapLevels::Partial(3)
     /// }).unwrap();
     ///
-    /// let sub_image = texture.base_level().sub_image(Region3D::Area((0, 0, 0), 128, 128, 8));
+    /// let base_level = texture.base_level();
+    /// let sub_image = base_level.sub_image(Region3D::Area((0, 0, 0), 128, 128, 8));
     /// let layers = sub_image.layers();
     ///
     /// assert!(layers.get(1).is_some());
@@ -1683,7 +1695,8 @@ where
     ///     levels: MipmapLevels::Partial(3)
     /// }).unwrap();
     ///
-    /// let sub_image = texture.base_level().sub_image(Region3D::Area((0, 0, 0), 128, 128, 8));
+    /// let base_level = texture.base_level();
+    /// let sub_image = base_level.sub_image(Region3D::Area((0, 0, 0), 128, 128, 8));
     /// let layers = sub_image.layers();
     ///
     /// let layer = unsafe { layers.get_unchecked(1) };
@@ -1720,7 +1733,8 @@ where
     ///     levels: MipmapLevels::Partial(3)
     /// }).unwrap();
     ///
-    /// let sub_image = texture.base_level().sub_image(Region3D::Area((0, 0, 0), 128, 128, 3));
+    /// let base_level = texture.base_level();
+    /// let sub_image = base_level.sub_image(Region3D::Area((0, 0, 0), 128, 128, 3));
     /// let layers = sub_image.layers();
     /// let mut iter = layers.iter();
     ///
@@ -2075,7 +2089,8 @@ where
     /// }).unwrap();
     ///
     /// let level = texture.base_level();
-    /// let layer = level.layers().get(0).unwrap();
+    /// let layers = level.layers();
+    /// let layer = layers.get(0).unwrap();
     /// let sub_image = layer.sub_image(Region2D::Area((0, 0), 128, 128));
     ///
     /// let pixels: Vec<[u8; 3]> = vec![[255, 0, 0]; 128 * 128];
@@ -2172,7 +2187,7 @@ impl<'a, F> LevelsMut<'a, F> {
     ///
     /// let level = unsafe { levels.get_unchecked_mut(1) };
     ///
-    /// assert_eq!((level.width(), level.height()), Some((128, 128)));
+    /// assert_eq!((level.width(), level.height()), (128, 128));
     /// # }
     /// ```
     ///
@@ -2206,7 +2221,8 @@ impl<'a, F> LevelsMut<'a, F> {
     ///     levels: MipmapLevels::Partial(3)
     /// }).unwrap();
     ///
-    /// let mut iter = texture.levels_mut().iter_mut();
+    /// let mut levels = texture.levels_mut();
+    /// let mut iter = levels.iter_mut();
     ///
     /// assert_eq!(iter.next().map(|l| (l.width(), l.height())), Some((128, 128)));
     /// assert_eq!(iter.next().map(|l| (l.width(), l.height())), Some((64, 64)));

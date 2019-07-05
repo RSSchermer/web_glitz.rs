@@ -1,8 +1,9 @@
-use crate::buffer::{Buffer, BufferData, BufferView};
 use std::mem;
 use std::sync::Arc;
 
 use web_sys::WebGl2RenderingContext as Gl;
+
+use crate::buffer::{Buffer, BufferData, BufferView};
 
 /// Trait implemented for types that can be used as indices for a [VertexArray] encoded in the
 /// associated [IndexType].

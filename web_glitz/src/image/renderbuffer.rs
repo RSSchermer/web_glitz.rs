@@ -1,3 +1,5 @@
+use std::cell::UnsafeCell;
+use std::hash::{Hash, Hasher};
 use std::marker;
 use std::sync::Arc;
 
@@ -9,9 +11,6 @@ use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
-use std::cell::UnsafeCell;
-use std::hash::Hash;
-use std::hash::Hasher;
 
 /// Provides the information necessary for the creation of a [Renderbuffer].
 ///
@@ -52,20 +51,24 @@ where
 /// use web_glitz::image::Region2D;
 /// use web_glitz::image::format::RGB8;
 /// use web_glitz::image::renderbuffer::RenderbufferDescriptor;
-/// use web_glitz::render_pass::RenderTarget;
+/// use web_glitz::render_target::{FloatAttachment, LoadOp, RenderTarget, StoreOp};
 ///
 /// let mut renderbuffer = context.create_renderbuffer(&RenderbufferDescriptor {
 ///     format: RGB8,
 ///     width: 256,
 ///     height: 256
-/// }).unwrap();
+/// });
 ///
 /// let render_pass = context.create_render_pass(RenderTarget {
-///     color: &mut renderbuffer,
+///     color: FloatAttachment {
+///         image: &mut renderbuffer,
+///         load_op: LoadOp::Load,
+///         store_op: StoreOp::Store
+///     },
 ///     depth_stencil: ()
 /// }, |framebuffer| {
-///     framebuffer.color.clear_command([0, 0, 255], Region2D::Area((64, 64), 128, 128))
-/// }).unwrap();
+///     framebuffer.color.clear_command([0.0, 0.0, 1.0, 0.0], Region2D::Area((64, 64), 128, 128))
+/// });
 ///
 /// context.submit(render_pass);
 /// # }
@@ -133,7 +136,7 @@ where
 pub(crate) struct RenderbufferData {
     id: UnsafeCell<Option<JsId>>,
     context_id: usize,
-    dropper: Box<RenderbufferObjectDropper>,
+    dropper: Box<dyn RenderbufferObjectDropper>,
     width: u32,
     height: u32,
 }

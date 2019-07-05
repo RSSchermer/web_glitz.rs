@@ -11,7 +11,7 @@ use crate::runtime::executor_job::{ExecutorJob, JobState};
 use crate::runtime::Connection;
 
 pub(crate) struct FencedTaskQueue {
-    queue: VecDeque<(WebGlSync, Box<ExecutorJob>)>,
+    queue: VecDeque<(WebGlSync, Box<dyn ExecutorJob>)>,
 }
 
 impl FencedTaskQueue {
@@ -131,7 +131,7 @@ impl JsTimeoutFencedTaskLoop {
             closure: Rc::downgrade(&closure_container),
             handle: handle.clone(),
             cancelled: cancelled.clone(),
-        }) as Box<FnMut()>);
+        }) as Box<dyn FnMut()>);
 
         let handle_id = window()
             .unwrap()

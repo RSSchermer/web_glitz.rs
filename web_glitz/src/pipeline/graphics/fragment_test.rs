@@ -1,10 +1,10 @@
-use crate::runtime::Connection;
+use std::convert::TryFrom;
 use std::ops::RangeInclusive;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
+use crate::runtime::Connection;
 use crate::runtime::state::ContextUpdate;
-use std::convert::TryFrom;
 
 /// Enumerates the test functions that may be used with [DepthTest] and [StencilTest].
 ///
@@ -180,9 +180,10 @@ impl Default for DepthTest {
 /// Can be constructed from a [RangeInclusive<f32>] via [TryFrom]:
 ///
 /// ```
+/// use std::convert::TryFrom;
 /// use web_glitz::pipeline::graphics::DepthRange;
 ///
-/// let depth_range = DepthRange::try_from(0.2..=0.8)?;
+/// let depth_range = DepthRange::try_from(0.2..=0.8).unwrap();
 /// ```
 ///
 /// The lower bound of the range must not be smaller than 0.0, the upper bound of the range must not
@@ -192,6 +193,7 @@ impl Default for DepthTest {
 /// A default depth range may be obtained through [Default]:
 ///
 /// ```
+/// use std::convert::TryFrom;
 /// use web_glitz::pipeline::graphics::DepthRange;
 ///
 /// assert_eq!(DepthRange::default(), DepthRange::try_from(0.0..=1.0).unwrap());
@@ -246,6 +248,7 @@ impl TryFrom<RangeInclusive<f32>> for DepthRange {
 ///
 /// The lower bound of the range must not be smaller than 0.0, the upper bound of the range must not
 /// be greater than `1.0`, and the lower bound must be strictly smaller than the upper bound.
+#[derive(Debug)]
 pub struct InvalidDepthRange(RangeInclusive<f32>);
 
 /// Specifies an offset modifier for for depth values from polygonal fragments.
@@ -418,7 +421,7 @@ impl StencilOperation {
 /// ```
 /// use web_glitz::pipeline::graphics::{StencilTest, TestFunction, StencilOperation};
 ///
-/// assert_eq!(StencilTest::default, StencilTest {
+/// assert_eq!(StencilTest::default(), StencilTest {
 ///     test_function_front: TestFunction::AlwaysPass,
 ///     fail_operation_front: StencilOperation::Keep,
 ///     pass_depth_fail_operation_front: StencilOperation::Keep,

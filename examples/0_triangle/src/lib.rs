@@ -19,9 +19,9 @@ use web_glitz::vertex::VertexArrayDescriptor;
 
 use web_sys::{window, HtmlCanvasElement};
 
-// First we declare our vertex type and derive `web_glitz::Vertex`. In this example we'll store an
-// array of 3 of these vertices in a GPU-accessible memory buffer. We'll then feed these as the
-// input to a very simple graphics pipeline that will assemble them into a single triangle.
+// First we declare our vertex type and derive `web_glitz::derive::Vertex`. In this example we'll
+// store an array of 3 of these vertices in a GPU-accessible memory buffer. We'll then feed these as
+// the input to a very simple graphics pipeline that will assemble them into a single triangle.
 //
 // We have to mark the fields that we intend to read in our pipeline's vertex shader stage. In this
 // case our pipeline expects 2 input attributes: a `vec2` `position` attribute and a `vec3` `color`
@@ -40,7 +40,7 @@ use web_sys::{window, HtmlCanvasElement};
 // the semantics associated with the `Copy` trait to make sure that this is safe. `Clone` is a
 // supertrait of `Copy`, so we'll also have to implement `Clone`. Fortunately this is pretty easy:
 // we can automatically derive both `Clone` and `Copy`.
-#[derive(web_glitz::Vertex, Clone, Copy)]
+#[derive(web_glitz::derive::Vertex, Clone, Copy)]
 struct Vertex {
     // We intend to bind this field to the `position` attribute in the vertex shader, which is of
     // type `vec2`. We therefor need to match the `location` we've assigned to the attribute in the

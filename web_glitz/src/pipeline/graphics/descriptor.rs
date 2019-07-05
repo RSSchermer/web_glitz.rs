@@ -124,6 +124,13 @@ impl GraphicsPipelineDescriptor<(), (), ()> {
 /// # Example
 ///
 /// ```
+/// # use web_glitz::pipeline::graphics::{VertexShader, FragmentShader};
+/// # use web_glitz::pipeline::resources::Resources;
+/// # use web_glitz::vertex::Vertex;
+/// # fn wrapper<MyVertex: Vertex, MyResources: Resources>(
+/// #     vertex_shader: VertexShader,
+/// #     fragment_shader: FragmentShader
+/// # ) {
 /// use web_glitz::pipeline::graphics::{
 ///     GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder, CullingMode,
 ///     SlotBindingStrategy, DepthTest
@@ -140,6 +147,7 @@ impl GraphicsPipelineDescriptor<(), (), ()> {
 ///     .vertex_input_layout::<MyVertex>()
 ///     .resource_layout::<MyResources>(SlotBindingStrategy::Update)
 ///     .finish();
+/// # }
 /// ```
 ///
 /// Here `vertex_shader` is a [VertexShader], `fragment_shader` is a [FragmentShader], `MyVertex` is

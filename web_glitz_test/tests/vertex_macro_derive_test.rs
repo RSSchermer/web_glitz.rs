@@ -1,55 +1,55 @@
-#[macro_use]
-extern crate web_glitz;
+#![feature(const_fn)]
 
-use web_glitz::vertex_input::{AttributeFormat, Vertex, VertexInputAttributeDescriptor};
+use web_glitz::vertex::{Vertex, VertexAttributeDescriptor};
+use web_glitz::vertex::attribute_format::AttributeFormat;
 
-#[derive(Vertex)]
+#[derive(web_glitz::derive::Vertex)]
 #[repr(C)]
 struct VertexA {
-    #[vertex_attribute(location = 0)]
-    position: (f32, f32, f32, f32),
+    #[vertex_attribute(location = 0, format = "Float4_f32")]
+    position: [f32; 4],
     #[vertex_attribute(location = 1, format = "Float3_i8_norm")]
     normal: [i8; 3],
     not_an_attribute: f32,
-    #[vertex_attribute(location = 2)]
+    #[vertex_attribute(location = 2, format = "Float4x4_f32")]
     matrix: [[f32; 4]; 4],
-    #[vertex_attribute(location = 6)]
+    #[vertex_attribute(location = 6, format = "Integer_i32")]
     integer: i32,
 }
 
-#[derive(Vertex)]
+#[derive(web_glitz::derive::Vertex)]
 #[repr(C)]
 struct VertexB(
-    #[vertex_attribute(location = 0)] (i8, i8),
-    #[vertex_attribute(location = 1)] [u8; 3],
+    #[vertex_attribute(location = 0, format = "Integer2_i8")] [i8; 2],
+    #[vertex_attribute(location = 1, format = "Integer3_u8")] [u8; 3],
 );
 
 #[test]
 fn test_struct_attribute_descriptors() {
-    let descriptors = VertexA::input_attribute_descriptors();
+    let descriptors = VertexA::attribute_descriptors();
 
     assert_eq!(
         descriptors,
-        vec![
-            VertexInputAttributeDescriptor {
+        &[
+            VertexAttributeDescriptor {
                 location: 0,
                 format: AttributeFormat::Float4_f32,
-                offset: 0
+                offset_in_bytes: 0
             },
-            VertexInputAttributeDescriptor {
+            VertexAttributeDescriptor {
                 location: 1,
                 format: AttributeFormat::Float3_i8_norm,
-                offset: 16
+                offset_in_bytes: 16
             },
-            VertexInputAttributeDescriptor {
+            VertexAttributeDescriptor {
                 location: 2,
                 format: AttributeFormat::Float4x4_f32,
-                offset: 24
+                offset_in_bytes: 24
             },
-            VertexInputAttributeDescriptor {
+            VertexAttributeDescriptor {
                 location: 6,
                 format: AttributeFormat::Integer_i32,
-                offset: 88
+                offset_in_bytes: 88,
             },
         ]
     );
@@ -57,20 +57,20 @@ fn test_struct_attribute_descriptors() {
 
 #[test]
 fn test_tuple_struct_attribute_descriptors() {
-    let descriptors = VertexB::input_attribute_descriptors();
+    let descriptors = VertexB::attribute_descriptors();
 
     assert_eq!(
         descriptors,
-        vec![
-            VertexInputAttributeDescriptor {
+        &[
+            VertexAttributeDescriptor {
                 location: 0,
                 format: AttributeFormat::Integer2_i8,
-                offset: 0
+                offset_in_bytes: 0
             },
-            VertexInputAttributeDescriptor {
+            VertexAttributeDescriptor {
                 location: 1,
                 format: AttributeFormat::Integer3_u8,
-                offset: 2
+                offset_in_bytes: 2
             }
         ]
     );

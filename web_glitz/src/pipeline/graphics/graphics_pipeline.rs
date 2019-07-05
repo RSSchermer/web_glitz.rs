@@ -26,7 +26,7 @@ pub struct GraphicsPipeline<V, R, Tf> {
     _resources_marker: marker::PhantomData<R>,
     _transform_feedback_varyings_marker: marker::PhantomData<Tf>,
     context_id: usize,
-    dropper: Box<ProgramObjectDropper>,
+    dropper: Box<dyn ProgramObjectDropper>,
     #[allow(dead_code)] // Just holding on to this so it won't get dropped prematurely
     vertex_shader_data: Arc<VertexShaderData>,
     #[allow(dead_code)] // Just holding on to this so it won't get dropped prematurely

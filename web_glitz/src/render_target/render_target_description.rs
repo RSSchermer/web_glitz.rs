@@ -1,4 +1,6 @@
 use std::cell::Cell;
+use std::cmp;
+use std::hash::{Hash, Hasher};
 
 use crate::render_pass::{Framebuffer, RenderPass, RenderPassContext, RenderPassId};
 use crate::render_target::attachable_image_ref::AttachableImageData;
@@ -11,8 +13,6 @@ use crate::render_target::{
 };
 use crate::runtime::state::{AttachmentSet, DepthStencilAttachmentDescriptor, DrawBuffer};
 use crate::task::{ContextId, GpuTask};
-use std::cmp;
-use std::hash::{Hash, Hasher};
 
 /// Describes a render target that may be used with a [RenderPass] task.
 ///

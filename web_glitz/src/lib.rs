@@ -26,12 +26,10 @@
 //! in task construction across multiple threads. How this trade-off affects overall performance
 //! will depend on your application.
 
-#![feature(unboxed_closures)]
-#![feature(fn_traits)]
-#![feature(try_from)]
+#![feature(coerce_unsized, const_generics, fn_traits, slice_index_methods, unboxed_closures, unsize)]
 
 pub mod derive {
-    pub use web_glitz_macros::*;
+    pub use web_glitz_macros::{InterfaceBlock, InterfaceBlockComponent, Resources, Vertex};
 }
 
 pub mod buffer;

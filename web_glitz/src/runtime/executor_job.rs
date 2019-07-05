@@ -1,4 +1,4 @@
-use futures::sync::oneshot::{channel, Sender};
+use futures::channel::oneshot::{channel, Sender};
 
 use crate::runtime::{Connection, Execution};
 use crate::task::{GpuTask, Progress};

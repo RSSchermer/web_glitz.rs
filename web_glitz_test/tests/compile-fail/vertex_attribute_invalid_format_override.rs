@@ -1,10 +1,8 @@
-#[macro_use]
+#![feature(const_fn)]
 extern crate web_glitz;
 
-use web_glitz::vertex_input::Vertex;
-
-#[derive(Vertex)] //~ ERROR: no variant named `unknown_format`
+#[derive(web_glitz::derive::Vertex)] //~ ERROR: cannot find type `unknown_format`
 struct VertexA {
     #[vertex_attribute(location = 0, format = "unknown_format")]
-    position: (i8, i8, i8)
+    position: [i8; 3]
 }

@@ -1,4 +1,5 @@
 use std::borrow::Borrow;
+use std::cell::UnsafeCell;
 use std::hash::{Hash, Hasher};
 use std::marker;
 use std::mem;
@@ -26,7 +27,6 @@ use crate::runtime::{Connection, RenderingContext};
 use crate::sampler::{Sampler, SamplerData, ShadowSampler};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
-use std::cell::UnsafeCell;
 
 /// Provides the information necessary for the creation of a [Texture2D].
 ///
@@ -96,6 +96,7 @@ where
 /// use web_glitz::image::{Image2DSource, MipmapLevels};
 /// use web_glitz::image::format::RGB8;
 /// use web_glitz::image::texture_2d::Texture2DDescriptor;
+/// use web_glitz::sequence_all;
 ///
 /// let texture = context.create_texture_2d(&Texture2DDescriptor {
 ///     format: RGB8,
@@ -109,7 +110,7 @@ where
 ///
 /// context.submit(sequence_all![
 ///     texture.base_level().upload_command(data),
-///     texture.generate_mipmap_command()
+///     texture.generate_mipmap_command(),
 /// ]);
 /// # }
 /// ```
@@ -485,7 +486,7 @@ pub struct ShadowSampledTexture2D<'a> {
 pub(crate) struct Texture2DData {
     id: UnsafeCell<Option<JsId>>,
     context_id: usize,
-    dropper: Box<TextureObjectDropper>,
+    dropper: Box<dyn TextureObjectDropper>,
     width: u32,
     height: u32,
     levels: usize,
@@ -598,7 +599,7 @@ where
     ///
     /// let level = unsafe { levels.get_unchecked(1) };
     ///
-    /// assert_eq!((level.width(), level.height()), Some((128, 128)));
+    /// assert_eq!((level.width(), level.height()), (128, 128));
     /// # }
     /// ```
     ///
@@ -631,7 +632,8 @@ where
     ///     levels: MipmapLevels::Partial(3)
     /// }).unwrap();
     ///
-    /// let mut iter = texture.levels().iter();
+    /// let levels = texture.levels();
+    /// let mut iter = levels.iter();
     ///
     /// assert_eq!(iter.next().map(|l| (l.width(), l.height())), Some((128, 128)));
     /// assert_eq!(iter.next().map(|l| (l.width(), l.height())), Some((64, 64)));
@@ -909,7 +911,8 @@ where
     ///     levels: MipmapLevels::Complete
     /// }).unwrap();
     ///
-    /// let sub_image = texture.base_level().sub_image(Region2D::Area((0, 0), 128, 128));
+    /// let base_level = texture.base_level();
+    /// let sub_image = base_level.sub_image(Region2D::Area((0, 0), 128, 128));
     ///
     /// let pixels: Vec<[u8; 3]> = vec![[0, 0, 255]; 128 * 128];
     /// let data = Image2DSource::from_pixels(pixels, 128, 128).unwrap();
@@ -964,7 +967,7 @@ where
     ///     levels: MipmapLevels::Complete
     /// }).unwrap();
     ///
-    /// let pixels: Vec<[u8; 3]> = vec![[256, 0, 0]; 256 * 256];
+    /// let pixels: Vec<[u8; 3]> = vec![[255, 0, 0]; 256 * 256];
     /// let data = Image2DSource::from_pixels(pixels, 256, 256).unwrap();
     ///
     /// context.submit(texture.base_level().upload_command(data));
@@ -1075,9 +1078,10 @@ where
     ///     levels: MipmapLevels::Complete
     /// }).unwrap();
     ///
-    /// let sub_image = texture.base_level().sub_image(Region2D::Area((0, 0), 128, 128));
+    /// let base_level = texture.base_level();
+    /// let sub_image = base_level.sub_image(Region2D::Area((0, 0), 128, 128));
     ///
-    /// let pixels: Vec<[u8; 3]> = vec![[256, 0, 0]; 128 * 128];
+    /// let pixels: Vec<[u8; 3]> = vec![[255, 0, 0]; 128 * 128];
     /// let data = Image2DSource::from_pixels(pixels, 128, 128).unwrap();
     ///
     /// context.submit(sub_image.upload_command(data));
@@ -1167,7 +1171,7 @@ where
     ///
     /// let level = unsafe { levels.get_unchecked_mut(1) };
     ///
-    /// assert_eq!((level.width(), level.height()), Some((128, 128)));
+    /// assert_eq!((level.width(), level.height()), (128, 128));
     /// # }
     /// ```
     ///
@@ -1200,7 +1204,8 @@ where
     ///     levels: MipmapLevels::Partial(3)
     /// }).unwrap();
     ///
-    /// let mut iter = texture.levels_mut().iter_mut();
+    /// let mut levels = texture.levels_mut();
+    /// let mut iter = levels.iter_mut();
     ///
     /// assert_eq!(iter.next().map(|l| (l.width(), l.height())), Some((128, 128)));
     /// assert_eq!(iter.next().map(|l| (l.width(), l.height())), Some((64, 64)));

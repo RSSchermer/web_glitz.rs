@@ -85,7 +85,15 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
 
             quote_spanned! {span=>
                 #hash => {
-                    <#ty as #mod_path::TextureResource>::Binding::compatibility(slot)?;
+                    match <#ty as #mod_path::TextureResource>::Binding::compatibility(slot) {
+                        Ok(()) => (),
+                        Err(#mod_path::binding::Incompatible::TypeMismatch) => {
+                            return Err(#mod_path::IncompatibleResources::ResourceTypeMismatch(descriptor.identifier().clone()));
+                        },
+                        Err(#mod_path::binding::Incompatible::LayoutMismatch(err)) => {
+                            return Err(#mod_path::IncompatibleResources::IncompatibleBlockLayout(descriptor.identifier().clone(), err));
+                        }
+                    };
 
                     confirmer.confirm_slot_binding(descriptor, #binding)?;
                 }

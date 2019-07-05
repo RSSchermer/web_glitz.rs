@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
 use super::maybe_done::{maybe_done, MaybeDone};
-use super::{ContextId, GpuTask, GpuTaskExt, Progress};
+use super::{ContextId, GpuTask, Progress};
 
 macro_rules! generate_join {
     ($(
@@ -32,7 +32,11 @@ macro_rules! generate_join {
             }
         }
 
-        unsafe impl<A, $($B),*, Ec> GpuTask<Ec> for $Join<A, $($B),*, Ec> where A: GpuTask<Ec>, $($B: GpuTask<Ec>),* {
+        unsafe impl<A, $($B),*, Ec> GpuTask<Ec> for $Join<A, $($B),*, Ec>
+        where
+            A: GpuTask<Ec>,
+            $($B: GpuTask<Ec>),*
+        {
             type Output = (A::Output, $($B::Output),*);
 
             fn context_id(&self) -> ContextId {
@@ -107,7 +111,11 @@ macro_rules! generate_join_left {
             }
         }
 
-        unsafe impl<A, $($B),*, Ec> GpuTask<Ec> for $Join<A, $($B),*, Ec> where A: GpuTask<Ec>, $($B: GpuTask<Ec>),* {
+        unsafe impl<A, $($B),*, Ec> GpuTask<Ec> for $Join<A, $($B),*, Ec>
+        where
+            A: GpuTask<Ec>,
+            $($B: GpuTask<Ec>),*
+        {
             type Output = A::Output;
 
             fn context_id(&self) -> ContextId {
@@ -188,7 +196,11 @@ macro_rules! generate_join_right {
             }
         }
 
-        unsafe impl<$($A,)* $B, Ec> GpuTask<Ec> for $Join<$($A,)* $B, Ec> where $($A: GpuTask<Ec>,)* $B: GpuTask<Ec> {
+        unsafe impl<$($A,)* $B, Ec> GpuTask<Ec> for $Join<$($A,)* $B, Ec>
+        where
+            $($A: GpuTask<Ec>,)*
+            $B: GpuTask<Ec>
+        {
             type Output = $B::Output;
 
             fn context_id(&self) -> ContextId {
@@ -240,97 +252,20 @@ generate_join_right! {
     (Join5Right, <A, B, C, D> E),
 }
 
+#[doc(hidden)]
 #[macro_export]
 macro_rules! join_all {
-    ($($T:ident),*) => {
+    ($e0:expr, $e1:expr) => (join_all!($e0, $e1,));
+    ($e0:expr, $e1:expr, $($e:expr,)+) => (join_all!($e0, $e1, $($e),*));
+    ($e0:expr, $e1:expr, $($e:expr),*) => {
         {
-            use web_glitz::task::{ContextId, GpuTask, GpuTaskExt, Progress};
+            let joined = $crate::task::join($e0, $e1);
 
-            enum MaybeDone<T, O, Ec> {
-                NotYet(T, PhantomData<Ec>),
-                Done(O),
-                Gone,
-            }
+            $(
+                let joined = $crate::task::join(joined, $e);
+            )*
 
-            impl<T, O, Ec> MaybeDone<T, O, Ec>
-            where
-                T: GpuTask<Ec, Output = O>,
-            {
-                fn progress(&mut self, execution_context: &mut Ec) -> bool {
-                    let res = match self {
-                        MaybeDone::Done(_) => return true,
-                        MaybeDone::NotYet(ref mut task, _) => task.progress(execution_context),
-                        MaybeDone::Gone => panic!("Cannot progress a Join after it has finished."),
-                    };
-
-                    match res {
-                        Progress::Finished(output) => {
-                            *self = MaybeDone::Done(output);
-
-                            true
-                        }
-                        Progress::ContinueFenced => false,
-                    }
-                }
-
-                fn take(&mut self) -> O {
-                    match mem::replace(self, MaybeDone::Gone) {
-                        MaybeDone::Done(a) => a,
-                        _ => panic!(),
-                    }
-                }
-            }
-
-            fn maybe_done<T, O, Ec>(task: T) -> MaybeDone<T, O, Ec>
-            where
-                T: GpuTask<Ec, Output = O>,
-            {
-                MaybeDone::NotYet(task, PhantomData)
-            }
-
-            struct JoinAll<$($T),*, Ec> where $($T: GpuTask<Ec>),* {
-                id: ContextId,
-                $($T: MaybeDone<$T, $T::Output, Ec>),*
-            }
-
-            impl<$($T),*, Ec> JoinAll<$($T),*, Ec> where $($T: GpuTask<Ec>),* {
-                fn new($($T),*) -> Self {
-                    let mut id = a.context_id();
-
-                    $(
-                        id = id.combine($T.context_id()).unwrap();
-                    )*
-
-                    JoinAll {
-                        id,
-                        $($T: maybe_done($T)),*
-                    }
-                }
-            }
-
-            unsafe impl<$($T),*, Ec> GpuTask<Ec> for JoinAlln<$($T),*, Ec> where $($T: GpuTask<Ec>),* {
-                type Output = ($($T::Output),*);
-
-                fn context_id(&self) -> ContextId {
-                    self.id
-                }
-
-                fn progress(&mut self, execution_context: &mut Ec) -> Progress<Self::Output> {
-                    let mut all_done = true;
-
-                    $(
-                        all_done = all_done && self.$T.progress(execution_context);;
-                    )*
-
-                    if all_done {
-                        Progress::Finished(($(self.$T.take()),*))
-                    } else {
-                        Progress::ContinueFenced
-                    }
-                }
-            }
-
-            JoinAll::new($($T),*)
+            joined
         }
     }
 }
@@ -340,7 +275,7 @@ macro_rules! join_all {
 ///
 /// This returns a new "joined" task. This joined task may progress the its sub-tasks in any order.
 /// The joined task will finish when both sub-tasks have finished. When it finishes, it will output
-/// a tuple `(A, B)` where `A` is this tasks output and `B` is task `b`'s output.
+/// a tuple `(A, B)` where `A` is this task's output and `B` is task `b`'s output.
 ///
 /// # Panics
 ///
@@ -376,9 +311,9 @@ where
 /// order, with the output of task `a`.
 ///
 /// Similar to [join], except that instead of returning a tuple of the outputs of `a` and `b`, it
-/// only returns the output of `a`.
+/// only returns the output of `b`.
 ///
-/// See also [join_right].
+/// See also [join_left].
 ///
 /// # Panics
 ///
@@ -395,8 +330,8 @@ where
 ///
 /// This returns a new "joined" task. This joined task may progress the its sub-tasks in any order.
 /// The joined task will finish when all sub-tasks have finished. When it finishes, it will output a
-/// tuple `(A, B, C)` where `A` is this tasks output, `B` is task `b`'s output and `C` is task `c`'s
-/// output.
+/// tuple `(A, B, C)` where `A` is this task's output, `B` is task `b`'s output and `C` is task
+/// `c`'s output.
 ///
 /// # Panics
 ///
@@ -447,15 +382,15 @@ where
     B: GpuTask<Ec>,
     C: GpuTask<Ec>,
 {
-    Join3Left::new(a, b, c)
+    Join3Right::new(a, b, c)
 }
 
 /// Combines task `a`, `b`, `c` and `d`, waiting for all tasks to complete in no particular order.
 ///
 /// This returns a new "joined" task. This joined task may progress the its sub-tasks in any order.
 /// The joined task will finish when all sub-tasks have finished. When it finishes, it will output a
-/// tuple `(A, B, C, D)` where `A` is this tasks output, `B` is task `b`'s output, `C` is task `c`'s
-/// output and `D` is task `d`'s output.
+/// tuple `(A, B, C, D)` where `A` is this task's output, `B` is task `b`'s output, `C` is task
+/// `c`'s output and `D` is task `d`'s output.
 ///
 /// # Panics
 ///
@@ -517,7 +452,7 @@ where
 ///
 /// This returns a new "joined" task. This joined task may progress the its sub-tasks in any order.
 /// The joined task will finish when all sub-tasks have finished. When it finishes, it will output a
-/// tuple `(A, B, C, D, E)` where `A` is this tasks output, `B` is task `b`'s output, `C` is task
+/// tuple `(A, B, C, D, E)` where `A` is this task's output, `B` is task `b`'s output, `C` is task
 /// `c`'s output, `D` is task `d`'s output and `E` is task `e`'s output.
 ///
 /// # Panics

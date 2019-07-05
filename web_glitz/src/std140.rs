@@ -76,7 +76,7 @@
 //!
 //! ```rust
 //! use web_glitz::std140;
-//! use web_glitz::repr_std140;
+//! use web_glitz::std140::repr_std140;
 //!
 //! #[repr_std140]
 //! struct PointLight {
@@ -101,12 +101,12 @@
 //!     ambient_light_color: std140::vec3(0.2, 0.2, 0.2),
 //!     lights: std140::array![
 //!         PointLight {
-//!             position: std140::vec3(10.0, 0.0, 10.0)
-//!             intensity: std::float(0.5)
+//!             position: std140::vec3(10.0, 0.0, 10.0),
+//!             intensity: std140::float(0.5)
 //!         },
 //!         PointLight {
-//!             position: std140::vec3(0.0, 10.0, 10.0)
-//!             intensity: std::float(0.8)
+//!             position: std140::vec3(0.0, 10.0, 10.0),
+//!             intensity: std140::float(0.8)
 //!         },
 //!     ]
 //! };
@@ -115,9 +115,16 @@
 //! Note that although the field names match the block member names in this example, this is not
 //! strictly necessary, only pairwise field-type compatibility is required.
 
+use std::ops::{Index, IndexMut};
+
 use crate::pipeline::interface_block::{
     CheckCompatibility, Incompatible, InterfaceBlockComponent, MemoryUnitDescriptor, UnitLayout,
 };
+
+/// Initializes `std140` array.
+pub use crate::std140_array as array;
+
+pub use web_glitz_macros::repr_std140;
 
 /// Marker trait for types that can be used as fields in structs marked with `#[repr_std140]`.
 pub unsafe trait ReprStd140 {}
@@ -125,17 +132,110 @@ pub unsafe trait ReprStd140 {}
 /// Marker trait for types that can be used as the element type for std140 [array]s.
 pub unsafe trait Std140ArrayElement: ReprStd140 {}
 
-//pub struct array<T, const LEN: usize> where T: Std140ArrayElement {
-//    internal: [ArrayElementWrapper<T>: LEN]
-//}
+pub struct array<T, const LEN: usize> where T: Std140ArrayElement {
+    internal: [ArrayElementWrapper<T>; LEN]
+}
+
+impl<T, const LEN: usize> array<T, {LEN}> where T: Std140ArrayElement {
+    #[doc(hidden)]
+    pub fn from_wrapped(wrapped: [ArrayElementWrapper<T>; LEN]) -> Self {
+        array {
+            internal: wrapped
+        }
+    }
+}
+
+// TODO: something like this? (if that ever becomes possible)
+//impl<T, const LEN: usize> Unsize<slice<T>> for array<T, {LEN}> {}
 //
-//#[repr(C, align(16))]
-//struct ArrayElementWrapper<T>
-//where
-//    T: Std140ArrayElement,
-//{
-//    element: T,
+//pub struct slice<T> where T: Std140ArrayElement {
+//    internal: *mut [ArrayElementWrapper<T>]
 //}
+
+#[doc(hidden)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(C, align(16))]
+pub struct ArrayElementWrapper<T>
+where
+    T: Std140ArrayElement,
+{
+    pub element: T,
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! std140_array {
+    ($elem:expr; $n:expr) => {
+        $crate::std140::array::from_wrapped([$crate::std140::ArrayElementWrapper {
+            element: $elem
+        }; $n])
+    };
+    ($($x:expr),*) => {
+        $crate::std140::array::from_wrapped([
+            $(
+                $crate::std140::ArrayElementWrapper {
+                    element: $x
+                }
+            ),*
+        ])
+    };
+    ($($x:expr,)*) => ($crate::std140_array![$($x),*])
+}
+
+pub type mat2x2 = array<vec2, 2>;
+pub type mat2x3 = array<vec3, 2>;
+pub type mat2x4 = array<vec4, 2>;
+pub type mat3x2 = array<vec2, 3>;
+pub type mat3x3 = array<vec3, 3>;
+pub type mat3x4 = array<vec4, 3>;
+pub type mat4x2 = array<vec2, 4>;
+pub type mat4x3 = array<vec3, 4>;
+pub type mat4x4 = array<vec4, 4>;
+
+pub fn mat2x2(c0: vec2, c1: vec2) -> mat2x2 {
+    unimplemented!()
+    //array![c0, c1]
+}
+
+pub fn mat2x3(c0: vec3, c1: vec3) -> mat2x3 {
+    unimplemented!()
+    //array![c0, c1]
+}
+
+pub fn mat2x4(c0: vec4, c1: vec4) -> mat2x4 {
+    unimplemented!()
+    //array![c0, c1]
+}
+
+pub fn mat3x2(c0: vec2, c1: vec2, c2: vec2) -> mat3x2 {
+    unimplemented!()
+    //array![c0, c1, c2]
+}
+
+pub fn mat3x3(c0: vec3, c1: vec3, c2: vec3) -> mat3x3 {
+    unimplemented!()
+    //array![c0, c1, c2]
+}
+
+pub fn mat3x4(c0: vec4, c1: vec4, c2: vec4) -> mat3x4 {
+    unimplemented!()
+    //array![c0, c1, c2]
+}
+
+pub fn mat4x2(c0: vec2, c1: vec2, c2: vec2, c3: vec2) -> mat4x2 {
+    unimplemented!()
+    //array![c0, c1, c2, c3]
+}
+
+pub fn mat4x3(c0: vec3, c1: vec3, c2: vec3, c3: vec3) -> mat4x3 {
+    unimplemented!()
+    //array![c0, c1, c2, c3]
+}
+
+pub fn mat4x4(c0: vec4, c1: vec4, c2: vec4, c3: vec4) -> mat4x4 {
+    unimplemented!()
+    //array![c0, c1, c2, c3]
+}
 
 macro_rules! impl_interface_block_component {
     ($T:ident, $layout:expr) => {
@@ -183,6 +283,28 @@ impl_interface_block_component!(vec2, UnitLayout::FloatVector2);
 unsafe impl ReprStd140 for vec2 {}
 unsafe impl Std140ArrayElement for vec2 {}
 
+impl Index<usize> for vec2 {
+    type Output = f32;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        match index {
+            0 => &self.0,
+            1 => &self.1,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}
+
+impl IndexMut<usize> for vec2 {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        match index {
+            0 => &mut self.0,
+            1 => &mut self.1,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}
+
 #[repr(C, align(16))]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct vec3(pub f32, pub f32, pub f32);
@@ -191,6 +313,30 @@ impl_interface_block_component!(vec3, UnitLayout::FloatVector3);
 unsafe impl ReprStd140 for vec3 {}
 unsafe impl Std140ArrayElement for vec3 {}
 
+impl Index<usize> for vec3 {
+    type Output = f32;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        match index {
+            0 => &self.0,
+            1 => &self.1,
+            2 => &self.2,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}
+
+impl IndexMut<usize> for vec3 {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        match index {
+            0 => &mut self.0,
+            1 => &mut self.1,
+            2 => &mut self.2,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}
+
 #[repr(C, align(16))]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct vec4(pub f32, pub f32, pub f32, pub f32);
@@ -198,6 +344,32 @@ pub struct vec4(pub f32, pub f32, pub f32, pub f32);
 impl_interface_block_component!(vec4, UnitLayout::FloatVector4);
 unsafe impl ReprStd140 for vec4 {}
 unsafe impl Std140ArrayElement for vec4 {}
+
+impl Index<usize> for vec4 {
+    type Output = f32;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        match index {
+            0 => &self.0,
+            1 => &self.1,
+            2 => &self.2,
+            3 => &self.3,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}
+
+impl IndexMut<usize> for vec4 {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        match index {
+            0 => &mut self.0,
+            1 => &mut self.1,
+            2 => &mut self.2,
+            3 => &mut self.3,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}
 
 #[repr(C, align(4))]
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -215,6 +387,28 @@ impl_interface_block_component!(ivec2, UnitLayout::IntegerVector2);
 unsafe impl ReprStd140 for ivec2 {}
 unsafe impl Std140ArrayElement for ivec2 {}
 
+impl Index<usize> for ivec2 {
+    type Output = i32;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        match index {
+            0 => &self.0,
+            1 => &self.1,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}
+
+impl IndexMut<usize> for ivec2 {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        match index {
+            0 => &mut self.0,
+            1 => &mut self.1,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}
+
 #[repr(C, align(16))]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct ivec3(pub i32, pub i32, pub i32);
@@ -223,6 +417,30 @@ impl_interface_block_component!(ivec3, UnitLayout::IntegerVector3);
 unsafe impl ReprStd140 for ivec3 {}
 unsafe impl Std140ArrayElement for ivec3 {}
 
+impl Index<usize> for ivec3 {
+    type Output = i32;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        match index {
+            0 => &self.0,
+            1 => &self.1,
+            2 => &self.2,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}
+
+impl IndexMut<usize> for ivec3 {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        match index {
+            0 => &mut self.0,
+            1 => &mut self.1,
+            2 => &mut self.2,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}
+
 #[repr(C, align(16))]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct ivec4(pub i32, pub i32, pub i32, pub i32);
@@ -230,6 +448,32 @@ pub struct ivec4(pub i32, pub i32, pub i32, pub i32);
 impl_interface_block_component!(ivec4, UnitLayout::IntegerVector4);
 unsafe impl ReprStd140 for ivec4 {}
 unsafe impl Std140ArrayElement for ivec4 {}
+
+impl Index<usize> for ivec4 {
+    type Output = i32;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        match index {
+            0 => &self.0,
+            1 => &self.1,
+            2 => &self.2,
+            3 => &self.3,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}
+
+impl IndexMut<usize> for ivec4 {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        match index {
+            0 => &mut self.0,
+            1 => &mut self.1,
+            2 => &mut self.2,
+            3 => &mut self.3,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}
 
 #[repr(C, align(4))]
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -247,6 +491,28 @@ impl_interface_block_component!(uvec2, UnitLayout::UnsignedIntegerVector2);
 unsafe impl ReprStd140 for uvec2 {}
 unsafe impl Std140ArrayElement for uvec2 {}
 
+impl Index<usize> for uvec2 {
+    type Output = u32;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        match index {
+            0 => &self.0,
+            1 => &self.1,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}
+
+impl IndexMut<usize> for uvec2 {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        match index {
+            0 => &mut self.0,
+            1 => &mut self.1,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}
+
 #[repr(C, align(16))]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct uvec3(pub u32, pub u32, pub u32);
@@ -255,6 +521,30 @@ impl_interface_block_component!(uvec3, UnitLayout::UnsignedIntegerVector3);
 unsafe impl ReprStd140 for uvec3 {}
 unsafe impl Std140ArrayElement for uvec3 {}
 
+impl Index<usize> for uvec3 {
+    type Output = u32;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        match index {
+            0 => &self.0,
+            1 => &self.1,
+            2 => &self.2,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}
+
+impl IndexMut<usize> for uvec3 {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        match index {
+            0 => &mut self.0,
+            1 => &mut self.1,
+            2 => &mut self.2,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}
+
 #[repr(C, align(16))]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct uvec4(pub u32, pub u32, pub u32, pub u32);
@@ -262,6 +552,32 @@ pub struct uvec4(pub u32, pub u32, pub u32, pub u32);
 impl_interface_block_component!(uvec4, UnitLayout::UnsignedIntegerVector4);
 unsafe impl ReprStd140 for uvec4 {}
 unsafe impl Std140ArrayElement for uvec4 {}
+
+impl Index<usize> for uvec4 {
+    type Output = u32;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        match index {
+            0 => &self.0,
+            1 => &self.1,
+            2 => &self.2,
+            3 => &self.3,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}
+
+impl IndexMut<usize> for uvec4 {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        match index {
+            0 => &mut self.0,
+            1 => &mut self.1,
+            2 => &mut self.2,
+            3 => &mut self.3,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}
 
 #[repr(u32)]
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -282,6 +598,28 @@ impl_interface_block_component!(bvec2, UnitLayout::BoolVector2);
 unsafe impl ReprStd140 for bvec2 {}
 unsafe impl Std140ArrayElement for bvec2 {}
 
+impl Index<usize> for bvec2 {
+    type Output = boolean;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        match index {
+            0 => &self.0,
+            1 => &self.1,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}
+
+impl IndexMut<usize> for bvec2 {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        match index {
+            0 => &mut self.0,
+            1 => &mut self.1,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}
+
 #[repr(C, align(16))]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct bvec3(pub boolean, pub boolean, pub boolean);
@@ -290,6 +628,30 @@ impl_interface_block_component!(bvec3, UnitLayout::BoolVector3);
 unsafe impl ReprStd140 for bvec3 {}
 unsafe impl Std140ArrayElement for bvec3 {}
 
+impl Index<usize> for bvec3 {
+    type Output = boolean;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        match index {
+            0 => &self.0,
+            1 => &self.1,
+            2 => &self.2,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}
+
+impl IndexMut<usize> for bvec3 {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        match index {
+            0 => &mut self.0,
+            1 => &mut self.1,
+            2 => &mut self.2,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}
+
 #[repr(C, align(16))]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct bvec4(pub boolean, pub boolean, pub boolean, pub boolean);
@@ -297,3 +659,29 @@ pub struct bvec4(pub boolean, pub boolean, pub boolean, pub boolean);
 impl_interface_block_component!(bvec4, UnitLayout::BoolVector4);
 unsafe impl ReprStd140 for bvec4 {}
 unsafe impl Std140ArrayElement for bvec4 {}
+
+impl Index<usize> for bvec4 {
+    type Output = boolean;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        match index {
+            0 => &self.0,
+            1 => &self.1,
+            2 => &self.2,
+            3 => &self.3,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}
+
+impl IndexMut<usize> for bvec4 {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        match index {
+            0 => &mut self.0,
+            1 => &mut self.1,
+            2 => &mut self.2,
+            3 => &mut self.3,
+            _ => panic!("Index out of bounds")
+        }
+    }
+}

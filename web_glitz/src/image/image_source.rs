@@ -99,7 +99,7 @@ where
 /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
 /// use web_glitz::image::{LayeredImageSource, MipmapLevels};
 /// use web_glitz::image::format::RGB8;
-/// use web_glitz::image::texture_2d::Texture3DDescriptor;
+/// use web_glitz::image::texture_3d::Texture3DDescriptor;
 ///
 /// let texture = context.create_texture_3d(&Texture3DDescriptor {
 ///     format: RGB8,
@@ -191,6 +191,7 @@ where
 /// Error returned by [Image2DSource::from_pixels] or [Image3DSource::from_pixels].
 ///
 /// See [Image2DSource::from_pixels] and [Image3DSource::from_pixels] for details.
+#[derive(Debug)]
 pub enum FromPixelsError {
     /// Variant returned when the data does not contain enough pixels to describe an image of the
     /// required dimensions.

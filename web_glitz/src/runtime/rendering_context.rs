@@ -1,8 +1,10 @@
 use std::borrow::Borrow;
+use std::pin::Pin;
 
+use futures::Poll;
+use futures::channel::oneshot::Receiver;
 use futures::future::Future;
-use futures::sync::oneshot::Receiver;
-use futures::{Async, Poll};
+use futures::task::Context;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
@@ -16,7 +18,7 @@ use crate::image::texture_cube::{TextureCube, TextureCubeDescriptor};
 use crate::image::MaxMipmapLevelsExceeded;
 use crate::pipeline::graphics::{
     AttributeSlotLayoutCompatible, FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor,
-    IncompatibleAttributeLayout, ShaderCompilationError, ShaderLinkingError, VertexShader,
+    IncompatibleAttributeLayout, ShaderLinkingError, VertexShader,
 };
 use crate::pipeline::resources::resource_slot::Identifier;
 use crate::pipeline::resources::{IncompatibleResources, Resources};
@@ -68,13 +70,15 @@ pub trait RenderingContext {
     /// might later use to back a uniform block in a pipeline):
     ///
     /// ```
+    /// # #![feature(const_fn)]
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
     /// use web_glitz::buffer::UsageHint;
     /// use web_glitz::std140;
+    /// use web_glitz::std140::repr_std140;
     ///
     /// #[repr_std140]
-    /// #[derive(web_glitz::InterfaceBlock, Clone, Copy)]
+    /// #[derive(web_glitz::derive::InterfaceBlock, Clone, Copy)]
     /// struct Uniforms {
     ///     scale: std140::float,
     /// }
@@ -96,11 +100,12 @@ pub trait RenderingContext {
     /// [Vertex] values (which we might later use to create a [VertexArray]):
     ///
     /// ```
+    /// # #![feature(const_fn)]
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
-    /// use web_glitz::buffer::UsageHint;
+    /// use web_glitz::buffer::{Buffer, UsageHint};
     ///
-    /// #[derive(web_glitz::Vertex, Clone, Copy)]
+    /// #[derive(web_glitz::derive::Vertex, Clone, Copy)]
     /// struct Vertex {
     ///     #[vertex_attribute(location = 0, format = "Float2_f32")]
     ///     position: [f32; 2],
@@ -123,7 +128,7 @@ pub trait RenderingContext {
     ///     },
     /// ];
     ///
-    /// let vertex_buffer = context.create_buffer(vertex_data, UsageHint::StaticDraw);
+    /// let vertex_buffer: Buffer<[Vertex]> = context.create_buffer(vertex_data, UsageHint::StaticDraw);
     /// # }
     /// ```
     ///
@@ -201,7 +206,9 @@ pub trait RenderingContext {
     /// ```rust
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
-    /// let vertex_shader = context.create_vertex_shader(include_str!("vertex_shader.glsl")).unwrap();
+    /// let vertex_shader = context
+    ///     .create_vertex_shader(include_str!("../../../examples/0_triangle/src/vertex.glsl"))
+    ///     .unwrap();
     /// # }
     /// ```
     fn create_vertex_shader<S>(&self, source: S) -> Result<VertexShader, ShaderCompilationError>
@@ -245,7 +252,9 @@ pub trait RenderingContext {
     /// ```rust
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
-    /// let fragment_shader = context.create_fragment_shader(include_str!("fragment_shader.glsl")).unwrap();
+    /// let fragment_shader = context
+    ///     .create_fragment_shader(include_str!("../../../examples/0_triangle/src/fragment.glsl"))
+    ///     .unwrap();
     /// # }
     /// ```
     fn create_fragment_shader<S>(
@@ -275,7 +284,7 @@ pub trait RenderingContext {
     /// #     context: &Rc,
     /// #     vertex_shader: &VertexShader,
     /// #     fragment_shader: &FragmentShader
-    /// # ) where Rc: RenderingContext, MyVertex: Vertex, MyResources: Resources {
+    /// # ) where Rc: RenderingContext, MyVertex: Vertex, MyResources: Resources + 'static {
     /// use web_glitz::pipeline::graphics::{
     ///     GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder, CullingMode,
     ///     SlotBindingStrategy, DepthTest
@@ -337,7 +346,8 @@ pub trait RenderingContext {
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::render_pass::{DefaultRenderTarget, DefaultRGBBuffer};
+    /// # use web_glitz::render_pass::DefaultRGBBuffer;
+    /// # use web_glitz::render_target::DefaultRenderTarget;
     /// # use web_glitz::runtime::RenderingContext;
     /// # use web_glitz::vertex::{Vertex, VertexArray};
     /// # use web_glitz::buffer::UsageHint;
@@ -357,7 +367,7 @@ pub trait RenderingContext {
     /// # {
     /// let render_pass = context.create_render_pass(&mut default_render_target, |framebuffer| {
     ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
-    ///         active_pipeline.draw_command(&vertex_stream, &resources);
+    ///         active_pipeline.draw_command(&vertex_stream, &resources)
     ///     })
     /// });
     /// # }
@@ -560,12 +570,13 @@ pub trait RenderingContext {
     /// to supply its vertex attribute data and does not use indexing:
     ///
     /// ```rust
+    /// # #![feature(const_fn)]
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
     /// use web_glitz::buffer::UsageHint;
     /// use web_glitz::vertex::VertexArrayDescriptor;
     ///
-    /// #[derive(web_glitz::Vertex, Clone, Copy)]
+    /// #[derive(web_glitz::derive::Vertex, Clone, Copy)]
     /// struct Vertex {
     ///     #[vertex_attribute(location = 0, format = "Float2_f32")]
     ///     position: [f32; 2],
@@ -633,17 +644,17 @@ pub trait RenderingContext {
     /// # use web_glitz::runtime::RenderingContext;
     /// # use web_glitz::buffer::Buffer;
     /// # use web_glitz::vertex::Vertex;
-    /// # fn wrapper<Rc, V>(context: &Rc, vertex_buffer: &Buffer<[V]>)
+    /// # fn wrapper<Rc, V>(context: &Rc, vertex_buffer: Buffer<[V]>)
     /// # where Rc: RenderingContext, V: Vertex {
     /// # use web_glitz::buffer::UsageHint;
     /// # use web_glitz::vertex::VertexArrayDescriptor;
-    /// let index_data = [0, 1, 2, 1, 0];
+    /// let index_data: [u32; 5] = [0, 1, 2, 1, 0];
     ///
     /// let index_buffer = context.create_buffer(index_data, UsageHint::StaticDraw);
     ///
     /// let vertex_array = context.create_vertex_array(&VertexArrayDescriptor {
     ///     vertex_input_state: &vertex_buffer,
-    ///     indices: &index_data,
+    ///     indices: &index_buffer,
     /// });
     /// # }
     /// ```
@@ -654,18 +665,19 @@ pub trait RenderingContext {
     /// [BufferView]s of vertex buffers also implement [VertexInputStateDescription]):
     ///
     /// ```rust
+    /// # #![feature(const_fn)]
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
     /// use web_glitz::buffer::UsageHint;
     /// use web_glitz::vertex::VertexArrayDescriptor;
     ///
-    /// #[derive(web_glitz::Vertex, Clone, Copy)]
+    /// #[derive(web_glitz::derive::Vertex, Clone, Copy)]
     /// struct Position {
     ///     #[vertex_attribute(location = 0, format = "Float2_f32")]
     ///     position: [f32; 2],
     /// }
     ///
-    /// #[derive(web_glitz::Vertex, Clone, Copy)]
+    /// #[derive(web_glitz::derive::Vertex, Clone, Copy)]
     /// struct Color {
     ///     #[vertex_attribute(location = 1, format = "Float3_u8_norm")]
     ///     color: [u8; 3],
@@ -710,18 +722,19 @@ pub trait RenderingContext {
     /// buffer can be marked by wrapping it in [PerInstance]:
     ///
     /// ```rust
+    /// # #![feature(const_fn)]
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
     /// use web_glitz::buffer::UsageHint;
     /// use web_glitz::vertex::{VertexArrayDescriptor, PerInstance};
     ///
-    /// #[derive(web_glitz::Vertex, Clone, Copy)]
+    /// #[derive(web_glitz::derive::Vertex, Clone, Copy)]
     /// struct Vertex {
     ///     #[vertex_attribute(location = 0, format = "Float2_f32")]
     ///     position: [f32; 2],
     /// }
     ///
-    /// #[derive(web_glitz::Vertex, Clone, Copy)]
+    /// #[derive(web_glitz::derive::Vertex, Clone, Copy)]
     /// struct Instance {
     ///     #[vertex_attribute(location = 1, format = "Float2_f32")]
     ///     position: [f32; 2],
@@ -782,22 +795,23 @@ pub trait RenderingContext {
     /// # Example
     ///
     /// ```rust
-    /// # use web_glitz::runtime::RenderingContext;
-    /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
+    /// # use web_glitz::runtime::{Connection, RenderingContext};
+    /// # use web_glitz::task::GpuTask;
+    /// # fn wrapper<Rc, T>(context: &Rc, task: T) where Rc: RenderingContext, T: GpuTask<Connection> + 'static {
     /// use futures::future::FutureExt;
     ///
     /// use wasm_bindgen_futures::future_to_promise;
     ///
     /// let future_output = context.submit(task);
     ///
-    /// future_to_promise(future_output.then(|output| {
+    /// future_to_promise(future_output.inspect(|output| {
     ///     // Do something with the output...
     /// }));
     /// # }
     /// ```
     ///
     /// In this example we use [wasm_bindgen_futures::future_to_promise] to run the future returned
-    /// by [submit] in a WASM web context and we specify a `then` operation to do something with the
+    /// by [submit] in a WASM web context and use the `inspect` combinator to do something with the
     /// output value when the future resolves.
     ///
     /// Note that in many cases the output of a task is not relevant (the output is often just the
@@ -860,7 +874,7 @@ pub unsafe trait TransformFeedbackVaryings {}
 unsafe impl TransformFeedbackVaryings for () {}
 
 #[derive(PartialEq, Debug)]
-pub struct ShaderCompilationError(String);
+pub struct ShaderCompilationError(pub(crate) String);
 
 /// Error returned from [RenderingContext::create_graphics_pipeline].
 #[derive(Debug)]
@@ -934,23 +948,21 @@ pub enum Execution<O> {
 }
 
 impl<O> Future for Execution<O> {
-    type Item = O;
+    type Output = O;
 
-    type Error = ();
-
-    fn poll(&mut self) -> Poll<O, ()> {
-        match self {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<O> {
+        match unsafe { self.get_unchecked_mut() } {
             Execution::Ready(ref mut output) => {
                 let output = output
                     .take()
                     .expect("Cannot poll Execution more than once after its ready");
 
-                Ok(Async::Ready(output))
+                Poll::Ready(output)
             }
-            Execution::Pending(ref mut recv) => match recv.poll() {
-                Ok(Async::Ready(output)) => Ok(Async::Ready(output)),
-                Ok(Async::NotReady) => Ok(Async::NotReady),
-                _ => unreachable!(),
+            Execution::Pending(ref mut recv) => match Pin::new(recv).poll(cx) {
+                Poll::Ready(Ok(output)) => Poll::Ready(output),
+                Poll::Pending => Poll::Pending,
+                _ => unreachable!()
             },
         }
     }

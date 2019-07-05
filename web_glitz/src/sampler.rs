@@ -1,14 +1,13 @@
+use std::cell::UnsafeCell;
 use std::sync::Arc;
 
 use wasm_bindgen::JsCast;
-
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::runtime::{Connection, Extensions, RenderingContext};
 use crate::task::Progress;
 use crate::task::{ContextId, GpuTask};
 use crate::util::JsId;
-use std::cell::UnsafeCell;
 
 /// Enumerates the filters available to a [Sampler] for magnification filtering.
 ///
@@ -472,7 +471,7 @@ where
 pub(crate) struct SamplerData {
     id: UnsafeCell<Option<JsId>>,
     context_id: usize,
-    dropper: Box<SamplerObjectDropper>,
+    dropper: Box<dyn SamplerObjectDropper>,
     extensions: Extensions,
 }
 

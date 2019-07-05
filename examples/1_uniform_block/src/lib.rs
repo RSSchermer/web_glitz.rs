@@ -19,12 +19,13 @@ use web_glitz::pipeline::graphics::{
     CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, SlotBindingStrategy, WindingOrder,
 };
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
+use web_glitz::std140;
+use web_glitz::std140::repr_std140;
 use web_glitz::vertex::VertexArrayDescriptor;
-use web_glitz::{repr_std140, std140};
 
 use web_sys::{window, HtmlCanvasElement};
 
-#[derive(web_glitz::Vertex, Clone, Copy)]
+#[derive(web_glitz::derive::Vertex, Clone, Copy)]
 struct Vertex {
     #[vertex_attribute(location = 0, format = "Float2_f32")]
     position: [f32; 2],
@@ -47,9 +48,9 @@ struct Vertex {
 // implement `ReprStd140`).
 //
 // Marking the struct with `#[repr_std140]` is not quite enough for us to use it with a uniform
-// block, we must also derive `web_glitz::InterfaceBlock`. This trait can only be derived on a
-// struct when it implements `web_glitz::pipeline::interface_block::StableRepr` and when every field
-// implements `web_glitz::pipeline::interface_block::InterfaceBlockComponent`:
+// block, we must also derive `web_glitz::derive::InterfaceBlock`. This trait can only be derived on
+// a struct when it implements `web_glitz::pipeline::interface_block::StableRepr` and when every
+// field implements `web_glitz::pipeline::interface_block::InterfaceBlockComponent`:
 //
 // - `StableRepr` is a marker trait for types that will have a stable memory representation across
 //   compilations. By default, the Rust compiler gives only very few guarantees about a struct's
@@ -78,17 +79,17 @@ struct Vertex {
 // In this case our very simple uniform block contains only one `float` member, so we'll match that
 // in our struct.
 #[repr_std140]
-#[derive(web_glitz::InterfaceBlock, Clone, Copy)]
+#[derive(web_glitz::derive::InterfaceBlock, Clone, Copy)]
 struct Uniforms {
     scale: std140::float,
 }
 
-// Define our resources type and derive `web_glitz::Resources`.
+// Define our resources type and derive `web_glitz::derive::Resources`.
 //
 // We'll provide an instance of this type when we invoke our pipeline to supply it with the
 // resources our pipeline needs access to. In this case we'll need only one resource: a buffer
 // resource for our uniform block.
-#[derive(web_glitz::Resources)]
+#[derive(web_glitz::derive::Resources)]
 struct Resources<'a> {
     // We'll have to mark the field that will hold our buffer resource with a
     // `#[buffer_resource(...)]` attribute. We can only use this attribute on fields that implement

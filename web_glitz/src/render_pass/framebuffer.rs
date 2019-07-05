@@ -7,11 +7,7 @@ use fnv::FnvHasher;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::image::format::{
-    DepthRenderable, DepthStencilRenderable, Filterable, FloatRenderable, IntegerRenderable,
-    InternalFormat, RenderbufferFormat, StencilRenderable, TextureFormat,
-    UnsignedIntegerRenderable,
-};
+use crate::image::format::{DepthRenderable, DepthStencilRenderable, Filterable, FloatRenderable, IntegerRenderable, InternalFormat, RenderbufferFormat, StencilRenderable, TextureFormat, UnsignedIntegerRenderable, RGBA8, RGB8};
 use crate::image::renderbuffer::Renderbuffer;
 use crate::image::texture_2d::{Level as Texture2DLevel, LevelSubImage as Texture2DLevelSubImage};
 use crate::image::texture_2d_array::{
@@ -71,7 +67,8 @@ impl<C, Ds> Framebuffer<C, Ds> {
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::render_pass::{DefaultRenderTarget, DefaultRGBBuffer};
+    /// # use web_glitz::render_pass::DefaultRGBBuffer;
+    /// # use web_glitz::render_target::DefaultRenderTarget;
     /// # use web_glitz::runtime::RenderingContext;
     /// # use web_glitz::vertex::{Vertex, VertexArray};
     /// # use web_glitz::buffer::UsageHint;
@@ -91,7 +88,7 @@ impl<C, Ds> Framebuffer<C, Ds> {
     /// # {
     /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
     ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
-    ///         active_pipeline.draw_command(&vertex_stream, &resources);
+    ///         active_pipeline.draw_command(&vertex_stream, &resources)
     ///     })
     /// });
     /// # }
@@ -200,8 +197,10 @@ where
     /// # mut render_target: DefaultRenderTarget<DefaultRGBABuffer, ()>,
     /// # texture: Texture2D<RGBA8>
     /// # ) where Rc: RenderingContext {
+    /// use web_glitz::image::Region2D;
+    ///
     /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
-    ///     framebuffer.blit_color_nearest_command(Region::Fill, texture.base_level())
+    ///     framebuffer.blit_color_nearest_command(Region2D::Fill, &texture.base_level())
     /// });
     /// # }
     /// ```
@@ -267,8 +266,10 @@ where
     /// # mut render_target: DefaultRenderTarget<DefaultRGBABuffer, ()>,
     /// # texture: Texture2D<RGBA8>
     /// # ) where Rc: RenderingContext {
+    /// use web_glitz::image::Region2D;
+    ///
     /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
-    ///     framebuffer.blit_color_linear_command(Region::Fill, texture.base_level())
+    ///     framebuffer.blit_color_linear_command(Region2D::Fill, &texture.base_level())
     /// });
     /// # }
     /// ```
@@ -338,8 +339,10 @@ where
     /// # ) where
     /// # Rc: RenderingContext,
     /// # T: RenderTargetDescription<Framebuffer=Framebuffer<(), DepthStencilBuffer<Depth24Stencil8>>> {
+    /// use web_glitz::image::Region2D;
+    ///
     /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
-    ///     framebuffer.blit_depth_stencil_command(Region::Fill, &renderbuffer)
+    ///     framebuffer.blit_depth_stencil_command(Region2D::Fill, &renderbuffer)
     /// });
     /// # }
     /// ```
@@ -403,8 +406,10 @@ where
     /// # ) where
     /// # Rc: RenderingContext,
     /// # T: RenderTargetDescription<Framebuffer=Framebuffer<(), DepthStencilBuffer<Depth24Stencil8>>> {
+    /// use web_glitz::image::Region2D;
+    ///
     /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
-    ///     framebuffer.blit_depth_command(Region::Fill, &renderbuffer)
+    ///     framebuffer.blit_depth_command(Region2D::Fill, &renderbuffer)
     /// });
     /// # }
     /// ```
@@ -468,8 +473,10 @@ where
     /// # ) where
     /// # Rc: RenderingContext,
     /// # T: RenderTargetDescription<Framebuffer=Framebuffer<(), DepthStencilBuffer<Depth24Stencil8>>> {
+    /// use web_glitz::image::Region2D;
+    ///
     /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
-    ///     framebuffer.blit_depth_command(Region::Fill, &renderbuffer)
+    ///     framebuffer.blit_depth_command(Region2D::Fill, &renderbuffer)
     /// });
     /// # }
     /// ```
@@ -536,8 +543,10 @@ where
     /// # ) where
     /// # Rc: RenderingContext,
     /// # T: RenderTargetDescription<Framebuffer=Framebuffer<(), DepthBuffer<DepthComponent24>>> {
+    /// use web_glitz::image::Region2D;
+    ///
     /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
-    ///     framebuffer.blit_depth_command(Region::Fill, &renderbuffer)
+    ///     framebuffer.blit_depth_command(Region2D::Fill, &renderbuffer)
     /// });
     /// # }
     /// ```
@@ -604,8 +613,10 @@ where
     /// # ) where
     /// # Rc: RenderingContext,
     /// # T: RenderTargetDescription<Framebuffer=Framebuffer<(), StencilBuffer<StencilIndex8>>> {
+    /// use web_glitz::image::Region2D;
+    ///
     /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
-    ///     framebuffer.blit_stencil_command(Region::Fill, &renderbuffer)
+    ///     framebuffer.blit_stencil_command(Region2D::Fill, &renderbuffer)
     /// });
     /// # }
     /// ```
@@ -763,7 +774,8 @@ where
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::render_pass::{DefaultRenderTarget, DefaultRGBBuffer};
+    /// # use web_glitz::render_pass::DefaultRGBBuffer;
+    /// # use web_glitz::render_target::DefaultRenderTarget;
     /// # use web_glitz::runtime::RenderingContext;
     /// # use web_glitz::vertex::{Vertex, VertexArray};
     /// # use web_glitz::buffer::UsageHint;
@@ -783,7 +795,7 @@ where
     /// # {
     /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
     ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
-    ///         active_pipeline.draw_command(&vertex_stream, &resources);
+    ///         active_pipeline.draw_command(&vertex_stream, &resources)
     ///     })
     /// });
     /// # }
@@ -958,8 +970,8 @@ macro_rules! impl_blit_color_target {
     ($C0:ident, $($C:ident),*) => {
         impl<$C0, $($C),*> BlitColorTarget for ($C0, $($C),*)
         where
-            $C0: RenderBuffer,
-            $($C: RenderBuffer),*
+            $C0: RenderingOutputBuffer,
+            $($C: RenderingOutputBuffer),*
         {
             fn descriptor(&self) -> BlitTargetDescriptor {
                 #[allow(non_snake_case)]
@@ -1208,6 +1220,18 @@ unsafe impl<T> BlitColorCompatible<FloatBuffer<T::Format>> for T
 where
     T: BlitSource,
     T::Format: FloatRenderable,
+{
+}
+
+unsafe impl<T> BlitColorCompatible<DefaultRGBABuffer> for T
+    where
+        T: BlitSource<Format=RGBA8>
+{
+}
+
+unsafe impl<T> BlitColorCompatible<DefaultRGBBuffer> for T
+    where
+        T: BlitSource<Format=RGB8>
 {
 }
 

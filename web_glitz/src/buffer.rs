@@ -1,4 +1,5 @@
 use std::borrow::Borrow;
+use std::cell::UnsafeCell;
 use std::marker;
 use std::mem;
 use std::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
@@ -12,16 +13,18 @@ use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
-use std::cell::UnsafeCell;
 
 /// A GPU-accessible memory buffer that contains typed memory.
 ///
 /// # Example
 ///
 /// ```rust
+/// # use web_glitz::runtime::RenderingContext;
+/// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
 /// use web_glitz::buffer::{Buffer, UsageHint};
 ///
 /// let buffer: Buffer<[f32]> = context.create_buffer([1.0, 2.0, 3.0, 4.0], UsageHint::StreamDraw);
+/// # }
 /// ```
 ///
 /// A buffer can be created with any data that implements [IntoBuffer].
@@ -109,12 +112,17 @@ impl<T> Buffer<[T]> {
     /// # Examples
     ///
     /// ```rust
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
+    /// use web_glitz::buffer::UsageHint;
+    ///
     /// let buffer = context.create_buffer([1.0, 2.0, 3.0, 4.0], UsageHint::StreamDraw);
     ///
     /// buffer.get(1); // Some BufferView<f32> containing `2.0`
     /// buffer.get(1..3); // Some BufferView<[f32]> containing `[2.0, 3.0]`
     /// buffer.get(..2); // Some BufferView<[f32]> containing `[1.0 2.0]`
     /// buffer.get(4); // None (index out of bounds)
+    /// # }
     /// ```
     pub fn get<'a, I>(&'a self, index: I) -> Option<I::Output>
     where
@@ -134,9 +142,14 @@ impl<T> Buffer<[T]> {
     /// # Examples
     ///
     /// ```rust
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
+    /// use web_glitz::buffer::UsageHint;
+    ///
     /// let buffer = context.create_buffer([1.0, 2.0, 3.0, 4.0], UsageHint::StreamDraw);
     ///
     /// unsafe { buffer.get_unchecked(1) }; // BufferView<f32> containing `2.0`
+    /// # }
     /// ```
     ///
     /// # Unsafe
@@ -190,6 +203,13 @@ where
         }
     }
 }
+
+// TODO: CoerceUnsized doesn't currently work with only a PhantomData field...
+//impl<T, U> CoerceUnsized<Buffer<U>> for Buffer<T>
+//    where
+//        T: Unsize<U> + ?Sized,
+//        U: ?Sized,
+//{}
 
 /// A view on a segment or the whole of a [Buffer].
 #[derive(Copy)]
@@ -287,12 +307,18 @@ impl<'a, T> BufferView<'a, [T]> {
     /// # Examples
     ///
     /// ```rust
-    /// let view = context.create_buffer([1.0, 2.0, 3.0, 4.0], UsageHint::StreamDraw).view();
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
+    /// use web_glitz::buffer::UsageHint;
+    ///
+    /// let buffer = context.create_buffer([1.0, 2.0, 3.0, 4.0], UsageHint::StreamDraw);
+    /// let view = buffer.view();
     ///
     /// view.get(1); // Some BufferView<f32> containing `2.0`
     /// view.get(1..3); // Some BufferView<[f32]> containing `[2.0, 3.0]`
     /// view.get(..2); // Some BufferView<[f32]> containing `[1.0 2.0]`
     /// view.get(4); // None (index out of bounds)
+    /// # }
     /// ```
     pub fn get<I>(&self, index: I) -> Option<I::Output>
     where
@@ -312,9 +338,15 @@ impl<'a, T> BufferView<'a, [T]> {
     /// # Examples
     ///
     /// ```rust
-    /// let view = context.create_buffer([1.0, 2.0, 3.0, 4.0], UsageHint::StreamDraw).view();
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
+    /// use web_glitz::buffer::UsageHint;
+    ///
+    /// let buffer = context.create_buffer([1.0, 2.0, 3.0, 4.0], UsageHint::StreamDraw);
+    /// let view = buffer.view();
     ///
     /// unsafe { view.get_unchecked(1) }; // BufferView<f32> containing `2.0`
+    /// # }
     /// ```
     ///
     /// # Unsafe
@@ -382,6 +414,13 @@ impl<'a, T> Clone for BufferView<'a, [T]> {
         }
     }
 }
+
+// TODO: CoerceUnsized doesn't currently work with only a PhantomData field...
+//impl<'a, T, U> CoerceUnsized<BufferView<'a, U>> for BufferView<'a, T>
+//where
+//    T: Unsize<U> + ?Sized,
+//    U: ?Sized,
+//{}
 
 /// Trait implemented for types that represent or contain data that may be stored in a [Buffer].
 ///
@@ -1073,7 +1112,7 @@ where
 pub(crate) struct BufferData {
     id: UnsafeCell<Option<JsId>>,
     context_id: usize,
-    dropper: Box<BufferObjectDropper>,
+    dropper: Box<dyn BufferObjectDropper>,
     len: usize,
     usage_hint: UsageHint,
 }

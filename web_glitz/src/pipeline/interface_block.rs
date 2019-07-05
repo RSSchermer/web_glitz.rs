@@ -16,11 +16,13 @@ use crate::std140::ReprStd140;
 /// `std140` memory units defined in [web_glitz::std140]:
 ///
 /// ```
+/// # #![feature(const_fn)]
 /// use web_glitz::pipeline::interface_block::InterfaceBlock;
 /// use web_glitz::std140;
+/// use web_glitz::std140::repr_std140;
 ///
 /// #[repr_std140]
-/// #[derive(InterfaceBlock)]
+/// #[derive(web_glitz::derive::InterfaceBlock)]
 /// struct MyUniforms {
 ///     transform: std140::mat4x4,
 ///     base_color: std140::vec4,
@@ -34,9 +36,10 @@ use crate::std140::ReprStd140;
 /// ```
 /// use web_glitz::pipeline::interface_block::InterfaceBlock;
 /// use web_glitz::std140;
+/// use web_glitz::std140::repr_std140;
 ///
 /// #[repr_std140]
-/// #[derive(InterfaceBlockComponent)]
+/// #[derive(web_glitz::derive::InterfaceBlockComponent)]
 /// struct PointLight {
 ///     position: std140::vec3,
 ///     color: std140::vec3,
@@ -46,7 +49,7 @@ use crate::std140::ReprStd140;
 /// }
 ///
 /// #[repr_std140]
-/// #[derive(InterfaceBlock)]
+/// #[derive(web_glitz::derive::InterfaceBlock)]
 /// struct MyUniforms {
 ///     transform: std140::mat4x4,
 ///     base_color: std140::vec4,

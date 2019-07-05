@@ -14,11 +14,12 @@ pub fn expand_derive_interface_block_component(input: &DeriveInput) -> Result<To
             let span = field.span();
 
             quote_spanned! {span=>
-                let offset = base_offset + offset_of!(#struct_name, #ident);
+                let offset = component_offset + offset_of!(#struct_name, #ident);
                 let check = <#ty as #mod_path::InterfaceBlockComponent>::check_compatibility(offset, remainder);
 
-                if check != #mod_path::CheckCompatiblity::Continue {
-                    return check;
+                match check {
+                    #mod_path::CheckCompatibility::Continue => (),
+                    _ => return check
                 }
             }
         });
@@ -55,16 +56,17 @@ pub fn expand_derive_interface_block_component(input: &DeriveInput) -> Result<To
         let impl_block = quote! {
             #[automatically_derived]
             unsafe impl #impl_generics #mod_path::InterfaceBlockComponent for #struct_name #ty_generics #where_clause {
-                fn check_compatibility<'a, I>(
+                fn check_compatibility<'a, 'b, I>(
                     component_offset: usize,
                     remainder: &'a mut I,
                 ) -> #mod_path::CheckCompatibility
                 where
-                    I: std::iter::Iterator<Item = &'a #mod_path::MemoryUnitDescriptor>
+                    I: std::iter::Iterator<Item = &'b #mod_path::MemoryUnitDescriptor>,
+                    'b: 'a
                 {
                     #(#recurse)*
 
-                    CheckCompatibility::Continue
+                    #mod_path::CheckCompatibility::Continue
                 }
             }
         };

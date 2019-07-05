@@ -1,6 +1,7 @@
 mod vertex_input_state_description;
 pub use self::vertex_input_state_description::{
     PerInstance, VertexAttributeDescriptor, VertexInputDescriptor, VertexInputStateDescription,
+    InputRate
 };
 
 mod index_buffer_description;
@@ -44,7 +45,8 @@ pub mod attribute_format;
 /// one of the [AttributeFormatIdentifier] types defined in the [attribute_format] module:
 ///
 /// ```rust
-/// #[derive(web_glitz::Vertex, Clone, Copy)]
+/// # #![feature(const_fn)]
+/// #[derive(web_glitz::derive::Vertex, Clone, Copy)]
 /// struct Vertex {
 ///     #[vertex_attribute(location = 0, format = "Float2_f32")]
 ///     position: [f32; 2],

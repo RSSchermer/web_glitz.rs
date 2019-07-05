@@ -884,10 +884,12 @@ unsafe impl RenderbufferFormat for RGBA16UI {}
 unsafe impl RenderbufferFormat for RGBA16I {}
 unsafe impl RenderbufferFormat for RGBA32UI {}
 unsafe impl RenderbufferFormat for RGBA32I {}
+unsafe impl RenderbufferFormat for DepthComponent16 {}
 unsafe impl RenderbufferFormat for DepthComponent24 {}
 unsafe impl RenderbufferFormat for DepthComponent32F {}
 unsafe impl RenderbufferFormat for Depth24Stencil8 {}
 unsafe impl RenderbufferFormat for Depth32FStencil8 {}
+unsafe impl RenderbufferFormat for StencilIndex8 {}
 
 pub struct R8;
 
@@ -1003,6 +1005,12 @@ unsafe impl InternalFormat for RG8 {
     const ID: u32 = Gl::RG8;
 }
 
+unsafe impl ClientFormat<RG8> for [u8; 2] {
+    const FORMAT_ID: u32 = Gl::RG;
+
+    const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
+}
+
 unsafe impl ClientFormat<RG8> for (u8, u8) {
     const FORMAT_ID: u32 = Gl::RG;
 
@@ -1013,6 +1021,12 @@ pub struct RG16F;
 
 unsafe impl InternalFormat for RG16F {
     const ID: u32 = Gl::RG16F;
+}
+
+unsafe impl ClientFormat<RG16F> for [f32; 2] {
+    const FORMAT_ID: u32 = Gl::RG;
+
+    const TYPE_ID: u32 = Gl::FLOAT;
 }
 
 unsafe impl ClientFormat<RG16F> for (f32, f32) {
@@ -1027,6 +1041,12 @@ unsafe impl InternalFormat for RG32F {
     const ID: u32 = Gl::RG32F;
 }
 
+unsafe impl ClientFormat<RG32F> for [f32; 2] {
+    const FORMAT_ID: u32 = Gl::RG;
+
+    const TYPE_ID: u32 = Gl::FLOAT;
+}
+
 unsafe impl ClientFormat<RG32F> for (f32, f32) {
     const FORMAT_ID: u32 = Gl::RG;
 
@@ -1037,6 +1057,12 @@ pub struct RG8UI;
 
 unsafe impl InternalFormat for RG8UI {
     const ID: u32 = Gl::RG8UI;
+}
+
+unsafe impl ClientFormat<RG8UI> for [u8; 2] {
+    const FORMAT_ID: u32 = Gl::RG_INTEGER;
+
+    const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
 unsafe impl ClientFormat<RG8UI> for (u8, u8) {
@@ -1051,6 +1077,12 @@ unsafe impl InternalFormat for RG8I {
     const ID: u32 = Gl::RG8I;
 }
 
+unsafe impl ClientFormat<RG8I> for [i8; 2] {
+    const FORMAT_ID: u32 = Gl::RG_INTEGER;
+
+    const TYPE_ID: u32 = Gl::BYTE;
+}
+
 unsafe impl ClientFormat<RG8I> for (i8, i8) {
     const FORMAT_ID: u32 = Gl::RG_INTEGER;
 
@@ -1061,6 +1093,12 @@ pub struct RG16UI;
 
 unsafe impl InternalFormat for RG16UI {
     const ID: u32 = Gl::RG16UI;
+}
+
+unsafe impl ClientFormat<RG16UI> for [u16; 2] {
+    const FORMAT_ID: u32 = Gl::RG_INTEGER;
+
+    const TYPE_ID: u32 = Gl::UNSIGNED_SHORT;
 }
 
 unsafe impl ClientFormat<RG16UI> for (u16, u16) {
@@ -1075,6 +1113,12 @@ unsafe impl InternalFormat for RG16I {
     const ID: u32 = Gl::RG16I;
 }
 
+unsafe impl ClientFormat<RG16I> for [i16; 2] {
+    const FORMAT_ID: u32 = Gl::RG_INTEGER;
+
+    const TYPE_ID: u32 = Gl::SHORT;
+}
+
 unsafe impl ClientFormat<RG16I> for (i16, i16) {
     const FORMAT_ID: u32 = Gl::RG_INTEGER;
 
@@ -1085,6 +1129,12 @@ pub struct RG32UI;
 
 unsafe impl InternalFormat for RG32UI {
     const ID: u32 = Gl::RG32UI;
+}
+
+unsafe impl ClientFormat<RG32UI> for [u32; 2] {
+    const FORMAT_ID: u32 = Gl::RG_INTEGER;
+
+    const TYPE_ID: u32 = Gl::UNSIGNED_INT;
 }
 
 unsafe impl ClientFormat<RG32UI> for (u32, u32) {
@@ -1099,6 +1149,12 @@ unsafe impl InternalFormat for RG32I {
     const ID: u32 = Gl::RG32I;
 }
 
+unsafe impl ClientFormat<RG32I> for [i32; 2] {
+    const FORMAT_ID: u32 = Gl::RG_INTEGER;
+
+    const TYPE_ID: u32 = Gl::INT;
+}
+
 unsafe impl ClientFormat<RG32I> for (i32, i32) {
     const FORMAT_ID: u32 = Gl::RG_INTEGER;
 
@@ -1109,6 +1165,12 @@ pub struct RGB8;
 
 unsafe impl InternalFormat for RGB8 {
     const ID: u32 = Gl::RGB8;
+}
+
+unsafe impl ClientFormat<RGB8> for [u8; 3] {
+    const FORMAT_ID: u32 = Gl::RGB;
+
+    const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
 unsafe impl ClientFormat<RGB8> for (u8, u8, u8) {
@@ -1123,6 +1185,12 @@ unsafe impl InternalFormat for SRGB8 {
     const ID: u32 = Gl::SRGB8;
 }
 
+unsafe impl ClientFormat<SRGB8> for [u8; 3] {
+    const FORMAT_ID: u32 = Gl::RGB;
+
+    const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
+}
+
 unsafe impl ClientFormat<SRGB8> for (u8, u8, u8) {
     const FORMAT_ID: u32 = Gl::RGB;
 
@@ -1133,6 +1201,12 @@ pub struct RGB565;
 
 unsafe impl InternalFormat for RGB565 {
     const ID: u32 = Gl::RGB565;
+}
+
+unsafe impl ClientFormat<RGB565> for [u8; 3] {
+    const FORMAT_ID: u32 = Gl::RGB;
+
+    const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
 unsafe impl ClientFormat<RGB565> for (u8, u8, u8) {
@@ -1158,6 +1232,12 @@ unsafe impl ClientFormat<R11F_G11F_B10F> for u32 {
     const FORMAT_ID: u32 = Gl::RGB;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_INT_10F_11F_11F_REV;
+}
+
+unsafe impl ClientFormat<R11F_G11F_B10F> for [f32; 3] {
+    const FORMAT_ID: u32 = Gl::RGB;
+
+    const TYPE_ID: u32 = Gl::FLOAT;
 }
 
 unsafe impl ClientFormat<R11F_G11F_B10F> for (f32, f32, f32) {
@@ -1191,6 +1271,12 @@ unsafe impl InternalFormat for RGB16F {
     const ID: u32 = Gl::RGB16F;
 }
 
+unsafe impl ClientFormat<RGB16F> for [f32; 3] {
+    const FORMAT_ID: u32 = Gl::RGB;
+
+    const TYPE_ID: u32 = Gl::FLOAT;
+}
+
 unsafe impl ClientFormat<RGB16F> for (f32, f32, f32) {
     const FORMAT_ID: u32 = Gl::RGB;
 
@@ -1201,6 +1287,12 @@ pub struct RGB32F;
 
 unsafe impl InternalFormat for RGB32F {
     const ID: u32 = Gl::RGB32F;
+}
+
+unsafe impl ClientFormat<RGB32F> for [f32; 3] {
+    const FORMAT_ID: u32 = Gl::RGB;
+
+    const TYPE_ID: u32 = Gl::FLOAT;
 }
 
 unsafe impl ClientFormat<RGB32F> for (f32, f32, f32) {
@@ -1215,6 +1307,12 @@ unsafe impl InternalFormat for RGB8UI {
     const ID: u32 = Gl::RGB8UI;
 }
 
+unsafe impl ClientFormat<RGB8UI> for [u8; 3] {
+    const FORMAT_ID: u32 = Gl::RGB_INTEGER;
+
+    const TYPE_ID: u32 = Gl::FLOAT;
+}
+
 unsafe impl ClientFormat<RGB8UI> for (u8, u8, u8) {
     const FORMAT_ID: u32 = Gl::RGB_INTEGER;
 
@@ -1225,6 +1323,12 @@ pub struct RGBA8;
 
 unsafe impl InternalFormat for RGBA8 {
     const ID: u32 = Gl::RGBA8;
+}
+
+unsafe impl ClientFormat<RGBA8> for [u8; 4] {
+    const FORMAT_ID: u32 = Gl::RGBA;
+
+    const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
 unsafe impl ClientFormat<RGBA8> for (u8, u8, u8, u8) {
@@ -1240,6 +1344,12 @@ unsafe impl InternalFormat for SRGB8_ALPHA8 {
     const ID: u32 = Gl::SRGB8_ALPHA8;
 }
 
+unsafe impl ClientFormat<SRGB8_ALPHA8> for [u8; 4] {
+    const FORMAT_ID: u32 = Gl::RGBA;
+
+    const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
+}
+
 unsafe impl ClientFormat<SRGB8_ALPHA8> for (u8, u8, u8, u8) {
     const FORMAT_ID: u32 = Gl::RGBA;
 
@@ -1251,6 +1361,12 @@ pub struct RGB5_A1;
 
 unsafe impl InternalFormat for RGB5_A1 {
     const ID: u32 = Gl::RGB5_A1;
+}
+
+unsafe impl ClientFormat<RGB5_A1> for [u8; 4] {
+    const FORMAT_ID: u32 = Gl::RGBA;
+
+    const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
 unsafe impl ClientFormat<RGB5_A1> for (u8, u8, u8, u8) {
@@ -1275,6 +1391,12 @@ pub struct RGBA4;
 
 unsafe impl InternalFormat for RGBA4 {
     const ID: u32 = Gl::RGBA4;
+}
+
+unsafe impl ClientFormat<RGBA4> for [u8; 4] {
+    const FORMAT_ID: u32 = Gl::RGBA;
+
+    const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
 unsafe impl ClientFormat<RGBA4> for (u8, u8, u8, u8) {
@@ -1321,6 +1443,12 @@ unsafe impl InternalFormat for RGBA16F {
     const ID: u32 = Gl::RGBA16F;
 }
 
+unsafe impl ClientFormat<RGBA16F> for [f32; 4] {
+    const FORMAT_ID: u32 = Gl::RGBA;
+
+    const TYPE_ID: u32 = Gl::FLOAT;
+}
+
 unsafe impl ClientFormat<RGBA16F> for (f32, f32, f32, f32) {
     const FORMAT_ID: u32 = Gl::RGBA;
 
@@ -1331,6 +1459,12 @@ pub struct RGBA32F;
 
 unsafe impl InternalFormat for RGBA32F {
     const ID: u32 = Gl::RGBA32F;
+}
+
+unsafe impl ClientFormat<RGBA32F> for [f32; 4] {
+    const FORMAT_ID: u32 = Gl::RGBA;
+
+    const TYPE_ID: u32 = Gl::FLOAT;
 }
 
 unsafe impl ClientFormat<RGBA32F> for (f32, f32, f32, f32) {
@@ -1345,6 +1479,12 @@ unsafe impl InternalFormat for RGBA8UI {
     const ID: u32 = Gl::RGBA8UI;
 }
 
+unsafe impl ClientFormat<RGBA8UI> for [u8; 4] {
+    const FORMAT_ID: u32 = Gl::RGBA_INTEGER;
+
+    const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
+}
+
 unsafe impl ClientFormat<RGBA8UI> for (u8, u8, u8, u8) {
     const FORMAT_ID: u32 = Gl::RGBA_INTEGER;
 
@@ -1355,6 +1495,12 @@ pub struct RGBA8I;
 
 unsafe impl InternalFormat for RGBA8I {
     const ID: u32 = Gl::RGBA8I;
+}
+
+unsafe impl ClientFormat<RGBA8I> for [i8; 4] {
+    const FORMAT_ID: u32 = Gl::RGBA_INTEGER;
+
+    const TYPE_ID: u32 = Gl::BYTE;
 }
 
 unsafe impl ClientFormat<RGBA8I> for (i8, i8, i8, i8) {
@@ -1369,6 +1515,12 @@ unsafe impl InternalFormat for RGBA16UI {
     const ID: u32 = Gl::RGBA16UI;
 }
 
+unsafe impl ClientFormat<RGBA16UI> for [u16; 4] {
+    const FORMAT_ID: u32 = Gl::RGBA_INTEGER;
+
+    const TYPE_ID: u32 = Gl::UNSIGNED_SHORT;
+}
+
 unsafe impl ClientFormat<RGBA16UI> for (u16, u16, u16, u16) {
     const FORMAT_ID: u32 = Gl::RGBA_INTEGER;
 
@@ -1379,6 +1531,12 @@ pub struct RGBA16I;
 
 unsafe impl InternalFormat for RGBA16I {
     const ID: u32 = Gl::RGBA16I;
+}
+
+unsafe impl ClientFormat<RGBA16I> for [i16; 4] {
+    const FORMAT_ID: u32 = Gl::RGBA_INTEGER;
+
+    const TYPE_ID: u32 = Gl::SHORT;
 }
 
 unsafe impl ClientFormat<RGBA16I> for (i16, i16, i16, i16) {
@@ -1393,6 +1551,12 @@ unsafe impl InternalFormat for RGBA32UI {
     const ID: u32 = Gl::RGBA32UI;
 }
 
+unsafe impl ClientFormat<RGBA32UI> for [u32; 4] {
+    const FORMAT_ID: u32 = Gl::RGBA_INTEGER;
+
+    const TYPE_ID: u32 = Gl::UNSIGNED_INT;
+}
+
 unsafe impl ClientFormat<RGBA32UI> for (u32, u32, u32, u32) {
     const FORMAT_ID: u32 = Gl::RGBA_INTEGER;
 
@@ -1403,6 +1567,12 @@ pub struct RGBA32I;
 
 unsafe impl InternalFormat for RGBA32I {
     const ID: u32 = Gl::RGBA32I;
+}
+
+unsafe impl ClientFormat<RGBA32I> for [i32; 4] {
+    const FORMAT_ID: u32 = Gl::RGBA_INTEGER;
+
+    const TYPE_ID: u32 = Gl::INT;
 }
 
 unsafe impl ClientFormat<RGBA32I> for (i32, i32, i32, i32) {
@@ -1493,6 +1663,12 @@ pub struct LuminanceAlpha;
 
 unsafe impl InternalFormat for LuminanceAlpha {
     const ID: u32 = Gl::LUMINANCE_ALPHA;
+}
+
+unsafe impl ClientFormat<LuminanceAlpha> for [u8; 2] {
+    const FORMAT_ID: u32 = Gl::LUMINANCE_ALPHA;
+
+    const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
 unsafe impl ClientFormat<LuminanceAlpha> for (u8, u8) {

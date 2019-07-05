@@ -1,10 +1,8 @@
-#[macro_use]
+#![feature(const_fn)]
 extern crate web_glitz;
 
-use web_glitz::vertex_input::Vertex;
-
-#[derive(Vertex)] //~ ERROR: does not declare a binding location
+#[derive(web_glitz::derive::Vertex)] //~ ERROR: does not declare a binding location
 struct VertexA {
-    #[vertex_attribute]
-    position: (f32, f32, f32, f32)
+    #[vertex_attribute(format = "Float4_f32")]
+    position: [f32; 4]
 }

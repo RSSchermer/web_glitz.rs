@@ -32,7 +32,7 @@ use crate::vertex::{Vertex, VertexAttributeLayout};
 /// ```
 /// use web_glitz::vertex::{
 ///     VertexAttributeDescriptor, VertexAttributeLayout, VertexInputDescriptor,
-///     VertexInputStateDescription
+///     VertexInputStateDescription, InputRate
 /// };
 /// use web_glitz::vertex::attribute_format::AttributeFormat;
 /// use web_glitz::buffer::Buffer;

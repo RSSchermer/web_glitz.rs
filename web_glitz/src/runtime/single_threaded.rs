@@ -13,8 +13,10 @@
 //! A new single threaded runtime may be initialized by calling [init] with a
 //! [web_sys::HtmlCanvasElement] and [ContextOptions]:
 //!
-//! ```
+//! ```no_run
+//! use wasm_bindgen::JsCast;
 //! use web_glitz::runtime::{single_threaded, ContextOptions};
+//! use web_sys::{window, HtmlCanvasElement};
 //!
 //! let canvas: HtmlCanvasElement = window()
 //!     .unwrap()
@@ -66,6 +68,7 @@
 //! scheduled earlier), then the JavaScript/WASM runtime will finish this work before checking the
 //! fenced-task queue again.
 
+use std::any::TypeId;
 use std::borrow::Borrow;
 use std::cell::{Cell, RefCell};
 use std::hash::{Hash, Hasher};
@@ -89,7 +92,7 @@ use crate::pipeline::graphics::shader::{
 };
 use crate::pipeline::graphics::{
     AttributeSlotLayoutCompatible, FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor,
-    ShaderCompilationError, VertexShader,
+    VertexShader,
 };
 use crate::pipeline::resources::Resources;
 use crate::render_pass::{
@@ -103,13 +106,15 @@ use crate::runtime::rendering_context::{
     CreateGraphicsPipelineError, Extensions, TransformFeedbackVaryings,
 };
 use crate::runtime::state::DynamicState;
-use crate::runtime::{Connection, ContextOptions, Execution, PowerPreference, RenderingContext};
+use crate::runtime::{
+    Connection, ContextOptions, Execution, PowerPreference, RenderingContext,
+    ShaderCompilationError,
+};
 use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
 use crate::task::{GpuTask, Progress};
 use crate::vertex::{
     IndexBufferDescription, VertexArray, VertexArrayDescriptor, VertexInputStateDescription,
 };
-use std::any::TypeId;
 
 thread_local!(static ID_GEN: IdGen = IdGen::new());
 

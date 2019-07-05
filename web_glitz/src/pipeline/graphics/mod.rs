@@ -24,7 +24,7 @@ pub(crate) mod primitive_assembly;
 pub use self::primitive_assembly::{CullingMode, LineWidth, PrimitiveAssembly, WindingOrder};
 
 pub(crate) mod shader;
-pub use self::shader::{FragmentShader, ShaderCompilationError, VertexShader};
+pub use self::shader::{FragmentShader, VertexShader};
 
 mod viewport;
 pub use self::viewport::Viewport;

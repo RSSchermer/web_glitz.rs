@@ -1,13 +1,12 @@
-use crate::pipeline::interface_block;
-use crate::pipeline::interface_block::InterfaceBlock;
-use crate::pipeline::interface_block::MatrixOrder;
-use crate::pipeline::interface_block::MemoryUnitDescriptor;
-use fnv::FnvHasher;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
+use fnv::FnvHasher;
 use js_sys::{Uint32Array, Uint8Array};
 use web_sys::{WebGl2RenderingContext as Gl, WebGlProgram, WebGlUniformLocation};
+
+use crate::pipeline::interface_block;
+use crate::pipeline::interface_block::{InterfaceBlock, MatrixOrder, MemoryUnitDescriptor};
 
 /// Describes a slot for a resource in a GPU pipeline.
 pub struct ResourceSlotDescriptor {

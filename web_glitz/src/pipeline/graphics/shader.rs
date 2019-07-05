@@ -1,12 +1,13 @@
-use crate::runtime::{Connection, RenderingContext};
-use crate::task::{ContextId, GpuTask, Progress};
-use crate::util::JsId;
 use std::borrow::Borrow;
+use std::cell::UnsafeCell;
 use std::sync::Arc;
 
-use std::cell::UnsafeCell;
 use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
+
+use crate::runtime::{Connection, RenderingContext, ShaderCompilationError};
+use crate::task::{ContextId, GpuTask, Progress};
+use crate::util::JsId;
 
 /// The programmable stage in the rendering pipeline that handles the processing of individual
 /// vertices.
@@ -53,7 +54,7 @@ impl FragmentShader {
 pub(crate) struct VertexShaderData {
     id: UnsafeCell<Option<JsId>>,
     context_id: usize,
-    dropper: Box<VertexShaderObjectDropper>,
+    dropper: Box<dyn VertexShaderObjectDropper>,
 }
 
 impl VertexShaderData {
@@ -69,7 +70,7 @@ impl VertexShaderData {
 pub(crate) struct FragmentShaderData {
     id: UnsafeCell<Option<JsId>>,
     context_id: usize,
-    dropper: Box<FragmentShaderObjectDropper>,
+    dropper: Box<dyn FragmentShaderObjectDropper>,
 }
 
 impl FragmentShaderData {

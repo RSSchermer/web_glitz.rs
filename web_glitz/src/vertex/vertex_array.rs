@@ -1,3 +1,11 @@
+use std::borrow::Borrow;
+use std::cell::UnsafeCell;
+use std::marker;
+use std::ops::Range;
+use std::sync::Arc;
+
+use wasm_bindgen::JsCast;
+
 use crate::buffer::BufferData;
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
@@ -7,12 +15,6 @@ use crate::vertex::{
     IndexBufferDescription, IndexBufferDescriptor, IndexType, VertexAttributeDescriptor,
     VertexAttributeLayout, VertexInputDescriptor, VertexInputStateDescription,
 };
-use std::borrow::Borrow;
-use std::marker;
-use std::sync::Arc;
-
-use std::cell::UnsafeCell;
-use wasm_bindgen::JsCast;
 
 /// Provides the information necessary for the creation of a [VertexArray].
 ///
@@ -51,7 +53,8 @@ pub struct Instanced<T>(pub(crate) T, pub(crate) usize);
 /// A [VertexArray] may act as a [VertexStreamDescription] for a draw command:
 ///
 /// ```
-/// # use web_glitz::render_pass::{DefaultRenderTarget, DefaultRGBBuffer};
+/// # use web_glitz::render_pass::DefaultRGBBuffer;
+/// # use web_glitz::render_target::DefaultRenderTarget;
 /// # use web_glitz::runtime::RenderingContext;
 /// # use web_glitz::vertex::{Vertex, VertexArrayDescriptor};
 /// # use web_glitz::buffer::UsageHint;
@@ -59,12 +62,12 @@ pub struct Instanced<T>(pub(crate) T, pub(crate) usize);
 /// # fn wrapper<Rc, V>(
 /// #     context: &Rc,
 /// #     mut render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
-/// #     vertex_data: [V; 100],
+/// #     vertex_data: Vec<V>,
 /// #     graphics_pipeline: GraphicsPipeline<V, (), ()>
 /// # )
 /// # where
 /// #     Rc: RenderingContext,
-/// #     V: Vertex
+/// #     V: Vertex + Clone + Copy + 'static
 /// # {
 /// # let vertex_buffer = context.create_buffer(vertex_data, UsageHint::StaticDraw);
 /// let vertex_array = context.create_vertex_array(&VertexArrayDescriptor {
@@ -74,7 +77,7 @@ pub struct Instanced<T>(pub(crate) T, pub(crate) usize);
 ///
 /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
 ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
-///         active_pipeline.draw_command(&vertex_array, &());
+///         active_pipeline.draw_command(&vertex_array, &())
 ///     })
 /// });
 /// # }
@@ -204,7 +207,8 @@ impl<L> VertexArray<L> {
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::render_pass::{DefaultRenderTarget, DefaultRGBBuffer};
+    /// # use web_glitz::render_pass::DefaultRGBBuffer;
+    /// # use web_glitz::render_target::DefaultRenderTarget;
     /// # use web_glitz::runtime::RenderingContext;
     /// # use web_glitz::vertex::{Vertex, VertexArrayDescriptor};
     /// # use web_glitz::buffer::UsageHint;
@@ -212,12 +216,12 @@ impl<L> VertexArray<L> {
     /// # fn wrapper<Rc, V>(
     /// #     context: &Rc,
     /// #     render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
-    /// #     vertex_data: [V; 100],
+    /// #     vertex_data: Vec<V>,
     /// #     graphics_pipeline: GraphicsPipeline<V, (), ()>
     /// # )
     /// # where
     /// #     Rc: RenderingContext,
-    /// #     V: Vertex
+    /// #     V: Vertex + Clone + Copy + 'static
     /// # {
     /// # let vertex_buffer = context.create_buffer(vertex_data, UsageHint::StaticDraw);
     /// let vertex_array = context.create_vertex_array(&VertexArrayDescriptor {
@@ -241,7 +245,7 @@ impl<L> VertexArray<L> {
     ///
     /// let render_pass = context.create_render_pass(render_target, |framebuffer| {
     ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
-    ///         active_pipeline.draw_command(&range, &());
+    ///         active_pipeline.draw_command(&range, &())
     ///     })
     /// });
     /// # }
@@ -267,7 +271,8 @@ impl<L> VertexArray<L> {
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::render_pass::{DefaultRenderTarget, DefaultRGBBuffer};
+    /// # use web_glitz::render_pass::DefaultRGBBuffer;
+    /// # use web_glitz::render_target::DefaultRenderTarget;
     /// # use web_glitz::runtime::RenderingContext;
     /// # use web_glitz::vertex::{Vertex, VertexArrayDescriptor};
     /// # use web_glitz::buffer::UsageHint;
@@ -275,12 +280,12 @@ impl<L> VertexArray<L> {
     /// # fn wrapper<Rc, V>(
     /// #     context: &Rc,
     /// #     render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
-    /// #     vertex_data: [V; 100],
+    /// #     vertex_data: Vec<V>,
     /// #     graphics_pipeline: GraphicsPipeline<V, (), ()>
     /// # )
     /// # where
     /// #     Rc: RenderingContext,
-    /// #     V: Vertex
+    /// #     V: Vertex + Clone + Copy + 'static
     /// # {
     /// # let vertex_buffer = context.create_buffer(vertex_data, UsageHint::StaticDraw);
     /// let vertex_array = context.create_vertex_array(&VertexArrayDescriptor {
@@ -296,7 +301,7 @@ impl<L> VertexArray<L> {
     ///
     /// let render_pass = context.create_render_pass(render_target, |framebuffer| {
     ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
-    ///         active_pipeline.draw_command(&range, &());
+    ///         active_pipeline.draw_command(&range, &())
     ///     })
     /// });
     /// # }
@@ -320,7 +325,8 @@ impl<L> VertexArray<L> {
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::render_pass::{DefaultRenderTarget, DefaultRGBBuffer};
+    /// # use web_glitz::render_pass::DefaultRGBBuffer;
+    /// # use web_glitz::render_target::DefaultRenderTarget;
     /// # use web_glitz::runtime::RenderingContext;
     /// # use web_glitz::vertex::{Vertex, VertexArrayDescriptor};
     /// # use web_glitz::buffer::UsageHint;
@@ -328,12 +334,12 @@ impl<L> VertexArray<L> {
     /// # fn wrapper<Rc, V>(
     /// #     context: &Rc,
     /// #     render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
-    /// #     vertex_data: [V; 100],
+    /// #     vertex_data: Vec<V>,
     /// #     graphics_pipeline: GraphicsPipeline<V, (), ()>
     /// # )
     /// # where
     /// #     Rc: RenderingContext,
-    /// #     V: Vertex
+    /// #     V: Vertex + Clone + Copy + 'static
     /// # {
     /// # let vertex_buffer = context.create_buffer(vertex_data, UsageHint::StaticDraw);
     /// let vertex_array = context.create_vertex_array(&VertexArrayDescriptor {
@@ -343,7 +349,7 @@ impl<L> VertexArray<L> {
     ///
     /// let render_pass = context.create_render_pass(render_target, |framebuffer| {
     ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
-    ///         active_pipeline.draw_command(&vertex_array.instanced(10), &());
+    ///         active_pipeline.draw_command(&vertex_array.instanced(10), &())
     ///     })
     /// });
     /// # }
@@ -375,6 +381,30 @@ pub trait VertexArrayRange {
         self,
         vertex_array: &VertexArraySlice<'a, L>,
     ) -> VertexArraySlice<'a, L>;
+}
+
+impl VertexArrayRange for Range<usize> {
+    fn range<'a, L>(self, vertex_array: &VertexArraySlice<'a, L>) -> Option<VertexArraySlice<'a, L>> {
+        let Range { start, end } = self;
+
+        if start > end || end > vertex_array.len {
+            None
+        } else {
+            Some(VertexArraySlice {
+                vertex_array: vertex_array.vertex_array,
+                offset: self.start + vertex_array.offset,
+                len: end - start
+            })
+        }
+    }
+
+    unsafe fn range_unchecked<'a, L>(self, vertex_array: &VertexArraySlice<'a, L>) -> VertexArraySlice<'a, L> {
+        VertexArraySlice {
+            vertex_array: vertex_array.vertex_array,
+            offset: self.start + vertex_array.offset,
+            len: self.len()
+        }
+    }
 }
 
 /// A reference to a sub-range of the [VertexArray].
@@ -449,7 +479,7 @@ where
 pub(crate) struct VertexArrayData {
     id: UnsafeCell<Option<JsId>>,
     context_id: usize,
-    dropper: Box<VertexArrayObjectDropper>,
+    dropper: Box<dyn VertexArrayObjectDropper>,
     #[allow(dead_code)] // Just holding on to these so they don't get dropped prematurely
     vertex_buffer_pointers: Vec<Arc<BufferData>>,
     #[allow(dead_code)] // Just holding on to this so it doesn't get dropped prematurely

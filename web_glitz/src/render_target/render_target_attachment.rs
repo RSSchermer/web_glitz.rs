@@ -357,10 +357,10 @@ impl LoadAction {
                 gl.clear_bufferfi(Gl::DEPTH_STENCIL, 0, *depth, *stencil)
             }
             LoadAction::ClearDepth(value) => {
-                gl.clear_bufferfv_with_f32_array(Gl::DEPTH, 0, &[*value])
+                gl.clear_bufferfv_with_f32_array(Gl::DEPTH, 0, &mut [*value])
             }
             LoadAction::ClearStencil(value) => {
-                gl.clear_bufferiv_with_i32_array(Gl::STENCIL, 0, &[*value])
+                gl.clear_bufferiv_with_i32_array(Gl::STENCIL, 0, &mut [*value])
             }
         }
     }

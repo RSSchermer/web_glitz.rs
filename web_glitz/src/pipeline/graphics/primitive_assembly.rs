@@ -218,9 +218,10 @@ impl Topology {
 /// Can be constructed from an `f32` via [TryFrom]:
 ///
 /// ```
+/// use std::convert::TryFrom;
 /// use web_glitz::pipeline::graphics::LineWidth;
 ///
-/// let line_width = LineWidth::try_from(2.0)?;
+/// let line_width = LineWidth::try_from(2.0).unwrap();
 /// ```
 ///
 /// The value must not be negative or [f32::NAN], otherwise [InvalidLineWidth] is returned.
@@ -228,6 +229,7 @@ impl Topology {
 /// A [LineWidth] may be instantiated with the default value through [Default]:
 ///
 /// ```
+/// use std::convert::TryFrom;
 /// use web_glitz::pipeline::graphics::LineWidth;
 ///
 /// assert_eq!(LineWidth::default(), LineWidth::try_from(1.0).unwrap());
@@ -274,6 +276,7 @@ impl Deref for LineWidth {
 }
 
 /// Error returned when trying to construct a [LineWidth] from an invalid value.
+#[derive(Debug)]
 pub enum InvalidLineWidth {
     NaN,
     Negative,

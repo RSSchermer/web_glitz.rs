@@ -55,6 +55,7 @@
 //! use web_glitz::image::{Image2DSource, MipmapLevels};
 //! use web_glitz::image::format::RGB8;
 //! use web_glitz::image::texture_2d::Texture2DDescriptor;
+//! use web_glitz::task::sequence;
 //!
 //! let texture = context.create_texture_2d(&Texture2DDescriptor {
 //!     format: RGB8,
@@ -95,6 +96,7 @@
 //! use web_glitz::image::{Image2DSource, MipmapLevels};
 //! use web_glitz::image::format::RGB8;
 //! use web_glitz::image::texture_cube::TextureCubeDescriptor;
+//! use web_glitz::task::{join_all, sequence_all};
 //!
 //! // First we create the cube-map texture we are going to upload to:
 //! let texture = context.create_texture_cube(&TextureCubeDescriptor {
@@ -106,20 +108,20 @@
 //!
 //! // Then we define some data for each of the cube-map faces:
 //! let positive_x_pixels: Vec<[u8; 3]> = vec![[255, 0, 0]; 256 * 256];
-//! let positive_x_data = Image2DSource::from_pixels(pixels, 256, 256).unwrap();
+//! let positive_x_data = Image2DSource::from_pixels(positive_x_pixels, 256, 256).unwrap();
 //! let negative_x_pixels: Vec<[u8; 3]> = vec![[0, 255, 0]; 256 * 256];
-//! let negative_x_data = Image2DSource::from_pixels(pixels, 256, 256).unwrap();
+//! let negative_x_data = Image2DSource::from_pixels(negative_x_pixels, 256, 256).unwrap();
 //! let positive_y_pixels: Vec<[u8; 3]> = vec![[0, 0, 255]; 256 * 256];
-//! let positive_y_data = Image2DSource::from_pixels(pixels, 256, 256).unwrap();
+//! let positive_y_data = Image2DSource::from_pixels(positive_y_pixels, 256, 256).unwrap();
 //! let negative_y_pixels: Vec<[u8; 3]> = vec![[255, 255, 0]; 256 * 256];
-//! let negative_y_data = Image2DSource::from_pixels(pixels, 256, 256).unwrap();
+//! let negative_y_data = Image2DSource::from_pixels(negative_y_pixels, 256, 256).unwrap();
 //! let positive_z_pixels: Vec<[u8; 3]> = vec![[255, 0, 255]; 256 * 256];
-//! let positive_z_data = Image2DSource::from_pixels(pixels, 256, 256).unwrap();
+//! let positive_z_data = Image2DSource::from_pixels(positive_z_pixels, 256, 256).unwrap();
 //! let negative_z_pixels: Vec<[u8; 3]> = vec![[0, 255, 255]; 256 * 256];
-//! let negative_z_data = Image2DSource::from_pixels(pixels, 256, 256).unwrap();
+//! let negative_z_data = Image2DSource::from_pixels(negative_z_pixels, 256, 256).unwrap();
 //!
 //! // Finally, we define our task:
-//! let task = sequence(
+//! let task = sequence_all![
 //!     join_all![
 //!         texture.base_level().positive_x().upload_command(positive_x_data),
 //!         texture.base_level().negative_x().upload_command(negative_x_data),
@@ -129,7 +131,7 @@
 //!         texture.base_level().negative_z().upload_command(negative_z_data),
 //!     ],
 //!     texture.generate_mipmap_command()
-//! );
+//! ];
 //! # }
 //! ```
 //!
@@ -181,9 +183,22 @@ mod gpu_task;
 pub use self::gpu_task::{ContextId, GpuTask, GpuTaskExt, Progress};
 
 mod join;
-pub use self::join::{Join, Join3, Join4, Join5};
+pub use self::join::{
+    join, join3, join3_left, join3_right, join4, join4_left, join4_right, join5, join5_left,
+    join5_right, join_left, join_right, Join, Join3, Join3Left, Join3Right, Join4, Join4Left,
+    Join4Right, Join5, Join5Left, Join5Right, JoinLeft, JoinRight,
+};
 
 mod sequence;
-pub use self::sequence::{Sequence, Sequence3, Sequence4, Sequence5};
+pub use self::sequence::{
+    sequence, sequence3, sequence3_left, sequence3_right, sequence4, sequence4_left,
+    sequence4_right, sequence5, sequence5_left, sequence5_right, sequence_left, sequence_right,
+    Sequence, Sequence3, Sequence3Left, Sequence3Right, Sequence4, Sequence4Left, Sequence4Right,
+    Sequence5, Sequence5Left, Sequence5Right, SequenceLeft, SequenceRight,
+};
 
 mod maybe_done;
+
+pub use crate::join_all;
+
+pub use crate::sequence_all;

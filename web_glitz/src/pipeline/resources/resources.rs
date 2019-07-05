@@ -64,13 +64,13 @@ use crate::pipeline::resources::resource_slot::{
 /// instances should be bound to the pipeline before it is executed:
 ///
 /// ```
-/// use web_glitz::pipeline::resources::Resources;
-/// use web_glitz::pipeline::interface_block::InterfaceBlock;
-/// use web_glitz::sampler::{FloatSampledTexture2D, FloatSampledTexture2DArray};
+/// use web_glitz::image::texture_2d::FloatSampledTexture2D;
+/// use web_glitz::image::texture_2d_array::FloatSampledTexture2DArray;
 /// use web_glitz::buffer::Buffer;
 /// use web_glitz::std140;
+/// use web_glitz::std140::repr_std140;
 ///
-/// #[derive(Resources)]
+/// #[derive(web_glitz::derive::Resources)]
 /// struct MyResources<'a> {
 ///     #[texture_resource(binding=0)]
 ///     some_texture: FloatSampledTexture2D<'a>,
@@ -83,10 +83,10 @@ use crate::pipeline::resources::resource_slot::{
 /// }
 ///
 /// #[repr_std140]
-/// #[derive(InterfaceBlock)]
+/// #[derive(web_glitz::derive::InterfaceBlock)]
 /// struct SomeUniformBlock {
-///     some_uniform: std::vec4,
-///     some_other_uniform: std::mat4
+///     some_uniform: std140::vec4,
+///     some_other_uniform: std140::mat4x4
 /// }
 /// ```
 ///
