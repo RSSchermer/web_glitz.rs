@@ -199,6 +199,8 @@ pub use self::sequence::{
 
 mod maybe_done;
 
+/// Macro that joins all tasks.
 pub use crate::join_all;
 
+/// Macro that sequences all tasks.
 pub use crate::sequence_all;

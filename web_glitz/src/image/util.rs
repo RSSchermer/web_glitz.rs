@@ -7,7 +7,7 @@ pub(crate) fn max_mipmap_levels(width: u32, height: u32) -> usize {
 }
 
 pub(crate) fn mipmap_size(base_size: u32, level: usize) -> u32 {
-    let level_size = base_size / 2 ^ (level as u32);
+    let level_size = base_size / 2u32.pow(level as u32);
 
     if level_size < 1 {
         1
@@ -128,5 +128,23 @@ pub(crate) fn region_3d_sub_image(region_a: Region3D, region_b: Region3D) -> Reg
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_mipmap_size() {
+        assert_eq!(mipmap_size(256, 0), 256);
+        assert_eq!(mipmap_size(256, 1), 128);
+        assert_eq!(mipmap_size(256, 2), 64);
+        assert_eq!(mipmap_size(256, 3), 32);
+        assert_eq!(mipmap_size(256, 4), 16);
+        assert_eq!(mipmap_size(256, 5), 8);
+        assert_eq!(mipmap_size(256, 6), 4);
+        assert_eq!(mipmap_size(256, 7), 2);
+        assert_eq!(mipmap_size(256, 8), 1);
     }
 }

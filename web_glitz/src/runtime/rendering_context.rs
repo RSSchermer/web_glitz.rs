@@ -353,21 +353,20 @@ pub trait RenderingContext {
     /// # use web_glitz::buffer::UsageHint;
     /// # use web_glitz::pipeline::graphics::GraphicsPipeline;
     /// # use web_glitz::pipeline::resources::Resources;
-    /// # fn wrapper<Rc, V, R>(
+    /// # fn wrapper<Rc, V>(
     /// #     context: &Rc,
     /// #     mut default_render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
     /// #     vertex_stream: VertexArray<V>,
-    /// #     resources: R,
-    /// #     graphics_pipeline: GraphicsPipeline<V, R, ()>
+    /// #     graphics_pipeline: GraphicsPipeline<V, (), ()>
     /// # )
     /// # where
     /// #     Rc: RenderingContext,
     /// #     V: Vertex,
-    /// #     R: Resources
     /// # {
+    /// # let resources = ();
     /// let render_pass = context.create_render_pass(&mut default_render_target, |framebuffer| {
     ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
-    ///         active_pipeline.draw_command(&vertex_stream, &resources)
+    ///         active_pipeline.draw_command(&vertex_stream, resources)
     ///     })
     /// });
     /// # }

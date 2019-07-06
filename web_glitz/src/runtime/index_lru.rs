@@ -9,7 +9,9 @@ impl IndexLRU {
         let mut linkage = Vec::with_capacity(max_index);
         let texture_units = max_index as i32;
 
-        for i in 0..texture_units {
+        linkage.push(((texture_units - 1) as usize, 1));
+
+        for i in 1..texture_units {
             linkage.push((
                 ((i - 1) % texture_units) as usize,
                 ((i + 1) % texture_units) as usize,

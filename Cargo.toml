@@ -4,5 +4,6 @@ members = [
     "web_glitz_macros",
     "web_glitz_test",
     "examples/0_triangle",
-    "examples/1_uniform_block"
+    "examples/1_uniform_block",
+    "examples/2_textured_triangle"
 ]

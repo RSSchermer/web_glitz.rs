@@ -157,10 +157,10 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
                     Ok(())
                 }
 
-                fn encode_bind_group<'__a>(
-                    &self,
-                    context: &'__a mut #mod_path::bind_group_encoding::BindGroupEncodingContext,
-                ) -> #mod_path::bind_group_encoding::BindGroupEncoding<'__a, Self::Bindings> {
+                fn into_bind_group(
+                    self,
+                    context: &mut #mod_path::bind_group_encoding::BindGroupEncodingContext,
+                ) -> #mod_path::bind_group_encoding::BindGroupEncoding<Self::Bindings> {
                     let encoder = #mod_path::bind_group_encoding::BindGroupEncoder::new(context);
 
                     #(#buffer_resource_encodings)*

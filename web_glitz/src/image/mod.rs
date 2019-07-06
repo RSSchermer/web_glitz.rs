@@ -162,6 +162,7 @@ pub struct MaxMipmapLevelsExceeded {
 }
 
 /// Error returned when trying to combine a texture with a sampler that is incompatible.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum IncompatibleSampler {
     /// Variant returned if the sampler's magnification filter cannot be used with the texture's
     /// [TextureFormat].

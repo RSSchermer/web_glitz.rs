@@ -77,7 +77,7 @@ pub struct Instanced<T>(pub(crate) T, pub(crate) usize);
 ///
 /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
 ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
-///         active_pipeline.draw_command(&vertex_array, &())
+///         active_pipeline.draw_command(&vertex_array, ())
 ///     })
 /// });
 /// # }
@@ -245,7 +245,7 @@ impl<L> VertexArray<L> {
     ///
     /// let render_pass = context.create_render_pass(render_target, |framebuffer| {
     ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
-    ///         active_pipeline.draw_command(&range, &())
+    ///         active_pipeline.draw_command(&range, ())
     ///     })
     /// });
     /// # }
@@ -301,7 +301,7 @@ impl<L> VertexArray<L> {
     ///
     /// let render_pass = context.create_render_pass(render_target, |framebuffer| {
     ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
-    ///         active_pipeline.draw_command(&range, &())
+    ///         active_pipeline.draw_command(&range, ())
     ///     })
     /// });
     /// # }
@@ -349,7 +349,7 @@ impl<L> VertexArray<L> {
     ///
     /// let render_pass = context.create_render_pass(render_target, |framebuffer| {
     ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
-    ///         active_pipeline.draw_command(&vertex_array.instanced(10), &())
+    ///         active_pipeline.draw_command(&vertex_array.instanced(10), ())
     ///     })
     /// });
     /// # }

@@ -11,7 +11,7 @@ use crate::pipeline::graphics::{
 };
 use crate::pipeline::resources::resource_slot::{SlotBindingChecker, SlotBindingUpdater};
 use crate::pipeline::resources::Resources;
-use crate::runtime::state::ProgramKey;
+use crate::runtime::state::{ProgramKey, DynamicState, ContextUpdate};
 use crate::runtime::{Connection, CreateGraphicsPipelineError, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
@@ -97,7 +97,7 @@ where
             panic!("Fragment shader does not belong to the context.");
         }
 
-        let mut program_cache = state.program_cache_mut();
+        let mut program_cache = unsafe { ( &mut *(state as *mut DynamicState)).program_cache_mut() };
         let program = program_cache.get_or_create(
             ProgramKey {
                 vertex_shader_id: descriptor.vertex_shader_data.id().unwrap(),
@@ -116,7 +116,11 @@ where
                 R::confirm_slot_bindings(&confirmer, program.resource_slot_descriptors())?;
             }
             SlotBindingStrategy::Update => {
-                let confirmer = SlotBindingUpdater::new(gl, program.gl_object());
+                let program_object = program.gl_object();
+
+                state.set_active_program(Some(program_object)).apply(gl).unwrap();
+
+                let confirmer = SlotBindingUpdater::new(gl, program_object);
 
                 R::confirm_slot_bindings(&confirmer, program.resource_slot_descriptors())?;
             }

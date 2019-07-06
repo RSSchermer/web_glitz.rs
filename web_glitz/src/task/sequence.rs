@@ -44,19 +44,17 @@ macro_rules! generate_sequence {
             }
 
             fn progress(&mut self, execution_context: &mut Ec) -> Progress<Self::Output> {
-                let mut all_done = self.a.progress(execution_context);
-
-                while all_done {
-                    $(
-                        all_done = all_done && self.$B.progress(execution_context);
-                    )*
+                if !self.a.progress(execution_context) {
+                    return Progress::ContinueFenced;
                 }
 
-                if all_done {
-                    Progress::Finished((self.a.take(), $(self.$B.take()),*))
-                } else {
-                    Progress::ContinueFenced
-                }
+                $(
+                    if !self.$B.progress(execution_context) {
+                        return Progress::ContinueFenced;
+                    }
+                )*
+
+                Progress::Finished((self.a.take(), $(self.$B.take()),*))
             }
         }
     )*)
@@ -125,19 +123,17 @@ macro_rules! generate_sequence_left {
             }
 
             fn progress(&mut self, execution_context: &mut Ec) -> Progress<Self::Output> {
-                let mut all_done = self.a.progress(execution_context);
-
-                while all_done {
-                    $(
-                        all_done = all_done && self.$B.progress(execution_context);
-                    )*
+                if !self.a.progress(execution_context) {
+                    return Progress::ContinueFenced;
                 }
 
-                if all_done {
-                    Progress::Finished(self.a.take())
-                } else {
-                    Progress::ContinueFenced
-                }
+                $(
+                    if !self.$B.progress(execution_context) {
+                        return Progress::ContinueFenced;
+                    }
+                )*
+
+                Progress::Finished(self.a.take())
             }
         }
     )*)
@@ -212,23 +208,17 @@ macro_rules! generate_sequence_right {
             }
 
             fn progress(&mut self, execution_context: &mut Ec) -> Progress<Self::Output> {
-                let mut all_done = true;
+                $(
+                    if !self.$A.progress(execution_context) {
+                        return Progress::ContinueFenced;
+                    }
+                )*
 
-                while all_done {
-                    $(
-                        all_done = all_done && self.$A.progress(execution_context);
-                    )*
+                if !self.$B.progress(execution_context) {
+                    return Progress::ContinueFenced;
                 }
 
-                if all_done {
-                    all_done = self.$B.progress(execution_context)
-                }
-
-                if all_done {
-                    Progress::Finished(self.$B.take())
-                } else {
-                    Progress::ContinueFenced
-                }
+                Progress::Finished(self.$B.take())
             }
         }
     )*)

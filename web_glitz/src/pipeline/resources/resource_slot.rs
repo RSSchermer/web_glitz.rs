@@ -9,6 +9,7 @@ use crate::pipeline::interface_block;
 use crate::pipeline::interface_block::{InterfaceBlock, MatrixOrder, MemoryUnitDescriptor};
 
 /// Describes a slot for a resource in a GPU pipeline.
+#[derive(Debug)]
 pub struct ResourceSlotDescriptor {
     identifier: Identifier,
     slot: SlotType,
@@ -66,6 +67,7 @@ impl PartialEq for Identifier {
     }
 }
 
+#[derive(Debug)]
 pub enum SlotType {
     UniformBlock(UniformBlockSlot),
     TextureSampler(TextureSamplerSlot),
@@ -83,6 +85,7 @@ impl From<TextureSamplerSlot> for SlotType {
     }
 }
 
+#[derive(Debug)]
 pub struct UniformBlockSlot {
     layout: Vec<MemoryUnitDescriptor>,
     index: u32,
@@ -527,6 +530,7 @@ impl UniformBlockSlot {
     }
 }
 
+#[derive(Debug)]
 pub struct TextureSamplerSlot {
     location: WebGlUniformLocation,
     kind: SamplerKind,

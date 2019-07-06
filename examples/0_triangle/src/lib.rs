@@ -198,7 +198,7 @@ pub fn start() {
             // that the `vertex_array` is compatible with the pipeline: we'll just leverage Rust's
             // type system to verify at compile time that the `vertex_array` type is compatible with
             // the `vertex_input_layout` we declared when we created the pipeline.
-            active_pipeline.draw_command(&vertex_array, &())
+            active_pipeline.draw_command(&vertex_array, ())
         })
     });
 

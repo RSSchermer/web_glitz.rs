@@ -200,7 +200,7 @@ pub fn start() {
             // again to enforce safety at compile time.
             active_pipeline.draw_command(
                 &vertex_array,
-                &Resources {
+                Resources {
                     uniforms: &uniform_buffer,
                 },
             )

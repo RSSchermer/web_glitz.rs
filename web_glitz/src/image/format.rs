@@ -200,6 +200,7 @@ pub unsafe trait TextureFormat: InternalFormat {
 }
 
 /// Error returned by [TextureFormat::validate_minification_filter].
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum InvalidMinificationFilter {
     /// Returned if the [MinificationFilter] is always invalid in combination with the
     /// [TextureFormat].
@@ -211,6 +212,7 @@ pub enum InvalidMinificationFilter {
 }
 
 /// Error returned by [TextureFormat::validate_magnification_filter].
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum InvalidMagnificationFilter {
     /// Returned if the [MagnificationFilter] is always invalid in combination with the
     /// [TextureFormat].

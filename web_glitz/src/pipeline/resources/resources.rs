@@ -147,10 +147,10 @@ pub unsafe trait Resources {
 
     /// Encodes these [Resources] into a bind group, so that they can be bound to specific `binding`
     /// indices efficiently before a pipeline is executed.
-    fn encode_bind_group<'a>(
-        &self,
-        context: &'a mut BindGroupEncodingContext,
-    ) -> BindGroupEncoding<'a, Self::Bindings>;
+    fn into_bind_group(
+        self,
+        context: &mut BindGroupEncodingContext,
+    ) -> BindGroupEncoding<Self::Bindings>;
 }
 
 unsafe impl Resources for () {
@@ -172,10 +172,10 @@ unsafe impl Resources for () {
         }
     }
 
-    fn encode_bind_group<'a>(
-        &self,
-        context: &'a mut BindGroupEncodingContext,
-    ) -> BindGroupEncoding<'a, Self::Bindings> {
+    fn into_bind_group(
+        self,
+        context: &mut BindGroupEncodingContext,
+    ) -> BindGroupEncoding<Self::Bindings> {
         BindGroupEncoding::empty(context)
     }
 }
