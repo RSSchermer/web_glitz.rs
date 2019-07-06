@@ -24,7 +24,10 @@ features = ["serde-serialize"]
 [dependencies.web-sys]
 version = "0.3.24"
 features = [
+    "CanvasRenderingContext2d",
     "HtmlCanvasElement",
+    "HtmlImageElement",
+    "ImageData",
     "WebGl2RenderingContext",
     "WebGlActiveInfo",
     "WebGlBuffer",

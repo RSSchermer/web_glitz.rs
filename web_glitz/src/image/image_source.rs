@@ -2,6 +2,9 @@ use std::borrow::Borrow;
 use std::marker;
 use std::mem;
 
+use wasm_bindgen::JsCast;
+use web_sys::{window, CanvasRenderingContext2d, HtmlCanvasElement, HtmlImageElement};
+
 /// Encapsulates data that may be uploaded to a 2D texture (sub-)image.
 ///
 /// # Example
@@ -87,6 +90,76 @@ where
             },
             _marker: marker::PhantomData,
         })
+    }
+}
+
+impl Image2DSource<Vec<[u8; 4]>, [u8; 4]> {
+    /// Creates a new [Image2DSource] for the `image_element`.
+    ///
+    /// The width will be equal to the [HtmlImageElement::natural_width] of the image element and
+    /// the height will be equal the [HtmlImageElement::natural_height] of the image element.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the image element is not yet "complete" (see [HtmlImageElement::complete]).
+    pub fn from_image_element(image_element: &HtmlImageElement) -> Self {
+        // Current implementation is very conservative and wasteful, copying the image data into a
+        // new vector. WebGL support initializing textures from image elements directly which would
+        // avoid the copy and may even avoid an upload as the browser may have already uploaded the
+        // pixel data previously. However, it is currently unclear to me how sending
+        // HtmlImageElements to secondary workers/threads would work.
+
+        if !image_element.complete() {
+            panic!("Incomplete image.");
+        }
+
+        let document = window().unwrap().document().unwrap();
+
+        let width = image_element.natural_width();
+        let height = image_element.natural_height();
+
+        let canvas = document
+            .create_element("canvas")
+            .unwrap()
+            .dyn_into::<HtmlCanvasElement>()
+            .unwrap();
+
+        canvas.set_width(width);
+        canvas.set_height(height);
+
+        let context = canvas
+            .get_context("2d")
+            .unwrap()
+            .unwrap()
+            .dyn_into::<CanvasRenderingContext2d>()
+            .unwrap();
+
+        context
+            .draw_image_with_html_image_element(&image_element, 0.0, 0.0)
+            .unwrap();
+
+        let mut image_data = context
+            .get_image_data(0.0, 0.0, width as f64, height as f64)
+            .unwrap()
+            .data();
+
+        let len = image_data.len();
+        let capacity = image_data.capacity();
+        let ptr = image_data.as_mut_ptr();
+
+        mem::forget(image_data);
+
+        let pixels = unsafe { Vec::from_raw_parts(mem::transmute(ptr), len / 4, capacity / 4) };
+
+        Image2DSource {
+            internal: Image2DSourceInternal::PixelData {
+                data: pixels,
+                row_length: width,
+                image_height: height,
+                alignment: Alignment::Byte4,
+            },
+            _marker: marker::PhantomData,
+        }
     }
 }
 

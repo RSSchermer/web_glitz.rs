@@ -7,23 +7,19 @@
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use web_sys::{window, HtmlCanvasElement};
 
-use web_glitz::buffer::{Buffer, UsageHint};
+use web_glitz::buffer::UsageHint;
 use web_glitz::image::format::RGBA8;
 use web_glitz::image::texture_2d::{FloatSampledTexture2D, Texture2DDescriptor};
+use web_glitz::image::{Image2DSource, MipmapLevels};
 use web_glitz::pipeline::graphics::{
     CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, SlotBindingStrategy, WindingOrder,
 };
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
-use web_glitz::std140;
-use web_glitz::std140::repr_std140;
+use web_glitz::sampler::{MagnificationFilter, MinificationFilter, SamplerDescriptor};
 use web_glitz::task::sequence_all;
 use web_glitz::vertex::VertexArrayDescriptor;
-
-use std::mem;
-use web_glitz::image::{Image2DSource, MipmapLevels};
-use web_glitz::sampler::{MagnificationFilter, MinificationFilter, SamplerDescriptor};
-use web_sys::{window, CanvasRenderingContext2d, HtmlCanvasElement, HtmlImageElement};
 
 #[derive(web_glitz::derive::Vertex, Clone, Copy)]
 struct Vertex {
@@ -60,12 +56,9 @@ struct Resources<'a> {
 
 #[wasm_bindgen(start)]
 pub fn start() {
-    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+    let document = window().unwrap().document().unwrap();
 
-    let canvas: HtmlCanvasElement = window()
-        .unwrap()
-        .document()
-        .unwrap()
+    let canvas: HtmlCanvasElement = document
         .get_element_by_id("canvas")
         .unwrap()
         .dyn_into()
@@ -146,9 +139,13 @@ pub fn start() {
         ..Default::default()
     });
 
-    let image_src =
-        Image2DSource::from_pixels(get_image_data("checkerboard_color_gradient"), 256, 256)
-            .unwrap();
+    let image_element = document
+        .get_element_by_id("checkerboard_color_gradient")
+        .unwrap()
+        .dyn_into()
+        .unwrap();
+
+    let image_src = Image2DSource::from_image_element(&image_element);
 
     let upload_command = texture.base_level().upload_command(image_src);
 
@@ -176,46 +173,4 @@ pub fn start() {
 
     // We should now see our triangle on the canvas again, except this time it should be covered by
     // the checkerboard color gradient in our texture image.
-}
-
-fn get_image_data(id: &str) -> Vec<[u8; 4]> {
-    let document = window().unwrap().document().unwrap();
-
-    let image: HtmlImageElement = document.get_element_by_id(id).unwrap().dyn_into().unwrap();
-
-    let width = image.natural_width();
-    let height = image.natural_height();
-
-    let canvas = document
-        .create_element("canvas")
-        .unwrap()
-        .dyn_into::<HtmlCanvasElement>()
-        .unwrap();
-
-    canvas.set_width(width);
-    canvas.set_height(height);
-
-    let context = canvas
-        .get_context("2d")
-        .unwrap()
-        .unwrap()
-        .dyn_into::<CanvasRenderingContext2d>()
-        .unwrap();
-
-    context
-        .draw_image_with_html_image_element(&image, 0.0, 0.0)
-        .unwrap();
-
-    let mut image_data = context
-        .get_image_data(0.0, 0.0, width as f64, height as f64)
-        .unwrap()
-        .data();
-
-    let len = image_data.len();
-    let capacity = image_data.capacity();
-    let ptr = image_data.as_mut_ptr();
-
-    mem::forget(image_data);
-
-    unsafe { Vec::from_raw_parts(mem::transmute(ptr), len / 4, capacity / 4) }
 }
