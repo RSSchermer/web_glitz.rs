@@ -152,6 +152,10 @@ pub fn start() {
     let secondary_render_pass = context.create_render_pass(
         RenderTarget {
             color: FloatAttachment {
+                // Note that we need to provide a mut reference to the texture image. This prevents
+                // us from accidentally reading from the same texture elsewhere in the render pass
+                // (by attaching it as a pipeline resource), as reading from a texture while it is
+                // also attached to the current render target would cause undefined behaviour.
                 image: texture.base_level_mut(),
                 load_op: LoadOp::Clear([0.0, 0.0, 0.0, 1.0]),
                 store_op: StoreOp::Store,
