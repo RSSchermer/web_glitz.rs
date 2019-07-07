@@ -29,7 +29,7 @@ use web_sys::{window, HtmlCanvasElement};
 // ignored (here all fields are attribute fields). A vertex attribute has to declare a `location`
 // and a `format`. The `location` must match the location of the attribute you intend to bind to in
 // the graphics pipeline (as declared with `layout(location=...)` in the vertex shader code, see
-// `src/vertex.glsl`). The `format` must be the name of one of the format types declared in
+// `src/primary_vertex.glsl`). The `format` must be the name of one of the format types declared in
 // `web_glitz::pipeline::graphics::vertex_input::attribute_format` and the format must correspond to
 // the data type the pipeline expects for the attribute; this correspondence will be verified when
 // the pipeline is created.
@@ -101,12 +101,12 @@ pub fn start() {
     let (context, render_target) =
         unsafe { single_threaded::init(&canvas, &ContextOptions::default()).unwrap() };
 
-    // Create and compile our vertex shader using the GLSL code in `/src/vertex.glsl`.
+    // Create and compile our vertex shader using the GLSL code in `/src/primary_vertex.glsl`.
     let vertex_shader = context
         .create_vertex_shader(include_str!("vertex.glsl"))
         .unwrap();
 
-    // Create and compile our fragment shader using the GLSL code in `/src/fragment.glsl`.
+    // Create and compile our fragment shader using the GLSL code in `/src/primary_fragment.glsl`.
     let fragment_shader = context
         .create_fragment_shader(include_str!("fragment.glsl"))
         .unwrap();

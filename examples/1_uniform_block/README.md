@@ -1,4 +1,4 @@
-# Hello Triangle Example
+# Uniform Block Example
 
 This example builds on the `/examples/0_triangle` example by adding a uniform block with a uniform
 variable that we'll use to scale the triangle to half its original size.

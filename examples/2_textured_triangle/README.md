@@ -1,4 +1,4 @@
-# Hello Triangle Example
+# Textured Triangle Example
 
 This example builds on the `/examples/0_triangle` example by adding a texture resources that will use
 to cover the triangle.

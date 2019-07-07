@@ -1,7 +1,7 @@
-// This example shows how to bind a texture resource to a pipeline.
+// This example shows how to use a custom render target to render to a texture.
 //
-// This example builds on `/examples/0_triangle`, the comments in this example will focus on the
-// differences/additions.
+// This example builds on `/examples/2_textured_triangle`, the comments in this example will focus
+// on the differences/additions.
 
 #![feature(const_fn)]
 
@@ -122,7 +122,10 @@ pub fn start() {
         indices: (),
     });
 
-    // Create a new 2D texture.
+    // Create a new 2D texture that uses the RGBA8 storage format. This texture will start out with i
+    // t's data set to all zeroes (which with an RGBA8 format essentially corresponds to
+    // "transparent black"). Note that we'll only allocate 1 mipmap level (the "base" level) as we
+    // won't make use of mipmapping in this example.
     let texture = context
         .create_texture_2d(&Texture2DDescriptor {
             format: RGBA8,
@@ -169,6 +172,10 @@ pub fn start() {
         })
     });
 
+    // `/examples/0_triangle` only had to submit a render pass, but now we must also submit the
+    // image upload command. It's important that the upload finished before we begin the render pass
+    // so we'll use the `sequence_all!` macro to combine them into a sequenced task, which
+    // guarantees that the tasks are executed in order.
     context.submit(sequence_all![upload_command, render_pass]);
 
     // We should now see our triangle on the canvas again, except this time it should be covered by

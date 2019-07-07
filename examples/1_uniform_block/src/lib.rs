@@ -36,7 +36,7 @@ struct Vertex {
 // Define our uniform block type.
 //
 // We store an instance of this type in a GPU-accessible buffer to provide the data for our
-// uniform block (as defined in `/src/vertex.glsl`). We've told the driver that we'll be providing
+// uniform block (as defined in `/src/primary_vertex.glsl`). We've told the driver that we'll be providing
 // the data for the block using the `std140` layout, by annotating it with `layout(std140)`. We'll
 // make sure that our Rust struct will follow the `std140` memory layout rules by adding the
 // `#[repr_std140]` attribute to our struct declaration. `#[repr_std140]` can only be added to
