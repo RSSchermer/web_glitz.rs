@@ -43,7 +43,8 @@ pub fn start() {
         .unwrap();
 
     // We'll disable antialiasing on the default render target for this example, as blit operations
-    // require the number of samples on the source and target images to match.
+    // require that the number of samples on the source and target images match; by disabling
+    // antialiasing we guarantee a single sample render target.
     let options = ContextOptions::begin().antialias(false).finish();
 
     let (context, default_render_target) =
