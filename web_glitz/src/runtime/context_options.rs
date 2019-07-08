@@ -67,7 +67,7 @@ impl Default for ContextOptions<DefaultRGBABuffer, ()> {
     }
 }
 
-impl<C, Ds> ContextOptions<C, Ds> {
+impl ContextOptions<DefaultRGBABuffer, ()> {
     pub fn begin() -> ContextOptionsBuilder<DefaultRGBABuffer, ()> {
         ContextOptionsBuilder {
             color: marker::PhantomData,
@@ -144,6 +144,18 @@ impl<C, Ds> ContextOptionsBuilder<C, Ds> {
             fail_if_major_performance_caveat: self.fail_if_major_performance_caveat,
             antialias: self.antialias,
             preserve_drawbuffer: self.preserve_drawbuffer,
+            premultiplied_alpha: self.premultiplied_alpha,
+            power_preference: self.power_preference,
+        }
+    }
+
+    pub fn finish(self) -> ContextOptions<C, Ds> {
+        ContextOptions {
+            color: marker::PhantomData,
+            depth_stencil: marker::PhantomData,
+            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat,
+            antialias: self.antialias,
+            preserve_drawing_buffer: self.preserve_drawbuffer,
             premultiplied_alpha: self.premultiplied_alpha,
             power_preference: self.power_preference,
         }
