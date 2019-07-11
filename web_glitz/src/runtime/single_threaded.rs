@@ -90,10 +90,7 @@ use crate::image::MaxMipmapLevelsExceeded;
 use crate::pipeline::graphics::shader::{
     FragmentShaderAllocateCommand, VertexShaderAllocateCommand,
 };
-use crate::pipeline::graphics::{
-    AttributeSlotLayoutCompatible, FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor,
-    VertexShader,
-};
+use crate::pipeline::graphics::{AttributeSlotLayoutCompatible, FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, VertexShader, TransformFeedbackLayout, TransformFeedbackDescription};
 use crate::pipeline::resources::Resources;
 use crate::render_pass::{
     DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
@@ -103,7 +100,7 @@ use crate::render_target::{DefaultRenderTarget, RenderTargetDescription};
 use crate::runtime::executor_job::job;
 use crate::runtime::fenced::JsTimeoutFencedTaskRunner;
 use crate::runtime::rendering_context::{
-    CreateGraphicsPipelineError, Extensions, TransformFeedbackVaryings,
+    CreateGraphicsPipelineError, Extensions,
 };
 use crate::runtime::state::DynamicState;
 use crate::runtime::{
@@ -202,7 +199,7 @@ impl RenderingContext for SingleThreadedContext {
     where
         V: AttributeSlotLayoutCompatible,
         R: Resources + 'static,
-        Tf: TransformFeedbackVaryings,
+        Tf: TransformFeedbackDescription + 'static,
     {
         let executor = self.executor.borrow_mut();
         let mut connection = executor.connection.borrow_mut();

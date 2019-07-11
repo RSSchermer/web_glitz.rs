@@ -9,10 +9,7 @@ use js_sys::Uint32Array;
 
 use wasm_bindgen::JsValue;
 
-use crate::pipeline::graphics::{
-    AttributeSlotDescriptor, AttributeType, BlendEquation, BlendFactor, CullingMode, DepthRange,
-    PolygonOffset, StencilOperation, TestFunction, WindingOrder,
-};
+use crate::pipeline::graphics::{AttributeSlotDescriptor, AttributeType, BlendEquation, BlendFactor, CullingMode, DepthRange, PolygonOffset, StencilOperation, TestFunction, WindingOrder, TransformFeedbackDescription};
 use crate::pipeline::resources::resource_slot::{
     Identifier, ResourceSlotDescriptor, SamplerKind, TextureSamplerSlot, UniformBlockSlot,
 };
@@ -1813,11 +1810,11 @@ pub(crate) struct ProgramCache<'a> {
 }
 
 impl<'a> ProgramCache<'a> {
-    pub(crate) fn get_or_create(
+    pub(crate) fn get_or_create<Tf>(
         &mut self,
         key: ProgramKey,
         gl: &Gl,
-    ) -> Result<&Program, CreateProgramError> {
+    ) -> Result<&Program, CreateProgramError> where Tf: TransformFeedbackDescription {
         let program = match self.state.program_cache.entry(key) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
@@ -1832,6 +1829,27 @@ impl<'a> ProgramCache<'a> {
                         .with_value_unchecked(|shader_object| {
                             gl.attach_shader(&program_object, &shader_object);
                         });
+                }
+
+                if let Some(layout) = Tf::transform_feedback_layout() {
+                    let mut varyings = Vec::new();
+                    let mut first = true;
+
+                    for group in layout.borrow().iter() {
+                        if first {
+                            first = false;
+
+                            varyings.push("gl_NextBuffer");
+                        }
+
+                        for varying in group.iter() {
+                            varyings.push(varying.name);
+                        }
+                    }
+
+                    let varyings = JsValue::from_serde(&varyings).unwrap();
+
+                    gl.transform_feedback_varyings(&program_object, &varyings, Gl::INTERLEAVED_ATTRIBS);
                 }
 
                 gl.link_program(&program_object);
@@ -2405,5 +2423,6 @@ impl Program {
 pub(crate) struct ProgramKey {
     pub(crate) vertex_shader_id: JsId,
     pub(crate) fragment_shader_id: JsId,
+    pub(crate) transform_feedback_type_id: TypeId,
     pub(crate) resources_type_id: TypeId,
 }

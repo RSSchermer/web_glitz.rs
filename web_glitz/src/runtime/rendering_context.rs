@@ -16,10 +16,7 @@ use crate::image::texture_2d_array::{Texture2DArray, Texture2DArrayDescriptor};
 use crate::image::texture_3d::{Texture3D, Texture3DDescriptor};
 use crate::image::texture_cube::{TextureCube, TextureCubeDescriptor};
 use crate::image::MaxMipmapLevelsExceeded;
-use crate::pipeline::graphics::{
-    AttributeSlotLayoutCompatible, FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor,
-    IncompatibleAttributeLayout, ShaderLinkingError, VertexShader,
-};
+use crate::pipeline::graphics::{AttributeSlotLayoutCompatible, FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, IncompatibleAttributeLayout, ShaderLinkingError, VertexShader, TransformFeedbackLayout, TransformFeedbackDescription};
 use crate::pipeline::resources::resource_slot::Identifier;
 use crate::pipeline::resources::{IncompatibleResources, Resources};
 use crate::render_pass::{RenderPass, RenderPassContext};
@@ -321,7 +318,7 @@ pub trait RenderingContext {
     where
         V: AttributeSlotLayoutCompatible,
         R: Resources + 'static,
-        Tf: TransformFeedbackVaryings;
+        Tf: TransformFeedbackDescription + 'static;
 
     /// Creates a new [RenderPass] that targets the `render_target` and performs the render pass
     /// task produced by `f`.
@@ -868,10 +865,6 @@ impl ExtensionState {
     }
 }
 
-pub unsafe trait TransformFeedbackVaryings {}
-
-unsafe impl TransformFeedbackVaryings for () {}
-
 #[derive(PartialEq, Debug)]
 pub struct ShaderCompilationError(pub(crate) String);
 
@@ -901,6 +894,8 @@ pub enum CreateGraphicsPipelineError {
     /// [GraphicsPipelineBuilder::resource_layout]) does not match the resource layout as defined by
     /// the shader code.
     IncompatibleResources(IncompatibleResources),
+
+    TransformFeedbackTypeMismatch(String)
 }
 
 impl From<CreateProgramError> for CreateGraphicsPipelineError {

@@ -26,5 +26,8 @@ pub use self::primitive_assembly::{CullingMode, LineWidth, PrimitiveAssembly, Wi
 pub(crate) mod shader;
 pub use self::shader::{FragmentShader, VertexShader};
 
+pub(crate) mod transform_feedback;
+pub use self::transform_feedback::{TransformFeedback, TransformFeedbackLayout, VaryingDescriptor, TransformFeedbackDescription};
+
 mod viewport;
 pub use self::viewport::Viewport;
