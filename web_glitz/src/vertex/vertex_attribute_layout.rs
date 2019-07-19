@@ -1,8 +1,8 @@
 use std::borrow::Borrow;
 use std::mem;
 
-use crate::vertex::{Vertex, VertexAttributeDescriptor, InputRate};
 use crate::pipeline::graphics::{AttributeSlotDescriptor, IncompatibleAttributeLayout};
+use crate::vertex::{InputRate, Vertex, VertexAttributeDescriptor};
 use fnv::FnvHasher;
 use std::hash::{Hash, Hasher};
 
@@ -64,7 +64,9 @@ impl_typed_vertex_attribute_layout!(11, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, 
 impl_typed_vertex_attribute_layout!(12, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11);
 impl_typed_vertex_attribute_layout!(13, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
 impl_typed_vertex_attribute_layout!(14, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13);
-impl_typed_vertex_attribute_layout!(15, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14);
+impl_typed_vertex_attribute_layout!(
+    15, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14
+);
 impl_typed_vertex_attribute_layout!(
     16, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15
 );
@@ -72,7 +74,7 @@ impl_typed_vertex_attribute_layout!(
 pub struct StaticBindSlotDescriptor {
     pub stride: u8,
     pub input_rate: InputRate,
-    pub attributes: &'static [VertexAttributeDescriptor]
+    pub attributes: &'static [VertexAttributeDescriptor],
 }
 
 impl Into<VertexAttributeLayoutDescriptor> for () {
@@ -80,7 +82,7 @@ impl Into<VertexAttributeLayoutDescriptor> for () {
         VertexAttributeLayoutDescriptor {
             initial_bind_slot: None,
             layout: Vec::new(), // Won't allocate, see [Vec::new].
-            hash_code: 0
+            hash_code: 0,
         }
     }
 }
@@ -95,10 +97,11 @@ macro_rules! impl_into_vertex_attribute_layout_descriptor {
                     attribute_count += self[i].attributes.len();
                 }
 
-                let mut builder = VertexAttributeLayoutDescriptorBuilder::new(Some(AllocationHint {
-                    bind_slot_count: $n,
-                    attribute_count: attribute_count as u8
-                }));
+                let mut builder =
+                    VertexAttributeLayoutDescriptorBuilder::new(Some(AllocationHint {
+                        bind_slot_count: $n,
+                        attribute_count: attribute_count as u8,
+                    }));
 
                 for i in 0..$n {
                     let mut slot = builder.add_bind_slot(self[i].stride, self[i].input_rate);
@@ -111,7 +114,7 @@ macro_rules! impl_into_vertex_attribute_layout_descriptor {
                 builder.finish()
             }
         }
-    }
+    };
 }
 
 impl_into_vertex_attribute_layout_descriptor!(1);
@@ -135,14 +138,14 @@ impl_into_vertex_attribute_layout_descriptor!(16);
 pub struct VertexAttributeLayoutDescriptor {
     initial_bind_slot: Option<BindSlot>,
     layout: Vec<LayoutElement>,
-    hash_code: u64
+    hash_code: u64,
 }
 
 impl VertexAttributeLayoutDescriptor {
-    pub(crate) fn check_compatibility(&self,
+    pub(crate) fn check_compatibility(
+        &self,
         slot_descriptors: &[AttributeSlotDescriptor],
     ) -> Result<(), IncompatibleAttributeLayout> {
-
         'outer: for slot in slot_descriptors.iter() {
             for element in self.layout.iter() {
                 if let LayoutElement::NextAttribute(attribute_descriptor) = element {
@@ -172,20 +175,23 @@ impl VertexAttributeLayoutDescriptor {
     pub fn bind_slots(&self) -> BindSlots {
         BindSlots {
             layout: self,
-            cursor: -1
+            cursor: -1,
         }
     }
 }
 
 impl Hash for VertexAttributeLayoutDescriptor {
-    fn hash<H>(&self, state: &mut H) where H: Hasher {
+    fn hash<H>(&self, state: &mut H)
+    where
+        H: Hasher,
+    {
         state.write_u64(self.hash_code);
     }
 }
 
 pub struct BindSlots<'a> {
     layout: &'a VertexAttributeLayoutDescriptor,
-    cursor: isize
+    cursor: isize,
 }
 
 impl<'a> Iterator for BindSlots<'a> {
@@ -196,16 +202,13 @@ impl<'a> Iterator for BindSlots<'a> {
             self.cursor += 1;
 
             self.layout.initial_bind_slot.map(|slot| {
-                let BindSlot {
-                    stride,
-                    input_rate
-                } = slot;
+                let BindSlot { stride, input_rate } = slot;
 
                 BindSlotRef {
                     layout: self.layout,
                     start: 0,
                     stride,
-                    input_rate
+                    input_rate,
                 }
             })
         } else {
@@ -213,16 +216,13 @@ impl<'a> Iterator for BindSlots<'a> {
                 self.cursor += 1;
 
                 if let LayoutElement::NextBindSlot(slot) = element {
-                    let BindSlot {
-                        stride,
-                        input_rate
-                    } = *slot;
+                    let BindSlot { stride, input_rate } = *slot;
 
                     return Some(BindSlotRef {
                         layout: self.layout,
                         start: self.cursor as usize,
                         stride,
-                        input_rate
+                        input_rate,
                     });
                 }
             }
@@ -251,14 +251,14 @@ impl<'a> BindSlotRef<'a> {
     pub fn attributes(&self) -> BindSlotAttributes {
         BindSlotAttributes {
             layout: &self.layout.layout,
-            cursor: self.start
+            cursor: self.start,
         }
     }
 }
 
 pub struct BindSlotAttributes<'a> {
     layout: &'a Vec<LayoutElement>,
-    cursor: usize
+    cursor: usize,
 }
 
 impl<'a> Iterator for BindSlotAttributes<'a> {
@@ -278,24 +278,24 @@ impl<'a> Iterator for BindSlotAttributes<'a> {
 #[derive(Clone, Copy, PartialEq, Hash, Debug)]
 enum LayoutElement {
     NextAttribute(VertexAttributeDescriptor),
-    NextBindSlot(BindSlot)
+    NextBindSlot(BindSlot),
 }
 
 pub struct VertexAttributeLayoutDescriptorBuilder {
     initial_bind_slot: Option<BindSlot>,
-    layout: Vec<LayoutElement>
+    layout: Vec<LayoutElement>,
 }
 
 #[derive(Clone, Copy, PartialEq, Hash, Debug)]
 struct BindSlot {
     stride: u8,
-    input_rate: InputRate
+    input_rate: InputRate,
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct AllocationHint {
     pub bind_slot_count: u8,
-    pub attribute_count: u8
+    pub attribute_count: u8,
 }
 
 impl VertexAttributeLayoutDescriptorBuilder {
@@ -308,15 +308,16 @@ impl VertexAttributeLayoutDescriptorBuilder {
 
         VertexAttributeLayoutDescriptorBuilder {
             initial_bind_slot: None,
-            layout
+            layout,
         }
     }
 
-    pub fn add_bind_slot(&mut self, stride: u8, input_rate: InputRate) -> BindSlotAttributeAttacher {
-        let bind_slot = BindSlot {
-            stride,
-            input_rate
-        };
+    pub fn add_bind_slot(
+        &mut self,
+        stride: u8,
+        input_rate: InputRate,
+    ) -> BindSlotAttributeAttacher {
+        let bind_slot = BindSlot { stride, input_rate };
 
         if self.initial_bind_slot.is_none() {
             self.initial_bind_slot = Some(bind_slot);
@@ -326,7 +327,7 @@ impl VertexAttributeLayoutDescriptorBuilder {
 
         BindSlotAttributeAttacher {
             stride,
-            layout_builder: self
+            layout_builder: self,
         }
     }
 
@@ -346,14 +347,14 @@ impl VertexAttributeLayoutDescriptorBuilder {
         VertexAttributeLayoutDescriptor {
             initial_bind_slot: self.initial_bind_slot,
             layout: self.layout,
-            hash_code
+            hash_code,
         }
     }
 }
 
 pub struct BindSlotAttributeAttacher<'a> {
     stride: u8,
-    layout_builder: &'a mut VertexAttributeLayoutDescriptorBuilder
+    layout_builder: &'a mut VertexAttributeLayoutDescriptorBuilder,
 }
 
 impl<'a> BindSlotAttributeAttacher<'a> {
@@ -364,11 +365,18 @@ impl<'a> BindSlotAttributeAttacher<'a> {
             panic!("Attribute does not fit within stride.");
         }
 
-        self.layout_builder.layout.push(LayoutElement::NextAttribute(attribute_descriptor));
+        self.layout_builder
+            .layout
+            .push(LayoutElement::NextAttribute(attribute_descriptor));
     }
 
-    pub unsafe fn add_attribute_unchecked(&mut self, attribute_descriptor: VertexAttributeDescriptor) {
-        self.layout_builder.layout.push(LayoutElement::NextAttribute(attribute_descriptor));
+    pub unsafe fn add_attribute_unchecked(
+        &mut self,
+        attribute_descriptor: VertexAttributeDescriptor,
+    ) {
+        self.layout_builder
+            .layout
+            .push(LayoutElement::NextAttribute(attribute_descriptor));
     }
 
     pub fn finish(self) -> &'a mut VertexAttributeLayoutDescriptorBuilder {

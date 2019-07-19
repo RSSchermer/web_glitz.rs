@@ -9,18 +9,24 @@ use js_sys::Uint32Array;
 
 use wasm_bindgen::JsValue;
 
-use crate::pipeline::graphics::{AttributeSlotDescriptor, AttributeType, BlendEquation, BlendFactor, CullingMode, DepthRange, PolygonOffset, StencilOperation, TestFunction, WindingOrder, TransformFeedbackDescription};
+use crate::pipeline::graphics::{
+    AttributeSlotDescriptor, AttributeType, BlendEquation, BlendFactor, CullingMode, DepthRange,
+    PolygonOffset, StencilOperation, TestFunction, TransformFeedbackDescription, WindingOrder,
+};
 use crate::pipeline::resources::resource_slot::{
     Identifier, ResourceSlotDescriptor, SamplerKind, TextureSamplerSlot, UniformBlockSlot,
 };
 use crate::render_target::attachable_image_ref::AttachableImageData;
 use crate::runtime::index_lru::IndexLRU;
 use crate::util::{identical, JsId};
+use crate::vertex::{
+    IndexBufferDescription, IndexBufferDescriptor, VertexAttributeLayoutDescriptor,
+    VertexBufferDescriptor, VertexBuffersDescription,
+};
 use web_sys::{
     WebGl2RenderingContext as Gl, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlRenderbuffer,
     WebGlSampler, WebGlTexture, WebGlVertexArrayObject,
 };
-use crate::vertex::{VertexBuffersDescription, IndexBufferDescription, VertexAttributeLayoutDescriptor, VertexBufferDescriptor, IndexBufferDescriptor};
 
 pub struct DynamicState {
     framebuffer_cache: FnvHashMap<u64, (Framebuffer, [Option<JsId>; 17])>,
@@ -1822,8 +1828,7 @@ impl<'a> VertexArrayCache<'a> {
         layout: &VertexAttributeLayoutDescriptor,
         vertex_buffers: &[VertexBufferDescriptor],
         gl: &Gl,
-    ) -> &WebGlVertexArrayObject
-    {
+    ) -> &WebGlVertexArrayObject {
         let mut hasher = FnvHasher::default();
 
         layout.hash(&mut hasher);
@@ -1855,10 +1860,10 @@ impl<'a> VertexArrayCache<'a> {
 
                 let mut buffer_ids = [None; 17];
 
-                for (i, (bind_slot, buffer_descriptor)) in layout.bind_slots().zip(vertex_buffers).enumerate() {
-                    let buffer_id = buffer_descriptor
-                        .buffer_data
-                        .id();
+                for (i, (bind_slot, buffer_descriptor)) in
+                    layout.bind_slots().zip(vertex_buffers).enumerate()
+                {
+                    let buffer_id = buffer_descriptor.buffer_data.id();
 
                     unsafe {
                         buffer_id
@@ -1894,8 +1899,7 @@ impl<'a> VertexArrayCache<'a> {
         vertex_buffers: &[VertexBufferDescriptor],
         index_buffer: &IndexBufferDescriptor,
         gl: &Gl,
-    ) -> &WebGlVertexArrayObject
-    {
+    ) -> &WebGlVertexArrayObject {
         let mut hasher = FnvHasher::default();
 
         layout.hash(&mut hasher);
@@ -1929,10 +1933,10 @@ impl<'a> VertexArrayCache<'a> {
 
                 let mut buffer_ids = [None; 17];
 
-                for (i, (bind_slot, buffer_descriptor)) in layout.bind_slots().zip(vertex_buffers).enumerate() {
-                    let buffer_id = buffer_descriptor
-                        .buffer_data
-                        .id();
+                for (i, (bind_slot, buffer_descriptor)) in
+                    layout.bind_slots().zip(vertex_buffers).enumerate()
+                {
+                    let buffer_id = buffer_descriptor.buffer_data.id();
 
                     unsafe {
                         buffer_id
@@ -1956,12 +1960,11 @@ impl<'a> VertexArrayCache<'a> {
                     buffer_ids[i] = buffer_id;
                 }
 
-                let index_buffer_id = index_buffer
-                    .buffer_data
-                    .id();
+                let index_buffer_id = index_buffer.buffer_data.id();
 
                 unsafe {
-                    index_buffer_id.unwrap()
+                    index_buffer_id
+                        .unwrap()
                         .with_value_unchecked(|buffer: &WebGlBuffer| {
                             *bound_element_array_buffer = Some(buffer.clone());
 
@@ -2001,7 +2004,10 @@ impl<'a> ProgramCache<'a> {
         &mut self,
         key: ProgramKey,
         gl: &Gl,
-    ) -> Result<&Program, CreateProgramError> where Tf: TransformFeedbackDescription {
+    ) -> Result<&Program, CreateProgramError>
+    where
+        Tf: TransformFeedbackDescription,
+    {
         let program = match self.state.program_cache.entry(key) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
@@ -2036,7 +2042,11 @@ impl<'a> ProgramCache<'a> {
 
                     let varyings = JsValue::from_serde(&varyings).unwrap();
 
-                    gl.transform_feedback_varyings(&program_object, &varyings, Gl::INTERLEAVED_ATTRIBS);
+                    gl.transform_feedback_varyings(
+                        &program_object,
+                        &varyings,
+                        Gl::INTERLEAVED_ATTRIBS,
+                    );
                 }
 
                 gl.link_program(&program_object);

@@ -1233,7 +1233,9 @@ unsafe impl GpuTask<Connection> for DropCommand {
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, state) = unsafe { connection.unpack_mut() };
 
-        state.vertex_array_cache_mut().remove_buffer_dependents(self.id, gl);
+        state
+            .vertex_array_cache_mut()
+            .remove_buffer_dependents(self.id, gl);
 
         let value = unsafe { JsId::into_value(self.id) };
 

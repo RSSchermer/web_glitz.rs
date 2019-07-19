@@ -1,11 +1,11 @@
 use std::borrow::Borrow;
+use std::cell::UnsafeCell;
 use std::hash::{Hash, Hasher};
 use std::marker;
 use std::mem;
 use std::ops::{Deref, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 use std::slice;
 use std::sync::Arc;
-use std::cell::UnsafeCell;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
@@ -27,7 +27,6 @@ use crate::runtime::{Connection, RenderingContext};
 use crate::sampler::{Sampler, SamplerData, ShadowSampler};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
-
 
 /// Provides the information necessary for the creation of a [TextureCube].
 ///

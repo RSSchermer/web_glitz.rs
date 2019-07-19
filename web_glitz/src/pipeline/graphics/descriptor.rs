@@ -3,9 +3,14 @@ use std::sync::Arc;
 
 use crate::image::Region2D;
 use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
-use crate::pipeline::graphics::{Blending, DepthTest, FragmentShader, PrimitiveAssembly, StencilTest, VertexShader, Viewport, Untyped};
+use crate::pipeline::graphics::{
+    Blending, DepthTest, FragmentShader, PrimitiveAssembly, StencilTest, Untyped, VertexShader,
+    Viewport,
+};
 use crate::pipeline::resources::Resources;
-use crate::vertex::{TypedVertexAttributeLayout, VertexAttributeDescriptor, VertexAttributeLayoutDescriptor};
+use crate::vertex::{
+    TypedVertexAttributeLayout, VertexAttributeDescriptor, VertexAttributeLayoutDescriptor,
+};
 
 /// Enumerates the strategies available to map pipeline resource slots to binding indices.
 ///
@@ -273,7 +278,9 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
     /// Note that [TypedVertexAttributeLayout] is implemented for any type that implements [Vertex]
     /// and any tuple of types that implement [Vertex] (e.g. `(Vertex1, Vertex2)` where both
     /// `Vertex1` and `Vertex2` are types that implement [Vertex]).
-    pub fn typed_vertex_attribute_layout<T>(self) -> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, T, R, Tf>
+    pub fn typed_vertex_attribute_layout<T>(
+        self,
+    ) -> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, T, R, Tf>
     where
         T: TypedVertexAttributeLayout,
     {
@@ -297,8 +304,10 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
         }
     }
 
-    pub fn untyped_vertex_attribute_layout(self, vertex_attribute_layout: VertexAttributeLayoutDescriptor) -> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Untyped, R, Tf>
-    {
+    pub fn untyped_vertex_attribute_layout(
+        self,
+        vertex_attribute_layout: VertexAttributeLayoutDescriptor,
+    ) -> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Untyped, R, Tf> {
         GraphicsPipelineDescriptorBuilder {
             _vertex_shader: marker::PhantomData,
             _primitive_assembly: marker::PhantomData,

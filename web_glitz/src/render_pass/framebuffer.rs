@@ -7,7 +7,11 @@ use fnv::FnvHasher;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::image::format::{DepthRenderable, DepthStencilRenderable, Filterable, FloatRenderable, IntegerRenderable, InternalFormat, RenderbufferFormat, StencilRenderable, TextureFormat, UnsignedIntegerRenderable, RGBA8, RGB8};
+use crate::image::format::{
+    DepthRenderable, DepthStencilRenderable, Filterable, FloatRenderable, IntegerRenderable,
+    InternalFormat, RenderbufferFormat, StencilRenderable, TextureFormat,
+    UnsignedIntegerRenderable, RGB8, RGBA8,
+};
 use crate::image::renderbuffer::Renderbuffer;
 use crate::image::texture_2d::{Level as Texture2DLevel, LevelSubImage as Texture2DLevelSubImage};
 use crate::image::texture_2d_array::{
@@ -22,8 +26,7 @@ use crate::image::texture_cube::{
 use crate::image::Region2D;
 use crate::pipeline::graphics::primitive_assembly::Topology;
 use crate::pipeline::graphics::{
-    Blending, DepthTest, GraphicsPipeline, PrimitiveAssembly,
-    StencilTest, Viewport,
+    Blending, DepthTest, GraphicsPipeline, PrimitiveAssembly, StencilTest, Viewport,
 };
 use crate::pipeline::resources::bind_group_encoding::{
     BindGroupEncodingContext, BindingDescriptor,
@@ -31,11 +34,14 @@ use crate::pipeline::resources::bind_group_encoding::{
 use crate::pipeline::resources::Resources;
 use crate::render_pass::RenderPassContext;
 use crate::render_target::attachable_image_ref::{AttachableImageData, AttachableImageRef};
-use crate::runtime::state::ContextUpdate;
+use crate::runtime::state::{ContextUpdate, DynamicState};
 use crate::runtime::Connection;
-use crate::task::{ContextId, GpuTask, Progress, Sequence, sequence, Empty};
+use crate::task::{sequence, ContextId, Empty, GpuTask, Progress, Sequence};
 use crate::util::JsId;
-use crate::vertex::{TypedVertexAttributeLayout, IndexBufferDescription, VertexAttributeLayoutDescriptor, VertexBufferDescriptor, IndexBufferDescriptor, VertexBuffersDescription};
+use crate::vertex::{
+    IndexBufferDescription, IndexBufferDescriptor, TypedVertexAttributeLayout,
+    VertexAttributeLayoutDescriptor, VertexBufferDescriptor, VertexBuffersDescription,
+};
 use std::mem::{ManuallyDrop, MaybeUninit};
 
 /// Represents a set of image memory buffers that serve as the rendering destination for a
@@ -116,7 +122,7 @@ impl<C, Ds> Framebuffer<C, Ds> {
     ) -> PipelineTask<T>
     where
         F: Fn(ActiveGraphicsPipeline<V, R, Tf>) -> T,
-        for<'a> T: GpuTask<PipelineTaskContext<'a>>,
+        T: GpuTask<PipelineTaskContext>,
     {
         if self.context_id != graphics_pipeline.context_id() {
             panic!("The pipeline does not belong to the same context as the framebuffer.");
@@ -142,6 +148,7 @@ impl<C, Ds> Framebuffer<C, Ds> {
         }
 
         PipelineTask {
+            id: pipeline_task_id,
             render_pass_id: self.render_pass_id,
             task,
             program_id: graphics_pipeline.program_id(),
@@ -647,15 +654,49 @@ where
 }
 
 /// Provides the context necessary for making progress on a [PipelineTask].
-pub struct PipelineTaskContext<'a> {
-    connection: &'a mut Connection,
-    attribute_layout: &'a VertexAttributeLayoutDescriptor,
+pub struct PipelineTaskContext {
+    pipeline_task_id: usize,
+    connection: *mut Connection,
+    attribute_layout: *const VertexAttributeLayoutDescriptor,
     vertex_buffers: ManuallyDrop<[VertexBufferDescriptor; 16]>,
     vertex_buffer_count: usize,
-    index_buffer: Option<IndexBufferDescriptor>
+    index_buffer: Option<IndexBufferDescriptor>,
 }
 
-impl<'a> Drop for PipelineTaskContext<'a> {
+impl PipelineTaskContext {
+    /// The ID of the [PipelineTask] this [PipelineTaskContext] is associated with.
+    pub fn pipeline_task_id(&self) -> usize {
+        self.pipeline_task_id
+    }
+
+    pub(crate) fn connection_mut(&mut self) -> &mut Connection {
+        unsafe { &mut *self.connection }
+    }
+
+    /// Unpacks this context into a reference to the raw [web_sys::WebGl2RenderingContext] and a
+    /// reference to the WebGlitz state cache for this context.
+    ///
+    /// # Unsafe
+    ///
+    /// If state is changed on the [web_sys::WebGl2RenderingContext], than the cache must be updated
+    /// accordingly.
+    pub unsafe fn unpack(&self) -> (&Gl, &DynamicState) {
+        (*self.connection).unpack()
+    }
+
+    /// Unpacks this context into a mutable reference to the raw [web_sys::WebGl2RenderingContext]
+    /// and a mutable reference to the WebGlitz state cache for this context.
+    ///
+    /// # Unsafe
+    ///
+    /// If state is changed on the [web_sys::WebGl2RenderingContext], than the cache must be updated
+    /// accordingly.
+    pub unsafe fn unpack_mut(&mut self) -> (&mut Gl, &mut DynamicState) {
+        (*self.connection).unpack_mut()
+    }
+}
+
+impl Drop for PipelineTaskContext {
     fn drop(&mut self) {
         for vertex_buffer in self.vertex_buffers[0..self.vertex_buffer_count].iter_mut() {
             unsafe {
@@ -670,6 +711,7 @@ impl<'a> Drop for PipelineTaskContext<'a> {
 ///
 /// See [Framebuffer::pipeline_task].
 pub struct PipelineTask<T> {
+    id: usize,
     render_pass_id: usize,
     task: T,
     program_id: JsId,
@@ -683,9 +725,9 @@ pub struct PipelineTask<T> {
     framebuffer_dimensions: Option<(u32, u32)>,
 }
 
-unsafe impl<'a, T, O> GpuTask<RenderPassContext<'a>> for PipelineTask<T>
+unsafe impl<T, O> GpuTask<RenderPassContext> for PipelineTask<T>
 where
-    for<'b> T: GpuTask<PipelineTaskContext<'b>, Output = O>,
+    T: GpuTask<PipelineTaskContext, Output = O>,
 {
     type Output = O;
 
@@ -693,7 +735,7 @@ where
         ContextId::Id(self.render_pass_id)
     }
 
-    fn progress(&mut self, context: &mut RenderPassContext<'a>) -> Progress<Self::Output> {
+    fn progress(&mut self, context: &mut RenderPassContext) -> Progress<Self::Output> {
         let (gl, state) = unsafe { context.unpack_mut() };
 
         unsafe {
@@ -748,7 +790,8 @@ where
         Blending::apply(&self.blending, connection);
 
         self.task.progress(&mut PipelineTaskContext {
-            connection: context.connection_mut(),
+            pipeline_task_id: self.id,
+            connection: context.connection_mut() as *mut Connection,
             attribute_layout: &self.attribute_layout,
             vertex_buffers: unsafe {
                 ManuallyDrop::new([
@@ -771,7 +814,7 @@ where
                 ])
             },
             vertex_buffer_count: 0,
-            index_buffer: None
+            index_buffer: None,
         })
     }
 }
@@ -782,7 +825,7 @@ where
 /// a [PipelineTask] for a [Framebuffer], see [Framebuffer::pipeline_task].
 pub struct ActiveGraphicsPipeline<'a, V, R, Tf> {
     pipeline_task_id: usize,
-    pipeline: &'a GraphicsPipeline<V, R, Tf>
+    pipeline: &'a GraphicsPipeline<V, R, Tf>,
 }
 
 impl<'a, V, R, Tf> ActiveGraphicsPipeline<'a, V, R, Tf> {
@@ -812,7 +855,23 @@ pub struct GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, T> {
 }
 
 impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, T> {
-    pub fn bind_vertex_buffers_command<'b, VbNew>(self, vertex_buffers: VbNew) -> GraphicsPipelineTaskBuilder<'a, V, R, VbNew, Ib, Rb, Sequence<T, BindVertexBuffersCommand<VbNew::BufferDescriptors>, PipelineTaskContext<'b>>> where V: TypedVertexAttributeLayout, VbNew: VertexBuffersDescription<VertexAttributeLayout=V>, T: GpuTask<PipelineTaskContext<'b>> {
+    pub fn bind_vertex_buffers_command<VbNew>(
+        self,
+        vertex_buffers: VbNew,
+    ) -> GraphicsPipelineTaskBuilder<
+        'a,
+        V,
+        R,
+        VbNew,
+        Ib,
+        Rb,
+        Sequence<T, BindVertexBuffersCommand<VbNew::BufferDescriptors>, PipelineTaskContext>,
+    >
+    where
+        V: TypedVertexAttributeLayout,
+        VbNew: VertexBuffersDescription<VertexAttributeLayout = V>,
+        T: GpuTask<PipelineTaskContext>,
+    {
         let vertex_buffers = vertex_buffers.buffer_descriptors();
 
         for (i, buffer) in vertex_buffers.borrow().iter().enumerate() {
@@ -825,10 +884,13 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
             context_id: self.context_id,
             topology: self.topology,
             pipeline_task_id: self.pipeline_task_id,
-            task: sequence(self.task, BindVertexBuffersCommand {
-                pipeline_task_id: self.pipeline_task_id,
-                vertex_buffers
-            }),
+            task: sequence(
+                self.task,
+                BindVertexBuffersCommand {
+                    pipeline_task_id: self.pipeline_task_id,
+                    vertex_buffers,
+                },
+            ),
             _pipeline: marker::PhantomData,
             _vertex_buffers: marker::PhantomData,
             _index_buffer: marker::PhantomData,
@@ -847,7 +909,22 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
     /// is `8`, then the first vertex in the vertex stream is the 9th vertex in the vertex array.
     /// The same index may also occur more than once in the index buffer, in which case the same
     /// vertex will appear more than once in the vertex stream.
-    pub fn bind_index_buffer_command<'b, IbNew>(self, index_buffer: IbNew) -> GraphicsPipelineTaskBuilder<'a, V, R, Vb, IbNew, Rb, Sequence<T, BindIndexBufferCommand, PipelineTaskContext<'b>>> where IbNew: IndexBufferDescription, T: GpuTask<PipelineTaskContext<'b>>  {
+    pub fn bind_index_buffer_command<IbNew>(
+        self,
+        index_buffer: IbNew,
+    ) -> GraphicsPipelineTaskBuilder<
+        'a,
+        V,
+        R,
+        Vb,
+        IbNew,
+        Rb,
+        Sequence<T, BindIndexBufferCommand, PipelineTaskContext>,
+    >
+    where
+        IbNew: IndexBufferDescription,
+        T: GpuTask<PipelineTaskContext>,
+    {
         let index_buffer = index_buffer.descriptor();
 
         if index_buffer.buffer_data.context_id() != self.context_id {
@@ -858,10 +935,13 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
             context_id: self.context_id,
             topology: self.topology,
             pipeline_task_id: self.pipeline_task_id,
-            task: sequence(self.task, BindIndexBufferCommand {
-                pipeline_task_id: self.pipeline_task_id,
-                index_buffer
-            }),
+            task: sequence(
+                self.task,
+                BindIndexBufferCommand {
+                    pipeline_task_id: self.pipeline_task_id,
+                    index_buffer,
+                },
+            ),
             _pipeline: marker::PhantomData,
             _vertex_buffers: marker::PhantomData,
             _index_buffer: marker::PhantomData,
@@ -869,15 +949,35 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
         }
     }
 
-    pub fn bind_resources_command<'b>(self, resources: R) -> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, R, Sequence<T, BindResourcesCommand<R::Bindings>, PipelineTaskContext<'b>>> where R: Resources, T: GpuTask<PipelineTaskContext<'b>>  {
+    pub fn bind_resources_command(
+        self,
+        resources: R,
+    ) -> GraphicsPipelineTaskBuilder<
+        'a,
+        V,
+        R,
+        Vb,
+        Ib,
+        R,
+        Sequence<T, BindResourcesCommand<R::Bindings>, PipelineTaskContext>,
+    >
+    where
+        R: Resources,
+        T: GpuTask<PipelineTaskContext>,
+    {
         GraphicsPipelineTaskBuilder {
             context_id: self.context_id,
             topology: self.topology,
             pipeline_task_id: self.pipeline_task_id,
-            task: sequence(self.task, BindResourcesCommand {
-                pipeline_task_id: self.pipeline_task_id,
-                resource_bindings: resources.into_bind_group(&mut BindGroupEncodingContext::new(self.context_id)).into_descriptors()
-            }),
+            task: sequence(
+                self.task,
+                BindResourcesCommand {
+                    pipeline_task_id: self.pipeline_task_id,
+                    resource_bindings: resources
+                        .into_bind_group(&mut BindGroupEncodingContext::new(self.context_id))
+                        .into_descriptors(),
+                },
+            ),
             _pipeline: marker::PhantomData,
             _vertex_buffers: marker::PhantomData,
             _index_buffer: marker::PhantomData,
@@ -940,21 +1040,37 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
     ///   than this [ActiveGraphicsPipeline].
     /// - Panics when [resources] specifies a resource that belongs to a different context than this
     ///   [ActiveGraphicsPipeline].
-    pub fn draw_command<'b>(
+    pub fn draw_command(
         self,
         vertex_count: usize,
-        instance_count: usize
-    ) -> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, R, Sequence<T, DrawCommand, PipelineTaskContext<'b>>> where Vb: VertexBuffersDescription<VertexAttributeLayout=V>, Rb: Resources, T: GpuTask<PipelineTaskContext<'b>>  {
+        instance_count: usize,
+    ) -> GraphicsPipelineTaskBuilder<
+        'a,
+        V,
+        R,
+        Vb,
+        Ib,
+        R,
+        Sequence<T, DrawCommand, PipelineTaskContext>,
+    >
+    where
+        Vb: VertexBuffersDescription<VertexAttributeLayout = V>,
+        Rb: Resources,
+        T: GpuTask<PipelineTaskContext>,
+    {
         GraphicsPipelineTaskBuilder {
             context_id: self.context_id,
             topology: self.topology,
             pipeline_task_id: self.pipeline_task_id,
-            task: sequence(self.task, DrawCommand {
-                pipeline_task_id: self.pipeline_task_id,
-                topology: self.topology,
-                vertex_count,
-                instance_count
-            }),
+            task: sequence(
+                self.task,
+                DrawCommand {
+                    pipeline_task_id: self.pipeline_task_id,
+                    topology: self.topology,
+                    vertex_count,
+                    instance_count,
+                },
+            ),
             _pipeline: marker::PhantomData,
             _vertex_buffers: marker::PhantomData,
             _index_buffer: marker::PhantomData,
@@ -962,21 +1078,38 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
         }
     }
 
-    pub fn draw_indexed_command<'b>(
+    pub fn draw_indexed_command(
         self,
         index_count: usize,
-        instance_count: usize
-    ) -> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, R, Sequence<T, DrawIndexedCommand, PipelineTaskContext<'b>>> where Vb: VertexBuffersDescription<VertexAttributeLayout=V>, Ib: IndexBufferDescription, Rb: Resources, T: GpuTask<PipelineTaskContext<'b>>  {
+        instance_count: usize,
+    ) -> GraphicsPipelineTaskBuilder<
+        'a,
+        V,
+        R,
+        Vb,
+        Ib,
+        R,
+        Sequence<T, DrawIndexedCommand, PipelineTaskContext>,
+    >
+    where
+        Vb: VertexBuffersDescription<VertexAttributeLayout = V>,
+        Ib: IndexBufferDescription,
+        Rb: Resources,
+        T: GpuTask<PipelineTaskContext>,
+    {
         GraphicsPipelineTaskBuilder {
             context_id: self.context_id,
             topology: self.topology,
             pipeline_task_id: self.pipeline_task_id,
-            task: sequence(self.task, DrawIndexedCommand {
-                pipeline_task_id: self.pipeline_task_id,
-                topology: self.topology,
-                index_count,
-                instance_count
-            }),
+            task: sequence(
+                self.task,
+                DrawIndexedCommand {
+                    pipeline_task_id: self.pipeline_task_id,
+                    topology: self.topology,
+                    index_count,
+                    instance_count,
+                },
+            ),
             _pipeline: marker::PhantomData,
             _vertex_buffers: marker::PhantomData,
             _index_buffer: marker::PhantomData,
@@ -994,9 +1127,9 @@ pub struct BindVertexBuffersCommand<Vb> {
     vertex_buffers: Vb,
 }
 
-unsafe impl<'a, Vb> GpuTask<PipelineTaskContext<'a>> for BindVertexBuffersCommand<Vb>
-    where
-        Vb: Borrow<[VertexBufferDescriptor]>,
+unsafe impl<Vb> GpuTask<PipelineTaskContext> for BindVertexBuffersCommand<Vb>
+where
+    Vb: Borrow<[VertexBufferDescriptor]>,
 {
     type Output = ();
 
@@ -1022,8 +1155,7 @@ pub struct BindIndexBufferCommand {
     index_buffer: IndexBufferDescriptor,
 }
 
-unsafe impl<'a> GpuTask<PipelineTaskContext<'a>> for BindIndexBufferCommand
-{
+unsafe impl GpuTask<PipelineTaskContext> for BindIndexBufferCommand {
     type Output = ();
 
     fn context_id(&self) -> ContextId {
@@ -1042,9 +1174,9 @@ pub struct BindResourcesCommand<Rb> {
     resource_bindings: Rb,
 }
 
-unsafe impl<'a, Rb> GpuTask<PipelineTaskContext<'a>> for BindResourcesCommand<Rb>
-    where
-        Rb: Borrow<[BindingDescriptor]>,
+unsafe impl<Rb> GpuTask<PipelineTaskContext> for BindResourcesCommand<Rb>
+where
+    Rb: Borrow<[BindingDescriptor]>,
 {
     type Output = ();
 
@@ -1054,7 +1186,9 @@ unsafe impl<'a, Rb> GpuTask<PipelineTaskContext<'a>> for BindResourcesCommand<Rb
 
     fn progress(&mut self, execution_context: &mut PipelineTaskContext) -> Progress<Self::Output> {
         for descriptor in self.resource_bindings.borrow().iter() {
-            descriptor.bind(execution_context.connection);
+            unsafe {
+                descriptor.bind(execution_context.connection_mut());
+            }
         }
 
         Progress::Finished(())
@@ -1065,23 +1199,28 @@ pub struct DrawCommand {
     pipeline_task_id: usize,
     topology: Topology,
     vertex_count: usize,
-    instance_count: usize
+    instance_count: usize,
 }
 
-unsafe impl<'a> GpuTask<PipelineTaskContext<'a>> for DrawCommand
-{
+unsafe impl GpuTask<PipelineTaskContext> for DrawCommand {
     type Output = ();
 
     fn context_id(&self) -> ContextId {
         ContextId::Id(self.pipeline_task_id)
     }
 
-    fn progress(&mut self, context: &mut PipelineTaskContext<'a>) -> Progress<Self::Output> {
-        let (gl, state) = unsafe { context.connection.unpack_mut() };
+    fn progress(&mut self, context: &mut PipelineTaskContext) -> Progress<Self::Output> {
+        let (gl, state) = unsafe { (*context.connection).unpack_mut() };
 
         let vertex_buffers = &context.vertex_buffers[0..context.vertex_buffer_count];
 
-        state.vertex_array_cache_mut().bind_or_create(context.attribute_layout, vertex_buffers, gl);
+        unsafe {
+            state.vertex_array_cache_mut().bind_or_create(
+                &*context.attribute_layout,
+                vertex_buffers,
+                gl,
+            );
+        }
 
         if self.instance_count == 1 {
             gl.draw_arrays(self.topology.id(), 0, self.vertex_count as i32);
@@ -1105,24 +1244,30 @@ pub struct DrawIndexedCommand {
     pipeline_task_id: usize,
     topology: Topology,
     index_count: usize,
-    instance_count: usize
+    instance_count: usize,
 }
 
-unsafe impl<'a> GpuTask<PipelineTaskContext<'a>> for DrawIndexedCommand
-{
+unsafe impl GpuTask<PipelineTaskContext> for DrawIndexedCommand {
     type Output = ();
 
     fn context_id(&self) -> ContextId {
         ContextId::Id(self.pipeline_task_id)
     }
 
-    fn progress(&mut self, context: &mut PipelineTaskContext<'a>) -> Progress<Self::Output> {
-        let (gl, state) = unsafe { context.connection.unpack_mut() };
+    fn progress(&mut self, context: &mut PipelineTaskContext) -> Progress<Self::Output> {
+        let (gl, state) = unsafe { (*context.connection).unpack_mut() };
 
         if let Some(index_buffer) = &context.index_buffer {
             let vertex_buffers = &context.vertex_buffers[0..context.vertex_buffer_count];
 
-            state.vertex_array_cache_mut().bind_or_create_indexed(context.attribute_layout, vertex_buffers, index_buffer, gl);
+            unsafe {
+                state.vertex_array_cache_mut().bind_or_create_indexed(
+                    &*context.attribute_layout,
+                    vertex_buffers,
+                    index_buffer,
+                    gl,
+                );
+            }
 
             if self.instance_count == 1 {
                 gl.draw_elements_with_i32(
@@ -1442,17 +1587,9 @@ where
 {
 }
 
-unsafe impl<T> BlitColorCompatible<DefaultRGBABuffer> for T
-    where
-        T: BlitSource<Format=RGBA8>
-{
-}
+unsafe impl<T> BlitColorCompatible<DefaultRGBABuffer> for T where T: BlitSource<Format = RGBA8> {}
 
-unsafe impl<T> BlitColorCompatible<DefaultRGBBuffer> for T
-    where
-        T: BlitSource<Format=RGB8>
-{
-}
+unsafe impl<T> BlitColorCompatible<DefaultRGBBuffer> for T where T: BlitSource<Format = RGB8> {}
 
 unsafe impl<T> BlitColorCompatible<IntegerBuffer<T::Format>> for T
 where
@@ -1507,7 +1644,7 @@ pub struct BlitCommand {
     source: BlitSourceDescriptor,
 }
 
-unsafe impl<'a> GpuTask<RenderPassContext<'a>> for BlitCommand {
+unsafe impl GpuTask<RenderPassContext> for BlitCommand {
     type Output = ();
 
     fn context_id(&self) -> ContextId {
@@ -2480,7 +2617,7 @@ pub struct ClearFloatCommand {
     region: Region2D,
 }
 
-unsafe impl<'a> GpuTask<RenderPassContext<'a>> for ClearFloatCommand {
+unsafe impl GpuTask<RenderPassContext> for ClearFloatCommand {
     type Output = ();
 
     fn context_id(&self) -> ContextId {
@@ -2517,7 +2654,7 @@ pub struct ClearIntegerCommand {
     region: Region2D,
 }
 
-unsafe impl<'a> GpuTask<RenderPassContext<'a>> for ClearIntegerCommand {
+unsafe impl GpuTask<RenderPassContext> for ClearIntegerCommand {
     type Output = ();
 
     fn context_id(&self) -> ContextId {
@@ -2554,7 +2691,7 @@ pub struct ClearUnsignedIntegerCommand {
     region: Region2D,
 }
 
-unsafe impl<'a> GpuTask<RenderPassContext<'a>> for ClearUnsignedIntegerCommand {
+unsafe impl GpuTask<RenderPassContext> for ClearUnsignedIntegerCommand {
     type Output = ();
 
     fn context_id(&self) -> ContextId {
@@ -2591,7 +2728,7 @@ pub struct ClearDepthStencilCommand {
     region: Region2D,
 }
 
-unsafe impl<'a> GpuTask<RenderPassContext<'a>> for ClearDepthStencilCommand {
+unsafe impl GpuTask<RenderPassContext> for ClearDepthStencilCommand {
     type Output = ();
 
     fn context_id(&self) -> ContextId {
@@ -2628,7 +2765,7 @@ pub struct ClearDepthCommand {
     region: Region2D,
 }
 
-unsafe impl<'a> GpuTask<RenderPassContext<'a>> for ClearDepthCommand {
+unsafe impl GpuTask<RenderPassContext> for ClearDepthCommand {
     type Output = ();
 
     fn context_id(&self) -> ContextId {
@@ -2665,7 +2802,7 @@ pub struct ClearStencilCommand {
     region: Region2D,
 }
 
-unsafe impl<'a> GpuTask<RenderPassContext<'a>> for ClearStencilCommand {
+unsafe impl GpuTask<RenderPassContext> for ClearStencilCommand {
     type Output = ();
 
     fn context_id(&self) -> ContextId {

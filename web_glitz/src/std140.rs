@@ -132,16 +132,20 @@ pub unsafe trait ReprStd140 {}
 /// Marker trait for types that can be used as the element type for std140 [array]s.
 pub unsafe trait Std140ArrayElement: ReprStd140 {}
 
-pub struct array<T, const LEN: usize> where T: Std140ArrayElement {
-    internal: [ArrayElementWrapper<T>; LEN]
+pub struct array<T, const LEN: usize>
+where
+    T: Std140ArrayElement,
+{
+    internal: [ArrayElementWrapper<T>; LEN],
 }
 
-impl<T, const LEN: usize> array<T, {LEN}> where T: Std140ArrayElement {
+impl<T, const LEN: usize> array<T, { LEN }>
+where
+    T: Std140ArrayElement,
+{
     #[doc(hidden)]
     pub fn from_wrapped(wrapped: [ArrayElementWrapper<T>; LEN]) -> Self {
-        array {
-            internal: wrapped
-        }
+        array { internal: wrapped }
     }
 }
 
@@ -290,7 +294,7 @@ impl Index<usize> for vec2 {
         match index {
             0 => &self.0,
             1 => &self.1,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }
@@ -300,7 +304,7 @@ impl IndexMut<usize> for vec2 {
         match index {
             0 => &mut self.0,
             1 => &mut self.1,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }
@@ -321,7 +325,7 @@ impl Index<usize> for vec3 {
             0 => &self.0,
             1 => &self.1,
             2 => &self.2,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }
@@ -332,7 +336,7 @@ impl IndexMut<usize> for vec3 {
             0 => &mut self.0,
             1 => &mut self.1,
             2 => &mut self.2,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }
@@ -354,7 +358,7 @@ impl Index<usize> for vec4 {
             1 => &self.1,
             2 => &self.2,
             3 => &self.3,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }
@@ -366,7 +370,7 @@ impl IndexMut<usize> for vec4 {
             1 => &mut self.1,
             2 => &mut self.2,
             3 => &mut self.3,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }
@@ -394,7 +398,7 @@ impl Index<usize> for ivec2 {
         match index {
             0 => &self.0,
             1 => &self.1,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }
@@ -404,7 +408,7 @@ impl IndexMut<usize> for ivec2 {
         match index {
             0 => &mut self.0,
             1 => &mut self.1,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }
@@ -425,7 +429,7 @@ impl Index<usize> for ivec3 {
             0 => &self.0,
             1 => &self.1,
             2 => &self.2,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }
@@ -436,7 +440,7 @@ impl IndexMut<usize> for ivec3 {
             0 => &mut self.0,
             1 => &mut self.1,
             2 => &mut self.2,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }
@@ -458,7 +462,7 @@ impl Index<usize> for ivec4 {
             1 => &self.1,
             2 => &self.2,
             3 => &self.3,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }
@@ -470,7 +474,7 @@ impl IndexMut<usize> for ivec4 {
             1 => &mut self.1,
             2 => &mut self.2,
             3 => &mut self.3,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }
@@ -498,7 +502,7 @@ impl Index<usize> for uvec2 {
         match index {
             0 => &self.0,
             1 => &self.1,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }
@@ -508,7 +512,7 @@ impl IndexMut<usize> for uvec2 {
         match index {
             0 => &mut self.0,
             1 => &mut self.1,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }
@@ -529,7 +533,7 @@ impl Index<usize> for uvec3 {
             0 => &self.0,
             1 => &self.1,
             2 => &self.2,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }
@@ -540,7 +544,7 @@ impl IndexMut<usize> for uvec3 {
             0 => &mut self.0,
             1 => &mut self.1,
             2 => &mut self.2,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }
@@ -562,7 +566,7 @@ impl Index<usize> for uvec4 {
             1 => &self.1,
             2 => &self.2,
             3 => &self.3,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }
@@ -574,7 +578,7 @@ impl IndexMut<usize> for uvec4 {
             1 => &mut self.1,
             2 => &mut self.2,
             3 => &mut self.3,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }
@@ -605,7 +609,7 @@ impl Index<usize> for bvec2 {
         match index {
             0 => &self.0,
             1 => &self.1,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }
@@ -615,7 +619,7 @@ impl IndexMut<usize> for bvec2 {
         match index {
             0 => &mut self.0,
             1 => &mut self.1,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }
@@ -636,7 +640,7 @@ impl Index<usize> for bvec3 {
             0 => &self.0,
             1 => &self.1,
             2 => &self.2,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }
@@ -647,7 +651,7 @@ impl IndexMut<usize> for bvec3 {
             0 => &mut self.0,
             1 => &mut self.1,
             2 => &mut self.2,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }
@@ -669,7 +673,7 @@ impl Index<usize> for bvec4 {
             1 => &self.1,
             2 => &self.2,
             3 => &self.3,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }
@@ -681,7 +685,7 @@ impl IndexMut<usize> for bvec4 {
             1 => &mut self.1,
             2 => &mut self.2,
             3 => &mut self.3,
-            _ => panic!("Index out of bounds")
+            _ => panic!("Index out of bounds"),
         }
     }
 }

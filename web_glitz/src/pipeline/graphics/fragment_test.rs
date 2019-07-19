@@ -3,8 +3,8 @@ use std::ops::RangeInclusive;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::runtime::Connection;
 use crate::runtime::state::ContextUpdate;
+use crate::runtime::Connection;
 
 /// Enumerates the test functions that may be used with [DepthTest] and [StencilTest].
 ///

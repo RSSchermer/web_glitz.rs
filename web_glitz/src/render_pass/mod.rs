@@ -1,10 +1,10 @@
 mod framebuffer;
 pub use self::framebuffer::{
+    ActiveGraphicsPipeline, BindIndexBufferCommand, BindResourcesCommand, BindVertexBuffersCommand,
     DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
-    DefaultStencilBuffer, DepthBuffer, DepthStencilBuffer, FloatBuffer, Framebuffer, IntegerBuffer,
-    RenderingOutputBuffer, StencilBuffer, UnsignedIntegerBuffer, ActiveGraphicsPipeline,
-    GraphicsPipelineTaskBuilder, BindVertexBuffersCommand, BindIndexBufferCommand, BindResourcesCommand,
-    DrawCommand, DrawIndexedCommand
+    DefaultStencilBuffer, DepthBuffer, DepthStencilBuffer, DrawCommand, DrawIndexedCommand,
+    FloatBuffer, Framebuffer, GraphicsPipelineTaskBuilder, IntegerBuffer, RenderingOutputBuffer,
+    StencilBuffer, UnsignedIntegerBuffer,
 };
 
 mod render_pass;

@@ -1,10 +1,10 @@
 use std::borrow::Borrow;
 use std::pin::Pin;
 
-use futures::Poll;
 use futures::channel::oneshot::Receiver;
 use futures::future::Future;
 use futures::task::Context;
+use futures::Poll;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
@@ -16,7 +16,10 @@ use crate::image::texture_2d_array::{Texture2DArray, Texture2DArrayDescriptor};
 use crate::image::texture_3d::{Texture3D, Texture3DDescriptor};
 use crate::image::texture_cube::{TextureCube, TextureCubeDescriptor};
 use crate::image::MaxMipmapLevelsExceeded;
-use crate::pipeline::graphics::{FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, IncompatibleAttributeLayout, ShaderLinkingError, VertexShader, TransformFeedbackLayout, TransformFeedbackDescription};
+use crate::pipeline::graphics::{
+    FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, IncompatibleAttributeLayout,
+    ShaderLinkingError, TransformFeedbackDescription, TransformFeedbackLayout, VertexShader,
+};
 use crate::pipeline::resources::resource_slot::Identifier;
 use crate::pipeline::resources::{IncompatibleResources, Resources};
 use crate::render_pass::{RenderPass, RenderPassContext};
@@ -24,9 +27,7 @@ use crate::render_target::RenderTargetDescription;
 use crate::runtime::state::{CreateProgramError, DynamicState};
 use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
 use crate::task::GpuTask;
-use crate::vertex::{
-    IndexBufferDescription, VertexBuffersDescription,
-};
+use crate::vertex::{IndexBufferDescription, VertexBuffersDescription};
 
 /// Trait implemented by types that can serve as a WebGlitz rendering context.
 ///
@@ -379,7 +380,7 @@ pub trait RenderingContext {
     where
         R: RenderTargetDescription,
         F: FnOnce(&R::Framebuffer) -> T,
-        for<'a> T: GpuTask<RenderPassContext<'a>>;
+        T: GpuTask<RenderPassContext>;
 
     /// Creates a new [Texture2D] from the given `descriptor`, or returns an error if the descriptor
     /// was invalid.
@@ -674,7 +675,7 @@ pub enum CreateGraphicsPipelineError {
     /// the shader code.
     IncompatibleResources(IncompatibleResources),
 
-    TransformFeedbackTypeMismatch(String)
+    TransformFeedbackTypeMismatch(String),
 }
 
 impl From<CreateProgramError> for CreateGraphicsPipelineError {
@@ -735,7 +736,7 @@ impl<O> Future for Execution<O> {
             Execution::Pending(ref mut recv) => match Pin::new(recv).poll(cx) {
                 Poll::Ready(Ok(output)) => Poll::Ready(output),
                 Poll::Pending => Poll::Pending,
-                _ => unreachable!()
+                _ => unreachable!(),
             },
         }
     }

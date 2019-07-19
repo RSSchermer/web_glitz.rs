@@ -33,7 +33,7 @@ pub trait RenderTargetDescription {
     fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
     where
         F: FnOnce(&Self::Framebuffer) -> T,
-        for<'a> T: GpuTask<RenderPassContext<'a>>;
+        T: GpuTask<RenderPassContext>;
 }
 
 impl<'a, T> RenderTargetDescription for &'a mut T
@@ -45,7 +45,7 @@ where
     fn create_render_pass<F, Rt>(&mut self, id: RenderPassId, f: F) -> RenderPass<Rt>
     where
         F: FnOnce(&Self::Framebuffer) -> Rt,
-        for<'b> Rt: GpuTask<RenderPassContext<'b>>,
+        Rt: GpuTask<RenderPassContext>,
     {
         (*self).create_render_pass(id, f)
     }
@@ -63,7 +63,7 @@ macro_rules! impl_render_target_description {
             fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
                 where
                     F: FnOnce(&Self::Framebuffer) -> T,
-                    for<'a> T: GpuTask<RenderPassContext<'a>>
+                    T: GpuTask<RenderPassContext>
             {
                 let RenderPassId { id, context_id } = id;
 
@@ -222,7 +222,7 @@ macro_rules! impl_render_target_description_depth_stencil {
             fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
                 where
                     F: FnOnce(&Self::Framebuffer) -> T,
-                    for<'a> T: GpuTask<RenderPassContext<'a>>
+                    T: GpuTask<RenderPassContext>
             {
                 let RenderPassId { id, context_id } = id;
 

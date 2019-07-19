@@ -180,7 +180,7 @@
 //! after the task has finished executing.
 
 mod gpu_task;
-pub use self::gpu_task::{ContextId, GpuTask, GpuTaskExt, Progress, Empty};
+pub use self::gpu_task::{ContextId, Empty, GpuTask, GpuTaskExt, Progress};
 
 mod join;
 pub use self::join::{

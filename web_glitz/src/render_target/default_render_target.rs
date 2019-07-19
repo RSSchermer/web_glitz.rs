@@ -33,7 +33,7 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, ()> {
     fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
     where
         F: FnOnce(&Self::Framebuffer) -> T,
-        for<'a> T: GpuTask<RenderPassContext<'a>>,
+        T: GpuTask<RenderPassContext>,
     {
         let RenderPassId { id, context_id } = id;
 
@@ -67,7 +67,7 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, DefaultDe
     fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
     where
         F: FnOnce(&Self::Framebuffer) -> T,
-        for<'a> T: GpuTask<RenderPassContext<'a>>,
+        T: GpuTask<RenderPassContext>,
     {
         let RenderPassId { id, context_id } = id;
 
@@ -101,7 +101,7 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, DefaultDe
     fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
     where
         F: FnOnce(&Self::Framebuffer) -> T,
-        for<'a> T: GpuTask<RenderPassContext<'a>>,
+        T: GpuTask<RenderPassContext>,
     {
         let RenderPassId { id, context_id } = id;
 
@@ -135,7 +135,7 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, DefaultSt
     fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
     where
         F: FnOnce(&Self::Framebuffer) -> T,
-        for<'a> T: GpuTask<RenderPassContext<'a>>,
+        T: GpuTask<RenderPassContext>,
     {
         let RenderPassId { id, context_id } = id;
 
@@ -169,7 +169,7 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, ()> {
     fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
     where
         F: FnOnce(&Self::Framebuffer) -> T,
-        for<'a> T: GpuTask<RenderPassContext<'a>>,
+        T: GpuTask<RenderPassContext>,
     {
         let RenderPassId { id, context_id } = id;
 
@@ -203,7 +203,7 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, DefaultD
     fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
     where
         F: FnOnce(&Self::Framebuffer) -> T,
-        for<'a> T: GpuTask<RenderPassContext<'a>>,
+        T: GpuTask<RenderPassContext>,
     {
         let RenderPassId { id, context_id } = id;
 
@@ -237,7 +237,7 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, DefaultD
     fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
     where
         F: FnOnce(&Self::Framebuffer) -> T,
-        for<'a> T: GpuTask<RenderPassContext<'a>>,
+        T: GpuTask<RenderPassContext>,
     {
         let RenderPassId { id, context_id } = id;
 
@@ -271,7 +271,7 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, DefaultS
     fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
     where
         F: FnOnce(&Self::Framebuffer) -> T,
-        for<'a> T: GpuTask<RenderPassContext<'a>>,
+        T: GpuTask<RenderPassContext>,
     {
         let RenderPassId { id, context_id } = id;
 

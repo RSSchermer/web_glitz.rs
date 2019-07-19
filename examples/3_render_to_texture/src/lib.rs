@@ -20,7 +20,6 @@ use web_glitz::render_target::{FloatAttachment, LoadOp, RenderTarget, StoreOp};
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 use web_glitz::sampler::{MagnificationFilter, MinificationFilter, SamplerDescriptor, Wrap};
 use web_glitz::task::sequence_all;
-use web_glitz::vertex::VertexArrayDescriptor;
 
 // This example will use 2 render passes:
 // - One to render the texture on a custom render target; the example refers to this pass as the
@@ -140,11 +139,6 @@ pub fn start() {
     let secondary_vertex_buffer =
         context.create_buffer(secondary_vertex_data, UsageHint::StreamDraw);
 
-    let secondary_vertex_array = context.create_vertex_array(&VertexArrayDescriptor {
-        vertex_input_state: &secondary_vertex_buffer,
-        indices: (),
-    });
-
     // Our secondary render pass uses a custom render target. This render target only has 1 color
     // attachment: we attach the base level of our texture as a "float" attachment. For details on
     // how to create custom render targets, see the documentation for the `web_glitz::render_target`
@@ -164,7 +158,11 @@ pub fn start() {
         },
         |framebuffer| {
             framebuffer.pipeline_task(&secondary_pipeline, |active_pipeline| {
-                active_pipeline.draw_command(&secondary_vertex_array, ())
+                active_pipeline
+                    .task_builder()
+                    .bind_vertex_buffers_command(&secondary_vertex_buffer)
+                    .draw_command(3, 1)
+                    .finish()
             })
         },
     );
@@ -186,11 +184,6 @@ pub fn start() {
 
     let primary_vertex_buffer = context.create_buffer(primary_vertex_data, UsageHint::StreamDraw);
 
-    let primary_vertex_array = context.create_vertex_array(&VertexArrayDescriptor {
-        vertex_input_state: &primary_vertex_buffer,
-        indices: (),
-    });
-
     // We'll use a sampler that repeats our texture for texture coordinates outside of the
     // `0.0..=1.0` range.
     let sampler = context.create_sampler(&SamplerDescriptor {
@@ -205,12 +198,14 @@ pub fn start() {
     // `/examples/3_textured_triangle` example.
     let primary_render_pass = context.create_render_pass(default_render_target, |framebuffer| {
         framebuffer.pipeline_task(&primary_pipeline, |active_pipeline| {
-            active_pipeline.draw_command(
-                &primary_vertex_array,
-                PrimaryResources {
+            active_pipeline
+                .task_builder()
+                .bind_vertex_buffers_command(&primary_vertex_buffer)
+                .bind_resources_command(PrimaryResources {
                     texture: texture.float_sampled(&sampler).unwrap(),
-                },
-            )
+                })
+                .draw_command(3, 1)
+                .finish()
         })
     });
 

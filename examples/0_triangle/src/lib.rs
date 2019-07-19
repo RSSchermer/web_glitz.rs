@@ -111,11 +111,11 @@ pub fn start() {
         .unwrap();
 
     // Create our graphics pipeline. We'll use the vertex and fragment shaders we just initialized
-    // and we'll assemble our vertices into triangles. We also have to specify a type for the vertex
-    // input layout we intend to use with this pipeline. When the pipeline is created, WebGlitz will
-    // reflect on the shader code to verify that this vertex input layout is indeed compatible with
-    // the pipeline, otherwise this will return an error. We'll use our `Vertex` as the vertex input
-    // layout.
+    // and we'll assemble our vertices into triangles. We also specify a type for the vertex
+    // attribute layout we intend to use with this pipeline. When the pipeline is created, WebGlitz
+    // will reflect on the shader code to verify that this vertex input layout is indeed compatible
+    // with the pipeline, otherwise this will return an error. We'll use our `Vertex` type to
+    // describe the vertex layout.
     let pipeline = context
         .create_graphics_pipeline(
             &GraphicsPipelineDescriptor::begin()
@@ -178,19 +178,17 @@ pub fn start() {
         // uses the pipeline we initialized earlier. The second argument is a function that takes
         // the activated pipeline and returns a pipeline task.
         framebuffer.pipeline_task(&pipeline, |active_pipeline| {
-            active_pipeline.task_builder().bind_vertex_buffers_command(&vertex_buffer).draw_command(3, 1).finish()
-            // Return a pipeline task. In this case the pipeline task is a single draw command:
-            // we'll tell the GPU driver to run our pipeline once, using our `vertex_array` as
-            // input.
-            //
-            // The second argument specifies the additional resources ("uniforms") we'll give the
-            // pipeline access to. However, our simple pipeline does not use an resources, so we'll
-            // pass an empty tuple `()`.
-            //
-            // Note that WebGlitz wont have to do additional runtime safety checks here to ensure
-            // that the `vertex_array` is compatible with the pipeline: we'll just leverage Rust's
-            // type system to verify at compile time that the `vertex_array` type is compatible with
-            // the `vertex_input_layout` we declared when we created the pipeline.
+            // This function needs to return a pipeline task. We want to invoke the pipeline with a
+            // "draw" command while our vertex data is bound to it. We'll the pipeline task builder
+            // interface to construct our task safely without needing further runtime checks: the
+            // task builder interface leverages Rust's type system to ensure at compile time that
+            // matching data is bound to the pipeline, before allowing us to encode the draw
+            // command.
+            active_pipeline
+                .task_builder()
+                .bind_vertex_buffers_command(&vertex_buffer)
+                .draw_command(3, 1)
+                .finish()
         })
     });
 

@@ -4,8 +4,8 @@ members = [
     "web_glitz_macros",
     "web_glitz_test",
     "examples/0_triangle",
-#    "examples/1_uniform_block",
-#    "examples/2_textured_triangle",
-#    "examples/3_render_to_texture",
-#    "examples/4_blit"
+    "examples/1_uniform_block",
+    "examples/2_textured_triangle",
+    "examples/3_render_to_texture",
+    "examples/4_blit"
 ]

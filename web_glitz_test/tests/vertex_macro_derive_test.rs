@@ -1,7 +1,7 @@
 #![feature(const_fn)]
 
-use web_glitz::vertex::{Vertex, VertexAttributeDescriptor};
 use web_glitz::vertex::attribute_format::AttributeFormat;
+use web_glitz::vertex::{Vertex, VertexAttributeDescriptor};
 
 #[derive(web_glitz::derive::Vertex)]
 #[repr(C)]

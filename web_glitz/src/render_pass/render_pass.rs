@@ -31,19 +31,19 @@ pub struct RenderPassId {
 }
 
 /// An execution context associated with a [RenderPass].
-pub struct RenderPassContext<'a> {
-    connection: &'a mut Connection,
+pub struct RenderPassContext {
+    connection: *mut Connection,
     render_pass_id: usize,
 }
 
-impl<'a> RenderPassContext<'a> {
+impl RenderPassContext {
     /// The ID of the [RenderPass] this [RenderPassContext] is associated with.
     pub fn render_pass_id(&self) -> usize {
         self.render_pass_id
     }
 
     pub(crate) fn connection_mut(&mut self) -> &mut Connection {
-        self.connection
+        unsafe { &mut *self.connection }
     }
 
     /// Unpacks this context into a reference to the raw [web_sys::WebGl2RenderingContext] and a
@@ -54,7 +54,7 @@ impl<'a> RenderPassContext<'a> {
     /// If state is changed on the [web_sys::WebGl2RenderingContext], than the cache must be updated
     /// accordingly.
     pub unsafe fn unpack(&self) -> (&Gl, &DynamicState) {
-        self.connection.unpack()
+        (*self.connection).unpack()
     }
 
     /// Unpacks this context into a mutable reference to the raw [web_sys::WebGl2RenderingContext]
@@ -65,13 +65,13 @@ impl<'a> RenderPassContext<'a> {
     /// If state is changed on the [web_sys::WebGl2RenderingContext], than the cache must be updated
     /// accordingly.
     pub unsafe fn unpack_mut(&mut self) -> (&mut Gl, &mut DynamicState) {
-        self.connection.unpack_mut()
+        (*self.connection).unpack_mut()
     }
 }
 
 unsafe impl<T, O> GpuTask<Connection> for RenderPass<T>
 where
-    for<'a> T: GpuTask<RenderPassContext<'a>, Output = O>,
+    T: GpuTask<RenderPassContext, Output = O>,
 {
     type Output = O;
 

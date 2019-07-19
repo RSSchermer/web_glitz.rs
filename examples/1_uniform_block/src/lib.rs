@@ -21,7 +21,6 @@ use web_glitz::pipeline::graphics::{
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 use web_glitz::std140;
 use web_glitz::std140::repr_std140;
-use web_glitz::vertex::VertexArrayDescriptor;
 
 use web_sys::{window, HtmlCanvasElement};
 
@@ -172,11 +171,6 @@ pub fn start() {
 
     let vertex_buffer = context.create_buffer(vertex_data, UsageHint::StreamDraw);
 
-    let vertex_array = context.create_vertex_array(&VertexArrayDescriptor {
-        vertex_input_state: &vertex_buffer,
-        indices: (),
-    });
-
     // Create an instance of our `Uniforms` type.
     let uniforms = Uniforms {
         scale: std140::float(0.5),
@@ -190,20 +184,21 @@ pub fn start() {
     let render_pass = context.create_render_pass(render_target, |framebuffer| {
         framebuffer.pipeline_task(&pipeline, |active_pipeline| {
             // Our render pass has thus far been identical to the render pass in
-            // `/examples/0_triangle`. However, our pipeline now does use resources, so rather than
-            // specifying the empty tuple `()` as the second argument to our draw command, we'll
-            // instead provide an instance of our `Resources` type.
+            // `/examples/0_triangle`. However, our pipeline now does use resources, so we add
+            // a `bind_resources_command` that binds an instance of our `Resources` type.
             //
             // Note that, as with the vertex array, WebGlitz wont have to do any additional runtime
             // safety checks here to ensure that the resources are compatible with the pipeline: we
             // checked this when we created the pipeline and we can now leverage Rust's type system
             // again to enforce safety at compile time.
-            active_pipeline.draw_command(
-                &vertex_array,
-                Resources {
+            active_pipeline
+                .task_builder()
+                .bind_vertex_buffers_command(&vertex_buffer)
+                .bind_resources_command(Resources {
                     uniforms: &uniform_buffer,
-                },
-            )
+                })
+                .draw_command(3, 1)
+                .finish()
         })
     });
 

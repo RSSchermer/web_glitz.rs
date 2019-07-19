@@ -16,8 +16,7 @@ pub use self::graphics_pipeline::{GraphicsPipeline, ShaderLinkingError};
 
 mod input_attribute_layout;
 pub use self::input_attribute_layout::{
-    AttributeSlotDescriptor, AttributeType,
-    IncompatibleAttributeLayout,
+    AttributeSlotDescriptor, AttributeType, IncompatibleAttributeLayout,
 };
 
 pub(crate) mod primitive_assembly;
@@ -27,7 +26,9 @@ pub(crate) mod shader;
 pub use self::shader::{FragmentShader, VertexShader};
 
 pub(crate) mod transform_feedback;
-pub use self::transform_feedback::{TransformFeedback, TransformFeedbackLayout, VaryingDescriptor, TransformFeedbackDescription};
+pub use self::transform_feedback::{
+    TransformFeedback, TransformFeedbackDescription, TransformFeedbackLayout, VaryingDescriptor,
+};
 
 mod viewport;
 pub use self::viewport::Viewport;

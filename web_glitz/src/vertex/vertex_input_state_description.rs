@@ -5,9 +5,9 @@ use std::sync::Arc;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::buffer::{Buffer, BufferData, BufferView};
-use crate::vertex::attribute_format::AttributeFormat;
-use crate::vertex::{Vertex, TypedVertexAttributeLayout};
 use crate::util::JsId;
+use crate::vertex::attribute_format::AttributeFormat;
+use crate::vertex::{TypedVertexAttributeLayout, Vertex};
 use std::hash::{Hash, Hasher};
 
 /// Describes the attribute layout and input data sources for a [VertexArray].
@@ -255,9 +255,7 @@ impl_vertex_buffers_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
 impl_vertex_buffers_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11);
 impl_vertex_buffers_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
 impl_vertex_buffers_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13);
-impl_vertex_buffers_description!(
-    T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14
-);
+impl_vertex_buffers_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14);
 impl_vertex_buffers_description!(
     T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15
 );

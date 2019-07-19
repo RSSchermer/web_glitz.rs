@@ -1,7 +1,6 @@
 mod vertex_input_state_description;
 pub use self::vertex_input_state_description::{
-    VertexAttributeDescriptor, VertexBufferDescriptor, VertexBuffersDescription,
-    InputRate
+    InputRate, VertexAttributeDescriptor, VertexBufferDescriptor, VertexBuffersDescription,
 };
 
 mod index_buffer_description;
@@ -10,7 +9,9 @@ pub use self::index_buffer_description::{
 };
 
 mod vertex_attribute_layout;
-pub use self::vertex_attribute_layout::{VertexAttributeLayoutDescriptor, TypedVertexAttributeLayout, BindSlotRef};
+pub use self::vertex_attribute_layout::{
+    BindSlotRef, TypedVertexAttributeLayout, VertexAttributeLayoutDescriptor,
+};
 
 use std::borrow::Borrow;
 

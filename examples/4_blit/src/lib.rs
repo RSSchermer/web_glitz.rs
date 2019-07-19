@@ -12,15 +12,14 @@ use web_sys::{window, HtmlCanvasElement};
 
 use web_glitz::buffer::UsageHint;
 use web_glitz::image::format::RGBA8;
-use web_glitz::image::Region2D;
 use web_glitz::image::renderbuffer::RenderbufferDescriptor;
+use web_glitz::image::Region2D;
 use web_glitz::pipeline::graphics::{
     CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
-use web_glitz::render_target::{RenderTarget, FloatAttachment, LoadOp, StoreOp};
+use web_glitz::render_target::{FloatAttachment, LoadOp, RenderTarget, StoreOp};
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 use web_glitz::task::sequence_all;
-use web_glitz::vertex::VertexArrayDescriptor;
 
 #[derive(web_glitz::derive::Vertex, Clone, Copy)]
 struct Vertex {
@@ -89,37 +88,39 @@ pub fn start() {
 
     let vertex_buffer = context.create_buffer(vertex_data, UsageHint::StreamDraw);
 
-    let vertex_array = context.create_vertex_array(&VertexArrayDescriptor {
-        vertex_input_state: &vertex_buffer,
-        indices: (),
-    });
-
     // We create a Renderbuffer that will serve as the color target for our secondary render target.
     let mut renderbuffer = context.create_renderbuffer(&RenderbufferDescriptor {
         format: RGBA8,
         width: 500,
-        height: 500
+        height: 500,
     });
 
     // This render pass is largely equivalent to the render pass in `/examples/0_triangle`, except
     // that here we use a custom render target that uses our renderbuffer, rather than the default
     // render target.
-    let secondary_render_pass = context.create_render_pass(RenderTarget {
-        color: FloatAttachment {
-            image: &mut renderbuffer,
-            // If you don't really care about the current contents of the renderbuffer, or if you
-            // intend to clear it anyway, it's good practice to use a `Clear` load-op rather than a
-            // `Load` load-op, as clearing may be significantly faster, especially on tiled
-            // framebuffer memory architectures.
-            load_op: LoadOp::Clear([0.0, 0.0, 0.0, 0.0]),
-            store_op: StoreOp::Store
+    let secondary_render_pass = context.create_render_pass(
+        RenderTarget {
+            color: FloatAttachment {
+                image: &mut renderbuffer,
+                // If you don't really care about the current contents of the renderbuffer, or if you
+                // intend to clear it anyway, it's good practice to use a `Clear` load-op rather than a
+                // `Load` load-op, as clearing may be significantly faster, especially on tiled
+                // framebuffer memory architectures.
+                load_op: LoadOp::Clear([0.0, 0.0, 0.0, 0.0]),
+                store_op: StoreOp::Store,
+            },
+            depth_stencil: (),
         },
-        depth_stencil: ()
-    }, |framebuffer| {
-        framebuffer.pipeline_task(&pipeline, |active_pipeline| {
-            active_pipeline.draw_command(&vertex_array, ())
-        })
-    });
+        |framebuffer| {
+            framebuffer.pipeline_task(&pipeline, |active_pipeline| {
+                active_pipeline
+                    .task_builder()
+                    .bind_vertex_buffers_command(&vertex_buffer)
+                    .draw_command(3, 1)
+                    .finish()
+            })
+        },
+    );
 
     // This second pass blits the image in the renderbuffer to the color buffer of the default
     // render target.

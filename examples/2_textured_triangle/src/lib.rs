@@ -19,7 +19,6 @@ use web_glitz::pipeline::graphics::{
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 use web_glitz::sampler::{MagnificationFilter, MinificationFilter, SamplerDescriptor};
 use web_glitz::task::sequence_all;
-use web_glitz::vertex::VertexArrayDescriptor;
 
 #[derive(web_glitz::derive::Vertex, Clone, Copy)]
 struct Vertex {
@@ -117,11 +116,6 @@ pub fn start() {
 
     let vertex_buffer = context.create_buffer(vertex_data, UsageHint::StreamDraw);
 
-    let vertex_array = context.create_vertex_array(&VertexArrayDescriptor {
-        vertex_input_state: &vertex_buffer,
-        indices: (),
-    });
-
     // Create a new 2D texture that uses the RGBA8 storage format. This texture will start out with i
     // t's data set to all zeroes (which with an RGBA8 format essentially corresponds to
     // "transparent black"). Note that we'll only allocate 1 mipmap level (the "base" level) as we
@@ -155,20 +149,21 @@ pub fn start() {
     let render_pass = context.create_render_pass(render_target, |framebuffer| {
         framebuffer.pipeline_task(&pipeline, |active_pipeline| {
             // Our render pass has thus far been identical to the render pass in
-            // `/examples/0_triangle`. However, our pipeline now does use resources, so rather than
-            // specifying the empty tuple `()` as the second argument to our draw command, we'll
-            // instead provide an instance of our `Resources` type.
+            // `/examples/0_triangle`. However, our pipeline now does use resources, so we add
+            // a `bind_resources_command` that binds an instance of our `Resources` type.
             //
             // Note that, as with the vertex array, WebGlitz wont have to do any additional runtime
             // safety checks here to ensure that the resources are compatible with the pipeline: we
             // checked this when we created the pipeline and we can now leverage Rust's type system
             // again to enforce safety at compile time.
-            active_pipeline.draw_command(
-                &vertex_array,
-                Resources {
+            active_pipeline
+                .task_builder()
+                .bind_vertex_buffers_command(&vertex_buffer)
+                .bind_resources_command(Resources {
                     texture: texture.float_sampled(&sampler).unwrap(),
-                },
-            )
+                })
+                .draw_command(3, 1)
+                .finish()
         })
     });
 

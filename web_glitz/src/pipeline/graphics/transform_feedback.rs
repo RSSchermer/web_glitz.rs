@@ -15,7 +15,7 @@ pub unsafe trait TransformFeedbackLayout {
 #[derive(Clone, Copy)]
 pub struct VaryingDescriptor {
     pub name: &'static str,
-    pub attribute_type: AttributeType
+    pub attribute_type: AttributeType,
 }
 
 pub unsafe trait TransformFeedbackDescription {
@@ -32,7 +32,10 @@ unsafe impl TransformFeedbackDescription for () {
     }
 }
 
-unsafe impl<T> TransformFeedbackDescription for T where T: TransformFeedbackLayout {
+unsafe impl<T> TransformFeedbackDescription for T
+where
+    T: TransformFeedbackLayout,
+{
     type Layout = T::Layout;
 
     fn transform_feedback_layout() -> Option<Self::Layout> {
@@ -72,8 +75,12 @@ impl_separate_transform_feedback_layout!(10, T0, T1, T2, T3, T4, T5, T6, T7, T8,
 impl_separate_transform_feedback_layout!(11, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
 impl_separate_transform_feedback_layout!(12, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11);
 impl_separate_transform_feedback_layout!(13, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
-impl_separate_transform_feedback_layout!(14, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13);
-impl_separate_transform_feedback_layout!(15, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14);
+impl_separate_transform_feedback_layout!(
+    14, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13
+);
+impl_separate_transform_feedback_layout!(
+    15, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14
+);
 impl_separate_transform_feedback_layout!(
     16, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15
 );

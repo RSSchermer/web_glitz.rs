@@ -90,7 +90,10 @@ use crate::image::MaxMipmapLevelsExceeded;
 use crate::pipeline::graphics::shader::{
     FragmentShaderAllocateCommand, VertexShaderAllocateCommand,
 };
-use crate::pipeline::graphics::{FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, VertexShader, TransformFeedbackLayout, TransformFeedbackDescription};
+use crate::pipeline::graphics::{
+    FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, TransformFeedbackDescription,
+    TransformFeedbackLayout, VertexShader,
+};
 use crate::pipeline::resources::Resources;
 use crate::render_pass::{
     DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
@@ -99,9 +102,7 @@ use crate::render_pass::{
 use crate::render_target::{DefaultRenderTarget, RenderTargetDescription};
 use crate::runtime::executor_job::job;
 use crate::runtime::fenced::JsTimeoutFencedTaskRunner;
-use crate::runtime::rendering_context::{
-    CreateGraphicsPipelineError, Extensions,
-};
+use crate::runtime::rendering_context::{CreateGraphicsPipelineError, Extensions};
 use crate::runtime::state::DynamicState;
 use crate::runtime::{
     Connection, ContextOptions, Execution, PowerPreference, RenderingContext,
@@ -109,9 +110,7 @@ use crate::runtime::{
 };
 use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
 use crate::task::{GpuTask, Progress};
-use crate::vertex::{
-    IndexBufferDescription, VertexBuffersDescription,
-};
+use crate::vertex::{IndexBufferDescription, VertexBuffersDescription};
 
 thread_local!(static ID_GEN: IdGen = IdGen::new());
 
@@ -210,7 +209,7 @@ impl RenderingContext for SingleThreadedContext {
     where
         R: RenderTargetDescription,
         F: FnOnce(&R::Framebuffer) -> T,
-        for<'a> T: GpuTask<RenderPassContext<'a>>,
+        T: GpuTask<RenderPassContext>,
     {
         let id = self.last_render_pass_id.get();
 

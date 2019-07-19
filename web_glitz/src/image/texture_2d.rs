@@ -672,7 +672,7 @@ impl<'a, F> Clone for Levels<'a, F> {
         Levels {
             handle: self.handle,
             offset: self.offset,
-            len: self.len
+            len: self.len,
         }
     }
 }
