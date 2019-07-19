@@ -3,11 +3,9 @@ use std::sync::Arc;
 
 use crate::image::Region2D;
 use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
-use crate::pipeline::graphics::AttributeSlotLayoutCompatible;
-use crate::pipeline::graphics::{
-    Blending, DepthTest, FragmentShader, PrimitiveAssembly, StencilTest, VertexShader, Viewport,
-};
+use crate::pipeline::graphics::{Blending, DepthTest, FragmentShader, PrimitiveAssembly, StencilTest, VertexShader, Viewport, Untyped};
 use crate::pipeline::resources::Resources;
+use crate::vertex::{TypedVertexAttributeLayout, VertexAttributeDescriptor, VertexAttributeLayoutDescriptor};
 
 /// Enumerates the strategies available to map pipeline resource slots to binding indices.
 ///
@@ -33,6 +31,7 @@ pub struct GraphicsPipelineDescriptor<V, R, Tf> {
     _transform_feedback: marker::PhantomData<Tf>,
     pub(crate) vertex_shader_data: Arc<VertexShaderData>,
     pub(crate) fragment_shader_data: Arc<FragmentShaderData>,
+    pub(crate) vertex_attribute_layout: VertexAttributeLayoutDescriptor,
     pub(crate) primitive_assembly: PrimitiveAssembly,
     pub(crate) depth_test: Option<DepthTest>,
     pub(crate) stencil_test: Option<StencilTest>,
@@ -57,6 +56,7 @@ impl GraphicsPipelineDescriptor<(), (), ()> {
             _resource_layout: marker::PhantomData,
             vertex_shader: None,
             fragment_shader: None,
+            vertex_attribute_layout: ().into(),
             primitive_assembly: None,
             depth_test: None,
             stencil_test: None,
@@ -144,7 +144,7 @@ impl GraphicsPipelineDescriptor<(), (), ()> {
 ///     })
 ///     .fragment_shader(&fragment_shader)
 ///     .enable_depth_test(DepthTest::default())
-///     .vertex_input_layout::<MyVertex>()
+///     .typed_vertex_attribute_layout::<MyVertex>()
 ///     .resource_layout::<MyResources>(SlotBindingStrategy::Update)
 ///     .finish();
 /// # }
@@ -161,6 +161,7 @@ pub struct GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, Tf> {
     _vertex_attribute_layout: marker::PhantomData<V>,
     _resource_layout: marker::PhantomData<R>,
     vertex_shader: Option<Arc<VertexShaderData>>,
+    vertex_attribute_layout: VertexAttributeLayoutDescriptor,
     fragment_shader: Option<Arc<FragmentShaderData>>,
     primitive_assembly: Option<PrimitiveAssembly>,
     depth_test: Option<DepthTest>,
@@ -188,6 +189,7 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             _vertex_attribute_layout: marker::PhantomData,
             _resource_layout: marker::PhantomData,
             vertex_shader: Some(vertex_shader.data().clone()),
+            vertex_attribute_layout: ().into(),
             primitive_assembly: self.primitive_assembly,
             fragment_shader: self.fragment_shader,
             depth_test: self.depth_test,
@@ -215,6 +217,7 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             _vertex_attribute_layout: marker::PhantomData,
             _resource_layout: marker::PhantomData,
             vertex_shader: self.vertex_shader,
+            vertex_attribute_layout: self.vertex_attribute_layout,
             primitive_assembly: Some(primitive_assembly),
             fragment_shader: self.fragment_shader,
             depth_test: self.depth_test,
@@ -242,6 +245,7 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             _vertex_attribute_layout: marker::PhantomData,
             _resource_layout: marker::PhantomData,
             vertex_shader: self.vertex_shader,
+            vertex_attribute_layout: self.vertex_attribute_layout,
             primitive_assembly: self.primitive_assembly,
             fragment_shader: Some(fragment_shader.data().clone()),
             depth_test: self.depth_test,
@@ -253,8 +257,8 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
         }
     }
 
-    /// Specifies an [AttributeSlotLayoutCompatible] type that determines the vertex input layout
-    /// for any graphics pipeline created from the descriptor.
+    /// Specifies a [TypedVertexAttributeLayout] type that determines the vertex input layout for
+    /// any graphics pipeline created from the descriptor.
     ///
     /// When the descriptor that results from this builder is used to create a graphics pipeline
     /// (see [RenderingContext::create_graphics_pipeline]), the vertex input layout associated with
@@ -266,12 +270,12 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
     /// pipeline when creating draw commands without additional runtime checks (see
     /// [PipelineTask::draw_command]).
     ///
-    /// Note that [AttributeSlotLayoutCompatible] is implemented for any type that implements
-    /// [Vertex] and any tuple of types that implement [Vertex] (e.g. `(Vertex1, Vertex2)` where
-    /// both `Vertex1` and `Vertex2` are types that implement [Vertex]).
-    pub fn vertex_input_layout<T>(self) -> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, T, R, Tf>
+    /// Note that [TypedVertexAttributeLayout] is implemented for any type that implements [Vertex]
+    /// and any tuple of types that implement [Vertex] (e.g. `(Vertex1, Vertex2)` where both
+    /// `Vertex1` and `Vertex2` are types that implement [Vertex]).
+    pub fn typed_vertex_attribute_layout<T>(self) -> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, T, R, Tf>
     where
-        T: AttributeSlotLayoutCompatible,
+        T: TypedVertexAttributeLayout,
     {
         GraphicsPipelineDescriptorBuilder {
             _vertex_shader: marker::PhantomData,
@@ -281,6 +285,29 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             _vertex_attribute_layout: marker::PhantomData,
             _resource_layout: marker::PhantomData,
             vertex_shader: self.vertex_shader,
+            vertex_attribute_layout: T::LAYOUT_DESCRIPTION.into(),
+            primitive_assembly: self.primitive_assembly,
+            fragment_shader: self.fragment_shader,
+            depth_test: self.depth_test,
+            stencil_test: self.stencil_test,
+            scissor_region: self.scissor_region,
+            blending: self.blending,
+            viewport: self.viewport,
+            binding_strategy: self.binding_strategy,
+        }
+    }
+
+    pub fn untyped_vertex_attribute_layout(self, vertex_attribute_layout: VertexAttributeLayoutDescriptor) -> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Untyped, R, Tf>
+    {
+        GraphicsPipelineDescriptorBuilder {
+            _vertex_shader: marker::PhantomData,
+            _primitive_assembly: marker::PhantomData,
+            _fragment_shader: marker::PhantomData,
+            _transform_feedback: marker::PhantomData,
+            _vertex_attribute_layout: marker::PhantomData,
+            _resource_layout: marker::PhantomData,
+            vertex_shader: self.vertex_shader,
+            vertex_attribute_layout,
             primitive_assembly: self.primitive_assembly,
             fragment_shader: self.fragment_shader,
             depth_test: self.depth_test,
@@ -328,6 +355,7 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             _vertex_attribute_layout: marker::PhantomData,
             _resource_layout: marker::PhantomData,
             vertex_shader: self.vertex_shader,
+            vertex_attribute_layout: self.vertex_attribute_layout,
             primitive_assembly: self.primitive_assembly,
             fragment_shader: self.fragment_shader,
             depth_test: self.depth_test,
@@ -392,7 +420,6 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
 impl<V, R>
     GraphicsPipelineDescriptorBuilder<VertexShader, PrimitiveAssembly, FragmentShader, V, R, ()>
 where
-    V: AttributeSlotLayoutCompatible,
     R: Resources,
 {
     /// Finishes building and returns the [GraphicsPipelineDescriptor].
@@ -403,6 +430,7 @@ where
             _transform_feedback: marker::PhantomData,
             vertex_shader_data: self.vertex_shader.unwrap(),
             fragment_shader_data: self.fragment_shader.unwrap(),
+            vertex_attribute_layout: self.vertex_attribute_layout,
             primitive_assembly: self.primitive_assembly.unwrap(),
             depth_test: self.depth_test,
             stencil_test: self.stencil_test,

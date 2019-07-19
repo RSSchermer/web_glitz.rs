@@ -6,7 +6,9 @@ use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::buffer::{Buffer, BufferData, BufferView};
 use crate::vertex::attribute_format::AttributeFormat;
-use crate::vertex::{Vertex, VertexAttributeLayout};
+use crate::vertex::{Vertex, TypedVertexAttributeLayout};
+use crate::util::JsId;
+use std::hash::{Hash, Hasher};
 
 /// Describes the attribute layout and input data sources for a [VertexArray].
 ///
@@ -31,16 +33,16 @@ use crate::vertex::{Vertex, VertexAttributeLayout};
 ///
 /// ```
 /// use web_glitz::vertex::{
-///     VertexAttributeDescriptor, VertexAttributeLayout, VertexInputDescriptor,
-///     VertexInputStateDescription, InputRate
+///     VertexAttributeDescriptor, TypedVertexAttributeLayout, VertexBufferDescriptor,
+///     VertexBuffersDescription, InputRate
 /// };
 /// use web_glitz::vertex::attribute_format::AttributeFormat;
 /// use web_glitz::buffer::Buffer;
 ///
 /// struct CustomAttributeLayout;
 ///
-/// unsafe impl VertexAttributeLayout for CustomAttributeLayout {
-///     type InputAttributeBindings = [&'static [VertexAttributeDescriptor]; 2];
+/// unsafe impl TypedVertexAttributeLayout for CustomAttributeLayout {
+///     type Layout = [&'static [VertexAttributeDescriptor]; 2];
 ///
 ///     fn input_attribute_bindings() -> Self::InputAttributeBindings {
 ///         const PER_VERTEX_ATTRIBUTES: [VertexAttributeDescriptor; 2] = [
@@ -73,18 +75,18 @@ use crate::vertex::{Vertex, VertexAttributeLayout};
 ///     per_instance_buffer: Buffer<[(f32, f32, f32, f32)]>
 /// }
 ///
-/// unsafe impl VertexInputStateDescription for CustomVertexInput {
-///     type AttributeLayout = CustomAttributeLayout;
+/// unsafe impl VertexBuffersDescription for CustomVertexInput {
+///     type VertexAttributeLayout = CustomAttributeLayout;
 ///
-///     type InputDescriptors = [VertexInputDescriptor; 2];
+///     type BufferDescriptors = [VertexBufferDescriptor; 2];
 ///
-///     fn vertex_input_descriptors(&self) -> Self::InputDescriptors {
+///     fn buffer_descriptors(&self) -> Self::InputDescriptors {
 ///         [
-///             VertexInputDescriptor::from_buffer_view(
+///             VertexBufferDescriptor::from_buffer_view(
 ///                 self.per_vertex_buffer.view(),
 ///                 InputRate::PerVertex
 ///             ),
-///             VertexInputDescriptor::from_buffer_view(
+///             VertexBufferDescriptor::from_buffer_view(
 ///                 self.per_instance_buffer.view(),
 ///                 InputRate::PerInstance
 ///             ),
@@ -92,33 +94,34 @@ use crate::vertex::{Vertex, VertexAttributeLayout};
 ///     }
 /// }
 /// ```
-pub unsafe trait VertexInputStateDescription {
-    /// The type that defines the attribute layout for this [VertexInputStateDescription].
+pub unsafe trait VertexBuffersDescription {
+    /// The type that defines the layout for the attribute data.
     ///
-    /// If this [VertexInputStateDescription] is used to create a [VertexArray], then this type will
-    /// also be used at the element type marker for the [VertexArray].
-    type AttributeLayout: VertexAttributeLayout;
+    /// For attribute data sourced from a single array [Buffer], this is typically the buffer's
+    /// element type. For attribute data sourced from multiple buffers, this is typically a tuple
+    /// of the element types of each of the buffers, in the same order that is used for the
+    /// [input_descriptors].
+    type VertexAttributeLayout;
 
     /// Type returned by [vertex_input_descriptors].
     ///
     /// Typically an array:
     ///
     /// ```
-    /// # use web_glitz::vertex::VertexInputDescriptor;
-    /// type InputDescriptors = [VertexInputDescriptor; 3];
+    /// # use web_glitz::vertex::VertexBufferDescriptor;
+    /// type InputDescriptors = [VertexBufferDescriptor; 3];
     /// ```
-    type InputDescriptors: Borrow<[VertexInputDescriptor]> + 'static;
+    type BufferDescriptors: Borrow<[VertexBufferDescriptor]> + 'static;
 
-    /// Returns the [VertexInputDescriptor]s that describe the data input sources for the attribute
-    /// data.
-    fn vertex_input_descriptors(&self) -> Self::InputDescriptors;
+    /// Returns [VertexBufferDescriptor]s that describe data sources for the attribute data.
+    fn buffer_descriptors(&self) -> Self::BufferDescriptors;
 }
 
 /// Describes the input rate for a [VertexInputDescriptor] when it is used as a data source for
 /// a vertex stream.
 ///
 /// See also [VertexStreamDescription] and [VertexStreamDescriptor].
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Hash, Debug)]
 pub enum InputRate {
     /// Any attribute defined on the [VertexInputDescriptor] will advance to its next value for
     /// every vertex in a vertex stream; the attribute resets to its first value for every instance
@@ -134,15 +137,13 @@ pub enum InputRate {
 /// Describes an input source for vertex attribute data.
 /// Describes an input source for vertex attribute data.
 #[derive(Clone)]
-pub struct VertexInputDescriptor {
+pub struct VertexBufferDescriptor {
     pub(crate) buffer_data: Arc<BufferData>,
-    pub(crate) stride_in_bytes: u8,
     pub(crate) offset_in_bytes: u32,
     pub(crate) size_in_bytes: u32,
-    pub(crate) input_rate: InputRate,
 }
 
-impl VertexInputDescriptor {
+impl VertexBufferDescriptor {
     /// Creates a [VertexInputDescriptor] from a [BufferView] of a typed slice, with the given
     /// [InputRate].
     ///
@@ -153,33 +154,11 @@ impl VertexInputDescriptor {
     /// `std::mem::size_of::<T>`, where `T` is the element type of the slice viewed by the
     /// [BufferView].
     pub fn from_buffer_view<T>(buffer_view: BufferView<[T]>, input_rate: InputRate) -> Self {
-        VertexInputDescriptor {
+        VertexBufferDescriptor {
             buffer_data: buffer_view.buffer_data().clone(),
-            stride_in_bytes: mem::size_of::<T>() as u8,
             offset_in_bytes: buffer_view.offset_in_bytes() as u32,
             size_in_bytes: (mem::size_of::<T>() * buffer_view.len()) as u32,
-            input_rate,
         }
-    }
-
-    /// The stride in bytes between different values in the value sequence for an attribute defined
-    /// on this [VertexInputDescriptor].
-    ///
-    /// If a [VertexAttributeDescriptor] is applied to this [VertexInputDescriptor] (see also
-    /// [VertexInputStateDescription), then the byte-sequence for the first value for that attribute
-    /// will start at [VertexAttributeDescriptor::offset_in_bytes] bytes relative to the start of
-    /// memory region described by the [VertexInputDescriptor] (see [offset_in_bytes]); subsequent
-    /// values in the attribute sequence are obtained by repeatedly adding the stride to this
-    /// offset.
-    ///
-    /// For example, given a [VertexAttributeDescriptor] with an offset in bytes of `offset`, and
-    /// a [VertexInputDescriptor] with a stride in bytes of `stride`, then the first attribute value
-    /// starts at `offset` bytes, the second attribute value starts at `offset + stride`, the third
-    /// attribute value start at `offset + 2 * stride`, ..., the `n`th attribute value start at
-    /// `offset + n * stride`. The sequence of attribute values ends when `offset + n * stride` is
-    /// greater than the [size_in_bytes] defined for the [VertexInputDescriptor].
-    pub fn stride_in_bytes(&self) -> u8 {
-        self.stride_in_bytes
     }
 
     /// The offset in bytes of the memory region described by this [VertexInputDescriptor], relative
@@ -192,105 +171,67 @@ impl VertexInputDescriptor {
     pub fn size_in_bytes(&self) -> u32 {
         self.size_in_bytes
     }
+}
 
-    /// Whether the attributes defined on this [VertexInputDescriptor] will be "per vertex"
-    /// attributes or "per instance" attributes.
-    ///
-    /// See also [InputRate].
-    pub fn input_rate(&self) -> InputRate {
-        self.input_rate
+impl Hash for VertexBufferDescriptor {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.buffer_data.id().hash(state);
+        self.offset_in_bytes.hash(state);
+        self.size_in_bytes.hash(state);
     }
 }
 
-unsafe impl<'a, T> VertexInputStateDescription for &'a Buffer<[T]>
+unsafe impl<'a, T> VertexBuffersDescription for &'a Buffer<[T]>
 where
     T: Vertex,
 {
-    type AttributeLayout = T;
+    type VertexAttributeLayout = T;
 
-    type InputDescriptors = [VertexInputDescriptor; 1];
+    type BufferDescriptors = [VertexBufferDescriptor; 1];
 
-    fn vertex_input_descriptors(&self) -> Self::InputDescriptors {
-        [VertexInputDescriptor::from_buffer_view(
+    fn buffer_descriptors(&self) -> Self::BufferDescriptors {
+        [VertexBufferDescriptor::from_buffer_view(
             self.view(),
             InputRate::PerVertex,
         )]
     }
 }
 
-unsafe impl<'a, T> VertexInputStateDescription for BufferView<'a, [T]>
+unsafe impl<'a, T> VertexBuffersDescription for BufferView<'a, [T]>
 where
     T: Vertex,
 {
-    type AttributeLayout = T;
+    type VertexAttributeLayout = T;
 
-    type InputDescriptors = [VertexInputDescriptor; 1];
+    type BufferDescriptors = [VertexBufferDescriptor; 1];
 
-    fn vertex_input_descriptors(&self) -> Self::InputDescriptors {
-        [VertexInputDescriptor::from_buffer_view(
+    fn buffer_descriptors(&self) -> Self::BufferDescriptors {
+        [VertexBufferDescriptor::from_buffer_view(
             self.clone(),
             InputRate::PerVertex,
         )]
     }
 }
 
-/// Marker type that can be used to indicate that a vertex [Buffer] reference or vertex [BufferView]
-/// should be used as a "per instance" [VertexInputDescriptor].
-///
-/// See the documentation for [VertexArray] for an example.
-pub struct PerInstance<T>(pub T);
-
-unsafe impl<'a, T> VertexInputStateDescription for PerInstance<&'a Buffer<[T]>>
-where
-    T: Vertex,
-{
-    type AttributeLayout = T;
-
-    type InputDescriptors = [VertexInputDescriptor; 1];
-
-    fn vertex_input_descriptors(&self) -> Self::InputDescriptors {
-        [VertexInputDescriptor::from_buffer_view(
-            self.0.view(),
-            InputRate::PerInstance,
-        )]
-    }
-}
-
-unsafe impl<'a, T> VertexInputStateDescription for PerInstance<BufferView<'a, [T]>>
-where
-    T: Vertex,
-{
-    type AttributeLayout = T;
-
-    type InputDescriptors = [VertexInputDescriptor; 1];
-
-    fn vertex_input_descriptors(&self) -> Self::InputDescriptors {
-        [VertexInputDescriptor::from_buffer_view(
-            self.0.clone(),
-            InputRate::PerInstance,
-        )]
-    }
-}
-
-macro_rules! impl_vertex_input_state_description {
+macro_rules! impl_vertex_buffers_description {
     ($($T:ident),*) => {
-        unsafe impl<$($T),*> VertexInputStateDescription for ($($T),*)
+        unsafe impl<$($T),*> VertexBuffersDescription for ($($T),*)
             where
-                $($T: VertexInputStateDescription, $T::AttributeLayout: Vertex),*
+                $($T: VertexBuffersDescription),*
         {
-            type AttributeLayout = ($($T::AttributeLayout),*);
+            type VertexAttributeLayout = ($($T::VertexAttributeLayout),*);
 
-            type InputDescriptors = Vec<VertexInputDescriptor>;
+            type BufferDescriptors = Vec<VertexBufferDescriptor>;
 
             #[allow(unused_assignments)]
-            fn vertex_input_descriptors(&self) -> Self::InputDescriptors {
+            fn buffer_descriptors(&self) -> Self::BufferDescriptors {
                 let mut vec = Vec::new();
 
                 #[allow(unused_parens, non_snake_case)]
                 let ($($T),*) = self;
 
                 $(
-                    for descriptor in $T.vertex_input_descriptors().borrow().iter() {
+                    for descriptor in $T.buffer_descriptors().borrow().iter() {
                         vec.push(descriptor.clone());
                     }
                 )*
@@ -301,23 +242,23 @@ macro_rules! impl_vertex_input_state_description {
     }
 }
 
-impl_vertex_input_state_description!(T0, T1);
-impl_vertex_input_state_description!(T0, T1, T2);
-impl_vertex_input_state_description!(T0, T1, T2, T3);
-impl_vertex_input_state_description!(T0, T1, T2, T3, T4);
-impl_vertex_input_state_description!(T0, T1, T2, T3, T4, T5);
-impl_vertex_input_state_description!(T0, T1, T2, T3, T4, T5, T6);
-impl_vertex_input_state_description!(T0, T1, T2, T3, T4, T5, T6, T7);
-impl_vertex_input_state_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8);
-impl_vertex_input_state_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9);
-impl_vertex_input_state_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
-impl_vertex_input_state_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11);
-impl_vertex_input_state_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
-impl_vertex_input_state_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13);
-impl_vertex_input_state_description!(
+impl_vertex_buffers_description!(T0, T1);
+impl_vertex_buffers_description!(T0, T1, T2);
+impl_vertex_buffers_description!(T0, T1, T2, T3);
+impl_vertex_buffers_description!(T0, T1, T2, T3, T4);
+impl_vertex_buffers_description!(T0, T1, T2, T3, T4, T5);
+impl_vertex_buffers_description!(T0, T1, T2, T3, T4, T5, T6);
+impl_vertex_buffers_description!(T0, T1, T2, T3, T4, T5, T6, T7);
+impl_vertex_buffers_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8);
+impl_vertex_buffers_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9);
+impl_vertex_buffers_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
+impl_vertex_buffers_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11);
+impl_vertex_buffers_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
+impl_vertex_buffers_description!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13);
+impl_vertex_buffers_description!(
     T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14
 );
-impl_vertex_input_state_description!(
+impl_vertex_buffers_description!(
     T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15
 );
 
@@ -325,7 +266,7 @@ impl_vertex_input_state_description!(
 /// [VertexInputDescriptor].
 ///
 /// See also [VertexInputStateDescription].
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Hash, Debug)]
 pub struct VertexAttributeDescriptor {
     /// The shader location of the attribute described by this [VertexAttributeDescriptor].
     ///

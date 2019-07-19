@@ -313,3 +313,17 @@ impl ContextId {
 /// identical.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct IncompatibleContextIds(ContextId, ContextId);
+
+pub struct Empty;
+
+unsafe impl<Ec> GpuTask<Ec> for Empty {
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Any
+    }
+
+    fn progress(&mut self, execution_context: &mut Ec) -> Progress<Self::Output> {
+        Progress::Finished(())
+    }
+}

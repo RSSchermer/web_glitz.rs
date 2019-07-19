@@ -90,7 +90,7 @@ use crate::image::MaxMipmapLevelsExceeded;
 use crate::pipeline::graphics::shader::{
     FragmentShaderAllocateCommand, VertexShaderAllocateCommand,
 };
-use crate::pipeline::graphics::{AttributeSlotLayoutCompatible, FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, VertexShader, TransformFeedbackLayout, TransformFeedbackDescription};
+use crate::pipeline::graphics::{FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, VertexShader, TransformFeedbackLayout, TransformFeedbackDescription};
 use crate::pipeline::resources::Resources;
 use crate::render_pass::{
     DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
@@ -110,7 +110,7 @@ use crate::runtime::{
 use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
 use crate::task::{GpuTask, Progress};
 use crate::vertex::{
-    IndexBufferDescription, VertexArray, VertexArrayDescriptor, VertexInputStateDescription,
+    IndexBufferDescription, VertexBuffersDescription,
 };
 
 thread_local!(static ID_GEN: IdGen = IdGen::new());
@@ -197,7 +197,6 @@ impl RenderingContext for SingleThreadedContext {
         descriptor: &GraphicsPipelineDescriptor<V, R, Tf>,
     ) -> Result<GraphicsPipeline<V, R, Tf>, CreateGraphicsPipelineError>
     where
-        V: AttributeSlotLayoutCompatible,
         R: Resources + 'static,
         Tf: TransformFeedbackDescription + 'static,
     {
@@ -278,18 +277,6 @@ impl RenderingContext for SingleThreadedContext {
 
     fn create_shadow_sampler(&self, descriptor: &ShadowSamplerDescriptor) -> ShadowSampler {
         ShadowSampler::new(self, descriptor)
-    }
-
-    fn create_vertex_array<V, I>(
-        &self,
-        descriptor: &VertexArrayDescriptor<V, I>,
-    ) -> VertexArray<V::AttributeLayout>
-    where
-        V: VertexInputStateDescription,
-
-        I: IndexBufferDescription,
-    {
-        VertexArray::new(self, descriptor)
     }
 
     fn submit<T>(&self, task: T) -> Execution<T::Output>

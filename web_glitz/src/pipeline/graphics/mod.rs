@@ -16,7 +16,7 @@ pub use self::graphics_pipeline::{GraphicsPipeline, ShaderLinkingError};
 
 mod input_attribute_layout;
 pub use self::input_attribute_layout::{
-    AttributeSlotDescriptor, AttributeSlotLayoutCompatible, AttributeType,
+    AttributeSlotDescriptor, AttributeType,
     IncompatibleAttributeLayout,
 };
 
@@ -31,3 +31,5 @@ pub use self::transform_feedback::{TransformFeedback, TransformFeedbackLayout, V
 
 mod viewport;
 pub use self::viewport::Viewport;
+
+pub struct Untyped(());

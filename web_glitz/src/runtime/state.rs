@@ -20,9 +20,11 @@ use web_sys::{
     WebGl2RenderingContext as Gl, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlRenderbuffer,
     WebGlSampler, WebGlTexture, WebGlVertexArrayObject,
 };
+use crate::vertex::{VertexBuffersDescription, IndexBufferDescription, VertexAttributeLayoutDescriptor, VertexBufferDescriptor, IndexBufferDescriptor};
 
 pub struct DynamicState {
     framebuffer_cache: FnvHashMap<u64, (Framebuffer, [Option<JsId>; 17])>,
+    vertex_array_cache: FnvHashMap<u64, (WebGlVertexArrayObject, [Option<JsId>; 17])>,
     program_cache: FnvHashMap<ProgramKey, Program>,
     read_framebuffer: WebGlFramebuffer,
     max_draw_buffers: usize,
@@ -114,6 +116,10 @@ pub struct DynamicState {
 impl DynamicState {
     pub(crate) fn framebuffer_cache_mut(&mut self) -> FramebufferCache {
         FramebufferCache { state: self }
+    }
+
+    pub(crate) fn vertex_array_cache_mut(&mut self) -> VertexArrayCache {
+        VertexArrayCache { state: self }
     }
 
     pub(crate) fn program_cache_mut(&mut self) -> ProgramCache {
@@ -1408,6 +1414,7 @@ impl DynamicState {
 
         DynamicState {
             framebuffer_cache: FnvHashMap::default(),
+            vertex_array_cache: FnvHashMap::default(),
             program_cache: FnvHashMap::default(),
             read_framebuffer: context.create_framebuffer().unwrap(),
             max_draw_buffers: context
@@ -1786,7 +1793,7 @@ impl<'a> FramebufferCache<'a> {
                     gl.delete_framebuffer(Some(&framebuffer.fbo));
                 }
 
-                is_dependent
+                !is_dependent
             })
     }
 }
@@ -1803,6 +1810,186 @@ pub(crate) enum DepthStencilAttachmentDescriptor {
     Stencil(AttachableImageData),
     DepthStencil(AttachableImageData),
     None,
+}
+
+pub(crate) struct VertexArrayCache<'a> {
+    state: &'a mut DynamicState,
+}
+
+impl<'a> VertexArrayCache<'a> {
+    pub(crate) fn bind_or_create(
+        &mut self,
+        layout: &VertexAttributeLayoutDescriptor,
+        vertex_buffers: &[VertexBufferDescriptor],
+        gl: &Gl,
+    ) -> &WebGlVertexArrayObject
+    {
+        let mut hasher = FnvHasher::default();
+
+        layout.hash(&mut hasher);
+        vertex_buffers.hash(&mut hasher);
+
+        let key = hasher.finish();
+        let DynamicState {
+            vertex_array_cache,
+            bound_vertex_array,
+            bound_array_buffer,
+            ..
+        } = &mut self.state;
+
+        let (vao, _) = vertex_array_cache
+            .entry(key)
+            .and_modify(|(vertex_array, _)| {
+                if !identical(Some(vertex_array), bound_vertex_array.as_ref()) {
+                    gl.bind_vertex_array(Some(vertex_array));
+
+                    *bound_vertex_array = Some(vertex_array.clone());
+                }
+            })
+            .or_insert_with(|| {
+                let vao = gl.create_vertex_array().unwrap();
+
+                gl.bind_vertex_array(Some(&vao));
+
+                *bound_vertex_array = Some(vao.clone());
+
+                let mut buffer_ids = [None; 17];
+
+                for (i, (bind_slot, buffer_descriptor)) in layout.bind_slots().zip(vertex_buffers).enumerate() {
+                    let buffer_id = buffer_descriptor
+                        .buffer_data
+                        .id();
+
+                    unsafe {
+                        buffer_id
+                            .unwrap()
+                            .with_value_unchecked(|buffer: &WebGlBuffer| {
+                                *bound_array_buffer = Some(buffer.clone());
+
+                                gl.bind_buffer(Gl::ARRAY_BUFFER, Some(buffer));
+                            });
+                    }
+
+                    for attribute_descriptor in bind_slot.attributes() {
+                        attribute_descriptor.apply(
+                            gl,
+                            bind_slot.stride_in_bytes() as i32,
+                            buffer_descriptor.offset_in_bytes as i32,
+                            bind_slot.input_rate(),
+                        );
+                    }
+
+                    buffer_ids[i] = buffer_id;
+                }
+
+                (vao, buffer_ids)
+            });
+
+        vao
+    }
+
+    pub(crate) fn bind_or_create_indexed(
+        &mut self,
+        layout: &VertexAttributeLayoutDescriptor,
+        vertex_buffers: &[VertexBufferDescriptor],
+        index_buffer: &IndexBufferDescriptor,
+        gl: &Gl,
+    ) -> &WebGlVertexArrayObject
+    {
+        let mut hasher = FnvHasher::default();
+
+        layout.hash(&mut hasher);
+        vertex_buffers.hash(&mut hasher);
+        index_buffer.hash(&mut hasher);
+
+        let key = hasher.finish();
+        let DynamicState {
+            vertex_array_cache,
+            bound_vertex_array,
+            bound_array_buffer,
+            bound_element_array_buffer,
+            ..
+        } = &mut self.state;
+
+        let (vao, _) = vertex_array_cache
+            .entry(key)
+            .and_modify(|(vertex_array, _)| {
+                if !identical(Some(vertex_array), bound_vertex_array.as_ref()) {
+                    gl.bind_vertex_array(Some(vertex_array));
+
+                    *bound_vertex_array = Some(vertex_array.clone());
+                }
+            })
+            .or_insert_with(|| {
+                let vao = gl.create_vertex_array().unwrap();
+
+                gl.bind_vertex_array(Some(&vao));
+
+                *bound_vertex_array = Some(vao.clone());
+
+                let mut buffer_ids = [None; 17];
+
+                for (i, (bind_slot, buffer_descriptor)) in layout.bind_slots().zip(vertex_buffers).enumerate() {
+                    let buffer_id = buffer_descriptor
+                        .buffer_data
+                        .id();
+
+                    unsafe {
+                        buffer_id
+                            .unwrap()
+                            .with_value_unchecked(|buffer: &WebGlBuffer| {
+                                *bound_array_buffer = Some(buffer.clone());
+
+                                gl.bind_buffer(Gl::ARRAY_BUFFER, Some(buffer));
+                            });
+                    }
+
+                    for attribute_descriptor in bind_slot.attributes() {
+                        attribute_descriptor.apply(
+                            gl,
+                            bind_slot.stride_in_bytes() as i32,
+                            buffer_descriptor.offset_in_bytes as i32,
+                            bind_slot.input_rate(),
+                        );
+                    }
+
+                    buffer_ids[i] = buffer_id;
+                }
+
+                let index_buffer_id = index_buffer
+                    .buffer_data
+                    .id();
+
+                unsafe {
+                    index_buffer_id.unwrap()
+                        .with_value_unchecked(|buffer: &WebGlBuffer| {
+                            *bound_element_array_buffer = Some(buffer.clone());
+
+                            gl.bind_buffer(Gl::ELEMENT_ARRAY_BUFFER, Some(buffer));
+                        });
+                }
+
+                buffer_ids[16] = index_buffer_id;
+
+                (vao, buffer_ids)
+            });
+
+        vao
+    }
+
+    pub(crate) fn remove_buffer_dependents(&mut self, buffer_id: JsId, gl: &Gl) {
+        self.state
+            .vertex_array_cache
+            .retain(|_, (vao, buffer_ids)| {
+                let is_dependent = buffer_ids.iter().any(|id| id == &Some(buffer_id));
+
+                if is_dependent {
+                    gl.delete_vertex_array(Some(vao));
+                }
+
+                !is_dependent
+            })
+    }
 }
 
 pub(crate) struct ProgramCache<'a> {

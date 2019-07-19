@@ -67,7 +67,7 @@ pub fn start() {
                     face_culling: CullingMode::None,
                 })
                 .fragment_shader(&fragment_shader)
-                .vertex_input_layout::<Vertex>()
+                .typed_vertex_attribute_layout::<Vertex>()
                 .finish(),
         )
         .unwrap();

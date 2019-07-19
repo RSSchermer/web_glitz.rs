@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 use std::cell::Cell;
 use std::hash::{Hash, Hasher};
-use std::marker;
+use std::{marker, mem};
 
 use fnv::FnvHasher;
 
@@ -22,7 +22,7 @@ use crate::image::texture_cube::{
 use crate::image::Region2D;
 use crate::pipeline::graphics::primitive_assembly::Topology;
 use crate::pipeline::graphics::{
-    AttributeSlotLayoutCompatible, Blending, DepthTest, GraphicsPipeline, PrimitiveAssembly,
+    Blending, DepthTest, GraphicsPipeline, PrimitiveAssembly,
     StencilTest, Viewport,
 };
 use crate::pipeline::resources::bind_group_encoding::{
@@ -33,9 +33,10 @@ use crate::render_pass::RenderPassContext;
 use crate::render_target::attachable_image_ref::{AttachableImageData, AttachableImageRef};
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::Connection;
-use crate::task::{ContextId, GpuTask, Progress};
+use crate::task::{ContextId, GpuTask, Progress, Sequence, sequence, Empty};
 use crate::util::JsId;
-use crate::vertex::{VertexStreamDescription, VertexStreamDescriptor};
+use crate::vertex::{TypedVertexAttributeLayout, IndexBufferDescription, VertexAttributeLayoutDescriptor, VertexBufferDescriptor, IndexBufferDescriptor, VertexBuffersDescription};
+use std::mem::{ManuallyDrop, MaybeUninit};
 
 /// Represents a set of image memory buffers that serve as the rendering destination for a
 /// [RenderPass].
@@ -114,7 +115,7 @@ impl<C, Ds> Framebuffer<C, Ds> {
         f: F,
     ) -> PipelineTask<T>
     where
-        F: Fn(&ActiveGraphicsPipeline<V, R>) -> T,
+        F: Fn(ActiveGraphicsPipeline<V, R, Tf>) -> T,
         for<'a> T: GpuTask<PipelineTaskContext<'a>>,
     {
         if self.context_id != graphics_pipeline.context_id() {
@@ -131,12 +132,9 @@ impl<C, Ds> Framebuffer<C, Ds> {
 
         let pipeline_task_id = hasher.finish() as usize;
 
-        let task = f(&ActiveGraphicsPipeline {
-            context_id: self.context_id,
-            topology: graphics_pipeline.primitive_assembly().topology(),
+        let task = f(ActiveGraphicsPipeline {
             pipeline_task_id,
-            _vertex_attribute_layout_marker: marker::PhantomData,
-            _resources_marker: marker::PhantomData,
+            pipeline: graphics_pipeline,
         });
 
         if task.context_id() != ContextId::Id(pipeline_task_id) {
@@ -147,6 +145,7 @@ impl<C, Ds> Framebuffer<C, Ds> {
             render_pass_id: self.render_pass_id,
             task,
             program_id: graphics_pipeline.program_id(),
+            attribute_layout: graphics_pipeline.vertex_attribute_layout().clone(),
             primitive_assembly: graphics_pipeline.primitive_assembly().clone(),
             depth_test: graphics_pipeline.depth_test().clone(),
             stencil_test: graphics_pipeline.stencil_test().clone(),
@@ -650,6 +649,20 @@ where
 /// Provides the context necessary for making progress on a [PipelineTask].
 pub struct PipelineTaskContext<'a> {
     connection: &'a mut Connection,
+    attribute_layout: &'a VertexAttributeLayoutDescriptor,
+    vertex_buffers: ManuallyDrop<[VertexBufferDescriptor; 16]>,
+    vertex_buffer_count: usize,
+    index_buffer: Option<IndexBufferDescriptor>
+}
+
+impl<'a> Drop for PipelineTaskContext<'a> {
+    fn drop(&mut self) {
+        for vertex_buffer in self.vertex_buffers[0..self.vertex_buffer_count].iter_mut() {
+            unsafe {
+                mem::replace(vertex_buffer, MaybeUninit::uninit().assume_init());
+            }
+        }
+    }
 }
 
 /// Returned from [Framebuffer::pipeline_task], a series of commands that is executed while a
@@ -660,6 +673,7 @@ pub struct PipelineTask<T> {
     render_pass_id: usize,
     task: T,
     program_id: JsId,
+    attribute_layout: VertexAttributeLayoutDescriptor,
     primitive_assembly: PrimitiveAssembly,
     depth_test: Option<DepthTest>,
     stencil_test: Option<StencilTest>,
@@ -735,6 +749,29 @@ where
 
         self.task.progress(&mut PipelineTaskContext {
             connection: context.connection_mut(),
+            attribute_layout: &self.attribute_layout,
+            vertex_buffers: unsafe {
+                ManuallyDrop::new([
+                    MaybeUninit::uninit().assume_init(),
+                    MaybeUninit::uninit().assume_init(),
+                    MaybeUninit::uninit().assume_init(),
+                    MaybeUninit::uninit().assume_init(),
+                    MaybeUninit::uninit().assume_init(),
+                    MaybeUninit::uninit().assume_init(),
+                    MaybeUninit::uninit().assume_init(),
+                    MaybeUninit::uninit().assume_init(),
+                    MaybeUninit::uninit().assume_init(),
+                    MaybeUninit::uninit().assume_init(),
+                    MaybeUninit::uninit().assume_init(),
+                    MaybeUninit::uninit().assume_init(),
+                    MaybeUninit::uninit().assume_init(),
+                    MaybeUninit::uninit().assume_init(),
+                    MaybeUninit::uninit().assume_init(),
+                    MaybeUninit::uninit().assume_init(),
+                ])
+            },
+            vertex_buffer_count: 0,
+            index_buffer: None
         })
     }
 }
@@ -743,19 +780,111 @@ where
 ///
 /// A handle to an [ActiveGraphicsPipeline] is obtained by using a [GraphicsPipeline] to create
 /// a [PipelineTask] for a [Framebuffer], see [Framebuffer::pipeline_task].
-pub struct ActiveGraphicsPipeline<V, R> {
-    context_id: usize,
-    topology: Topology,
+pub struct ActiveGraphicsPipeline<'a, V, R, Tf> {
     pipeline_task_id: usize,
-    _vertex_attribute_layout_marker: marker::PhantomData<V>,
-    _resources_marker: marker::PhantomData<R>,
+    pipeline: &'a GraphicsPipeline<V, R, Tf>
 }
 
-impl<V, R> ActiveGraphicsPipeline<V, R>
-where
-    V: AttributeSlotLayoutCompatible,
-    R: Resources,
-{
+impl<'a, V, R, Tf> ActiveGraphicsPipeline<'a, V, R, Tf> {
+    pub fn task_builder(&self) -> GraphicsPipelineTaskBuilder<'a, V, R, (), (), (), Empty> {
+        GraphicsPipelineTaskBuilder {
+            context_id: self.pipeline.context_id(),
+            topology: self.pipeline.primitive_assembly().topology(),
+            pipeline_task_id: self.pipeline_task_id,
+            task: Empty,
+            _pipeline: marker::PhantomData,
+            _vertex_buffers: marker::PhantomData,
+            _index_buffer: marker::PhantomData,
+            _resource_bindings: marker::PhantomData,
+        }
+    }
+}
+
+pub struct GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, T> {
+    context_id: usize,
+    pipeline_task_id: usize,
+    topology: Topology,
+    task: T,
+    _pipeline: marker::PhantomData<ActiveGraphicsPipeline<'a, V, R, ()>>,
+    _vertex_buffers: marker::PhantomData<Vb>,
+    _index_buffer: marker::PhantomData<Ib>,
+    _resource_bindings: marker::PhantomData<Rb>,
+}
+
+impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, T> {
+    pub fn bind_vertex_buffers_command<'b, VbNew>(self, vertex_buffers: VbNew) -> GraphicsPipelineTaskBuilder<'a, V, R, VbNew, Ib, Rb, Sequence<T, BindVertexBuffersCommand<VbNew::BufferDescriptors>, PipelineTaskContext<'b>>> where V: TypedVertexAttributeLayout, VbNew: VertexBuffersDescription<VertexAttributeLayout=V>, T: GpuTask<PipelineTaskContext<'b>> {
+        let vertex_buffers = vertex_buffers.buffer_descriptors();
+
+        for (i, buffer) in vertex_buffers.borrow().iter().enumerate() {
+            if buffer.buffer_data.context_id() != self.context_id {
+                panic!("Buffer {} belongs to a different context.", i);
+            }
+        }
+
+        GraphicsPipelineTaskBuilder {
+            context_id: self.context_id,
+            topology: self.topology,
+            pipeline_task_id: self.pipeline_task_id,
+            task: sequence(self.task, BindVertexBuffersCommand {
+                pipeline_task_id: self.pipeline_task_id,
+                vertex_buffers
+            }),
+            _pipeline: marker::PhantomData,
+            _vertex_buffers: marker::PhantomData,
+            _index_buffer: marker::PhantomData,
+            _resource_bindings: marker::PhantomData,
+        }
+    }
+
+    /// Binds an index buffer to the graphics pipeline.
+    ///
+    /// A graphics pipeline typically requires a source of vertex data (see [bind_vertex_buffers]).
+    /// This vertex data defines an array of vertices which by itself can serve as the vertex input
+    /// stream for the pipeline, where the vertices are simply streamed once in the canonical array
+    /// order, see [draw_command]. When an index buffer is specified, then the pipeline may also be
+    /// executed in "indexed" mode, see [draw_indexed]. In indexed mode the indices in the index
+    /// buffer determine the vertex sequence of the vertex stream. For example, if the first index
+    /// is `8`, then the first vertex in the vertex stream is the 9th vertex in the vertex array.
+    /// The same index may also occur more than once in the index buffer, in which case the same
+    /// vertex will appear more than once in the vertex stream.
+    pub fn bind_index_buffer_command<'b, IbNew>(self, index_buffer: IbNew) -> GraphicsPipelineTaskBuilder<'a, V, R, Vb, IbNew, Rb, Sequence<T, BindIndexBufferCommand, PipelineTaskContext<'b>>> where IbNew: IndexBufferDescription, T: GpuTask<PipelineTaskContext<'b>>  {
+        let index_buffer = index_buffer.descriptor();
+
+        if index_buffer.buffer_data.context_id() != self.context_id {
+            panic!("Buffer belongs to a different context.");
+        }
+
+        GraphicsPipelineTaskBuilder {
+            context_id: self.context_id,
+            topology: self.topology,
+            pipeline_task_id: self.pipeline_task_id,
+            task: sequence(self.task, BindIndexBufferCommand {
+                pipeline_task_id: self.pipeline_task_id,
+                index_buffer
+            }),
+            _pipeline: marker::PhantomData,
+            _vertex_buffers: marker::PhantomData,
+            _index_buffer: marker::PhantomData,
+            _resource_bindings: marker::PhantomData,
+        }
+    }
+
+    pub fn bind_resources_command<'b>(self, resources: R) -> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, R, Sequence<T, BindResourcesCommand<R::Bindings>, PipelineTaskContext<'b>>> where R: Resources, T: GpuTask<PipelineTaskContext<'b>>  {
+        GraphicsPipelineTaskBuilder {
+            context_id: self.context_id,
+            topology: self.topology,
+            pipeline_task_id: self.pipeline_task_id,
+            task: sequence(self.task, BindResourcesCommand {
+                pipeline_task_id: self.pipeline_task_id,
+                resource_bindings: resources.into_bind_group(&mut BindGroupEncodingContext::new(self.context_id)).into_descriptors()
+            }),
+            _pipeline: marker::PhantomData,
+            _vertex_buffers: marker::PhantomData,
+            _index_buffer: marker::PhantomData,
+            _resource_bindings: marker::PhantomData,
+        }
+    }
+
     /// Creates a [DrawCommand] that will execute this [ActiveGraphicsPipeline], using the
     /// [vertex_input_stream] as input and with the [resources] bound to the pipeline's resource
     /// slots.
@@ -793,7 +922,7 @@ where
     /// # let resources = ();
     /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
     ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
-    ///         active_pipeline.draw_command(&vertex_stream, resources)
+    ///         active_pipeline.draw_command()
     ///     })
     /// });
     /// # }
@@ -811,45 +940,135 @@ where
     ///   than this [ActiveGraphicsPipeline].
     /// - Panics when [resources] specifies a resource that belongs to a different context than this
     ///   [ActiveGraphicsPipeline].
-    pub fn draw_command<Vs>(
-        &self,
-        vertex_input_stream: &Vs,
-        resources: R,
-    ) -> DrawCommand<R::Bindings>
-    where
-        Vs: VertexStreamDescription<AttributeLayout = V>,
-        R: Resources,
-    {
-        let input_stream_descriptor = vertex_input_stream.descriptor();
-
-        if input_stream_descriptor.vertex_array_data.context_id() != self.context_id {
-            panic!("Vertex array does not belong to the same context as the pipeline.");
-        }
-
-        DrawCommand {
-            pipeline_task_id: self.pipeline_task_id,
-            vertex_stream_descriptor: vertex_input_stream.descriptor(),
+    pub fn draw_command<'b>(
+        self,
+        vertex_count: usize,
+        instance_count: usize
+    ) -> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, R, Sequence<T, DrawCommand, PipelineTaskContext<'b>>> where Vb: VertexBuffersDescription<VertexAttributeLayout=V>, Rb: Resources, T: GpuTask<PipelineTaskContext<'b>>  {
+        GraphicsPipelineTaskBuilder {
+            context_id: self.context_id,
             topology: self.topology,
-            binding_group: resources
-                .into_bind_group(&mut BindGroupEncodingContext::new(self.context_id))
-                .into_descriptors(),
+            pipeline_task_id: self.pipeline_task_id,
+            task: sequence(self.task, DrawCommand {
+                pipeline_task_id: self.pipeline_task_id,
+                topology: self.topology,
+                vertex_count,
+                instance_count
+            }),
+            _pipeline: marker::PhantomData,
+            _vertex_buffers: marker::PhantomData,
+            _index_buffer: marker::PhantomData,
+            _resource_bindings: marker::PhantomData,
         }
+    }
+
+    pub fn draw_indexed_command<'b>(
+        self,
+        index_count: usize,
+        instance_count: usize
+    ) -> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, R, Sequence<T, DrawIndexedCommand, PipelineTaskContext<'b>>> where Vb: VertexBuffersDescription<VertexAttributeLayout=V>, Ib: IndexBufferDescription, Rb: Resources, T: GpuTask<PipelineTaskContext<'b>>  {
+        GraphicsPipelineTaskBuilder {
+            context_id: self.context_id,
+            topology: self.topology,
+            pipeline_task_id: self.pipeline_task_id,
+            task: sequence(self.task, DrawIndexedCommand {
+                pipeline_task_id: self.pipeline_task_id,
+                topology: self.topology,
+                index_count,
+                instance_count
+            }),
+            _pipeline: marker::PhantomData,
+            _vertex_buffers: marker::PhantomData,
+            _index_buffer: marker::PhantomData,
+            _resource_bindings: marker::PhantomData,
+        }
+    }
+
+    pub fn finish(self) -> T {
+        self.task
     }
 }
 
-/// Returned from [ActiveGraphicsPipeline::draw_command].
-///
-/// See [ActiveGraphicsPipeline::draw_command] for details.
-pub struct DrawCommand<B> {
+pub struct BindVertexBuffersCommand<Vb> {
     pipeline_task_id: usize,
-    vertex_stream_descriptor: VertexStreamDescriptor,
-    topology: Topology,
-    binding_group: B,
+    vertex_buffers: Vb,
 }
 
-unsafe impl<'a, B> GpuTask<PipelineTaskContext<'a>> for DrawCommand<B>
-where
-    B: Borrow<[BindingDescriptor]>,
+unsafe impl<'a, Vb> GpuTask<PipelineTaskContext<'a>> for BindVertexBuffersCommand<Vb>
+    where
+        Vb: Borrow<[VertexBufferDescriptor]>,
+{
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Id(self.pipeline_task_id)
+    }
+
+    fn progress(&mut self, execution_context: &mut PipelineTaskContext) -> Progress<Self::Output> {
+        let buffers = self.vertex_buffers.borrow();
+
+        for (i, descriptor) in buffers.iter().enumerate() {
+            execution_context.vertex_buffers[i] = descriptor.clone();
+        }
+
+        execution_context.vertex_buffer_count = buffers.len();
+
+        Progress::Finished(())
+    }
+}
+
+pub struct BindIndexBufferCommand {
+    pipeline_task_id: usize,
+    index_buffer: IndexBufferDescriptor,
+}
+
+unsafe impl<'a> GpuTask<PipelineTaskContext<'a>> for BindIndexBufferCommand
+{
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Id(self.pipeline_task_id)
+    }
+
+    fn progress(&mut self, execution_context: &mut PipelineTaskContext) -> Progress<Self::Output> {
+        execution_context.index_buffer = Some(self.index_buffer.clone());
+
+        Progress::Finished(())
+    }
+}
+
+pub struct BindResourcesCommand<Rb> {
+    pipeline_task_id: usize,
+    resource_bindings: Rb,
+}
+
+unsafe impl<'a, Rb> GpuTask<PipelineTaskContext<'a>> for BindResourcesCommand<Rb>
+    where
+        Rb: Borrow<[BindingDescriptor]>,
+{
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Id(self.pipeline_task_id)
+    }
+
+    fn progress(&mut self, execution_context: &mut PipelineTaskContext) -> Progress<Self::Output> {
+        for descriptor in self.resource_bindings.borrow().iter() {
+            descriptor.bind(execution_context.connection);
+        }
+
+        Progress::Finished(())
+    }
+}
+
+pub struct DrawCommand {
+    pipeline_task_id: usize,
+    topology: Topology,
+    vertex_count: usize,
+    instance_count: usize
+}
+
+unsafe impl<'a> GpuTask<PipelineTaskContext<'a>> for DrawCommand
 {
     type Output = ();
 
@@ -860,67 +1079,69 @@ where
     fn progress(&mut self, context: &mut PipelineTaskContext<'a>) -> Progress<Self::Output> {
         let (gl, state) = unsafe { context.connection.unpack_mut() };
 
-        unsafe {
-            self.vertex_stream_descriptor
-                .vertex_array_data
-                .id()
-                .unwrap()
-                .with_value_unchecked(|vao| {
-                    state.set_bound_vertex_array(Some(vao)).apply(gl).unwrap();
-                })
+        let vertex_buffers = &context.vertex_buffers[0..context.vertex_buffer_count];
+
+        state.vertex_array_cache_mut().bind_or_create(context.attribute_layout, vertex_buffers, gl);
+
+        if self.instance_count == 1 {
+            gl.draw_arrays(self.topology.id(), 0, self.vertex_count as i32);
+        } else {
+            gl.draw_arrays_instanced(
+                self.topology.id(),
+                0,
+                self.vertex_count as i32,
+                self.instance_count as i32,
+            );
         }
 
-        for descriptor in self.binding_group.borrow().iter() {
-            descriptor.bind(context.connection);
-        }
+        Progress::Finished(())
+    }
+}
 
-        let (gl, _) = unsafe { context.connection.unpack_mut() };
+/// Returned from [ActiveGraphicsPipeline::draw_command].
+///
+/// See [ActiveGraphicsPipeline::draw_command] for details.
+pub struct DrawIndexedCommand {
+    pipeline_task_id: usize,
+    topology: Topology,
+    index_count: usize,
+    instance_count: usize
+}
 
-        if let Some(index_type) = self.vertex_stream_descriptor.index_type() {
-            let VertexStreamDescriptor {
-                offset,
-                count,
-                instance_count,
-                ref vertex_array_data,
-                ..
-            } = self.vertex_stream_descriptor;
+unsafe impl<'a> GpuTask<PipelineTaskContext<'a>> for DrawIndexedCommand
+{
+    type Output = ();
 
-            let offset = vertex_array_data.offset + offset as u32 * index_type.size_in_bytes();
+    fn context_id(&self) -> ContextId {
+        ContextId::Id(self.pipeline_task_id)
+    }
 
-            if instance_count == 1 {
+    fn progress(&mut self, context: &mut PipelineTaskContext<'a>) -> Progress<Self::Output> {
+        let (gl, state) = unsafe { context.connection.unpack_mut() };
+
+        if let Some(index_buffer) = &context.index_buffer {
+            let vertex_buffers = &context.vertex_buffers[0..context.vertex_buffer_count];
+
+            state.vertex_array_cache_mut().bind_or_create_indexed(context.attribute_layout, vertex_buffers, index_buffer, gl);
+
+            if self.instance_count == 1 {
                 gl.draw_elements_with_i32(
                     self.topology.id(),
-                    count as i32,
-                    index_type.id(),
-                    offset as i32,
+                    self.index_count as i32,
+                    index_buffer.index_type.id(),
+                    index_buffer.offset as i32,
                 );
             } else {
                 gl.draw_elements_instanced_with_i32(
                     self.topology.id(),
-                    count as i32,
-                    index_type.id(),
-                    offset as i32,
-                    instance_count as i32,
+                    self.index_count as i32,
+                    index_buffer.index_type.id(),
+                    index_buffer.offset as i32,
+                    self.instance_count as i32,
                 );
             }
         } else {
-            let VertexStreamDescriptor {
-                offset,
-                count,
-                instance_count,
-                ..
-            } = self.vertex_stream_descriptor;
-
-            if instance_count == 1 {
-                gl.draw_arrays(self.topology.id(), offset as i32, count as i32);
-            } else {
-                gl.draw_arrays_instanced(
-                    self.topology.id(),
-                    offset as i32,
-                    count as i32,
-                    instance_count as i32,
-                );
-            }
+            panic!("No index buffer.");
         }
 
         Progress::Finished(())

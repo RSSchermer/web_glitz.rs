@@ -54,15 +54,13 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
         let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
         let impl_block = quote! {
-            const INPUT_ATTRIBUTE_DESCRIPTORS: [#mod_path::VertexAttributeDescriptor;#len] = [
-                #(#recurse),*
-            ];
 
             #[automatically_derived]
             unsafe impl #impl_generics #mod_path::Vertex for #struct_name #ty_generics #where_clause {
-                fn attribute_descriptors() -> &'static [#mod_path::VertexAttributeDescriptor] {
-                    &INPUT_ATTRIBUTE_DESCRIPTORS
-                }
+                const ATTRIBUTE_DESCRIPTORS: &'static [#mod_path::VertexAttributeDescriptor] =
+                    &[
+                        #(#recurse),*
+                    ];
             }
         };
 

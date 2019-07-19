@@ -7,7 +7,7 @@ use web_sys::
     WebGl2RenderingContext as Gl;
 use crate::image::Region2D;
 use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
-use crate::pipeline::graphics::{AttributeSlotLayoutCompatible, TransformFeedbackLayout, TransformFeedbackDescription, AttributeType};
+use crate::pipeline::graphics::{TransformFeedbackLayout, TransformFeedbackDescription, AttributeType};
 use crate::pipeline::graphics::{
     Blending, DepthTest, GraphicsPipelineDescriptor, PrimitiveAssembly, SlotBindingStrategy,
     StencilTest, Viewport,
@@ -18,6 +18,7 @@ use crate::runtime::state::{ProgramKey, DynamicState, ContextUpdate};
 use crate::runtime::{Connection, CreateGraphicsPipelineError, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
+use crate::vertex::VertexAttributeLayoutDescriptor;
 
 /// Encapsulates the state for a graphics pipeline.
 ///
@@ -34,6 +35,7 @@ pub struct GraphicsPipeline<V, R, Tf> {
     vertex_shader_data: Arc<VertexShaderData>,
     #[allow(dead_code)] // Just holding on to this so it won't get dropped prematurely
     fragment_shader_data: Arc<FragmentShaderData>,
+    vertex_attribute_layout: VertexAttributeLayoutDescriptor,
     primitive_assembly: PrimitiveAssembly,
     program_id: JsId,
     depth_test: Option<DepthTest>,
@@ -50,6 +52,10 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
 
     pub(crate) fn program_id(&self) -> JsId {
         self.program_id
+    }
+
+    pub(crate) fn vertex_attribute_layout(&self) -> &VertexAttributeLayoutDescriptor {
+        &self.vertex_attribute_layout
     }
 
     pub(crate) fn primitive_assembly(&self) -> &PrimitiveAssembly {
@@ -79,7 +85,6 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
 
 impl<V, R, Tf> GraphicsPipeline<V, R, Tf>
 where
-    V: AttributeSlotLayoutCompatible,
     R: Resources + 'static,
     Tf: TransformFeedbackDescription + 'static
 {
@@ -101,6 +106,9 @@ where
             panic!("Fragment shader does not belong to the context.");
         }
 
+        // TODO: need to reference state later, but keep reference to the program as well. I'm sure
+        // there some obvious better way to do this, but I'm too tired to see it right now. This
+        // should be safe for now (as we're referencing different parts of `state`).
         let mut program_cache = unsafe { ( &mut *(state as *mut DynamicState)).program_cache_mut() };
         let program = program_cache.get_or_create::<Tf>(
             ProgramKey {
@@ -236,7 +244,8 @@ where
             }
         }
 
-        V::check_compatibility(program.attribute_slot_descriptors())?;
+
+        descriptor.vertex_attribute_layout.check_compatibility(program.attribute_slot_descriptors())?;
 
         match descriptor.binding_strategy {
             SlotBindingStrategy::Check => {
@@ -263,6 +272,7 @@ where
             dropper: Box::new(context.clone()),
             vertex_shader_data: descriptor.vertex_shader_data.clone(),
             fragment_shader_data: descriptor.fragment_shader_data.clone(),
+            vertex_attribute_layout: descriptor.vertex_attribute_layout.clone(),
             primitive_assembly: descriptor.primitive_assembly.clone(),
             program_id: JsId::from_value(program.gl_object().into()),
             depth_test: descriptor.depth_test.clone(),

@@ -1231,7 +1231,10 @@ unsafe impl GpuTask<Connection> for DropCommand {
     }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        let (gl, _) = unsafe { connection.unpack() };
+        let (gl, state) = unsafe { connection.unpack_mut() };
+
+        state.vertex_array_cache_mut().remove_buffer_dependents(self.id, gl);
+
         let value = unsafe { JsId::into_value(self.id) };
 
         gl.delete_buffer(Some(&value.unchecked_into()));

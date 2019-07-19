@@ -83,7 +83,7 @@ pub fn start() {
                     face_culling: CullingMode::None,
                 })
                 .fragment_shader(&primary_fragment_shader)
-                .vertex_input_layout::<PrimaryVertex>()
+                .typed_vertex_attribute_layout::<PrimaryVertex>()
                 .resource_layout::<PrimaryResources>(SlotBindingStrategy::Update)
                 .finish(),
         )
@@ -106,7 +106,7 @@ pub fn start() {
                     face_culling: CullingMode::None,
                 })
                 .fragment_shader(&secondary_fragment_shader)
-                .vertex_input_layout::<SecondaryVertex>()
+                .typed_vertex_attribute_layout::<SecondaryVertex>()
                 .finish(),
         )
         .unwrap();

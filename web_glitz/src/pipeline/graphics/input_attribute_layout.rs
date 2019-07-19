@@ -2,35 +2,7 @@ use std::borrow::Borrow;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::vertex::VertexAttributeLayout;
-
-/// Trait implemented by vertex types that may be compatible with a [GraphicsPipeline]'s attribute
-/// slot layout.
-///
-/// A [GraphicsPipeline] may specify its vertex type to be an [AttributeSlotLayoutCompatible] type
-/// (see, [GraphicsPipelineDescriptorBuilder::vertex_input_layout]). If it does, then when the
-/// graphics pipeline is being created (see [RenderingContext::create_graphics_pipeline]),
-/// [check_compatibility] will be called with the actual set of [AttributeSlotDescriptor]s defined
-/// by the pipeline's programmable shaders (as obtained by reflection on the shader source code). If
-/// [check_compatibility] returns an error, then [RenderingContext::create_graphics_pipeline] will
-/// fail to create the pipeline and will return an error; if [check_compatibility] does not return
-/// an error, then any [VertexStreamDescription] that uses the type as its vertex type may be safely
-/// used as the vertex stream for a draw command that uses the pipeline (see
-/// [PipelineTask::draw_command]), without additional runtime compatibility checks.
-///
-/// # Unsafe
-///
-/// If the implementation of [check_compatibility] for some type does not return an error when
-/// called with a certain set of [AttributeSlotDescriptor]s, then any safely constructed
-/// [VertexArray] that uses that type as its vertex type must provide attribute data that is
-/// compatible with that set of [AttributeSlotDescriptor]s.
-pub unsafe trait AttributeSlotLayoutCompatible {
-    /// Returns `Ok` if this type is compatible with the pipeline attribute slot layout described by
-    /// `slot_descriptors`, or an returns an [IncompatibleAttributeLayout] otherwise.
-    fn check_compatibility(
-        slot_descriptors: &[AttributeSlotDescriptor],
-    ) -> Result<(), IncompatibleAttributeLayout>;
-}
+use crate::vertex::TypedVertexAttributeLayout;
 
 /// Error returned by [AttributeSlotLayoutCompatible::check_compatibility].
 #[derive(Debug)]
@@ -117,39 +89,5 @@ impl AttributeType {
             Gl::UNSIGNED_INT_VEC4 => AttributeType::UnsignedIntegerVector4,
             id => panic!("Invalid attribute type id: {}", id),
         }
-    }
-}
-
-unsafe impl<T> AttributeSlotLayoutCompatible for T
-where
-    T: VertexAttributeLayout,
-{
-    fn check_compatibility(
-        slot_descriptors: &[AttributeSlotDescriptor],
-    ) -> Result<(), IncompatibleAttributeLayout> {
-        'outer: for slot in slot_descriptors.iter() {
-            for bind_group in T::input_attribute_bindings().borrow() {
-                for attribute_descriptor in bind_group.iter() {
-                    if attribute_descriptor.location == slot.location() {
-                        if !attribute_descriptor
-                            .format
-                            .is_compatible(slot.attribute_type)
-                        {
-                            return Err(IncompatibleAttributeLayout::TypeMismatch {
-                                location: slot.location(),
-                            });
-                        }
-
-                        continue 'outer;
-                    }
-                }
-            }
-
-            return Err(IncompatibleAttributeLayout::MissingAttribute {
-                location: slot.location(),
-            });
-        }
-
-        Ok(())
     }
 }

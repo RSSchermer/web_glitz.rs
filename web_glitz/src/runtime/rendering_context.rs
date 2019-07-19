@@ -16,7 +16,7 @@ use crate::image::texture_2d_array::{Texture2DArray, Texture2DArrayDescriptor};
 use crate::image::texture_3d::{Texture3D, Texture3DDescriptor};
 use crate::image::texture_cube::{TextureCube, TextureCubeDescriptor};
 use crate::image::MaxMipmapLevelsExceeded;
-use crate::pipeline::graphics::{AttributeSlotLayoutCompatible, FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, IncompatibleAttributeLayout, ShaderLinkingError, VertexShader, TransformFeedbackLayout, TransformFeedbackDescription};
+use crate::pipeline::graphics::{FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, IncompatibleAttributeLayout, ShaderLinkingError, VertexShader, TransformFeedbackLayout, TransformFeedbackDescription};
 use crate::pipeline::resources::resource_slot::Identifier;
 use crate::pipeline::resources::{IncompatibleResources, Resources};
 use crate::render_pass::{RenderPass, RenderPassContext};
@@ -25,7 +25,7 @@ use crate::runtime::state::{CreateProgramError, DynamicState};
 use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
 use crate::task::GpuTask;
 use crate::vertex::{
-    IndexBufferDescription, VertexArray, VertexArrayDescriptor, VertexInputStateDescription,
+    IndexBufferDescription, VertexBuffersDescription,
 };
 
 /// Trait implemented by types that can serve as a WebGlitz rendering context.
@@ -295,7 +295,7 @@ pub trait RenderingContext {
     ///     })
     ///     .fragment_shader(&fragment_shader)
     ///     .enable_depth_test(DepthTest::default())
-    ///     .vertex_input_layout::<MyVertex>()
+    ///     .typed_vertex_attribute_layout::<MyVertex>()
     ///     .resource_layout::<MyResources>(SlotBindingStrategy::Update)
     ///     .finish();
     ///
@@ -316,7 +316,6 @@ pub trait RenderingContext {
         descriptor: &GraphicsPipelineDescriptor<V, R, Tf>,
     ) -> Result<GraphicsPipeline<V, R, Tf>, CreateGraphicsPipelineError>
     where
-        V: AttributeSlotLayoutCompatible,
         R: Resources + 'static,
         Tf: TransformFeedbackDescription + 'static;
 
@@ -557,226 +556,6 @@ pub trait RenderingContext {
     /// # }
     /// ```
     fn create_shadow_sampler(&self, descriptor: &ShadowSamplerDescriptor) -> ShadowSampler;
-
-    /// Creates a new [VertexArray] from the given `descriptor`.
-    ///
-    /// # Examples
-    ///
-    /// This example defines a very simple vertex array that uses a single [Buffer] with 3 vertices
-    /// to supply its vertex attribute data and does not use indexing:
-    ///
-    /// ```rust
-    /// # #![feature(const_fn)]
-    /// # use web_glitz::runtime::RenderingContext;
-    /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
-    /// use web_glitz::buffer::UsageHint;
-    /// use web_glitz::vertex::VertexArrayDescriptor;
-    ///
-    /// #[derive(web_glitz::derive::Vertex, Clone, Copy)]
-    /// struct Vertex {
-    ///     #[vertex_attribute(location = 0, format = "Float2_f32")]
-    ///     position: [f32; 2],
-    ///
-    ///     #[vertex_attribute(location = 1, format = "Float3_u8_norm")]
-    ///     color: [u8; 3],
-    /// }
-    ///
-    /// let vertex_data = [
-    ///     Vertex {
-    ///         position: [0.0, 0.5],
-    ///         color: [255, 0, 0],
-    ///     },
-    ///     Vertex {
-    ///         position: [-0.5, -0.5],
-    ///         color: [0, 255, 0],
-    ///     },
-    ///     Vertex {
-    ///         position: [0.5, -0.5],
-    ///         color: [0, 0, 255],
-    ///     },
-    /// ];
-    ///
-    /// let vertex_buffer = context.create_buffer(vertex_data, UsageHint::StaticDraw);
-    ///
-    /// let vertex_array = context.create_vertex_array(&VertexArrayDescriptor {
-    ///     vertex_input_state: &vertex_buffer,
-    ///     indices: (),
-    /// });
-    /// # }
-    /// ```
-    ///
-    /// Here `context` is a [RenderingContext]. Here the `vertex_input_state` we specify for our
-    /// [VertexArrayDescriptor] is just a single buffer that holds an array (of length 3) of our
-    /// vertex type. The `vertex_input_state` must be a [VertexInputStateDescription], which any
-    /// reference to a buffer that holds an array of a type that implements [Vertex] is. This vertex
-    /// array does not use indexing, which is indicated by providing an empty tuple `()` to the
-    /// `indices` field of the [VertexArrayDescriptor].
-    ///
-    /// The vertex array does not need to be defined on a complete buffer, we can also define it on
-    /// a [BufferView] of just a sub-range of the buffer:
-    ///
-    /// ```rust
-    /// # use web_glitz::runtime::RenderingContext;
-    /// # use web_glitz::buffer::Buffer;
-    /// # use web_glitz::vertex::Vertex;
-    /// # fn wrapper<Rc, V>(context: &Rc, vertex_buffer: &Buffer<[V]>)
-    /// # where Rc: RenderingContext, V: Vertex {
-    /// # use web_glitz::buffer::UsageHint;
-    /// # use web_glitz::vertex::VertexArrayDescriptor;
-    /// let range_view = vertex_buffer.get(0..2).unwrap();
-    ///
-    /// let vertex_array = context.create_vertex_array(&VertexArrayDescriptor {
-    ///     vertex_input_state: range_view,
-    ///     indices: (),
-    /// });
-    /// # }
-    /// ```
-    ///
-    /// If we do want to use indexing, then we can assign `indices` a [Buffer] value of a buffer
-    /// that contains indices (values of a type that implements [IndexFormat], e.g. [u8], [u16] or
-    /// [u32]):
-    ///
-    /// ```rust
-    /// # use web_glitz::runtime::RenderingContext;
-    /// # use web_glitz::buffer::Buffer;
-    /// # use web_glitz::vertex::Vertex;
-    /// # fn wrapper<Rc, V>(context: &Rc, vertex_buffer: Buffer<[V]>)
-    /// # where Rc: RenderingContext, V: Vertex {
-    /// # use web_glitz::buffer::UsageHint;
-    /// # use web_glitz::vertex::VertexArrayDescriptor;
-    /// let index_data: [u32; 5] = [0, 1, 2, 1, 0];
-    ///
-    /// let index_buffer = context.create_buffer(index_data, UsageHint::StaticDraw);
-    ///
-    /// let vertex_array = context.create_vertex_array(&VertexArrayDescriptor {
-    ///     vertex_input_state: &vertex_buffer,
-    ///     indices: &index_buffer,
-    /// });
-    /// # }
-    /// ```
-    ///
-    /// The first examples used a single vertex buffer, where all attribute data is interleaved in
-    /// one buffer. We can also separate the attribute data into multiple buffers by setting
-    /// `vertex_input_state` to a tuple of vertex buffers (tuples of references to vertex buffers,
-    /// [BufferView]s of vertex buffers also implement [VertexInputStateDescription]):
-    ///
-    /// ```rust
-    /// # #![feature(const_fn)]
-    /// # use web_glitz::runtime::RenderingContext;
-    /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
-    /// use web_glitz::buffer::UsageHint;
-    /// use web_glitz::vertex::VertexArrayDescriptor;
-    ///
-    /// #[derive(web_glitz::derive::Vertex, Clone, Copy)]
-    /// struct Position {
-    ///     #[vertex_attribute(location = 0, format = "Float2_f32")]
-    ///     position: [f32; 2],
-    /// }
-    ///
-    /// #[derive(web_glitz::derive::Vertex, Clone, Copy)]
-    /// struct Color {
-    ///     #[vertex_attribute(location = 1, format = "Float3_u8_norm")]
-    ///     color: [u8; 3],
-    /// }
-    ///
-    /// let position_data = [
-    ///     Position {
-    ///         position: [0.0, 0.5],
-    ///     },
-    ///     Position {
-    ///         position: [-0.5, -0.5],
-    ///     },
-    ///     Position {
-    ///         position: [0.5, -0.5],
-    ///     },
-    /// ];
-    ///
-    /// let color_data = [
-    ///     Color {
-    ///         color: [255, 0, 0],
-    ///     },
-    ///     Color {
-    ///         color: [0, 255, 0],
-    ///     },
-    ///     Color {
-    ///         color: [0, 0, 255],
-    ///     },
-    /// ];
-    ///
-    /// let position_buffer = context.create_buffer(position_data, UsageHint::StaticDraw);
-    /// let color_buffer = context.create_buffer(color_data, UsageHint::StaticDraw);
-    ///
-    /// let vertex_array = context.create_vertex_array(&VertexArrayDescriptor {
-    ///     vertex_input_state: (&position_buffer, &color_buffer),
-    ///     indices: (),
-    /// });
-    /// # }
-    /// ```
-    ///
-    /// This can also be used to distinguish between "per vertex" and "per instance" attribute data
-    /// when you intend to use the vertex array to do instanced rendering. A "per instance" vertex
-    /// buffer can be marked by wrapping it in [PerInstance]:
-    ///
-    /// ```rust
-    /// # #![feature(const_fn)]
-    /// # use web_glitz::runtime::RenderingContext;
-    /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
-    /// use web_glitz::buffer::UsageHint;
-    /// use web_glitz::vertex::{VertexArrayDescriptor, PerInstance};
-    ///
-    /// #[derive(web_glitz::derive::Vertex, Clone, Copy)]
-    /// struct Vertex {
-    ///     #[vertex_attribute(location = 0, format = "Float2_f32")]
-    ///     position: [f32; 2],
-    /// }
-    ///
-    /// #[derive(web_glitz::derive::Vertex, Clone, Copy)]
-    /// struct Instance {
-    ///     #[vertex_attribute(location = 1, format = "Float2_f32")]
-    ///     position: [f32; 2],
-    /// }
-    ///
-    /// let vertex_data = [
-    ///     Vertex {
-    ///         position: [0.0, 0.5],
-    ///     },
-    ///     Vertex {
-    ///         position: [-0.5, -0.5],
-    ///     },
-    ///     Vertex {
-    ///         position: [0.5, -0.5],
-    ///     },
-    /// ];
-    ///
-    /// let instance_data = [
-    ///     Instance {
-    ///         position: [0.5, 0.5],
-    ///     },
-    ///     Instance {
-    ///         position: [0.0, -0.5],
-    ///     },
-    /// ];
-    ///
-    /// let vertex_buffer = context.create_buffer(vertex_data, UsageHint::StaticDraw);
-    /// let instance_buffer = context.create_buffer(instance_data, UsageHint::StaticDraw);
-    ///
-    /// let vertex_array = context.create_vertex_array(&VertexArrayDescriptor {
-    ///     vertex_input_state: (&vertex_buffer, PerInstance(&instance_buffer)),
-    ///     indices: (),
-    /// });
-    /// # }
-    /// ```
-    ///
-    /// # Panics
-    ///
-    /// Panics if any of the vertex buffers or the index buffer belong to a different context.
-    fn create_vertex_array<V, I>(
-        &self,
-        descriptor: &VertexArrayDescriptor<V, I>,
-    ) -> VertexArray<V::AttributeLayout>
-    where
-        V: VertexInputStateDescription,
-        I: IndexBufferDescription;
 
     /// Submits the `task` for execution and returns the output of the task as a [Future] result.
     ///

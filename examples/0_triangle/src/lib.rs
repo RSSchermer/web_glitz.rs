@@ -15,7 +15,6 @@ use web_glitz::pipeline::graphics::{
     CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
-use web_glitz::vertex::VertexArrayDescriptor;
 
 use web_sys::{window, HtmlCanvasElement};
 
@@ -135,7 +134,7 @@ pub fn start() {
                     face_culling: CullingMode::None,
                 })
                 .fragment_shader(&fragment_shader)
-                .vertex_input_layout::<Vertex>()
+                .typed_vertex_attribute_layout::<Vertex>()
                 .finish(),
         )
         .unwrap();
@@ -162,13 +161,6 @@ pub fn start() {
     // `web_glitz::buffer::BufferUsage` for details on buffer usage hints).
     let vertex_buffer = context.create_buffer(vertex_data, UsageHint::StreamDraw);
 
-    // Initialize a vertex array using our vertex buffer. We'll tell WebGlitz we wont be using an
-    // index buffer with this vertex array by passing an empty tuple `()`.
-    let vertex_array = context.create_vertex_array(&VertexArrayDescriptor {
-        vertex_input_state: &vertex_buffer,
-        indices: (),
-    });
-
     // Create a render pass for our default render target.
     //
     // Here's the simplified conceptual explanation of what will happen in our render pass:
@@ -186,6 +178,7 @@ pub fn start() {
         // uses the pipeline we initialized earlier. The second argument is a function that takes
         // the activated pipeline and returns a pipeline task.
         framebuffer.pipeline_task(&pipeline, |active_pipeline| {
+            active_pipeline.task_builder().bind_vertex_buffers_command(&vertex_buffer).draw_command(3, 1).finish()
             // Return a pipeline task. In this case the pipeline task is a single draw command:
             // we'll tell the GPU driver to run our pipeline once, using our `vertex_array` as
             // input.
@@ -198,7 +191,6 @@ pub fn start() {
             // that the `vertex_array` is compatible with the pipeline: we'll just leverage Rust's
             // type system to verify at compile time that the `vertex_array` type is compatible with
             // the `vertex_input_layout` we declared when we created the pipeline.
-            active_pipeline.draw_command(&vertex_array, ())
         })
     });
 

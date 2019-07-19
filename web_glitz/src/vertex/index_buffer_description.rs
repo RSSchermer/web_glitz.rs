@@ -4,6 +4,7 @@ use std::sync::Arc;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::buffer::{Buffer, BufferData, BufferView};
+use std::hash::{Hash, Hasher};
 
 /// Trait implemented for types that can be used as indices for a [VertexArray] encoded in the
 /// associated [IndexType].
@@ -24,31 +25,25 @@ unsafe impl IndexFormat for u32 {
     const TYPE: IndexType = IndexType::UnsignedInt;
 }
 
-/// Trait implemented for types that describe a data source for [VertexArray] indices.
+/// Describes a data source that can be used to provide indexing data to a draw command.
 ///
+/// See [ActiveGraphicsPipeline::bind_index_buffer] for details.
 /// Types that implement this trait can be used as an index source for a [VertexArray].
 ///
 /// If [descriptor] instead returns `None`, then the [VertexArray] is not indexed: the vertices in
 /// the vertex stream appear in an order defined by the [VertexArray]'s vertex input state.
 ///
 /// If [descriptor] returns an [IndexBufferDescriptor], then the [VertexArray] is indexed using the
-/// indices in the index buffer: the indices specify the vertices that appear in a vertex stream
-/// produced from the [VertexArray]. For example, if the first index is `8`, then the first vertex
-/// in the vertex stream is the 9th vertex defined by the [VertexArray]'s vertex input state.
-///
-/// This trait is notably implemented for the empty tuple `()`, which indicates the absence of an
-/// index buffer ([descriptor] returns `None`): any [VertexArrayDescriptor] that uses `()` for its
-/// indices, will produce a [VertexArray] that does not use indexing.
+/// indices in the index buffer:
 pub unsafe trait IndexBufferDescription {
-    /// Returns an [IndexBufferDescriptor] if this [IndexBufferDescription] describes a source of
-    /// index data for a [VertexArray], or `None` if a [VertexArray] using this description does
-    /// not use indexing.
-    fn descriptor(&self) -> Option<IndexBufferDescriptor>;
+    /// Returns an [IndexBufferDescriptor].
+    fn descriptor(&self) -> IndexBufferDescriptor;
 }
 
 /// Describes a [Buffer] region that contains data that may be used to index a [VertexArray].
 ///
 /// See also [IndexBufferDescription].
+#[derive(Clone)]
 pub struct IndexBufferDescriptor {
     pub(crate) buffer_data: Arc<BufferData>,
     pub(crate) index_type: IndexType,
@@ -56,8 +51,17 @@ pub struct IndexBufferDescriptor {
     pub(crate) len: u32,
 }
 
+impl Hash for IndexBufferDescriptor {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.buffer_data.id().unwrap().hash(state);
+        self.index_type.hash(state);
+        self.offset.hash(state);
+        self.len.hash(state);
+    }
+}
+
 /// Enumerates the available type encodings for [VertexArray] indices.
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Hash, Debug)]
 pub enum IndexType {
     UnsignedByte,
     UnsignedShort,
@@ -82,23 +86,17 @@ impl IndexType {
     }
 }
 
-unsafe impl<'a> IndexBufferDescription for () {
-    fn descriptor(&self) -> Option<IndexBufferDescriptor> {
-        None
-    }
-}
-
 unsafe impl<'a, F> IndexBufferDescription for &'a Buffer<[F]>
 where
     F: IndexFormat,
 {
-    fn descriptor(&self) -> Option<IndexBufferDescriptor> {
-        Some(IndexBufferDescriptor {
+    fn descriptor(&self) -> IndexBufferDescriptor {
+        IndexBufferDescriptor {
             buffer_data: self.data().clone(),
             index_type: F::TYPE,
             offset: 0,
             len: self.len() as u32,
-        })
+        }
     }
 }
 
@@ -106,12 +104,12 @@ unsafe impl<'a, F> IndexBufferDescription for BufferView<'a, [F]>
 where
     F: IndexFormat,
 {
-    fn descriptor(&self) -> Option<IndexBufferDescriptor> {
-        Some(IndexBufferDescriptor {
+    fn descriptor(&self) -> IndexBufferDescriptor {
+        IndexBufferDescriptor {
             buffer_data: self.buffer_data().clone(),
             index_type: F::TYPE,
             offset: (self.offset_in_bytes() / mem::size_of::<F>()) as u32,
             len: self.len() as u32,
-        })
+        }
     }
 }

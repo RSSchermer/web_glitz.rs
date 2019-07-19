@@ -1,6 +1,6 @@
 mod vertex_input_state_description;
 pub use self::vertex_input_state_description::{
-    PerInstance, VertexAttributeDescriptor, VertexInputDescriptor, VertexInputStateDescription,
+    VertexAttributeDescriptor, VertexBufferDescriptor, VertexBuffersDescription,
     InputRate
 };
 
@@ -9,16 +9,10 @@ pub use self::index_buffer_description::{
     IndexBufferDescription, IndexBufferDescriptor, IndexFormat, IndexType,
 };
 
-mod vertex_array;
-pub use self::vertex_array::{
-    Instanced, VertexArray, VertexArrayDescriptor, VertexArrayRange, VertexArraySlice,
-};
-
 mod vertex_attribute_layout;
-pub use self::vertex_attribute_layout::VertexAttributeLayout;
+pub use self::vertex_attribute_layout::{VertexAttributeLayoutDescriptor, TypedVertexAttributeLayout, BindSlotRef};
 
-mod vertex_stream_description;
-pub use self::vertex_stream_description::{VertexStreamDescription, VertexStreamDescriptor};
+use std::borrow::Borrow;
 
 pub mod attribute_format;
 
@@ -67,7 +61,9 @@ pub mod attribute_format;
 /// the `Copy` trait. Therefor if we intend to create [Buffer] with our [Vertex] type, then we must
 /// also derive `Copy`. As `Clone` is a supertrait of `Copy`, we must also derive `Clone`.
 pub unsafe trait Vertex: Sized {
+    const INPUT_RATE: InputRate = InputRate::PerVertex;
+
     /// A set of [VertexAttributeDescriptor]s that describe how attribute data for this type is to
     /// be bound to the attribute slots of a graphics pipeline.
-    fn attribute_descriptors() -> &'static [VertexAttributeDescriptor];
+    const ATTRIBUTE_DESCRIPTORS: &'static [VertexAttributeDescriptor];
 }

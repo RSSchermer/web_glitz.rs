@@ -667,6 +667,18 @@ where
     }
 }
 
+impl<'a, F> Clone for Levels<'a, F> {
+    fn clone(&self) -> Self {
+        Levels {
+            handle: self.handle,
+            offset: self.offset,
+            len: self.len
+        }
+    }
+}
+
+impl<'a, F> Copy for Levels<'a, F> {}
+
 /// An iterator over [Levels].
 ///
 /// See [Levels::iter] for details.
