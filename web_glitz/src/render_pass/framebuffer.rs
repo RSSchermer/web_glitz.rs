@@ -38,11 +38,9 @@ use crate::runtime::state::{ContextUpdate, DynamicState};
 use crate::runtime::Connection;
 use crate::task::{sequence, ContextId, Empty, GpuTask, Progress, Sequence};
 use crate::util::JsId;
-use crate::vertex::{
-    IndexBufferDescription, IndexBufferDescriptor, TypedVertexAttributeLayout,
-    VertexAttributeLayoutDescriptor, VertexBufferDescriptor, VertexBuffersDescription,
-};
+use crate::vertex::{IndexBufferDescription, IndexBufferDescriptor, TypedVertexAttributeLayout, VertexAttributeLayoutDescriptor, TypedVertexBuffers, VertexBuffersEncodingContext, VertexBuffers};
 use std::mem::{ManuallyDrop, MaybeUninit};
+use crate::vertex::vertex_input_state_description::{VertexBufferDescriptors, VertexBufferDescriptor};
 
 /// Represents a set of image memory buffers that serve as the rendering destination for a
 /// [RenderPass].
@@ -658,8 +656,7 @@ pub struct PipelineTaskContext {
     pipeline_task_id: usize,
     connection: *mut Connection,
     attribute_layout: *const VertexAttributeLayoutDescriptor,
-    vertex_buffers: ManuallyDrop<[VertexBufferDescriptor; 16]>,
-    vertex_buffer_count: usize,
+    vertex_buffers: VertexBufferDescriptors,
     index_buffer: Option<IndexBufferDescriptor>,
 }
 
@@ -693,16 +690,6 @@ impl PipelineTaskContext {
     /// accordingly.
     pub unsafe fn unpack_mut(&mut self) -> (&mut Gl, &mut DynamicState) {
         (*self.connection).unpack_mut()
-    }
-}
-
-impl Drop for PipelineTaskContext {
-    fn drop(&mut self) {
-        for vertex_buffer in self.vertex_buffers[0..self.vertex_buffer_count].iter_mut() {
-            unsafe {
-                mem::replace(vertex_buffer, MaybeUninit::uninit().assume_init());
-            }
-        }
     }
 }
 
@@ -793,27 +780,7 @@ where
             pipeline_task_id: self.id,
             connection: context.connection_mut() as *mut Connection,
             attribute_layout: &self.attribute_layout,
-            vertex_buffers: unsafe {
-                ManuallyDrop::new([
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                ])
-            },
-            vertex_buffer_count: 0,
+            vertex_buffers: VertexBufferDescriptors::new(),
             index_buffer: None,
         })
     }
@@ -865,16 +832,16 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
         VbNew,
         Ib,
         Rb,
-        Sequence<T, BindVertexBuffersCommand<VbNew::BufferDescriptors>, PipelineTaskContext>,
+        Sequence<T, BindVertexBuffersCommand, PipelineTaskContext>,
     >
     where
         V: TypedVertexAttributeLayout,
-        VbNew: VertexBuffersDescription<VertexAttributeLayout = V>,
+        VbNew: TypedVertexBuffers<VertexAttributeLayout = V>,
         T: GpuTask<PipelineTaskContext>,
     {
-        let vertex_buffers = vertex_buffers.buffer_descriptors();
+        let vertex_buffers = vertex_buffers.encode(&mut VertexBuffersEncodingContext::new()).into_descriptors();
 
-        for (i, buffer) in vertex_buffers.borrow().iter().enumerate() {
+        for (i, buffer) in vertex_buffers.iter().enumerate() {
             if buffer.buffer_data.context_id() != self.context_id {
                 panic!("Buffer {} belongs to a different context.", i);
             }
@@ -888,7 +855,7 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
                 self.task,
                 BindVertexBuffersCommand {
                     pipeline_task_id: self.pipeline_task_id,
-                    vertex_buffers,
+                    vertex_buffers: Some(vertex_buffers),
                 },
             ),
             _pipeline: marker::PhantomData,
@@ -1054,7 +1021,7 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
         Sequence<T, DrawCommand, PipelineTaskContext>,
     >
     where
-        Vb: VertexBuffersDescription<VertexAttributeLayout = V>,
+        Vb: VertexBuffers,
         Rb: Resources,
         T: GpuTask<PipelineTaskContext>,
     {
@@ -1092,7 +1059,7 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
         Sequence<T, DrawIndexedCommand, PipelineTaskContext>,
     >
     where
-        Vb: VertexBuffersDescription<VertexAttributeLayout = V>,
+        Vb: VertexBuffers,
         Ib: IndexBufferDescription,
         Rb: Resources,
         T: GpuTask<PipelineTaskContext>,
@@ -1122,15 +1089,12 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
     }
 }
 
-pub struct BindVertexBuffersCommand<Vb> {
+pub struct BindVertexBuffersCommand {
     pipeline_task_id: usize,
-    vertex_buffers: Vb,
+    vertex_buffers: Option<VertexBufferDescriptors>,
 }
 
-unsafe impl<Vb> GpuTask<PipelineTaskContext> for BindVertexBuffersCommand<Vb>
-where
-    Vb: Borrow<[VertexBufferDescriptor]>,
-{
+unsafe impl GpuTask<PipelineTaskContext> for BindVertexBuffersCommand {
     type Output = ();
 
     fn context_id(&self) -> ContextId {
@@ -1138,13 +1102,7 @@ where
     }
 
     fn progress(&mut self, execution_context: &mut PipelineTaskContext) -> Progress<Self::Output> {
-        let buffers = self.vertex_buffers.borrow();
-
-        for (i, descriptor) in buffers.iter().enumerate() {
-            execution_context.vertex_buffers[i] = descriptor.clone();
-        }
-
-        execution_context.vertex_buffer_count = buffers.len();
+        execution_context.vertex_buffers = self.vertex_buffers.take().expect("Cannot progress twice");
 
         Progress::Finished(())
     }
@@ -1212,12 +1170,10 @@ unsafe impl GpuTask<PipelineTaskContext> for DrawCommand {
     fn progress(&mut self, context: &mut PipelineTaskContext) -> Progress<Self::Output> {
         let (gl, state) = unsafe { (*context.connection).unpack_mut() };
 
-        let vertex_buffers = &context.vertex_buffers[0..context.vertex_buffer_count];
-
         unsafe {
             state.vertex_array_cache_mut().bind_or_create(
                 &*context.attribute_layout,
-                vertex_buffers,
+                &context.vertex_buffers,
                 gl,
             );
         }
@@ -1258,12 +1214,10 @@ unsafe impl GpuTask<PipelineTaskContext> for DrawIndexedCommand {
         let (gl, state) = unsafe { (*context.connection).unpack_mut() };
 
         if let Some(index_buffer) = &context.index_buffer {
-            let vertex_buffers = &context.vertex_buffers[0..context.vertex_buffer_count];
-
             unsafe {
                 state.vertex_array_cache_mut().bind_or_create_indexed(
                     &*context.attribute_layout,
-                    vertex_buffers,
+                    &context.vertex_buffers,
                     index_buffer,
                     gl,
                 );

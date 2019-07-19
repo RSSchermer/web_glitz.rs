@@ -212,7 +212,6 @@ where
 //{}
 
 /// A view on a segment or the whole of a [Buffer].
-#[derive(Copy)]
 pub struct BufferView<'a, T>
 where
     T: ?Sized,
@@ -289,6 +288,8 @@ impl<'a, T> Clone for BufferView<'a, T> {
         }
     }
 }
+
+impl<'a, T> Copy for BufferView<'a, T> {}
 
 impl<'a, T> BufferView<'a, [T]> {
     /// Returns the number of elements contained in this [Buffer].
@@ -414,6 +415,8 @@ impl<'a, T> Clone for BufferView<'a, [T]> {
         }
     }
 }
+
+impl<'a, T> Copy for BufferView<'a, [T]> {}
 
 // TODO: CoerceUnsized doesn't currently work with only a PhantomData field...
 //impl<'a, T, U> CoerceUnsized<BufferView<'a, U>> for BufferView<'a, T>

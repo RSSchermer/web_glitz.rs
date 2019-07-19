@@ -110,7 +110,7 @@ use crate::runtime::{
 };
 use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
 use crate::task::{GpuTask, Progress};
-use crate::vertex::{IndexBufferDescription, VertexBuffersDescription};
+use crate::vertex::{IndexBufferDescription, TypedVertexBuffers};
 
 thread_local!(static ID_GEN: IdGen = IdGen::new());
 

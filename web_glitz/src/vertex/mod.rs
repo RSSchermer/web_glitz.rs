@@ -1,6 +1,6 @@
-mod vertex_input_state_description;
+pub(crate) mod vertex_input_state_description;
 pub use self::vertex_input_state_description::{
-    InputRate, VertexAttributeDescriptor, VertexBufferDescriptor, VertexBuffersDescription,
+    InputRate, VertexAttributeDescriptor, VertexBuffers, TypedVertexBuffers, VertexBuffer, TypedVertexBuffer, VertexBuffersEncoding, VertexBuffersEncodingContext
 };
 
 mod index_buffer_description;
