@@ -217,7 +217,7 @@ where
     fn into_binding(self, index: u32) -> Self::Binding {
         BufferBinding {
             index,
-            buffer_view: self.view(),
+            buffer_view: self.into(),
             size_in_bytes: mem::size_of::<T>(),
         }
     }

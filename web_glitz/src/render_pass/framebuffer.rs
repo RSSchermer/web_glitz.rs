@@ -38,9 +38,10 @@ use crate::runtime::state::{ContextUpdate, DynamicState};
 use crate::runtime::Connection;
 use crate::task::{sequence, ContextId, Empty, GpuTask, Progress, Sequence};
 use crate::util::JsId;
-use crate::vertex::{IndexBufferDescription, IndexBufferDescriptor, TypedVertexAttributeLayout, VertexAttributeLayoutDescriptor, TypedVertexBuffers, VertexBuffersEncodingContext, VertexBuffers};
+use crate::vertex::{IndexBuffer, TypedVertexAttributeLayout, VertexAttributeLayoutDescriptor, TypedVertexBuffers, VertexBuffersEncodingContext, VertexBuffers, IndexBufferEncodingContext};
 use std::mem::{ManuallyDrop, MaybeUninit};
 use crate::vertex::vertex_input_state_description::{VertexBufferDescriptors, VertexBufferDescriptor};
+use crate::vertex::index_buffer_description::IndexBufferDescriptor;
 
 /// Represents a set of image memory buffers that serve as the rendering destination for a
 /// [RenderPass].
@@ -889,10 +890,10 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
         Sequence<T, BindIndexBufferCommand, PipelineTaskContext>,
     >
     where
-        IbNew: IndexBufferDescription,
+        IbNew: IndexBuffer,
         T: GpuTask<PipelineTaskContext>,
     {
-        let index_buffer = index_buffer.descriptor();
+        let index_buffer = index_buffer.encode(&mut IndexBufferEncodingContext::new()).into_descriptor();
 
         if index_buffer.buffer_data.context_id() != self.context_id {
             panic!("Buffer belongs to a different context.");
@@ -1060,7 +1061,7 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
     >
     where
         Vb: VertexBuffers,
-        Ib: IndexBufferDescription,
+        Ib: IndexBuffer,
         Rb: Resources,
         T: GpuTask<PipelineTaskContext>,
     {

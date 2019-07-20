@@ -3,9 +3,9 @@ pub use self::vertex_input_state_description::{
     InputRate, VertexAttributeDescriptor, VertexBuffers, TypedVertexBuffers, VertexBuffer, TypedVertexBuffer, VertexBuffersEncoding, VertexBuffersEncodingContext
 };
 
-mod index_buffer_description;
+pub(crate) mod index_buffer_description;
 pub use self::index_buffer_description::{
-    IndexBufferDescription, IndexBufferDescriptor, IndexFormat, IndexType,
+    IndexBuffer, IndexFormat, IndexType, IndexBufferEncoding, IndexBufferEncodingContext
 };
 
 mod vertex_attribute_layout;

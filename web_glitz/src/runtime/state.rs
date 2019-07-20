@@ -20,13 +20,14 @@ use crate::render_target::attachable_image_ref::AttachableImageData;
 use crate::runtime::index_lru::IndexLRU;
 use crate::util::{identical, JsId};
 use crate::vertex::{
-    IndexBufferDescription, IndexBufferDescriptor, VertexAttributeLayoutDescriptor, TypedVertexBuffers,
+    IndexBuffer, VertexAttributeLayoutDescriptor, TypedVertexBuffers,
 };
 use web_sys::{
     WebGl2RenderingContext as Gl, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlRenderbuffer,
     WebGlSampler, WebGlTexture, WebGlVertexArrayObject,
 };
 use crate::vertex::vertex_input_state_description::VertexBufferDescriptor;
+use crate::vertex::index_buffer_description::IndexBufferDescriptor;
 
 pub struct DynamicState {
     framebuffer_cache: FnvHashMap<u64, (Framebuffer, [Option<JsId>; 17])>,

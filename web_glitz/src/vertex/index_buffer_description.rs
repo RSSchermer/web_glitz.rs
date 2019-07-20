@@ -35,16 +35,49 @@ unsafe impl IndexFormat for u32 {
 ///
 /// If [descriptor] returns an [IndexBufferDescriptor], then the [VertexArray] is indexed using the
 /// indices in the index buffer:
-pub unsafe trait IndexBufferDescription {
+pub unsafe trait IndexBuffer {
     /// Returns an [IndexBufferDescriptor].
-    fn descriptor(&self) -> IndexBufferDescriptor;
+    fn encode<'a>(&self, context: &'a mut IndexBufferEncodingContext) -> IndexBufferEncoding<'a>;
+}
+
+pub struct IndexBufferEncodingContext(());
+
+impl IndexBufferEncodingContext {
+    pub(crate) fn new() -> Self {
+        IndexBufferEncodingContext(())
+    }
+}
+
+pub struct IndexBufferEncoding<'a> {
+    context: &'a mut IndexBufferEncodingContext,
+    descriptor: IndexBufferDescriptor
+}
+
+impl<'a> IndexBufferEncoding<'a> {
+    pub fn from_typed_index_buffer<'b, B, T>(context: &'a mut IndexBufferEncodingContext, buffer: B) -> Self where B: Into<BufferView<'b, [T]>>, T: IndexFormat + 'b {
+        let view = buffer.into();
+
+        IndexBufferEncoding {
+            context,
+            descriptor: IndexBufferDescriptor {
+                buffer_data: view.buffer_data().clone(),
+                index_type: T::TYPE,
+                offset: view.offset_in_bytes() as u32,
+                len: view.len() as u32
+            }
+        }
+    }
+
+    pub(crate) fn into_descriptor(self) -> IndexBufferDescriptor {
+        self.descriptor
+    }
 }
 
 /// Describes a [Buffer] region that contains data that may be used to index a [VertexArray].
 ///
 /// See also [IndexBufferDescription].
 #[derive(Clone)]
-pub struct IndexBufferDescriptor {
+pub(crate) struct IndexBufferDescriptor {
     pub(crate) buffer_data: Arc<BufferData>,
     pub(crate) index_type: IndexType,
     pub(crate) offset: u32,
@@ -86,30 +119,20 @@ impl IndexType {
     }
 }
 
-unsafe impl<'a, F> IndexBufferDescription for &'a Buffer<[F]>
+unsafe impl<'a, F> IndexBuffer for &'a Buffer<[F]>
 where
     F: IndexFormat,
 {
-    fn descriptor(&self) -> IndexBufferDescriptor {
-        IndexBufferDescriptor {
-            buffer_data: self.data().clone(),
-            index_type: F::TYPE,
-            offset: 0,
-            len: self.len() as u32,
-        }
+    fn encode<'b>(&self, context: &'b mut IndexBufferEncodingContext) -> IndexBufferEncoding<'b> {
+        IndexBufferEncoding::from_typed_index_buffer(context, *self)
     }
 }
 
-unsafe impl<'a, F> IndexBufferDescription for BufferView<'a, [F]>
+unsafe impl<'a, F> IndexBuffer for BufferView<'a, [F]>
 where
     F: IndexFormat,
 {
-    fn descriptor(&self) -> IndexBufferDescriptor {
-        IndexBufferDescriptor {
-            buffer_data: self.buffer_data().clone(),
-            index_type: F::TYPE,
-            offset: (self.offset_in_bytes() / mem::size_of::<F>()) as u32,
-            len: self.len() as u32,
-        }
+    fn encode<'b>(&self, context: &'b mut IndexBufferEncodingContext) -> IndexBufferEncoding<'b> {
+        IndexBufferEncoding::from_typed_index_buffer(context, *self)
     }
 }

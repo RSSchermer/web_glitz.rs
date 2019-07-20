@@ -12,110 +12,37 @@ use std::hash::{Hash, Hasher};
 use std::mem::{ManuallyDrop, MaybeUninit};
 use std::ops::Deref;
 
-pub trait VertexBuffer {
-    fn encode(&self, encoding: &mut VertexBuffersEncoding);
-}
-
-pub unsafe trait TypedVertexBuffer: VertexBuffer {
-    type Vertex: Vertex;
-}
-
+/// Encodes a description of a (set of) buffer(s) or buffer region(s) that can serve as the vertex
+/// input data source(s) for a graphics pipeline.
 pub trait VertexBuffers {
     fn encode<'a>(&self, context: &'a mut VertexBuffersEncodingContext) -> VertexBuffersEncoding<'a>;
 }
 
-/// Describes the attribute layout and input data sources for a [VertexArray].
+/// Helper trait for the implementation of [VertexBuffers] for tuple types.
+pub trait VertexBuffer {
+    fn encode(&self, encoding: &mut VertexBuffersEncoding);
+}
+
+/// Sub-trait of [VertexBuffers], where a type statically describes the vertex attribute layout
+/// supported by the vertex buffers.
 ///
-/// The [AttributeLayout] describes how attribute values are to be constructed from the
-/// [vertex_input_descriptors]. The groups of [VertexAttributeDescriptor]s in the [AttributeLayout]
-/// are applied to the [vertex_input_descriptors] in order: the first group of
-/// [VertexAttributeDescriptor]s is applied to the first [VertexInputDescriptor], the second group
-/// of [VertexAttributeDescriptor]s is applied to the second [VertexInputDescriptor], etc.
+/// Vertex buffers that implement this trait may be bound to graphics pipelines with a matching
+/// [TypedVertexAttributeLayout] without further runtime checks.
 ///
 /// # Unsafe
 ///
-/// It must be valid to apply a group of [VertexAttributeDescriptor]s to the [VertexInputDescriptor]
-/// it is paired with: if a group contains a [VertexAttributeDescriptor] that describes a certain
-/// [AttributeFormat] (see [VertexAttributeDescriptor::format]) at a certain offset (see
-/// [VertexAttributeDescriptor::offset_in_bytes]), then the [Buffer] region described by the
-/// [VertexInputDescriptor] must contain data that can be validly interpreted as that format
-/// starting at that offset, and at every multiple of [VertexInputDescriptor::stride_in_bytes] bytes
-/// added to that offset for the entire size of the input region (as defined by
-/// [VertexInputDescriptor::size_in_bytes]).
-///
-/// # Example
-///
-/// ```
-/// use web_glitz::vertex::{
-///     VertexAttributeDescriptor, TypedVertexAttributeLayout, VertexBufferDescriptor,
-///     TypedVertexBuffers, InputRate
-/// };
-/// use web_glitz::vertex::attribute_format::AttributeFormat;
-/// use web_glitz::buffer::Buffer;
-///
-/// struct CustomAttributeLayout;
-///
-/// unsafe impl TypedVertexAttributeLayout for CustomAttributeLayout {
-///     type Layout = [&'static [VertexAttributeDescriptor]; 2];
-///
-///     fn input_attribute_bindings() -> Self::InputAttributeBindings {
-///         const PER_VERTEX_ATTRIBUTES: [VertexAttributeDescriptor; 2] = [
-///             VertexAttributeDescriptor {
-///                 location: 0,
-///                 offset_in_bytes: 0,
-///                 format: AttributeFormat::Float4_f32
-///             },
-///             VertexAttributeDescriptor {
-///                 location: 1,
-///                 offset_in_bytes: 4,
-///                 format: AttributeFormat::Float3_f32
-///             }
-///         ];
-///
-///         const PER_INSTANCE_ATTRIBUTES: [VertexAttributeDescriptor; 1] = [
-///             VertexAttributeDescriptor {
-///                 location: 2,
-///                 offset_in_bytes: 0,
-///                 format: AttributeFormat::Float4_f32
-///             },
-///         ];
-///
-///         [&PER_VERTEX_ATTRIBUTES, &PER_INSTANCE_ATTRIBUTES]
-///     }
-/// }
-///
-/// struct CustomVertexInput {
-///     per_vertex_buffer: Buffer<[(f32, f32, f32, f32, f32, f32, f32)]>,
-///     per_instance_buffer: Buffer<[(f32, f32, f32, f32)]>
-/// }
-///
-/// unsafe impl TypedVertexBuffers for CustomVertexInput {
-///     type VertexAttributeLayout = CustomAttributeLayout;
-///
-///     type BufferDescriptors = [VertexBufferDescriptor; 2];
-///
-///     fn buffer_descriptors(&self) -> Self::InputDescriptors {
-///         [
-///             VertexBufferDescriptor::from_buffer_view(
-///                 self.per_vertex_buffer.view(),
-///                 InputRate::PerVertex
-///             ),
-///             VertexBufferDescriptor::from_buffer_view(
-///                 self.per_instance_buffer.view(),
-///                 InputRate::PerInstance
-///             ),
-///         ]
-///     }
-/// }
-/// ```
+/// This trait must only by implemented for [VertexBuffers] types if the vertex buffers encoding
+/// for any instance of the the type is guaranteed to provide compatible vertex input data for
+/// each of the [VertexAttributeDescriptors] specified by the [VertexAttributeLayout].
 pub unsafe trait TypedVertexBuffers: VertexBuffers {
-    /// The type that defines the layout for the attribute data.
-    ///
-    /// For attribute data sourced from a single array [Buffer], this is typically the buffer's
-    /// element type. For attribute data sourced from multiple buffers, this is typically a tuple
-    /// of the element types of each of the buffers, in the same order that is used for the
-    /// [input_descriptors].
+    /// A type statically associated with a vertex attribute layout with which any instance of these
+    /// [TypedVertexBuffers] is compatible.
     type VertexAttributeLayout: TypedVertexAttributeLayout;
+}
+
+/// Helper trait for the implementation of [TypedVertexBuffers] for tuple types.
+pub unsafe trait TypedVertexBuffer: VertexBuffer {
+    type Vertex: Vertex;
 }
 
 /// Describes the input rate for a [VertexInputDescriptor] when it is used as a data source for
@@ -135,6 +62,9 @@ pub enum InputRate {
     PerInstance,
 }
 
+/// Context required for the creation of a new [VertexBuffersEncoding].
+///
+/// See [VertexBuffersEncoding::new].
 pub struct VertexBuffersEncodingContext(());
 
 impl VertexBuffersEncodingContext {
@@ -143,12 +73,19 @@ impl VertexBuffersEncodingContext {
     }
 }
 
+/// An encoding of a description of a (set of) buffer(s) or buffer region(s) that can serve as the
+/// vertex input data source(s) for a graphics pipeline.
+///
+/// See also [VertexBuffers].
+///
+/// Contains slots for up to 16 buffers or buffer regions.
 pub struct VertexBuffersEncoding<'a> {
     context: &'a mut VertexBuffersEncodingContext,
     descriptors: VertexBufferDescriptors
 }
 
 impl<'a> VertexBuffersEncoding<'a> {
+    /// Returns a new empty [VertexBuffersEncoding] for the given `context`.
     pub fn new(context: &'a mut VertexBuffersEncodingContext) -> Self {
         VertexBuffersEncoding {
             context,
@@ -156,8 +93,13 @@ impl<'a> VertexBuffersEncoding<'a> {
         }
     }
 
-    pub fn add_vertex_buffer<T>(&mut self, buffer: BufferView<[T]>) {
-        self.descriptors.push(VertexBufferDescriptor::from_buffer_view(buffer));
+    /// Adds a new buffer or buffer region to the description in the next free binding slot.
+    ///
+    /// # Panics
+    ///
+    /// Panics if called when all 16 vertex buffer slots have already been filled.
+    pub fn add_vertex_buffer<'b, V, T>(&mut self, buffer: V) where V: Into<BufferView<'b, [T]>>, T: 'b {
+        self.descriptors.push(VertexBufferDescriptor::from_buffer_view(buffer.into()));
     }
 
     pub(crate) fn into_descriptors(self) -> VertexBufferDescriptors {
@@ -273,7 +215,7 @@ where
     T: Vertex,
 {
     fn encode(&self, encoding: &mut VertexBuffersEncoding) {
-        encoding.add_vertex_buffer(self.view());
+        encoding.add_vertex_buffer(*self);
     }
 }
 

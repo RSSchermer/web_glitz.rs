@@ -50,15 +50,6 @@ where
     pub fn usage_hint(&self) -> UsageHint {
         self.data.usage_hint
     }
-
-    /// Returns a view on this entire [Buffer].
-    pub fn view(&self) -> BufferView<T> {
-        BufferView {
-            buffer: self,
-            offset_in_bytes: 0,
-            len: self.data.len,
-        }
-    }
 }
 
 impl<T> Buffer<T>
@@ -200,6 +191,16 @@ where
             offset_in_bytes: 0,
             len: self.data.len,
             _marker: marker::PhantomData,
+        }
+    }
+}
+
+impl<'a, T> Into<BufferView<'a, T>> for &'a Buffer<T> where T: ?Sized {
+    fn into(self) -> BufferView<'a, T> {
+        BufferView {
+            buffer: self,
+            offset_in_bytes: 0,
+            len: self.data.len,
         }
     }
 }
