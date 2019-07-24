@@ -158,11 +158,11 @@ pub fn start() {
             // again to enforce safety at compile time.
             active_pipeline
                 .task_builder()
-                .bind_vertex_buffers_command(&vertex_buffer)
-                .bind_resources_command(Resources {
+                .bind_vertex_buffers(&vertex_buffer)
+                .bind_resources(Resources {
                     texture: texture.float_sampled(&sampler).unwrap(),
                 })
-                .draw_command(3, 1)
+                .draw(3, 1)
                 .finish()
         })
     });

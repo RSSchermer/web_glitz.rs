@@ -323,7 +323,7 @@ unsafe impl<Ec> GpuTask<Ec> for Empty {
         ContextId::Any
     }
 
-    fn progress(&mut self, execution_context: &mut Ec) -> Progress<Self::Output> {
+    fn progress(&mut self, _execution_context: &mut Ec) -> Progress<Self::Output> {
         Progress::Finished(())
     }
 }

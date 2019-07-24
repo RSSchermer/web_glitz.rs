@@ -27,7 +27,6 @@ use crate::render_target::RenderTargetDescription;
 use crate::runtime::state::{CreateProgramError, DynamicState};
 use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
 use crate::task::GpuTask;
-use crate::vertex::{IndexBuffer, TypedVertexBuffers};
 
 /// Trait implemented by types that can serve as a WebGlitz rendering context.
 ///

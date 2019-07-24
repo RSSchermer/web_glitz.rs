@@ -1,10 +1,9 @@
-use std::mem;
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::buffer::{Buffer, BufferData, BufferView};
-use std::hash::{Hash, Hasher};
 
 /// Trait implemented for types that can be used as indices for a [VertexArray] encoded in the
 /// associated [IndexType].
@@ -40,6 +39,15 @@ pub unsafe trait IndexBuffer {
     fn encode<'a>(&self, context: &'a mut IndexBufferEncodingContext) -> IndexBufferEncoding<'a>;
 }
 
+// Note that currently the IndexBufferEncodingContext's only use is to serve as a form of lifetime
+// erasure, it ensures if a buffer is mutable borrowed for transform feedback, then it should be
+// impossible to create an IndexBufferEncoding for that pipeline task that also uses that buffer
+// in safe Rust, without having to keep the actual borrow of that buffer alive (the resulting
+// pipeline task needs to be `'static`).
+
+/// Context for creating a new [IndexBufferEncoding].
+///
+/// See [IndexBufferEncoding::new].
 pub struct IndexBufferEncodingContext(());
 
 impl IndexBufferEncodingContext {
@@ -49,12 +57,20 @@ impl IndexBufferEncodingContext {
 }
 
 pub struct IndexBufferEncoding<'a> {
+    #[allow(unused)]
     context: &'a mut IndexBufferEncodingContext,
-    descriptor: IndexBufferDescriptor
+    descriptor: IndexBufferDescriptor,
 }
 
 impl<'a> IndexBufferEncoding<'a> {
-    pub fn from_typed_index_buffer<'b, B, T>(context: &'a mut IndexBufferEncodingContext, buffer: B) -> Self where B: Into<BufferView<'b, [T]>>, T: IndexFormat + 'b {
+    pub fn from_typed_index_buffer<'b, B, T>(
+        context: &'a mut IndexBufferEncodingContext,
+        buffer: B,
+    ) -> Self
+    where
+        B: Into<BufferView<'b, [T]>>,
+        T: IndexFormat + 'b,
+    {
         let view = buffer.into();
 
         IndexBufferEncoding {
@@ -63,8 +79,8 @@ impl<'a> IndexBufferEncoding<'a> {
                 buffer_data: view.buffer_data().clone(),
                 index_type: T::TYPE,
                 offset: view.offset_in_bytes() as u32,
-                len: view.len() as u32
-            }
+                len: view.len() as u32,
+            },
         }
     }
 
@@ -107,14 +123,6 @@ impl IndexType {
             IndexType::UnsignedByte => Gl::UNSIGNED_BYTE,
             IndexType::UnsignedShort => Gl::UNSIGNED_SHORT,
             IndexType::UnsignedInt => Gl::UNSIGNED_INT,
-        }
-    }
-
-    pub(crate) fn size_in_bytes(&self) -> u32 {
-        match self {
-            IndexType::UnsignedByte => 1,
-            IndexType::UnsignedShort => 2,
-            IndexType::UnsignedInt => 4,
         }
     }
 }

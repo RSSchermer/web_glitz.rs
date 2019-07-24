@@ -3,14 +3,14 @@ use std::borrow::Borrow;
 use std::marker;
 use std::sync::Arc;
 
+use web_sys::WebGl2RenderingContext as Gl;
+
 use crate::image::Region2D;
 use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
 use crate::pipeline::graphics::{
-    AttributeType, TransformFeedbackDescription, TransformFeedbackLayout,
-};
-use crate::pipeline::graphics::{
-    Blending, DepthTest, GraphicsPipelineDescriptor, PrimitiveAssembly, SlotBindingStrategy,
-    StencilTest, Viewport,
+    AttributeType, Blending, DepthTest, GraphicsPipelineDescriptor, PrimitiveAssembly,
+    SlotBindingStrategy, StencilTest, TransformFeedbackDescription, TransformFeedbackLayout,
+    VertexAttributeLayoutDescriptor, Viewport,
 };
 use crate::pipeline::resources::resource_slot::{SlotBindingChecker, SlotBindingUpdater};
 use crate::pipeline::resources::Resources;
@@ -18,8 +18,6 @@ use crate::runtime::state::{ContextUpdate, DynamicState, ProgramKey};
 use crate::runtime::{Connection, CreateGraphicsPipelineError, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
-use crate::vertex::VertexAttributeLayoutDescriptor;
-use web_sys::WebGl2RenderingContext as Gl;
 
 /// Encapsulates the state for a graphics pipeline.
 ///

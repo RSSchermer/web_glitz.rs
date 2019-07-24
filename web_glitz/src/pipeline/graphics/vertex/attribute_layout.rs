@@ -1,28 +1,20 @@
-use std::borrow::Borrow;
+use std::hash::{Hash, Hasher};
 use std::mem;
 
-use crate::pipeline::graphics::{AttributeSlotDescriptor, IncompatibleAttributeLayout};
-use crate::vertex::{InputRate, Vertex, VertexAttributeDescriptor};
 use fnv::FnvHasher;
-use std::hash::{Hash, Hasher};
+use web_sys::WebGl2RenderingContext as Gl;
 
-/// Describes a [VertexAttributeLayout] attached to a type.
+use crate::pipeline::graphics::{InputRate, Vertex, VertexAttributeDescriptor};
+
+// TODO: could this trait potentially be safe now? The `unsafe` contract on the `TypedVertexBuffers`
+// trait might be sufficient.
+
+/// A vertex attribute layout description attached to a type.
 ///
-/// The attribute layout is described by sequence of grouped [VertexAttributeDescriptor]s.
-/// Together with a sequence of [VertexInputDescriptor]s, these may be used to describe the vertex
-/// input state for a [VertexArray], see [VertexInputStateDescription].
-///
-/// # Unsafe
-///
-/// The value returned by [input_attribute_bindings] must describe the same attribute layout on
-/// every invocation.
+/// See also [VertexAttributeLayoutDescriptor].
 pub unsafe trait TypedVertexAttributeLayout {
     type LayoutDescription: Into<VertexAttributeLayoutDescriptor>;
 
-    /// Returns a sequence of grouped [VertexAttributeDescriptor]s.
-    ///
-    /// Together with a sequence of [VertexInputDescriptor]s, these may be used to describe the
-    /// vertex input state for a [VertexArray], see [VertexInputStateDescription].
     const LAYOUT_DESCRIPTION: Self::LayoutDescription;
 }
 
@@ -71,9 +63,15 @@ impl_typed_vertex_attribute_layout!(
     16, T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15
 );
 
+/// Helper type for implementing [TypedVertexAttributeLayout] for (tuples of) [Vertex] types.
 pub struct StaticBindSlotDescriptor {
+    /// The stride in bytes between successive vertices in the bind slot.
     pub stride: u8,
+
+    /// The [InputRate] for the bind slot.
     pub input_rate: InputRate,
+
+    /// The set of [VertexAttributeDescriptor]s defined on the bind slot.
     pub attributes: &'static [VertexAttributeDescriptor],
 }
 
@@ -97,17 +95,18 @@ macro_rules! impl_into_vertex_attribute_layout_descriptor {
                     attribute_count += self[i].attributes.len();
                 }
 
-                let mut builder =
-                    VertexAttributeLayoutDescriptorBuilder::new(Some(AllocationHint {
+                let mut builder = VertexAttributeLayoutDescriptorBuilder::new(Some(
+                    AttributeLayoutAllocationHint {
                         bind_slot_count: $n,
                         attribute_count: attribute_count as u8,
-                    }));
+                    },
+                ));
 
                 for i in 0..$n {
                     let mut slot = builder.add_bind_slot(self[i].stride, self[i].input_rate);
 
                     for attribute in self[i].attributes {
-                        slot.add_attribute(*attribute)
+                        slot.add_attribute(*attribute);
                     }
                 }
 
@@ -134,6 +133,10 @@ impl_into_vertex_attribute_layout_descriptor!(14);
 impl_into_vertex_attribute_layout_descriptor!(15);
 impl_into_vertex_attribute_layout_descriptor!(16);
 
+/// Describes a layout of vertex buffers bind slots and the vertex attributes defined on these bind
+/// slots.
+///
+/// See [VertexAttributeLayoutDescriptorBuilder] for details on how a layout is constructed.
 #[derive(Clone, PartialEq, Debug)]
 pub struct VertexAttributeLayoutDescriptor {
     initial_bind_slot: Option<BindSlot>,
@@ -172,6 +175,7 @@ impl VertexAttributeLayoutDescriptor {
         Ok(())
     }
 
+    /// Returns an iterator over the bind slots described by this descriptor.
     pub fn bind_slots(&self) -> BindSlots {
         BindSlots {
             layout: self,
@@ -189,6 +193,7 @@ impl Hash for VertexAttributeLayoutDescriptor {
     }
 }
 
+/// Returned from [VertexAttributeLayoutDescriptor::bind_slots].
 pub struct BindSlots<'a> {
     layout: &'a VertexAttributeLayoutDescriptor,
     cursor: isize,
@@ -232,6 +237,9 @@ impl<'a> Iterator for BindSlots<'a> {
     }
 }
 
+/// Reference to a bind slot description in a [VertexAttributeLayoutDescriptor].
+///
+/// See [VertexAttributeLayoutDescriptor::bind_slots].
 pub struct BindSlotRef<'a> {
     layout: &'a VertexAttributeLayoutDescriptor,
     start: usize,
@@ -240,14 +248,17 @@ pub struct BindSlotRef<'a> {
 }
 
 impl<'a> BindSlotRef<'a> {
+    /// Returns the stride in bytes between successive vertex entries.
     pub fn stride_in_bytes(&self) -> u8 {
         self.stride
     }
 
+    /// Returns the [InputRate] used for this bind slot.
     pub fn input_rate(&self) -> InputRate {
         self.input_rate
     }
 
+    /// Returns an iterator over the [VertexAttributeDescriptor]s defined on this bind slot.
     pub fn attributes(&self) -> BindSlotAttributes {
         BindSlotAttributes {
             layout: &self.layout.layout,
@@ -256,6 +267,7 @@ impl<'a> BindSlotRef<'a> {
     }
 }
 
+/// Returned from [BindSlotRef::attributes].
 pub struct BindSlotAttributes<'a> {
     layout: &'a Vec<LayoutElement>,
     cursor: usize,
@@ -281,25 +293,69 @@ enum LayoutElement {
     NextBindSlot(BindSlot),
 }
 
-pub struct VertexAttributeLayoutDescriptorBuilder {
-    initial_bind_slot: Option<BindSlot>,
-    layout: Vec<LayoutElement>,
-}
-
 #[derive(Clone, Copy, PartialEq, Hash, Debug)]
 struct BindSlot {
     stride: u8,
     input_rate: InputRate,
 }
 
+/// Allocation hint for a [VertexAttributeDescriptor], see
+/// [VertexAttributeLayoutDescriptorBuilder::new].
 #[derive(Clone, Copy, PartialEq, Debug)]
-pub struct AllocationHint {
+pub struct AttributeLayoutAllocationHint {
+    /// The number of bind slots the descriptor describes.
     pub bind_slot_count: u8,
+
+    /// The total number of attributes the descriptor describes across all bind slots.
     pub attribute_count: u8,
 }
 
+/// Builds a new [VertexAttributeLayoutDescriptor].
+///
+/// # Example
+///
+/// ```rust
+/// use web_glitz::pipeline::graphics::{AttibuteLayoutAllocationHint, VertexAttributeLayoutDescriptorBuilder, AttributeLayoutAllocationHint, InputRate, VertexAttributeDescriptor};
+/// use web_glitz::pipeline::graphics::attribute_format::AttributeFormat;
+///
+/// let mut builder = VertexAttributeLayoutDescriptorBuilder::new(Some(AttributeLayoutAllocationHint {
+///     bind_slot_count: 2,
+///     attribute_count: 3
+/// }));
+///
+/// builder.add_bind_slot(28, InputRate::PerVertex)
+///     .add_attribute(VertexAttributeDescriptor {
+///         location: 0,
+///         offset_in_bytes: 0,
+///         format: AttributeFormat::Float4_f32
+///     })
+///     .add_attribute(VertexAttributeDescriptor {
+///         location: 1,
+///         offset_in_bytes: 16,
+///         format: AttributeFormat::Float3_f32
+///     });
+///
+/// builder.add_bind_slot(16, InputRate::PerInstance)
+///     .add_attribute(VertexAttributeDescriptor {
+///         location: 2,
+///         offset_in_bytes: 0,
+///         format: AttributeFormat::Float4_f32
+///     });
+///
+/// let layout_descriptor = builder.finish();
+/// ```
+pub struct VertexAttributeLayoutDescriptorBuilder {
+    initial_bind_slot: Option<BindSlot>,
+    layout: Vec<LayoutElement>,
+}
+
 impl VertexAttributeLayoutDescriptorBuilder {
-    pub fn new(allocation_hint: Option<AllocationHint>) -> Self {
+    /// Creates a new builder.
+    ///
+    /// Takes an optional `allocation_hint` to help reduce the number of allocations without over-
+    /// allocating. With an accurate allocation hint the builder will only allocate once. See
+    /// [AttributeLayoutAllocationHint] for details.
+    pub fn new(allocation_hint: Option<AttributeLayoutAllocationHint>) -> Self {
         let layout = if let Some(hint) = allocation_hint {
             Vec::with_capacity((hint.bind_slot_count - 1 + hint.attribute_count) as usize)
         } else {
@@ -312,6 +368,7 @@ impl VertexAttributeLayoutDescriptorBuilder {
         }
     }
 
+    /// Adds a vertex buffer binding slot to the layout.
     pub fn add_bind_slot(
         &mut self,
         stride: u8,
@@ -331,6 +388,7 @@ impl VertexAttributeLayoutDescriptorBuilder {
         }
     }
 
+    /// Finishes building and returns the resulting [VertexAttributeLayoutDescriptor].
     pub fn finish(self) -> VertexAttributeLayoutDescriptor {
         // Setup a hashcode once at pipeline creation time so that future hashing is cheap.
         let hash_code = if let Some(slot) = self.initial_bind_slot {
@@ -352,13 +410,24 @@ impl VertexAttributeLayoutDescriptorBuilder {
     }
 }
 
+/// Returned from [VertexAttributeLayoutDescriptorBuilder::add_bind_slot], attaches
+/// [VertexAttributeDescriptor]s to attribute layout bind slots.
 pub struct BindSlotAttributeAttacher<'a> {
     stride: u8,
     layout_builder: &'a mut VertexAttributeLayoutDescriptorBuilder,
 }
 
 impl<'a> BindSlotAttributeAttacher<'a> {
-    pub fn add_attribute(&mut self, attribute_descriptor: VertexAttributeDescriptor) {
+    /// Adds an attribute descriptor to the current bind slot.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the attribute does not fit within one stride (attribute offset + size is greater
+    /// bind slot stride).
+    pub fn add_attribute(
+        &mut self,
+        attribute_descriptor: VertexAttributeDescriptor,
+    ) -> &mut BindSlotAttributeAttacher<'a> {
         let size = attribute_descriptor.format.size_in_bytes();
 
         if attribute_descriptor.offset_in_bytes + size > self.stride {
@@ -368,18 +437,95 @@ impl<'a> BindSlotAttributeAttacher<'a> {
         self.layout_builder
             .layout
             .push(LayoutElement::NextAttribute(attribute_descriptor));
+
+        self
+    }
+}
+
+/// Error returned by [AttributeSlotLayoutCompatible::check_compatibility].
+#[derive(Debug)]
+pub enum IncompatibleAttributeLayout {
+    /// Variant returned if no attribute data is available for the [AttributeSlotDescriptor] with
+    /// at the `location`.
+    MissingAttribute { location: u32 },
+
+    /// Variant returned if attribute data is available for the [AttributeSlotDescriptor] with
+    /// at the `location`. but attribute data is not compatible with the [AttributeType] of the
+    /// [AttributeSlotDescriptor] (see [AttributeSlotDescriptor::attribute_type]).
+    TypeMismatch { location: u32 },
+}
+
+/// Describes an input slot on a [GraphicsPipeline].
+pub struct AttributeSlotDescriptor {
+    pub(crate) location: u32,
+    pub(crate) attribute_type: AttributeType,
+}
+
+impl AttributeSlotDescriptor {
+    /// The shader location of the attribute slot.
+    pub fn location(&self) -> u32 {
+        self.location
     }
 
-    pub unsafe fn add_attribute_unchecked(
-        &mut self,
-        attribute_descriptor: VertexAttributeDescriptor,
-    ) {
-        self.layout_builder
-            .layout
-            .push(LayoutElement::NextAttribute(attribute_descriptor));
+    /// The type of attribute required to fill the slot.
+    pub fn attribute_type(&self) -> AttributeType {
+        self.attribute_type
     }
+}
 
-    pub fn finish(self) -> &'a mut VertexAttributeLayoutDescriptorBuilder {
-        self.layout_builder
+/// Enumerates the possible attribute types that might be required to fill an attribute slot.
+///
+/// See also [AttributeSlotDescriptor].
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum AttributeType {
+    Float,
+    FloatVector2,
+    FloatVector3,
+    FloatVector4,
+    FloatMatrix2x2,
+    FloatMatrix2x3,
+    FloatMatrix2x4,
+    FloatMatrix3x2,
+    FloatMatrix3x3,
+    FloatMatrix3x4,
+    FloatMatrix4x2,
+    FloatMatrix4x3,
+    FloatMatrix4x4,
+    Integer,
+    IntegerVector2,
+    IntegerVector3,
+    IntegerVector4,
+    UnsignedInteger,
+    UnsignedIntegerVector2,
+    UnsignedIntegerVector3,
+    UnsignedIntegerVector4,
+}
+
+impl AttributeType {
+    pub(crate) fn from_type_id(id: u32) -> Self {
+        match id {
+            Gl::FLOAT => AttributeType::Float,
+            Gl::FLOAT_VEC2 => AttributeType::FloatVector2,
+            Gl::FLOAT_VEC3 => AttributeType::FloatVector3,
+            Gl::FLOAT_VEC4 => AttributeType::FloatVector4,
+            Gl::FLOAT_MAT2 => AttributeType::FloatMatrix2x2,
+            Gl::FLOAT_MAT3 => AttributeType::FloatMatrix3x3,
+            Gl::FLOAT_MAT4 => AttributeType::FloatMatrix4x4,
+            Gl::FLOAT_MAT2X3 => AttributeType::FloatMatrix2x3,
+            Gl::FLOAT_MAT2X4 => AttributeType::FloatMatrix2x4,
+            Gl::FLOAT_MAT3X2 => AttributeType::FloatMatrix3x2,
+            Gl::FLOAT_MAT3X4 => AttributeType::FloatMatrix3x4,
+            Gl::FLOAT_MAT4X2 => AttributeType::FloatMatrix4x2,
+            Gl::FLOAT_MAT4X3 => AttributeType::FloatMatrix4x3,
+            Gl::INT => AttributeType::Integer,
+            Gl::INT_VEC2 => AttributeType::IntegerVector2,
+            Gl::INT_VEC3 => AttributeType::IntegerVector3,
+            Gl::INT_VEC4 => AttributeType::IntegerVector4,
+            Gl::UNSIGNED_INT => AttributeType::UnsignedInteger,
+            Gl::UNSIGNED_INT_VEC2 => AttributeType::UnsignedIntegerVector2,
+            Gl::UNSIGNED_INT_VEC3 => AttributeType::UnsignedIntegerVector3,
+            Gl::UNSIGNED_INT_VEC4 => AttributeType::UnsignedIntegerVector4,
+            id => panic!("Invalid attribute type id: {}", id),
+        }
     }
 }

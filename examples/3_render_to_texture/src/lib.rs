@@ -160,8 +160,8 @@ pub fn start() {
             framebuffer.pipeline_task(&secondary_pipeline, |active_pipeline| {
                 active_pipeline
                     .task_builder()
-                    .bind_vertex_buffers_command(&secondary_vertex_buffer)
-                    .draw_command(3, 1)
+                    .bind_vertex_buffers(&secondary_vertex_buffer)
+                    .draw(3, 1)
                     .finish()
             })
         },
@@ -200,11 +200,11 @@ pub fn start() {
         framebuffer.pipeline_task(&primary_pipeline, |active_pipeline| {
             active_pipeline
                 .task_builder()
-                .bind_vertex_buffers_command(&primary_vertex_buffer)
-                .bind_resources_command(PrimaryResources {
+                .bind_vertex_buffers(&primary_vertex_buffer)
+                .bind_resources(PrimaryResources {
                     texture: texture.float_sampled(&sampler).unwrap(),
                 })
-                .draw_command(3, 1)
+                .draw(3, 1)
                 .finish()
         })
     });

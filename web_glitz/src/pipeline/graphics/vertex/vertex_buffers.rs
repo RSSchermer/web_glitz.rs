@@ -1,21 +1,22 @@
-use std::borrow::Borrow;
-use std::{mem, ptr};
+use std::hash::{Hash, Hasher};
+use std::mem::{ManuallyDrop, MaybeUninit};
+use std::ops::Deref;
 use std::sync::Arc;
+use std::{mem, ptr};
 
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::buffer::{Buffer, BufferData, BufferView};
-use crate::util::JsId;
-use crate::vertex::attribute_format::AttributeFormat;
-use crate::vertex::{TypedVertexAttributeLayout, Vertex};
-use std::hash::{Hash, Hasher};
-use std::mem::{ManuallyDrop, MaybeUninit};
-use std::ops::Deref;
+use crate::pipeline::graphics::attribute_format::AttributeFormat;
+use crate::pipeline::graphics::{TypedVertexAttributeLayout, Vertex};
 
 /// Encodes a description of a (set of) buffer(s) or buffer region(s) that can serve as the vertex
 /// input data source(s) for a graphics pipeline.
 pub trait VertexBuffers {
-    fn encode<'a>(&self, context: &'a mut VertexBuffersEncodingContext) -> VertexBuffersEncoding<'a>;
+    fn encode<'a>(
+        &self,
+        context: &'a mut VertexBuffersEncodingContext,
+    ) -> VertexBuffersEncoding<'a>;
 }
 
 /// Helper trait for the implementation of [VertexBuffers] for tuple types.
@@ -62,6 +63,12 @@ pub enum InputRate {
     PerInstance,
 }
 
+// Note that currently the VertexBuffersEncodingContext's only use is to serve as a form of lifetime
+// erasure, it ensures if a buffer is mutable borrowed for transform feedback, then it should be
+// impossible to create an IndexBufferEncoding for that pipeline task that also uses that buffer
+// in safe Rust, without having to keep the actual borrow of that buffer alive (the resulting
+// pipeline task needs to be `'static`).
+
 /// Context required for the creation of a new [VertexBuffersEncoding].
 ///
 /// See [VertexBuffersEncoding::new].
@@ -80,8 +87,9 @@ impl VertexBuffersEncodingContext {
 ///
 /// Contains slots for up to 16 buffers or buffer regions.
 pub struct VertexBuffersEncoding<'a> {
+    #[allow(unused)]
     context: &'a mut VertexBuffersEncodingContext,
-    descriptors: VertexBufferDescriptors
+    descriptors: VertexBufferDescriptors,
 }
 
 impl<'a> VertexBuffersEncoding<'a> {
@@ -89,7 +97,7 @@ impl<'a> VertexBuffersEncoding<'a> {
     pub fn new(context: &'a mut VertexBuffersEncodingContext) -> Self {
         VertexBuffersEncoding {
             context,
-            descriptors: VertexBufferDescriptors::new()
+            descriptors: VertexBufferDescriptors::new(),
         }
     }
 
@@ -98,8 +106,13 @@ impl<'a> VertexBuffersEncoding<'a> {
     /// # Panics
     ///
     /// Panics if called when all 16 vertex buffer slots have already been filled.
-    pub fn add_vertex_buffer<'b, V, T>(&mut self, buffer: V) where V: Into<BufferView<'b, [T]>>, T: 'b {
-        self.descriptors.push(VertexBufferDescriptor::from_buffer_view(buffer.into()));
+    pub fn add_vertex_buffer<'b, V, T>(&mut self, buffer: V)
+    where
+        V: Into<BufferView<'b, [T]>>,
+        T: 'b,
+    {
+        self.descriptors
+            .push(VertexBufferDescriptor::from_buffer_view(buffer.into()));
     }
 
     pub(crate) fn into_descriptors(self) -> VertexBufferDescriptors {
@@ -109,7 +122,7 @@ impl<'a> VertexBuffersEncoding<'a> {
 
 pub(crate) struct VertexBufferDescriptors {
     storage: ManuallyDrop<[VertexBufferDescriptor; 16]>,
-    len: usize
+    len: usize,
 }
 
 impl VertexBufferDescriptors {
@@ -135,13 +148,13 @@ impl VertexBufferDescriptors {
                     MaybeUninit::uninit().assume_init(),
                 ])
             },
-            len: 0
+            len: 0,
         }
     }
 
     pub fn push(&mut self, descriptor: VertexBufferDescriptor) {
         self.storage[self.len] = descriptor;
-        self.len +=1;
+        self.len += 1;
     }
 }
 
@@ -163,7 +176,6 @@ impl Drop for VertexBufferDescriptors {
     }
 }
 
-/// Describes an input source for vertex attribute data.
 /// Describes an input source for vertex attribute data.
 #[derive(Clone)]
 pub(crate) struct VertexBufferDescriptor {
@@ -188,17 +200,6 @@ impl VertexBufferDescriptor {
             offset_in_bytes: buffer_view.offset_in_bytes() as u32,
             size_in_bytes: (mem::size_of::<T>() * buffer_view.len()) as u32,
         }
-    }
-
-    /// The offset in bytes of the memory region described by this [VertexInputDescriptor], relative
-    /// to the start of the [Buffer] it is defined on.
-    pub(crate) fn offset_in_bytes(&self) -> u32 {
-        self.offset_in_bytes
-    }
-
-    /// The size in bytes of the memory region described by this [VertexInputDescriptor].
-    pub(crate) fn size_in_bytes(&self) -> u32 {
-        self.size_in_bytes
     }
 }
 
@@ -227,8 +228,8 @@ where
 }
 
 impl<'a, T> VertexBuffer for BufferView<'a, [T]>
-    where
-        T: Vertex,
+where
+    T: Vertex,
 {
     fn encode(&self, encoding: &mut VertexBuffersEncoding) {
         encoding.add_vertex_buffer(*self);
@@ -286,9 +287,7 @@ impl_vertex_buffers!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11);
 impl_vertex_buffers!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
 impl_vertex_buffers!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13);
 impl_vertex_buffers!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14);
-impl_vertex_buffers!(
-    T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15
-);
+impl_vertex_buffers!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15);
 
 /// Describes how the data for an `in` attribute in a [VertexShader] is sourced from a
 /// [VertexInputDescriptor].

@@ -1,19 +1,21 @@
-pub(crate) mod vertex_input_state_description;
-pub use self::vertex_input_state_description::{
-    InputRate, VertexAttributeDescriptor, VertexBuffers, TypedVertexBuffers, VertexBuffer, TypedVertexBuffer, VertexBuffersEncoding, VertexBuffersEncodingContext
+pub(crate) mod vertex_buffers;
+pub use self::vertex_buffers::{
+    InputRate, TypedVertexBuffer, TypedVertexBuffers, VertexAttributeDescriptor, VertexBuffer,
+    VertexBuffers, VertexBuffersEncoding, VertexBuffersEncodingContext,
 };
 
-pub(crate) mod index_buffer_description;
-pub use self::index_buffer_description::{
-    IndexBuffer, IndexFormat, IndexType, IndexBufferEncoding, IndexBufferEncodingContext
+pub(crate) mod index_buffer;
+pub use self::index_buffer::{
+    IndexBuffer, IndexBufferEncoding, IndexBufferEncodingContext, IndexFormat, IndexType,
 };
 
-mod vertex_attribute_layout;
-pub use self::vertex_attribute_layout::{
-    BindSlotRef, TypedVertexAttributeLayout, VertexAttributeLayoutDescriptor,
+mod attribute_layout;
+pub use self::attribute_layout::{
+    AttributeLayoutAllocationHint, AttributeSlotDescriptor, AttributeType,
+    BindSlotAttributeAttacher, BindSlotRef, IncompatibleAttributeLayout,
+    TypedVertexAttributeLayout, VertexAttributeLayoutDescriptor,
+    VertexAttributeLayoutDescriptorBuilder,
 };
-
-use std::borrow::Borrow;
 
 pub mod attribute_format;
 

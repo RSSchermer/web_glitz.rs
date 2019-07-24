@@ -4,13 +4,10 @@ use std::sync::Arc;
 use crate::image::Region2D;
 use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
 use crate::pipeline::graphics::{
-    Blending, DepthTest, FragmentShader, PrimitiveAssembly, StencilTest, Untyped, VertexShader,
-    Viewport,
+    Blending, DepthTest, FragmentShader, PrimitiveAssembly, StencilTest,
+    TypedVertexAttributeLayout, Untyped, VertexAttributeLayoutDescriptor, VertexShader, Viewport,
 };
 use crate::pipeline::resources::Resources;
-use crate::vertex::{
-    TypedVertexAttributeLayout, VertexAttributeDescriptor, VertexAttributeLayoutDescriptor,
-};
 
 /// Enumerates the strategies available to map pipeline resource slots to binding indices.
 ///

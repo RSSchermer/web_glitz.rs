@@ -48,6 +48,5 @@ pub mod runtime;
 pub mod sampler;
 pub mod std140;
 pub mod task;
-pub mod vertex;
 
 mod util;

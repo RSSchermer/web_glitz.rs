@@ -186,8 +186,8 @@ pub fn start() {
             // command.
             active_pipeline
                 .task_builder()
-                .bind_vertex_buffers_command(&vertex_buffer)
-                .draw_command(3, 1)
+                .bind_vertex_buffers(&vertex_buffer)
+                .draw(3, 1)
                 .finish()
         })
     });

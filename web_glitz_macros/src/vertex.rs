@@ -8,7 +8,7 @@ use crate::util::ErrorLog;
 pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> {
     if let Data::Struct(ref data) = input.data {
         let struct_name = &input.ident;
-        let mod_path = quote!(_web_glitz::vertex);
+        let mod_path = quote!(_web_glitz::pipeline::graphics);
         let mut log = ErrorLog::new();
 
         let mut position = 0;
@@ -22,7 +22,6 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
             position += 1;
         }
 
-        let len = vertex_attributes.len();
         let recurse = vertex_attributes.iter().map(|a| {
             let field_name = a
                 .ident

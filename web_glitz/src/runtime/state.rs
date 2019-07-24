@@ -9,9 +9,12 @@ use js_sys::Uint32Array;
 
 use wasm_bindgen::JsValue;
 
+use crate::pipeline::graphics::vertex::index_buffer::IndexBufferDescriptor;
+use crate::pipeline::graphics::vertex::vertex_buffers::VertexBufferDescriptor;
 use crate::pipeline::graphics::{
     AttributeSlotDescriptor, AttributeType, BlendEquation, BlendFactor, CullingMode, DepthRange,
-    PolygonOffset, StencilOperation, TestFunction, TransformFeedbackDescription, WindingOrder,
+    PolygonOffset, StencilOperation, TestFunction, TransformFeedbackDescription,
+    VertexAttributeLayoutDescriptor, WindingOrder,
 };
 use crate::pipeline::resources::resource_slot::{
     Identifier, ResourceSlotDescriptor, SamplerKind, TextureSamplerSlot, UniformBlockSlot,
@@ -19,15 +22,10 @@ use crate::pipeline::resources::resource_slot::{
 use crate::render_target::attachable_image_ref::AttachableImageData;
 use crate::runtime::index_lru::IndexLRU;
 use crate::util::{identical, JsId};
-use crate::vertex::{
-    IndexBuffer, VertexAttributeLayoutDescriptor, TypedVertexBuffers,
-};
 use web_sys::{
     WebGl2RenderingContext as Gl, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlRenderbuffer,
     WebGlSampler, WebGlTexture, WebGlVertexArrayObject,
 };
-use crate::vertex::vertex_input_state_description::VertexBufferDescriptor;
-use crate::vertex::index_buffer_description::IndexBufferDescriptor;
 
 pub struct DynamicState {
     framebuffer_cache: FnvHashMap<u64, (Framebuffer, [Option<JsId>; 17])>,

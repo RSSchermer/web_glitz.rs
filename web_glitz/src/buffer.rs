@@ -195,7 +195,10 @@ where
     }
 }
 
-impl<'a, T> Into<BufferView<'a, T>> for &'a Buffer<T> where T: ?Sized {
+impl<'a, T> Into<BufferView<'a, T>> for &'a Buffer<T>
+where
+    T: ?Sized,
+{
     fn into(self) -> BufferView<'a, T> {
         BufferView {
             buffer: self,
@@ -227,7 +230,7 @@ where
     T: ?Sized,
 {
     pub(crate) fn buffer_data(&self) -> &Arc<BufferData> {
-        &self.buffer.data
+        self.buffer.data()
     }
 
     pub(crate) fn offset_in_bytes(&self) -> usize {

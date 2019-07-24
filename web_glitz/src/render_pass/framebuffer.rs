@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
 use std::cell::Cell;
 use std::hash::{Hash, Hasher};
-use std::{marker, mem};
+use std::marker;
 
 use fnv::FnvHasher;
 
@@ -25,8 +25,12 @@ use crate::image::texture_cube::{
 };
 use crate::image::Region2D;
 use crate::pipeline::graphics::primitive_assembly::Topology;
+use crate::pipeline::graphics::vertex::index_buffer::IndexBufferDescriptor;
+use crate::pipeline::graphics::vertex::vertex_buffers::VertexBufferDescriptors;
 use crate::pipeline::graphics::{
-    Blending, DepthTest, GraphicsPipeline, PrimitiveAssembly, StencilTest, Viewport,
+    Blending, DepthTest, GraphicsPipeline, IndexBuffer, IndexBufferEncodingContext,
+    PrimitiveAssembly, StencilTest, TypedVertexAttributeLayout, TypedVertexBuffers,
+    VertexAttributeLayoutDescriptor, VertexBuffers, VertexBuffersEncodingContext, Viewport,
 };
 use crate::pipeline::resources::bind_group_encoding::{
     BindGroupEncodingContext, BindingDescriptor,
@@ -38,10 +42,6 @@ use crate::runtime::state::{ContextUpdate, DynamicState};
 use crate::runtime::Connection;
 use crate::task::{sequence, ContextId, Empty, GpuTask, Progress, Sequence};
 use crate::util::JsId;
-use crate::vertex::{IndexBuffer, TypedVertexAttributeLayout, VertexAttributeLayoutDescriptor, TypedVertexBuffers, VertexBuffersEncodingContext, VertexBuffers, IndexBufferEncodingContext};
-use std::mem::{ManuallyDrop, MaybeUninit};
-use crate::vertex::vertex_input_state_description::{VertexBufferDescriptors, VertexBufferDescriptor};
-use crate::vertex::index_buffer_description::IndexBufferDescriptor;
 
 /// Represents a set of image memory buffers that serve as the rendering destination for a
 /// [RenderPass].
@@ -77,13 +77,13 @@ impl<C, Ds> Framebuffer<C, Ds> {
     /// # use web_glitz::render_target::DefaultRenderTarget;
     /// # use web_glitz::runtime::RenderingContext;
     /// # use web_glitz::vertex::{Vertex, VertexArray};
-    /// # use web_glitz::buffer::UsageHint;
+    /// # use web_glitz::buffer::{Buffer, UsageHint};
     /// # use web_glitz::pipeline::graphics::GraphicsPipeline;
     /// # use web_glitz::pipeline::resources::Resources;
     /// # fn wrapper<Rc, V>(
     /// #     context: &Rc,
     /// #     mut render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
-    /// #     vertex_stream: VertexArray<V>,
+    /// #     vertex_buffer: Buffer<[V]>,
     /// #     graphics_pipeline: GraphicsPipeline<V, (), ()>
     /// # )
     /// # where
@@ -93,7 +93,10 @@ impl<C, Ds> Framebuffer<C, Ds> {
     /// # let resources = ();
     /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
     ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
-    ///         active_pipeline.draw_command(&vertex_stream, resources)
+    ///         active_pipeline.task_builder()
+    ///             .bind_vertex_buffers(&vertex_buffer)
+    ///             .bind_resources(resources)
+    ///             .draw(16, 1)
     ///     })
     /// });
     /// # }
@@ -797,6 +800,46 @@ pub struct ActiveGraphicsPipeline<'a, V, R, Tf> {
 }
 
 impl<'a, V, R, Tf> ActiveGraphicsPipeline<'a, V, R, Tf> {
+    /// A builder interface that enforces valid sequencing of pipeline commands.
+    ///
+    /// Notably, this builder will not allow the sequencing of a [DrawCommand], before vertex
+    /// buffers and/or resources have been bound (if the pipeline requires vertex buffers, resp.
+    /// resources), see [GraphicsPipelineTaskBuilder::draw]; it will not allow the sequencing of a
+    /// [DrawIndexedCommand] before an index buffer has been bound and before vertex buffers and/or
+    /// resources have been bound (if the pipeline requires vertex buffers, resp. resources), see
+    /// [GraphicsPipelineTaskBuilder::draw_indexed].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DefaultRGBBuffer;
+    /// # use web_glitz::render_target::DefaultRenderTarget;
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # use web_glitz::buffer::UsageHint;
+    /// # use web_glitz::pipeline::graphics::{GraphicsPipeline, VertexBuffers};
+    /// # use web_glitz::pipeline::resources::Resources;
+    /// # fn wrapper<Rc, V>(
+    /// #     context: &Rc,
+    /// #     mut render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
+    /// #     vertex_buffers: V,
+    /// #     graphics_pipeline: GraphicsPipeline<V, (), ()>
+    /// # )
+    /// # where
+    /// #     Rc: RenderingContext,
+    /// #     V: VertexBuffers,
+    /// # {
+    /// # let resources = ();
+    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
+    ///         active_pipeline.task_builder()
+    ///             .bind_vertex_buffers(vertex_buffers)
+    ///             .bind_resources(resources)
+    ///             .draw(16, 1)
+    ///             .finish()
+    ///     })
+    /// });
+    /// # }
+    /// ```
     pub fn task_builder(&self) -> GraphicsPipelineTaskBuilder<'a, V, R, (), (), (), Empty> {
         GraphicsPipelineTaskBuilder {
             context_id: self.pipeline.context_id(),
@@ -811,6 +854,9 @@ impl<'a, V, R, Tf> ActiveGraphicsPipeline<'a, V, R, Tf> {
     }
 }
 
+/// A builder interface that enforces valid sequencing of pipeline commands.
+///
+/// See [ActiveGraphicsPipeline::task_builder].
 pub struct GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, T> {
     context_id: usize,
     pipeline_task_id: usize,
@@ -823,7 +869,25 @@ pub struct GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, T> {
 }
 
 impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, T> {
-    pub fn bind_vertex_buffers_command<VbNew>(
+    /// Binds typed a (set of) vertex buffer(s) to the active graphics pipeline.
+    ///
+    /// When the active graphics pipeline is invoked (see [draw] and [draw_indexed]), then the
+    /// `vertex_buffers` define a vertex input array for the pipeline.
+    ///
+    /// The `vertex_buffers` must be a [TypedVertexBuffers] type with a vertex attribute layout (see
+    /// [TypedVertexBuffers::VertexAttributeLayout]) that matches the vertex attribute layout
+    /// specified for the pipeline. This is statically verified by the type system; if this
+    /// compiles, then this performs no further runtime checks on the compatibility of the vertex
+    /// buffers with the active graphics pipeline, it only checks that every buffer that is
+    /// bound belongs to the same context as the pipeline. This will not result in invalid behaviour
+    /// as long as `vertex_buffers` meets the safety contract on the [TypedVertexBuffers] trait
+    /// (implementing [TypedVertexBuffers] is unsafe, but several safe implementations are
+    /// provided by this library).
+    ///
+    /// # Panics
+    ///
+    /// Panics if a vertex buffers belongs to different rendering context.
+    pub fn bind_vertex_buffers<VbNew>(
         self,
         vertex_buffers: VbNew,
     ) -> GraphicsPipelineTaskBuilder<
@@ -840,7 +904,9 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
         VbNew: TypedVertexBuffers<VertexAttributeLayout = V>,
         T: GpuTask<PipelineTaskContext>,
     {
-        let vertex_buffers = vertex_buffers.encode(&mut VertexBuffersEncodingContext::new()).into_descriptors();
+        let vertex_buffers = vertex_buffers
+            .encode(&mut VertexBuffersEncodingContext::new())
+            .into_descriptors();
 
         for (i, buffer) in vertex_buffers.iter().enumerate() {
             if buffer.buffer_data.context_id() != self.context_id {
@@ -877,7 +943,7 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
     /// is `8`, then the first vertex in the vertex stream is the 9th vertex in the vertex array.
     /// The same index may also occur more than once in the index buffer, in which case the same
     /// vertex will appear more than once in the vertex stream.
-    pub fn bind_index_buffer_command<IbNew>(
+    pub fn bind_index_buffer<IbNew>(
         self,
         index_buffer: IbNew,
     ) -> GraphicsPipelineTaskBuilder<
@@ -893,7 +959,9 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
         IbNew: IndexBuffer,
         T: GpuTask<PipelineTaskContext>,
     {
-        let index_buffer = index_buffer.encode(&mut IndexBufferEncodingContext::new()).into_descriptor();
+        let index_buffer = index_buffer
+            .encode(&mut IndexBufferEncodingContext::new())
+            .into_descriptor();
 
         if index_buffer.buffer_data.context_id() != self.context_id {
             panic!("Buffer belongs to a different context.");
@@ -917,7 +985,7 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
         }
     }
 
-    pub fn bind_resources_command(
+    pub fn bind_resources(
         self,
         resources: R,
     ) -> GraphicsPipelineTaskBuilder<
@@ -953,9 +1021,14 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
         }
     }
 
-    /// Creates a [DrawCommand] that will execute this [ActiveGraphicsPipeline], using the
-    /// [vertex_input_stream] as input and with the [resources] bound to the pipeline's resource
-    /// slots.
+    /// Creates a [DrawCommand] that will execute the active graphics pipeline, streaming
+    /// `vertex_count` vertices for `instance_count` instances from the currently bound vertex
+    /// buffers.
+    ///
+    /// If the pipeline requires vertex buffers, then this command may only be added to the builder
+    /// after appropriate vertex buffers have been bound (see [bind_vertex_buffers]). If the
+    /// pipeline requires resources, then this command may only be added to the builder after
+    /// appropriate resources have been bound (see [bind_resources]).
     ///
     /// This will draw to the framebuffer that created the encapsulating [PipelineTask] (see
     /// [Framebuffer::pipeline_task]). The pipeline's first color output will be stored to the
@@ -967,48 +1040,45 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
     /// depth-stencil buffer (if it is present and is [StencilRenderable] or
     /// [DepthStencilRenderable] format, otherwise the stencil test will act as if was disabled).
     ///
+    /// See also [draw_indexed] for indexed mode drawing with an index buffer.
+    ///
     /// # Example
     ///
     /// ```
     /// # use web_glitz::render_pass::DefaultRGBBuffer;
     /// # use web_glitz::render_target::DefaultRenderTarget;
     /// # use web_glitz::runtime::RenderingContext;
-    /// # use web_glitz::vertex::{Vertex, VertexArray};
     /// # use web_glitz::buffer::UsageHint;
-    /// # use web_glitz::pipeline::graphics::GraphicsPipeline;
+    /// # use web_glitz::pipeline::graphics::{GraphicsPipeline, VertexBuffers};
     /// # use web_glitz::pipeline::resources::Resources;
     /// # fn wrapper<Rc, V>(
     /// #     context: &Rc,
     /// #     mut render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
-    /// #     vertex_stream: VertexArray<V>,
+    /// #     vertex_buffers: V,
     /// #     graphics_pipeline: GraphicsPipeline<V, (), ()>
     /// # )
     /// # where
     /// #     Rc: RenderingContext,
-    /// #     V: Vertex,
+    /// #     V: VertexBuffers,
     /// # {
     /// # let resources = ();
     /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
     ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
-    ///         active_pipeline.draw_command()
+    ///         active_pipeline.task_builder()
+    ///             .bind_vertex_buffers(vertex_buffers)
+    ///             .bind_resources(resources)
+    ///             .draw(16, 1)
+    ///             .finish()
     ///     })
     /// });
     /// # }
     /// ```
     ///
-    /// In this example `graphics_pipeline` is a [GraphicsPipeline] , see [GraphicsPipeline] and
-    /// [RenderingContext::create_graphics_pipeline] for details; `vertex_stream` is a
-    /// [VertexStreamDescription], see [VertexStreamDescription], [VertexArray] and
-    /// [RenderingContext::create_vertex_array] for details; `resources` is a user-defined type for
-    /// which the [Resources] trait is implemented, see [Resources] for details.
-    ///
-    /// # Panic
-    ///
-    /// - Panics when [vertex_input_stream] uses a [VertexArray] that belongs to a different context
-    ///   than this [ActiveGraphicsPipeline].
-    /// - Panics when [resources] specifies a resource that belongs to a different context than this
-    ///   [ActiveGraphicsPipeline].
-    pub fn draw_command(
+    /// In this example `graphics_pipeline` is a [GraphicsPipeline], see [GraphicsPipeline] and
+    /// [RenderingContext::create_graphics_pipeline] for details; `vertex_buffers` is a set of
+    /// [VertexBuffers]; `resources` is a user-defined type for which the [Resources] trait is
+    /// implemented, see [Resources] for details.
+    pub fn draw(
         self,
         vertex_count: usize,
         instance_count: usize,
@@ -1046,7 +1116,69 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
         }
     }
 
-    pub fn draw_indexed_command(
+    /// Creates a [DrawIndexedCommand] that will execute the active graphics pipeline, streaming
+    /// `index_count` vertex indices for `instance_count` instances from the currently bound index
+    /// buffer, which produces a vertex stream by indexing into the vertex array defined by the
+    /// currently bound per-vertex vertex buffers.
+    ///
+    /// This command may only be added to the builder after an index buffer has been bound (see
+    /// [bind_index_buffer]. If the pipeline requires vertex buffers, then this command may only be
+    /// added to the builder after appropriate vertex buffers have been bound (see
+    /// [bind_vertex_buffers]). If the pipeline requires resources, then this command may only be
+    /// added to the builder after appropriate resources have been bound (see [bind_resources]).
+    ///
+    /// This will draw to the framebuffer that created the encapsulating [PipelineTask] (see
+    /// [Framebuffer::pipeline_task]). The pipeline's first color output will be stored to the
+    /// framebuffer's first color buffer (if present), the second color output will be stored to the
+    /// framebuffer's second color buffer (if present), etc. The pipeline's depth test (if enabled)
+    /// may update the framebuffer's depth-stencil buffer (if it present and is a [DepthRenderable]
+    /// or [DepthStencilRenderable] format, otherwise the depth test will act as if it was
+    /// disabled). The pipeline's stencil test (if enabled) may update the framebuffer's
+    /// depth-stencil buffer (if it is present and is [StencilRenderable] or
+    /// [DepthStencilRenderable] format, otherwise the stencil test will act as if was disabled).
+    ///
+    /// See also [draw] for drawing without an index buffer.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DefaultRGBBuffer;
+    /// # use web_glitz::render_target::DefaultRenderTarget;
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # use web_glitz::buffer::UsageHint;
+    /// # use web_glitz::pipeline::graphics::{GraphicsPipeline, VertexBuffers, IndexBuffer};
+    /// # use web_glitz::pipeline::resources::Resources;
+    /// # fn wrapper<Rc, V, I>(
+    /// #     context: &Rc,
+    /// #     mut render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
+    /// #     vertex_buffers: V,
+    /// #     index_buffer: I,
+    /// #     graphics_pipeline: GraphicsPipeline<V, (), ()>
+    /// # )
+    /// # where
+    /// #     Rc: RenderingContext,
+    /// #     V: VertexBuffers,
+    /// #     I: IndexBuffer
+    /// # {
+    /// # let resources = ();
+    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
+    ///         active_pipeline.task_builder()
+    ///             .bind_vertex_buffers(vertex_buffers)
+    ///             .bind_index_buffer(index_buffer)
+    ///             .bind_resources(resources)
+    ///             .draw_indexed(16, 1)
+    ///             .finish()
+    ///     })
+    /// });
+    /// # }
+    /// ```
+    ///
+    /// In this example `graphics_pipeline` is a [GraphicsPipeline], see [GraphicsPipeline] and
+    /// [RenderingContext::create_graphics_pipeline] for details; `vertex_buffers` is a set of
+    /// [VertexBuffers]; `index_buffer` is an [IndexBuffer[; `resources` is a user-defined type for
+    /// which the [Resources] trait is implemented, see [Resources] for details.
+    pub fn draw_indexed(
         self,
         index_count: usize,
         instance_count: usize,
@@ -1085,11 +1217,15 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
         }
     }
 
+    /// Finishes the builder and returns the resulting pipeline task.
     pub fn finish(self) -> T {
         self.task
     }
 }
 
+/// Command that binds a (set of) vertex buffer(s) to the currently bound graphics pipeline.
+///
+/// See [GraphicsPipelineTaskBuilder::bind_vertex_buffers].
 pub struct BindVertexBuffersCommand {
     pipeline_task_id: usize,
     vertex_buffers: Option<VertexBufferDescriptors>,
@@ -1103,12 +1239,16 @@ unsafe impl GpuTask<PipelineTaskContext> for BindVertexBuffersCommand {
     }
 
     fn progress(&mut self, execution_context: &mut PipelineTaskContext) -> Progress<Self::Output> {
-        execution_context.vertex_buffers = self.vertex_buffers.take().expect("Cannot progress twice");
+        execution_context.vertex_buffers =
+            self.vertex_buffers.take().expect("Cannot progress twice");
 
         Progress::Finished(())
     }
 }
 
+/// Command that binds an index buffer to the currently bound graphics pipeline.
+///
+/// See [GraphicsPipelineTaskBuilder::bind_index_buffer].
 pub struct BindIndexBufferCommand {
     pipeline_task_id: usize,
     index_buffer: IndexBufferDescriptor,
@@ -1128,6 +1268,9 @@ unsafe impl GpuTask<PipelineTaskContext> for BindIndexBufferCommand {
     }
 }
 
+/// Command that binds a set of resources to the resource slots of the currently bound pipeline.
+///
+/// See [GraphicsPipelineTaskBuilder::bind_resources].
 pub struct BindResourcesCommand<Rb> {
     pipeline_task_id: usize,
     resource_bindings: Rb,
@@ -1145,15 +1288,16 @@ where
 
     fn progress(&mut self, execution_context: &mut PipelineTaskContext) -> Progress<Self::Output> {
         for descriptor in self.resource_bindings.borrow().iter() {
-            unsafe {
-                descriptor.bind(execution_context.connection_mut());
-            }
+            descriptor.bind(execution_context.connection_mut());
         }
 
         Progress::Finished(())
     }
 }
 
+/// Command that runs the currently bound graphics pipeline.
+///
+/// See [GraphicsPipelineTaskBuilder::draw].
 pub struct DrawCommand {
     pipeline_task_id: usize,
     topology: Topology,
@@ -1194,9 +1338,9 @@ unsafe impl GpuTask<PipelineTaskContext> for DrawCommand {
     }
 }
 
-/// Returned from [ActiveGraphicsPipeline::draw_command].
+/// Command that runs the currently bound graphics pipeline in indexed mode.
 ///
-/// See [ActiveGraphicsPipeline::draw_command] for details.
+/// See [GraphicsPipelineTaskBuilder::draw_indexed].
 pub struct DrawIndexedCommand {
     pipeline_task_id: usize,
     topology: Topology,
