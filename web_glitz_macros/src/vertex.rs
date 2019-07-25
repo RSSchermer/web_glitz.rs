@@ -37,7 +37,7 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
                 quote_spanned!(span=> {
                     assert_format_compatible::<#ty, #ident>();
 
-                    <#ident as AttributeFormatIdentifier>::FORMAT
+                    <#ident as VertexAttributeFormatIdentifier>::FORMAT
                 })
             };
 
@@ -95,8 +95,8 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
 
                 const fn assert_format_compatible<T, F>()
                 where
-                    T: #mod_path::attribute_format::FormatCompatible<F>,
-                    F: #mod_path::attribute_format::AttributeFormatIdentifier
+                    T: #mod_path::attribute_format::VertexAttributeFormatCompatible<F>,
+                    F: #mod_path::attribute_format::VertexAttributeFormatIdentifier
                 {}
 
                 #offset_of

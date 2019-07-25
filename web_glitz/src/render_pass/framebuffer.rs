@@ -25,12 +25,12 @@ use crate::image::texture_cube::{
 };
 use crate::image::Region2D;
 use crate::pipeline::graphics::primitive_assembly::Topology;
+use crate::pipeline::graphics::util::BufferDescriptors;
 use crate::pipeline::graphics::vertex::index_buffer::IndexBufferDescriptor;
-use crate::pipeline::graphics::vertex::vertex_buffers::VertexBufferDescriptors;
 use crate::pipeline::graphics::{
     Blending, DepthTest, GraphicsPipeline, IndexBuffer, IndexBufferEncodingContext,
-    PrimitiveAssembly, StencilTest, TypedVertexAttributeLayout, TypedVertexBuffers,
-    VertexAttributeLayoutDescriptor, VertexBuffers, VertexBuffersEncodingContext, Viewport,
+    PrimitiveAssembly, StencilTest, TypedVertexBuffers, TypedVertexInputLayout, VertexBuffers,
+    VertexBuffersEncodingContext, VertexInputLayoutDescriptor, Viewport,
 };
 use crate::pipeline::resources::bind_group_encoding::{
     BindGroupEncodingContext, BindingDescriptor,
@@ -659,8 +659,8 @@ where
 pub struct PipelineTaskContext {
     pipeline_task_id: usize,
     connection: *mut Connection,
-    attribute_layout: *const VertexAttributeLayoutDescriptor,
-    vertex_buffers: VertexBufferDescriptors,
+    attribute_layout: *const VertexInputLayoutDescriptor,
+    vertex_buffers: BufferDescriptors,
     index_buffer: Option<IndexBufferDescriptor>,
 }
 
@@ -706,7 +706,7 @@ pub struct PipelineTask<T> {
     render_pass_id: usize,
     task: T,
     program_id: JsId,
-    attribute_layout: VertexAttributeLayoutDescriptor,
+    attribute_layout: VertexInputLayoutDescriptor,
     primitive_assembly: PrimitiveAssembly,
     depth_test: Option<DepthTest>,
     stencil_test: Option<StencilTest>,
@@ -784,7 +784,7 @@ where
             pipeline_task_id: self.id,
             connection: context.connection_mut() as *mut Connection,
             attribute_layout: &self.attribute_layout,
-            vertex_buffers: VertexBufferDescriptors::new(),
+            vertex_buffers: BufferDescriptors::new(),
             index_buffer: None,
         })
     }
@@ -900,8 +900,8 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
         Sequence<T, BindVertexBuffersCommand, PipelineTaskContext>,
     >
     where
-        V: TypedVertexAttributeLayout,
-        VbNew: TypedVertexBuffers<VertexAttributeLayout = V>,
+        V: TypedVertexInputLayout,
+        VbNew: TypedVertexBuffers<Layout = V>,
         T: GpuTask<PipelineTaskContext>,
     {
         let vertex_buffers = vertex_buffers
@@ -1228,7 +1228,7 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
 /// See [GraphicsPipelineTaskBuilder::bind_vertex_buffers].
 pub struct BindVertexBuffersCommand {
     pipeline_task_id: usize,
-    vertex_buffers: Option<VertexBufferDescriptors>,
+    vertex_buffers: Option<BufferDescriptors>,
 }
 
 unsafe impl GpuTask<PipelineTaskContext> for BindVertexBuffersCommand {

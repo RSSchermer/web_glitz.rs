@@ -9,12 +9,14 @@ use js_sys::Uint32Array;
 
 use wasm_bindgen::JsValue;
 
+use crate::pipeline::graphics::transform_feedback::layout_descriptor::TransformFeedbackVaryings;
+use crate::pipeline::graphics::util::BufferDescriptor;
 use crate::pipeline::graphics::vertex::index_buffer::IndexBufferDescriptor;
-use crate::pipeline::graphics::vertex::vertex_buffers::VertexBufferDescriptor;
+use crate::pipeline::graphics::vertex::layout_descriptor::VertexAttributeSlotDescriptor;
 use crate::pipeline::graphics::{
-    AttributeSlotDescriptor, AttributeType, BlendEquation, BlendFactor, CullingMode, DepthRange,
-    PolygonOffset, StencilOperation, TestFunction, TransformFeedbackDescription,
-    VertexAttributeLayoutDescriptor, WindingOrder,
+    BlendEquation, BlendFactor, CullingMode, DepthRange, PolygonOffset, StencilOperation,
+    TestFunction, TransformFeedbackLayoutDescriptor, VertexAttributeType,
+    VertexInputLayoutDescriptor, WindingOrder,
 };
 use crate::pipeline::resources::resource_slot::{
     Identifier, ResourceSlotDescriptor, SamplerKind, TextureSamplerSlot, UniformBlockSlot,
@@ -1824,8 +1826,8 @@ pub(crate) struct VertexArrayCache<'a> {
 impl<'a> VertexArrayCache<'a> {
     pub(crate) fn bind_or_create(
         &mut self,
-        layout: &VertexAttributeLayoutDescriptor,
-        vertex_buffers: &[VertexBufferDescriptor],
+        layout: &VertexInputLayoutDescriptor,
+        vertex_buffers: &[BufferDescriptor],
         gl: &Gl,
     ) -> &WebGlVertexArrayObject {
         let mut hasher = FnvHasher::default();
@@ -1860,7 +1862,7 @@ impl<'a> VertexArrayCache<'a> {
                 let mut buffer_ids = [None; 17];
 
                 for (i, (bind_slot, buffer_descriptor)) in
-                    layout.bind_slots().zip(vertex_buffers).enumerate()
+                    layout.buffer_slots().zip(vertex_buffers).enumerate()
                 {
                     let buffer_id = buffer_descriptor.buffer_data.id();
 
@@ -1894,8 +1896,8 @@ impl<'a> VertexArrayCache<'a> {
 
     pub(crate) fn bind_or_create_indexed(
         &mut self,
-        layout: &VertexAttributeLayoutDescriptor,
-        vertex_buffers: &[VertexBufferDescriptor],
+        layout: &VertexInputLayoutDescriptor,
+        vertex_buffers: &[BufferDescriptor],
         index_buffer: &IndexBufferDescriptor,
         gl: &Gl,
     ) -> &WebGlVertexArrayObject {
@@ -1933,7 +1935,7 @@ impl<'a> VertexArrayCache<'a> {
                 let mut buffer_ids = [None; 17];
 
                 for (i, (bind_slot, buffer_descriptor)) in
-                    layout.bind_slots().zip(vertex_buffers).enumerate()
+                    layout.buffer_slots().zip(vertex_buffers).enumerate()
                 {
                     let buffer_id = buffer_descriptor.buffer_data.id();
 
@@ -1999,14 +2001,12 @@ pub(crate) struct ProgramCache<'a> {
 }
 
 impl<'a> ProgramCache<'a> {
-    pub(crate) fn get_or_create<Tf>(
+    pub(crate) fn get_or_create(
         &mut self,
         key: ProgramKey,
+        transform_feedback_layout: &Option<TransformFeedbackLayoutDescriptor>,
         gl: &Gl,
-    ) -> Result<&Program, CreateProgramError>
-    where
-        Tf: TransformFeedbackDescription,
-    {
+    ) -> Result<&Program, CreateProgramError> {
         let program = match self.state.program_cache.entry(key) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
@@ -2023,23 +2023,8 @@ impl<'a> ProgramCache<'a> {
                         });
                 }
 
-                if let Some(layout) = Tf::transform_feedback_layout() {
-                    let mut varyings = Vec::new();
-                    let mut first = true;
-
-                    for group in layout.borrow().iter() {
-                        if first {
-                            first = false;
-
-                            varyings.push("gl_NextBuffer");
-                        }
-
-                        for varying in group.iter() {
-                            varyings.push(varying.name);
-                        }
-                    }
-
-                    let varyings = JsValue::from_serde(&varyings).unwrap();
+                if let Some(layout) = transform_feedback_layout {
+                    let varyings = JsValue::from_serde(&TransformFeedbackVaryings(layout)).unwrap();
 
                     gl.transform_feedback_varyings(
                         &program_object,
@@ -2075,9 +2060,9 @@ impl<'a> ProgramCache<'a> {
                         let location = gl.get_attrib_location(&program_object, &name);
 
                         if location != -1 {
-                            let attribute_type = AttributeType::from_type_id(info.type_());
+                            let attribute_type = VertexAttributeType::from_type_id(info.type_());
 
-                            attribute_slot_descriptors.push(AttributeSlotDescriptor {
+                            attribute_slot_descriptors.push(VertexAttributeSlotDescriptor {
                                 attribute_type,
                                 location: location as u32,
                             });
@@ -2595,9 +2580,9 @@ pub enum CreateProgramError {
     UnsupportedUniformType(Identifier, &'static str),
 }
 
-pub struct Program {
+pub(crate) struct Program {
     gl_object: WebGlProgram,
-    attribute_slot_descriptors: Vec<AttributeSlotDescriptor>,
+    attribute_slot_descriptors: Vec<VertexAttributeSlotDescriptor>,
     resource_slot_descriptors: Vec<ResourceSlotDescriptor>,
 }
 
@@ -2606,7 +2591,7 @@ impl Program {
         &self.gl_object
     }
 
-    pub fn attribute_slot_descriptors(&self) -> &[AttributeSlotDescriptor] {
+    pub fn attribute_slot_descriptors(&self) -> &[VertexAttributeSlotDescriptor] {
         &self.attribute_slot_descriptors
     }
 
@@ -2619,6 +2604,6 @@ impl Program {
 pub(crate) struct ProgramKey {
     pub(crate) vertex_shader_id: JsId,
     pub(crate) fragment_shader_id: JsId,
-    pub(crate) transform_feedback_type_id: TypeId,
+    pub(crate) transform_feedback_layout_key: Option<u64>,
     pub(crate) resources_type_id: TypeId,
 }

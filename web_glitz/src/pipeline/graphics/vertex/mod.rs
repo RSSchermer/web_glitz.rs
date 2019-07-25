@@ -1,7 +1,7 @@
 pub(crate) mod vertex_buffers;
 pub use self::vertex_buffers::{
-    InputRate, TypedVertexBuffer, TypedVertexBuffers, VertexAttributeDescriptor, VertexBuffer,
-    VertexBuffers, VertexBuffersEncoding, VertexBuffersEncodingContext,
+    TypedVertexBuffer, TypedVertexBuffers, VertexBuffer, VertexBuffers, VertexBuffersEncoding,
+    VertexBuffersEncodingContext,
 };
 
 pub(crate) mod index_buffer;
@@ -9,27 +9,26 @@ pub use self::index_buffer::{
     IndexBuffer, IndexBufferEncoding, IndexBufferEncodingContext, IndexFormat, IndexType,
 };
 
-mod attribute_layout;
-pub use self::attribute_layout::{
-    AttributeLayoutAllocationHint, AttributeSlotDescriptor, AttributeType,
-    BindSlotAttributeAttacher, BindSlotRef, IncompatibleAttributeLayout,
-    TypedVertexAttributeLayout, VertexAttributeLayoutDescriptor,
-    VertexAttributeLayoutDescriptorBuilder,
+pub(crate) mod layout_descriptor;
+pub use self::layout_descriptor::{
+    IncompatibleVertexInputLayout, InputRate, TypedVertexInputLayout, VertexAttributeDescriptor,
+    VertexAttributeType, VertexBufferSlotAttributeAttacher, VertexBufferSlotRef,
+    VertexInputLayoutAllocationHint, VertexInputLayoutDescriptor,
+    VertexInputLayoutDescriptorBuilder,
 };
 
 pub mod attribute_format;
 
-/// Trait implemented for types that provide attribute data for a [VertexArray].
+/// Trait implemented for types that provide attribute data for a vertex buffer.
 ///
-/// [Buffer]s that contain an array of a type that implements this trait can act as vertex input
-/// state descriptions for [VertexArray]s, see [RenderingContext::create_vertex_array] and
-/// [VertexArrayDescriptor].
+/// [Buffer]s that contain an array of a type that implements this trait can act as vertex buffers
+/// for a graphics pipeline without additional runtime checks, see also [TypedVertexBuffers].
 ///
 /// # Unsafe
 ///
-/// If this trait is implemented for a type, then the [attribute_descriptors] must return a set
+/// If this trait is implemented for a type, then the [ATTRIBUTE_DESCRIPTORS] must be a set
 /// of [VertexAttributeDescriptor]s that can be validly applied to any instance of the type: for
-/// every [VertexAttributeDescriptor] there must be data that can be interpreted the
+/// every [VertexAttributeDescriptor] there must be data that can be interpreted as the
 /// [VertexAttributeDescriptor::format] at the [VertexAttributeDescriptor::offset_in_bytes] relative
 /// to start of the instance's memory.
 ///
@@ -39,7 +38,7 @@ pub mod attribute_format;
 /// attribute must be marked with `#[vertex_attribute(...)]`, other fields will be ignored. A vertex
 /// attribute has to declare a `location` and a `format`. The `location` defines the location of the
 /// attribute slot that will be bound to in a graphics pipeline. The `format` must be the name of
-/// one of the [AttributeFormatIdentifier] types defined in the [attribute_format] module:
+/// one of the [VertexAttributeFormatIdentifier] types defined in the [attribute_format] module:
 ///
 /// ```rust
 /// # #![feature(const_fn)]
@@ -53,16 +52,16 @@ pub mod attribute_format;
 /// }
 /// ```
 ///
-/// The type of a struct field marked with `#[vertex_attribute(...)]` must be [FormatCompatible]
-/// with the [AttributeFormatIdentifier] `format` declared for the attribute, otherwise the struct
-/// will fail to compile. For example, in the example above `[f32; 2]` must implement
-/// `FormatCompatible<Float2_f32>` (which it does) and `[u8;3 ]` must implement
-/// `FormatCompatible<Float3_u8_norm>` (which it does).
+/// The type of a struct field marked with `#[vertex_attribute(...)]` must be
+/// [VertexAttributeFormatCompatible] with the [AttributeFormatIdentifier] `format` declared for the
+/// attribute, otherwise the struct will fail to compile. For example, in the example above
+/// `[f32; 2]` must implement `VertexAttributeFormatCompatible<Float2_f32>` (which it does) and
+/// `[u8;3 ]` must implement `VertexAttributeFormatCompatible<Float3_u8_norm>` (which it does).
 ///
 /// Note that in this example we also derive `Clone` and `Copy`. This is not strictly required to
 /// derive the [Vertex] trait, however, a [Buffer] can only store an array of a type that implements
 /// the `Copy` trait. Therefor if we intend to create [Buffer] with our [Vertex] type, then we must
-/// also derive `Copy`. As `Clone` is a supertrait of `Copy`, we must also derive `Clone`.
+/// derive `Copy`. As `Clone` is a supertrait of `Copy`, we must also derive `Clone`.
 pub unsafe trait Vertex: Sized {
     const INPUT_RATE: InputRate = InputRate::PerVertex;
 

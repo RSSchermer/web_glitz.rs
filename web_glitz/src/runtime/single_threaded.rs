@@ -91,8 +91,7 @@ use crate::pipeline::graphics::shader::{
     FragmentShaderAllocateCommand, VertexShaderAllocateCommand,
 };
 use crate::pipeline::graphics::{
-    FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, TransformFeedbackDescription,
-    TransformFeedbackLayout, VertexShader,
+    FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, VertexShader,
 };
 use crate::pipeline::resources::Resources;
 use crate::render_pass::{
@@ -196,7 +195,6 @@ impl RenderingContext for SingleThreadedContext {
     ) -> Result<GraphicsPipeline<V, R, Tf>, CreateGraphicsPipelineError>
     where
         R: Resources + 'static,
-        Tf: TransformFeedbackDescription + 'static,
     {
         let executor = self.executor.borrow_mut();
         let mut connection = executor.connection.borrow_mut();

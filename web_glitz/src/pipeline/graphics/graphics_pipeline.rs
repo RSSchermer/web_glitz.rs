@@ -1,16 +1,12 @@
 use std::any::TypeId;
-use std::borrow::Borrow;
 use std::marker;
 use std::sync::Arc;
-
-use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::image::Region2D;
 use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
 use crate::pipeline::graphics::{
-    AttributeType, Blending, DepthTest, GraphicsPipelineDescriptor, PrimitiveAssembly,
-    SlotBindingStrategy, StencilTest, TransformFeedbackDescription, TransformFeedbackLayout,
-    VertexAttributeLayoutDescriptor, Viewport,
+    Blending, DepthTest, GraphicsPipelineDescriptor, PrimitiveAssembly, SlotBindingStrategy,
+    StencilTest, TransformFeedbackLayoutDescriptor, VertexInputLayoutDescriptor, Viewport,
 };
 use crate::pipeline::resources::resource_slot::{SlotBindingChecker, SlotBindingUpdater};
 use crate::pipeline::resources::Resources;
@@ -18,6 +14,8 @@ use crate::runtime::state::{ContextUpdate, DynamicState, ProgramKey};
 use crate::runtime::{Connection, CreateGraphicsPipelineError, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
+use fnv::FnvHasher;
+use std::hash::{Hash, Hasher};
 
 /// Encapsulates the state for a graphics pipeline.
 ///
@@ -34,7 +32,8 @@ pub struct GraphicsPipeline<V, R, Tf> {
     vertex_shader_data: Arc<VertexShaderData>,
     #[allow(dead_code)] // Just holding on to this so it won't get dropped prematurely
     fragment_shader_data: Arc<FragmentShaderData>,
-    vertex_attribute_layout: VertexAttributeLayoutDescriptor,
+    vertex_attribute_layout: VertexInputLayoutDescriptor,
+    transform_feedback_layout: Option<TransformFeedbackLayoutDescriptor>,
     primitive_assembly: PrimitiveAssembly,
     program_id: JsId,
     depth_test: Option<DepthTest>,
@@ -53,8 +52,12 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
         self.program_id
     }
 
-    pub(crate) fn vertex_attribute_layout(&self) -> &VertexAttributeLayoutDescriptor {
+    pub(crate) fn vertex_attribute_layout(&self) -> &VertexInputLayoutDescriptor {
         &self.vertex_attribute_layout
+    }
+
+    pub(crate) fn transform_feedback_layout(&self) -> &Option<TransformFeedbackLayoutDescriptor> {
+        &self.transform_feedback_layout
     }
 
     pub(crate) fn primitive_assembly(&self) -> &PrimitiveAssembly {
@@ -85,7 +88,6 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
 impl<V, R, Tf> GraphicsPipeline<V, R, Tf>
 where
     R: Resources + 'static,
-    Tf: TransformFeedbackDescription + 'static,
 {
     pub(crate) fn create<Rc>(
         context: &Rc,
@@ -109,226 +111,29 @@ where
         // there some obvious better way to do this, but I'm too tired to see it right now. This
         // should be safe for now (as we're referencing different parts of `state`).
         let mut program_cache = unsafe { (&mut *(state as *mut DynamicState)).program_cache_mut() };
-        let program = program_cache.get_or_create::<Tf>(
+
+        let transform_feedback_layout_key =
+            descriptor.transform_feedback_layout.as_ref().map(|layout| {
+                let mut hasher = FnvHasher::default();
+
+                layout.hash(&mut hasher);
+
+                hasher.finish()
+            });
+
+        let program = program_cache.get_or_create(
             ProgramKey {
                 vertex_shader_id: descriptor.vertex_shader_data.id().unwrap(),
                 fragment_shader_id: descriptor.fragment_shader_data.id().unwrap(),
                 resources_type_id: TypeId::of::<R>(),
-                transform_feedback_type_id: TypeId::of::<Tf>(),
+                transform_feedback_layout_key,
             },
+            &descriptor.transform_feedback_layout,
             gl,
         )?;
 
-        if let Some(layout) = Tf::transform_feedback_layout() {
-            let mut index = 0;
-
-            for group in layout.borrow().iter() {
-                for varying in group.iter() {
-                    let info = gl
-                        .get_transform_feedback_varying(program.gl_object(), index)
-                        .unwrap();
-
-                    if info.size() != 1 {
-                        return Err(CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                            varying.name.into(),
-                        ));
-                    }
-
-                    match varying.attribute_type {
-                        AttributeType::Float => {
-                            if info.type_() != Gl::FLOAT {
-                                return Err(
-                                    CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                        varying.name.into(),
-                                    ),
-                                );
-                            }
-                        }
-                        AttributeType::FloatVector2 => {
-                            if info.type_() != Gl::FLOAT_VEC2 {
-                                return Err(
-                                    CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                        varying.name.into(),
-                                    ),
-                                );
-                            }
-                        }
-                        AttributeType::FloatVector3 => {
-                            if info.type_() != Gl::FLOAT_VEC3 {
-                                return Err(
-                                    CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                        varying.name.into(),
-                                    ),
-                                );
-                            }
-                        }
-                        AttributeType::FloatVector4 => {
-                            if info.type_() != Gl::FLOAT_VEC4 {
-                                return Err(
-                                    CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                        varying.name.into(),
-                                    ),
-                                );
-                            }
-                        }
-                        AttributeType::FloatMatrix2x2 => {
-                            if info.type_() != Gl::FLOAT_MAT2 {
-                                return Err(
-                                    CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                        varying.name.into(),
-                                    ),
-                                );
-                            }
-                        }
-                        AttributeType::FloatMatrix2x3 => {
-                            if info.type_() != Gl::FLOAT_MAT2X3 {
-                                return Err(
-                                    CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                        varying.name.into(),
-                                    ),
-                                );
-                            }
-                        }
-                        AttributeType::FloatMatrix2x4 => {
-                            if info.type_() != Gl::FLOAT_MAT2X4 {
-                                return Err(
-                                    CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                        varying.name.into(),
-                                    ),
-                                );
-                            }
-                        }
-                        AttributeType::FloatMatrix3x2 => {
-                            if info.type_() != Gl::FLOAT_MAT3X2 {
-                                return Err(
-                                    CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                        varying.name.into(),
-                                    ),
-                                );
-                            }
-                        }
-                        AttributeType::FloatMatrix3x3 => {
-                            if info.type_() != Gl::FLOAT_MAT3 {
-                                return Err(
-                                    CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                        varying.name.into(),
-                                    ),
-                                );
-                            }
-                        }
-                        AttributeType::FloatMatrix3x4 => {
-                            if info.type_() != Gl::FLOAT_MAT3X4 {
-                                return Err(
-                                    CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                        varying.name.into(),
-                                    ),
-                                );
-                            }
-                        }
-                        AttributeType::FloatMatrix4x2 => {
-                            if info.type_() != Gl::FLOAT_MAT4X2 {
-                                return Err(
-                                    CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                        varying.name.into(),
-                                    ),
-                                );
-                            }
-                        }
-                        AttributeType::FloatMatrix4x3 => {
-                            if info.type_() != Gl::FLOAT_MAT4X3 {
-                                return Err(
-                                    CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                        varying.name.into(),
-                                    ),
-                                );
-                            }
-                        }
-                        AttributeType::FloatMatrix4x4 => {
-                            if info.type_() != Gl::FLOAT_MAT4 {
-                                return Err(
-                                    CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                        varying.name.into(),
-                                    ),
-                                );
-                            }
-                        }
-                        AttributeType::Integer => {
-                            if info.type_() != Gl::INT {
-                                return Err(
-                                    CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                        varying.name.into(),
-                                    ),
-                                );
-                            }
-                        }
-                        AttributeType::IntegerVector2 => {
-                            if info.type_() != Gl::INT_VEC2 {
-                                return Err(
-                                    CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                        varying.name.into(),
-                                    ),
-                                );
-                            }
-                        }
-                        AttributeType::IntegerVector3 => {
-                            if info.type_() != Gl::INT_VEC3 {
-                                return Err(
-                                    CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                        varying.name.into(),
-                                    ),
-                                );
-                            }
-                        }
-                        AttributeType::IntegerVector4 => {
-                            if info.type_() != Gl::INT_VEC4 {
-                                return Err(
-                                    CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                        varying.name.into(),
-                                    ),
-                                );
-                            }
-                        }
-                        AttributeType::UnsignedInteger => {
-                            if info.type_() != Gl::UNSIGNED_INT {
-                                return Err(
-                                    CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                        varying.name.into(),
-                                    ),
-                                );
-                            }
-                        }
-                        AttributeType::UnsignedIntegerVector2 => {
-                            if info.type_() != Gl::UNSIGNED_INT_VEC2 {
-                                return Err(
-                                    CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                        varying.name.into(),
-                                    ),
-                                );
-                            }
-                        }
-                        AttributeType::UnsignedIntegerVector3 => {
-                            if info.type_() != Gl::UNSIGNED_INT_VEC3 {
-                                return Err(
-                                    CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                        varying.name.into(),
-                                    ),
-                                );
-                            }
-                        }
-                        AttributeType::UnsignedIntegerVector4 => {
-                            if info.type_() != Gl::UNSIGNED_INT_VEC4 {
-                                return Err(
-                                    CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                        varying.name.into(),
-                                    ),
-                                );
-                            }
-                        }
-                    }
-
-                    index += 1;
-                }
-            }
+        if let Some(layout) = &descriptor.transform_feedback_layout {
+            layout.check_compatibility(program.gl_object(), gl)?;
         }
 
         descriptor
@@ -364,6 +169,7 @@ where
             vertex_shader_data: descriptor.vertex_shader_data.clone(),
             fragment_shader_data: descriptor.fragment_shader_data.clone(),
             vertex_attribute_layout: descriptor.vertex_attribute_layout.clone(),
+            transform_feedback_layout: descriptor.transform_feedback_layout.clone(),
             primitive_assembly: descriptor.primitive_assembly.clone(),
             program_id: JsId::from_value(program.gl_object().into()),
             depth_test: descriptor.depth_test.clone(),

@@ -22,21 +22,30 @@ pub use self::shader::{FragmentShader, VertexShader};
 
 pub(crate) mod transform_feedback;
 pub use self::transform_feedback::{
-    TransformFeedback, TransformFeedbackDescription, TransformFeedbackLayout, VaryingDescriptor,
+    TransformFeedback, TransformFeedbackAttribute, TransformFeedbackAttributeDescriptor,
+    TransformFeedbackAttributeType, TransformFeedbackBuffer,
+    TransformFeedbackBufferSlotAttributeAttacher, TransformFeedbackBufferSlotAttributes,
+    TransformFeedbackBufferSlotRef, TransformFeedbackBufferSlots, TransformFeedbackBuffers,
+    TransformFeedbackBuffersEncoding, TransformFeedbackBuffersEncodingContext,
+    TransformFeedbackLayoutAllocationHint, TransformFeedbackLayoutDescriptor,
+    TransformFeedbackLayoutDescriptorBuilder, TypedTransformFeedbackBuffer,
+    TypedTransformFeedbackBuffers, TypedTransformFeedbackLayout,
 };
 
 pub(crate) mod vertex;
 pub use self::vertex::{
-    attribute_format, AttributeLayoutAllocationHint, AttributeSlotDescriptor, AttributeType,
-    BindSlotAttributeAttacher, BindSlotRef, IncompatibleAttributeLayout, IndexBuffer,
-    IndexBufferEncoding, IndexBufferEncodingContext, IndexFormat, IndexType, InputRate,
-    TypedVertexAttributeLayout, TypedVertexBuffer, TypedVertexBuffers, Vertex,
-    VertexAttributeDescriptor, VertexAttributeLayoutDescriptor,
-    VertexAttributeLayoutDescriptorBuilder, VertexBuffer, VertexBuffers, VertexBuffersEncoding,
-    VertexBuffersEncodingContext,
+    attribute_format, IncompatibleVertexInputLayout, IndexBuffer, IndexBufferEncoding,
+    IndexBufferEncodingContext, IndexFormat, IndexType, InputRate, TypedVertexBuffer,
+    TypedVertexBuffers, TypedVertexInputLayout, Vertex, VertexAttributeDescriptor,
+    VertexAttributeType, VertexBuffer, VertexBufferSlotAttributeAttacher, VertexBufferSlotRef,
+    VertexBuffers, VertexBuffersEncoding, VertexBuffersEncodingContext,
+    VertexInputLayoutAllocationHint, VertexInputLayoutDescriptor,
+    VertexInputLayoutDescriptorBuilder,
 };
 
 mod viewport;
 pub use self::viewport::Viewport;
+
+pub(crate) mod util;
 
 pub struct Untyped(());

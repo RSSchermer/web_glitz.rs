@@ -27,15 +27,8 @@ unsafe impl IndexFormat for u32 {
 /// Describes a data source that can be used to provide indexing data to a draw command.
 ///
 /// See [ActiveGraphicsPipeline::bind_index_buffer] for details.
-/// Types that implement this trait can be used as an index source for a [VertexArray].
-///
-/// If [descriptor] instead returns `None`, then the [VertexArray] is not indexed: the vertices in
-/// the vertex stream appear in an order defined by the [VertexArray]'s vertex input state.
-///
-/// If [descriptor] returns an [IndexBufferDescriptor], then the [VertexArray] is indexed using the
-/// indices in the index buffer:
 pub unsafe trait IndexBuffer {
-    /// Returns an [IndexBufferDescriptor].
+    /// Encodes a description of the index buffer.
     fn encode<'a>(&self, context: &'a mut IndexBufferEncodingContext) -> IndexBufferEncoding<'a>;
 }
 
@@ -56,6 +49,7 @@ impl IndexBufferEncodingContext {
     }
 }
 
+/// Encodes a description of an index buffer.
 pub struct IndexBufferEncoding<'a> {
     #[allow(unused)]
     context: &'a mut IndexBufferEncodingContext,
@@ -63,6 +57,7 @@ pub struct IndexBufferEncoding<'a> {
 }
 
 impl<'a> IndexBufferEncoding<'a> {
+    /// Creates a new [IndexBufferEncoding] for the `context` from the given `buffer`.
     pub fn from_typed_index_buffer<'b, B, T>(
         context: &'a mut IndexBufferEncodingContext,
         buffer: B,

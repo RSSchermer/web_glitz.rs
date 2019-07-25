@@ -17,8 +17,8 @@ use crate::image::texture_3d::{Texture3D, Texture3DDescriptor};
 use crate::image::texture_cube::{TextureCube, TextureCubeDescriptor};
 use crate::image::MaxMipmapLevelsExceeded;
 use crate::pipeline::graphics::{
-    FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, IncompatibleAttributeLayout,
-    ShaderLinkingError, TransformFeedbackDescription, TransformFeedbackLayout, VertexShader,
+    FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, IncompatibleVertexInputLayout,
+    ShaderLinkingError, VertexShader,
 };
 use crate::pipeline::resources::resource_slot::Identifier;
 use crate::pipeline::resources::{IncompatibleResources, Resources};
@@ -316,8 +316,7 @@ pub trait RenderingContext {
         descriptor: &GraphicsPipelineDescriptor<V, R, Tf>,
     ) -> Result<GraphicsPipeline<V, R, Tf>, CreateGraphicsPipelineError>
     where
-        R: Resources + 'static,
-        Tf: TransformFeedbackDescription + 'static;
+        R: Resources + 'static;
 
     /// Creates a new [RenderPass] that targets the `render_target` and performs the render pass
     /// task produced by `f`.
@@ -667,7 +666,7 @@ pub enum CreateGraphicsPipelineError {
     /// Variant that is returned when the input attribute layout declared for the pipeline (see
     /// [GraphicsPipelineBuilder::vertex_input_layout]) does not match the actual input attribute
     /// layout as defined by the shader code.
-    IncompatibleInputAttributeLayout(IncompatibleAttributeLayout),
+    IncompatibleInputAttributeLayout(IncompatibleVertexInputLayout),
 
     /// Variant that is returned when the resource layout declared for the pipeline (see
     /// [GraphicsPipelineBuilder::resource_layout]) does not match the resource layout as defined by
@@ -696,8 +695,8 @@ impl From<ShaderLinkingError> for CreateGraphicsPipelineError {
     }
 }
 
-impl From<IncompatibleAttributeLayout> for CreateGraphicsPipelineError {
-    fn from(error: IncompatibleAttributeLayout) -> Self {
+impl From<IncompatibleVertexInputLayout> for CreateGraphicsPipelineError {
+    fn from(error: IncompatibleVertexInputLayout) -> Self {
         CreateGraphicsPipelineError::IncompatibleInputAttributeLayout(error)
     }
 }

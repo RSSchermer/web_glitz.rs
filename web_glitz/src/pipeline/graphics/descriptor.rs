@@ -5,7 +5,8 @@ use crate::image::Region2D;
 use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
 use crate::pipeline::graphics::{
     Blending, DepthTest, FragmentShader, PrimitiveAssembly, StencilTest,
-    TypedVertexAttributeLayout, Untyped, VertexAttributeLayoutDescriptor, VertexShader, Viewport,
+    TransformFeedbackLayoutDescriptor, TypedVertexInputLayout, Untyped,
+    VertexInputLayoutDescriptor, VertexShader, Viewport,
 };
 use crate::pipeline::resources::Resources;
 
@@ -33,7 +34,8 @@ pub struct GraphicsPipelineDescriptor<V, R, Tf> {
     _transform_feedback: marker::PhantomData<Tf>,
     pub(crate) vertex_shader_data: Arc<VertexShaderData>,
     pub(crate) fragment_shader_data: Arc<FragmentShaderData>,
-    pub(crate) vertex_attribute_layout: VertexAttributeLayoutDescriptor,
+    pub(crate) vertex_attribute_layout: VertexInputLayoutDescriptor,
+    pub(crate) transform_feedback_layout: Option<TransformFeedbackLayoutDescriptor>,
     pub(crate) primitive_assembly: PrimitiveAssembly,
     pub(crate) depth_test: Option<DepthTest>,
     pub(crate) stencil_test: Option<StencilTest>,
@@ -59,6 +61,7 @@ impl GraphicsPipelineDescriptor<(), (), ()> {
             vertex_shader: None,
             fragment_shader: None,
             vertex_attribute_layout: ().into(),
+            transform_feedback_layout: None,
             primitive_assembly: None,
             depth_test: None,
             stencil_test: None,
@@ -163,7 +166,8 @@ pub struct GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, Tf> {
     _vertex_attribute_layout: marker::PhantomData<V>,
     _resource_layout: marker::PhantomData<R>,
     vertex_shader: Option<Arc<VertexShaderData>>,
-    vertex_attribute_layout: VertexAttributeLayoutDescriptor,
+    vertex_attribute_layout: VertexInputLayoutDescriptor,
+    transform_feedback_layout: Option<TransformFeedbackLayoutDescriptor>,
     fragment_shader: Option<Arc<FragmentShaderData>>,
     primitive_assembly: Option<PrimitiveAssembly>,
     depth_test: Option<DepthTest>,
@@ -191,7 +195,8 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             _vertex_attribute_layout: marker::PhantomData,
             _resource_layout: marker::PhantomData,
             vertex_shader: Some(vertex_shader.data().clone()),
-            vertex_attribute_layout: ().into(),
+            vertex_attribute_layout: self.vertex_attribute_layout,
+            transform_feedback_layout: self.transform_feedback_layout,
             primitive_assembly: self.primitive_assembly,
             fragment_shader: self.fragment_shader,
             depth_test: self.depth_test,
@@ -220,6 +225,7 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             _resource_layout: marker::PhantomData,
             vertex_shader: self.vertex_shader,
             vertex_attribute_layout: self.vertex_attribute_layout,
+            transform_feedback_layout: self.transform_feedback_layout,
             primitive_assembly: Some(primitive_assembly),
             fragment_shader: self.fragment_shader,
             depth_test: self.depth_test,
@@ -248,6 +254,7 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             _resource_layout: marker::PhantomData,
             vertex_shader: self.vertex_shader,
             vertex_attribute_layout: self.vertex_attribute_layout,
+            transform_feedback_layout: self.transform_feedback_layout,
             primitive_assembly: self.primitive_assembly,
             fragment_shader: Some(fragment_shader.data().clone()),
             depth_test: self.depth_test,
@@ -279,7 +286,7 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
         self,
     ) -> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, T, R, Tf>
     where
-        T: TypedVertexAttributeLayout,
+        T: TypedVertexInputLayout,
     {
         GraphicsPipelineDescriptorBuilder {
             _vertex_shader: marker::PhantomData,
@@ -290,6 +297,7 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             _resource_layout: marker::PhantomData,
             vertex_shader: self.vertex_shader,
             vertex_attribute_layout: T::LAYOUT_DESCRIPTION.into(),
+            transform_feedback_layout: self.transform_feedback_layout,
             primitive_assembly: self.primitive_assembly,
             fragment_shader: self.fragment_shader,
             depth_test: self.depth_test,
@@ -303,7 +311,7 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
 
     pub fn untyped_vertex_attribute_layout(
         self,
-        vertex_attribute_layout: VertexAttributeLayoutDescriptor,
+        vertex_attribute_layout: VertexInputLayoutDescriptor,
     ) -> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, Untyped, R, Tf> {
         GraphicsPipelineDescriptorBuilder {
             _vertex_shader: marker::PhantomData,
@@ -314,6 +322,7 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             _resource_layout: marker::PhantomData,
             vertex_shader: self.vertex_shader,
             vertex_attribute_layout,
+            transform_feedback_layout: self.transform_feedback_layout,
             primitive_assembly: self.primitive_assembly,
             fragment_shader: self.fragment_shader,
             depth_test: self.depth_test,
@@ -362,6 +371,7 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             _resource_layout: marker::PhantomData,
             vertex_shader: self.vertex_shader,
             vertex_attribute_layout: self.vertex_attribute_layout,
+            transform_feedback_layout: self.transform_feedback_layout,
             primitive_assembly: self.primitive_assembly,
             fragment_shader: self.fragment_shader,
             depth_test: self.depth_test,
@@ -423,13 +433,13 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
     }
 }
 
-impl<V, R>
-    GraphicsPipelineDescriptorBuilder<VertexShader, PrimitiveAssembly, FragmentShader, V, R, ()>
+impl<V, R, Tf>
+    GraphicsPipelineDescriptorBuilder<VertexShader, PrimitiveAssembly, FragmentShader, V, R, Tf>
 where
     R: Resources,
 {
     /// Finishes building and returns the [GraphicsPipelineDescriptor].
-    pub fn finish(self) -> GraphicsPipelineDescriptor<V, R, ()> {
+    pub fn finish(self) -> GraphicsPipelineDescriptor<V, R, Tf> {
         GraphicsPipelineDescriptor {
             _vertex_attribute_layout: marker::PhantomData,
             _resource_layout: marker::PhantomData,
@@ -437,6 +447,7 @@ where
             vertex_shader_data: self.vertex_shader.unwrap(),
             fragment_shader_data: self.fragment_shader.unwrap(),
             vertex_attribute_layout: self.vertex_attribute_layout,
+            transform_feedback_layout: self.transform_feedback_layout,
             primitive_assembly: self.primitive_assembly.unwrap(),
             depth_test: self.depth_test,
             stencil_test: self.stencil_test,
