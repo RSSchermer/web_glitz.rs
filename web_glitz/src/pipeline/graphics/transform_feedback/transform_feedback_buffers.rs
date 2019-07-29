@@ -1,4 +1,4 @@
-use crate::buffer::{Buffer, BufferView};
+use crate::buffer::{Buffer, BufferViewMut};
 use crate::pipeline::graphics::util::{BufferDescriptor, BufferDescriptors};
 use crate::pipeline::graphics::{TransformFeedback, TypedTransformFeedbackLayout};
 
@@ -6,14 +6,14 @@ use crate::pipeline::graphics::{TransformFeedback, TypedTransformFeedbackLayout}
 /// feedback from the transform stage of a graphics pipeline.
 pub trait TransformFeedbackBuffers {
     fn encode<'a>(
-        &self,
+        self,
         context: &'a mut TransformFeedbackBuffersEncodingContext,
     ) -> TransformFeedbackBuffersEncoding<'a>;
 }
 
 /// Helper trait for the implementation of [FeedbackBuffers] for tuple types.
 pub trait TransformFeedbackBuffer {
-    fn encode(&self, encoding: &mut TransformFeedbackBuffersEncoding);
+    fn encode(self, encoding: &mut TransformFeedbackBuffersEncoding);
 }
 
 /// Sub-trait of [TransformFeedbackBuffers], where a type statically describes the feedback
@@ -83,11 +83,11 @@ impl<'a> TransformFeedbackBuffersEncoding<'a> {
     /// Panics if called when all 16 feedback buffer slots have already been filled.
     pub fn add_feedback_buffer<'b, V, T>(&mut self, buffer: V)
     where
-        V: Into<BufferView<'b, [T]>>,
+        V: Into<BufferViewMut<'b, [T]>>,
         T: 'b,
     {
         self.descriptors
-            .push(BufferDescriptor::from_buffer_view(buffer.into()));
+            .push(BufferDescriptor::from_buffer_view(*buffer.into()));
     }
 
     pub(crate) fn into_descriptors(self) -> BufferDescriptors {
@@ -95,32 +95,32 @@ impl<'a> TransformFeedbackBuffersEncoding<'a> {
     }
 }
 
-impl<'a, T> TransformFeedbackBuffer for &'a Buffer<[T]>
+impl<'a, T> TransformFeedbackBuffer for &'a mut Buffer<[T]>
 where
     T: TransformFeedback,
 {
-    fn encode(&self, encoding: &mut TransformFeedbackBuffersEncoding) {
-        encoding.add_feedback_buffer(*self);
+    fn encode(self, encoding: &mut TransformFeedbackBuffersEncoding) {
+        encoding.add_feedback_buffer(self);
     }
 }
 
-unsafe impl<'a, T> TypedTransformFeedbackBuffer for &'a Buffer<[T]>
+unsafe impl<'a, T> TypedTransformFeedbackBuffer for &'a mut Buffer<[T]>
 where
     T: TransformFeedback,
 {
     type TransformFeedback = T;
 }
 
-impl<'a, T> TransformFeedbackBuffer for BufferView<'a, [T]>
+impl<'a, T> TransformFeedbackBuffer for BufferViewMut<'a, [T]>
 where
     T: TransformFeedback,
 {
-    fn encode(&self, encoding: &mut TransformFeedbackBuffersEncoding) {
-        encoding.add_feedback_buffer(*self);
+    fn encode(self, encoding: &mut TransformFeedbackBuffersEncoding) {
+        encoding.add_feedback_buffer(self);
     }
 }
 
-unsafe impl<'a, T> TypedTransformFeedbackBuffer for BufferView<'a, [T]>
+unsafe impl<'a, T> TypedTransformFeedbackBuffer for BufferViewMut<'a, [T]>
 where
     T: TransformFeedback,
 {
@@ -134,7 +134,7 @@ macro_rules! impl_transform_feedback_buffers {
             $($T: TransformFeedbackBuffer),*
         {
             fn encode<'a>(
-                &self,
+                self,
                 context: &'a mut TransformFeedbackBuffersEncodingContext
             ) -> TransformFeedbackBuffersEncoding<'a> {
                 let mut encoding = TransformFeedbackBuffersEncoding::new(context);

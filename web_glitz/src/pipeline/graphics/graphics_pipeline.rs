@@ -4,10 +4,7 @@ use std::sync::Arc;
 
 use crate::image::Region2D;
 use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
-use crate::pipeline::graphics::{
-    Blending, DepthTest, GraphicsPipelineDescriptor, PrimitiveAssembly, SlotBindingStrategy,
-    StencilTest, TransformFeedbackLayoutDescriptor, VertexInputLayoutDescriptor, Viewport,
-};
+use crate::pipeline::graphics::{Blending, DepthTest, GraphicsPipelineDescriptor, PrimitiveAssembly, SlotBindingStrategy, StencilTest, TransformFeedbackLayoutDescriptor, TypedTransformFeedbackBuffers, TypedTransformFeedbackLayout, VertexInputLayoutDescriptor, Viewport, TransformFeedbackBuffersEncodingContext};
 use crate::pipeline::resources::resource_slot::{SlotBindingChecker, SlotBindingUpdater};
 use crate::pipeline::resources::Resources;
 use crate::runtime::state::{ContextUpdate, DynamicState, ProgramKey};
@@ -16,6 +13,8 @@ use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
 use fnv::FnvHasher;
 use std::hash::{Hash, Hasher};
+use std::sync::atomic::AtomicBool;
+use crate::pipeline::graphics::util::BufferDescriptors;
 
 /// Encapsulates the state for a graphics pipeline.
 ///
@@ -52,36 +51,82 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
         self.program_id
     }
 
-    pub(crate) fn vertex_attribute_layout(&self) -> &VertexInputLayoutDescriptor {
+    /// Returns a description of the vertex input layout expected by the pipeline.
+    ///
+    /// See [VertexInputLayoutDescriptor] for details.
+    pub fn vertex_attribute_layout(&self) -> &VertexInputLayoutDescriptor {
         &self.vertex_attribute_layout
     }
 
-    pub(crate) fn transform_feedback_layout(&self) -> &Option<TransformFeedbackLayoutDescriptor> {
-        &self.transform_feedback_layout
+    /// Returns a description of the transform feedback layout used by the pipeline if the pipeline
+    /// is capable of recording transform feedback, or `None` otherwise.
+    ///
+    /// See [TransformFeedbackLayoutDescriptor] for details.
+    pub fn transform_feedback_layout(&self) -> Option<&TransformFeedbackLayoutDescriptor> {
+        self.transform_feedback_layout.as_ref()
     }
 
-    pub(crate) fn primitive_assembly(&self) -> &PrimitiveAssembly {
+    /// Returns the primitive assembly configuration used by the pipeline.
+    ///
+    /// See [PrimitiveAssembly] for details.
+    pub fn primitive_assembly(&self) -> &PrimitiveAssembly {
         &self.primitive_assembly
     }
 
-    pub(crate) fn depth_test(&self) -> &Option<DepthTest> {
-        &self.depth_test
+    /// Returns the depth test configuration used by the pipeline if the depth test is enabled, or
+    /// `None` otherwise.
+    ///
+    /// See [DepthTest] for details.
+    pub fn depth_test(&self) -> Option<&DepthTest> {
+        self.depth_test.as_ref()
     }
 
-    pub(crate) fn stencil_test(&self) -> &Option<StencilTest> {
-        &self.stencil_test
+    /// Returns the stencil test configuration used by the pipeline if the depth test is enabled, or
+    /// `None` otherwise.
+    ///
+    /// See [StencilTest] for details.
+    pub fn stencil_test(&self) -> Option<&StencilTest> {
+        self.stencil_test.as_ref()
     }
 
-    pub(crate) fn scissor_region(&self) -> &Region2D {
+    /// Returns the scissor region applied by this pipeline when outputting to a framebuffer.
+    ///
+    /// Fragments outside this region are discarded before the fragment processing stages.
+    pub fn scissor_region(&self) -> &Region2D {
         &self.scissor_region
     }
 
-    pub(crate) fn blending(&self) -> &Option<Blending> {
-        &self.blending
+    /// Returns the blending configuration used by the pipeline if the depth test is enabled, or
+    /// `None` otherwise.
+    ///
+    /// See [Blending] for details.
+    pub fn blending(&self) -> Option<&Blending> {
+        self.blending.as_ref()
     }
 
-    pub(crate) fn viewport(&self) -> &Viewport {
+    /// Returns the viewport configuration used by the pipeline.
+    ///
+    /// See [Viewport] for details.
+    pub fn viewport(&self) -> &Viewport {
         &self.viewport
+    }
+
+    pub fn record_transform_feedback<Fb>(
+        &self,
+        transform_feedback_buffers: Fb,
+    ) -> RecordTransformFeedback<V, R, Tf, Fb>
+    where
+        Tf: TypedTransformFeedbackLayout,
+        Fb: TypedTransformFeedbackBuffers<Layout = Tf>,
+    {
+        RecordTransformFeedback {
+            pipeline: self,
+            descriptor: TransformFeedbackDescriptor {
+                buffers: transform_feedback_buffers.encode(&mut TransformFeedbackBuffersEncodingContext::new()).into_descriptors(),
+                initialized: Arc::new(AtomicBool::new(false)),
+            },
+            _marker: marker::PhantomData
+        }
     }
 }
 
@@ -179,42 +224,18 @@ where
             viewport: descriptor.viewport.clone(),
         })
     }
+}
 
-    //    pub(crate) fn create_unchecked<Rc>(
-    //        context: &Rc,
-    //        connection: &mut Connection,
-    //        descriptor: &GraphicsPipelineDescriptor<Il, R, Tf>,
-    //    ) -> Self
-    //    where
-    //        Rc: RenderingContext + Clone + 'static,
-    //    {
-    //        let (gl, state) = unsafe { connection.unpack_mut() };
-    //
-    //        let program = state
-    //            .program_cache()
-    //            .get_or_create_unchecked(ProgramDescriptor {
-    //                vertex_shader: &descriptor.vertex_shader,
-    //                fragment_shader: &descriptor.fragment_shader,
-    //                resources_type: TypeId::of::<R>(),
-    //            })?;
-    //
-    //        match descriptor.binding_strategy {
-    //            BindingStrategy::Update => {
-    //                let confirmer = SlotBindingUpdater::new(gl, program.gl_object());
-    //
-    //                R::confirm_slot_bindings(confirmer, program.resource_slot_descriptors())
-    //            }
-    //            _ => (),
-    //        };
-    //
-    //        GraphicsPipeline {
-    //            _input_attribute_layout_marker: marker::PhantomData,
-    //            _resources_marker: marker::PhantomData,
-    //            _transform_feedback_varyings_marker: marker::PhantomData,
-    //            vertex_shader: descriptor.vertex_shader.data().clone(),
-    //            fragment_shader: descriptor.fragment_shader.data().clone(),
-    //        }
-    //    }
+#[derive(Clone)]
+pub(crate) struct TransformFeedbackDescriptor {
+    pub(crate) buffers: BufferDescriptors,
+    pub(crate) initialized: Arc<AtomicBool>,
+}
+
+pub struct RecordTransformFeedback<'a, V, R, Tf, Fb> {
+    pub(crate) pipeline: &'a GraphicsPipeline<V, R, Tf>,
+    pub(crate) descriptor: TransformFeedbackDescriptor,
+    _marker: marker::PhantomData<Fb>
 }
 
 /// Error returned when trying to create a graphics pipeline and the shaders fail to link.

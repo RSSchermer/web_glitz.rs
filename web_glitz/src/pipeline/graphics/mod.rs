@@ -11,7 +11,7 @@ pub use self::fragment_test::{
     DepthRange, DepthTest, PolygonOffset, StencilOperation, StencilTest, TestFunction,
 };
 
-mod graphics_pipeline;
+pub(crate) mod graphics_pipeline;
 pub use self::graphics_pipeline::{GraphicsPipeline, ShaderLinkingError};
 
 pub(crate) mod primitive_assembly;

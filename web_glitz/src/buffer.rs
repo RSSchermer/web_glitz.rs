@@ -2,7 +2,7 @@ use std::borrow::Borrow;
 use std::cell::UnsafeCell;
 use std::marker;
 use std::mem;
-use std::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
+use std::ops::{Deref, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 use std::slice;
 use std::sync::Arc;
 
@@ -115,9 +115,9 @@ impl<T> Buffer<[T]> {
     /// buffer.get(4); // None (index out of bounds)
     /// # }
     /// ```
-    pub fn get<'a, I>(&'a self, index: I) -> Option<I::Output>
+    pub fn get<I>(&self, index: I) -> Option<BufferView<I::Output>>
     where
-        I: BufferIndex<&'a Buffer<[T]>>,
+        I: BufferSliceIndex<T>,
     {
         index.get(self)
     }
@@ -146,9 +146,9 @@ impl<T> Buffer<[T]> {
     /// # Unsafe
     ///
     /// Only safe if `index` is in bounds. See [get] for a safe alternative.
-    pub unsafe fn get_unchecked<'a, I>(&'a self, index: I) -> I::Output
+    pub unsafe fn get_unchecked<I>(&self, index: I) -> BufferView<I::Output>
     where
-        I: BufferIndex<&'a Buffer<[T]>>,
+        I: BufferSliceIndex<T>,
     {
         index.get_unchecked(self)
     }
@@ -204,6 +204,22 @@ where
             buffer: self,
             offset_in_bytes: 0,
             len: self.data.len,
+        }
+    }
+}
+
+impl<'a, T> Into<BufferViewMut<'a, T>> for &'a mut Buffer<T>
+where
+    T: ?Sized,
+{
+    fn into(self) -> BufferViewMut<'a, T> {
+        BufferViewMut {
+            inner: BufferView {
+                buffer: self,
+                offset_in_bytes: 0,
+                len: self.data.len,
+            },
+            _marker: marker::PhantomData,
         }
     }
 }
@@ -325,11 +341,11 @@ impl<'a, T> BufferView<'a, [T]> {
     /// view.get(4); // None (index out of bounds)
     /// # }
     /// ```
-    pub fn get<I>(&self, index: I) -> Option<I::Output>
+    pub fn get<I>(&self, index: I) -> Option<BufferView<I::Output>>
     where
-        I: BufferIndex<BufferView<'a, [T]>>,
+        I: BufferViewSliceIndex<T>,
     {
-        index.get(self.clone())
+        index.get(self)
     }
 
     /// Returns a [BufferView] on an element or a sub-slice of the elements this [BufferView],
@@ -357,11 +373,11 @@ impl<'a, T> BufferView<'a, [T]> {
     /// # Unsafe
     ///
     /// Only safe if `index` is in bounds. See [get] for a safe alternative.
-    pub unsafe fn get_unchecked<I>(&self, index: I) -> I::Output
+    pub unsafe fn get_unchecked<I>(&self, index: I) -> BufferView<I::Output>
     where
-        I: BufferIndex<BufferView<'a, [T]>>,
+        I: BufferViewSliceIndex<T>,
     {
-        index.get_unchecked(self.clone())
+        index.get_unchecked(self)
     }
 }
 
@@ -421,6 +437,90 @@ impl<'a, T> Clone for BufferView<'a, [T]> {
 }
 
 impl<'a, T> Copy for BufferView<'a, [T]> {}
+
+pub struct BufferViewMut<'a, T>
+where
+    T: ?Sized,
+{
+    inner: BufferView<'a, T>,
+    _marker: marker::PhantomData<&'a mut Buffer<T>>,
+}
+
+impl<'a, T> BufferViewMut<'a, [T]> {
+    /// Returns a [BufferViewMut] on an element or a sub-slice of the elements this [BufferViewMut],
+    /// depending on the type of `index`.
+    ///
+    /// - If given a position, returns a view on the element at that position or `None` if out of
+    ///   bounds.
+    /// - If given a range, returns a view on the sub-slice of elements corresponding to that range,
+    ///   or `None` if out of bounds.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
+    /// use web_glitz::buffer::UsageHint;
+    ///
+    /// let buffer = context.create_buffer([1.0, 2.0, 3.0, 4.0], UsageHint::StreamDraw);
+    /// let view = buffer.view();
+    ///
+    /// view.get(1); // Some BufferView<f32> containing `2.0`
+    /// view.get(1..3); // Some BufferView<[f32]> containing `[2.0, 3.0]`
+    /// view.get(..2); // Some BufferView<[f32]> containing `[1.0 2.0]`
+    /// view.get(4); // None (index out of bounds)
+    /// # }
+    /// ```
+    pub fn get_mut<I>(&mut self, index: I) -> Option<BufferViewMut<I::Output>>
+    where
+        I: BufferViewMutSliceIndex<T>,
+    {
+        index.get_mut(self)
+    }
+
+    /// Returns a [BufferViewMut] on an element or a sub-slice of the elements this [BufferViewMut],
+    /// depending on the type of `index`, without doing bounds checking.
+    ///
+    /// - If given a position, returns a view on the element at that position, without doing bounds
+    ///   checking.
+    /// - If given a range, returns a view on the slice of elements corresponding to that range,
+    ///   without doing bounds checking.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
+    /// use web_glitz::buffer::UsageHint;
+    ///
+    /// let buffer = context.create_buffer([1.0, 2.0, 3.0, 4.0], UsageHint::StreamDraw);
+    /// let view = buffer.view();
+    ///
+    /// unsafe { view.get_unchecked(1) }; // BufferView<f32> containing `2.0`
+    /// # }
+    /// ```
+    ///
+    /// # Unsafe
+    ///
+    /// Only safe if `index` is in bounds. See [get_mut] for a safe alternative.
+    pub unsafe fn get_unchecked_mut<I>(&mut self, index: I) -> BufferViewMut<I::Output>
+    where
+        I: BufferViewMutSliceIndex<T>,
+    {
+        index.get_unchecked_mut(self)
+    }
+}
+
+impl<'a, T> Deref for BufferViewMut<'a, T>
+where
+    T: ?Sized,
+{
+    type Target = BufferView<'a, T>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
 
 // TODO: CoerceUnsized doesn't currently work with only a PhantomData field...
 //impl<'a, T, U> CoerceUnsized<BufferView<'a, U>> for BufferView<'a, T>
@@ -565,22 +665,39 @@ impl UsageHint {
     }
 }
 
-/// A helper trait type for indexing operations on a [Buffer] or [BufferView].
-pub trait BufferIndex<T> {
+/// A helper trait type for indexing operations on a [Buffer] that contains a slice.
+pub trait BufferSliceIndex<T>: Sized {
     /// The output type returned by the indexing operations.
-    type Output;
+    type Output: ?Sized;
 
-    /// Returns the output for this operation if in bounds, or `None` otherwise.
-    fn get(self, buffer: T) -> Option<Self::Output>;
+    /// Returns a view on the output for this operation if in bounds, or `None` otherwise.
+    fn get(self, buffer: &Buffer<[T]>) -> Option<BufferView<Self::Output>>;
 
-    /// Returns the output for this operation, without performing any bounds checking.
-    unsafe fn get_unchecked(self, buffer: T) -> Self::Output;
+    /// Returns a view on the output for this operation, without performing any bounds checking.
+    unsafe fn get_unchecked(self, buffer: &Buffer<[T]>) -> BufferView<Self::Output>;
+
+    /// Returns a mutable view on the output for this operation if in bounds, or `None` otherwise.
+    fn get_mut(self, buffer: &mut Buffer<[T]>) -> Option<BufferViewMut<Self::Output>> {
+        self.get(buffer).map(|view| BufferViewMut {
+            inner: view,
+            _marker: marker::PhantomData,
+        })
+    }
+
+    /// Returns a mutable view the output for this operation, without performing any bounds
+    /// checking.
+    unsafe fn get_unchecked_mut(self, buffer: &mut Buffer<[T]>) -> BufferViewMut<Self::Output> {
+        BufferViewMut {
+            inner: self.get_unchecked(buffer),
+            _marker: marker::PhantomData,
+        }
+    }
 }
 
-impl<'a, T> BufferIndex<&'a Buffer<[T]>> for usize {
-    type Output = BufferView<'a, T>;
+impl<T> BufferSliceIndex<T> for usize {
+    type Output = T;
 
-    fn get(self, buffer: &'a Buffer<[T]>) -> Option<Self::Output> {
+    fn get(self, buffer: &Buffer<[T]>) -> Option<BufferView<Self::Output>> {
         if self < buffer.data.len {
             Some(BufferView {
                 buffer: unsafe { mem::transmute(buffer) },
@@ -592,7 +709,7 @@ impl<'a, T> BufferIndex<&'a Buffer<[T]>> for usize {
         }
     }
 
-    unsafe fn get_unchecked(self, buffer: &'a Buffer<[T]>) -> Self::Output {
+    unsafe fn get_unchecked(self, buffer: &Buffer<[T]>) -> BufferView<Self::Output> {
         BufferView {
             buffer: mem::transmute(buffer),
             offset_in_bytes: self * mem::size_of::<T>(),
@@ -601,34 +718,10 @@ impl<'a, T> BufferIndex<&'a Buffer<[T]>> for usize {
     }
 }
 
-impl<'a, T> BufferIndex<BufferView<'a, [T]>> for usize {
-    type Output = BufferView<'a, T>;
+impl<T> BufferSliceIndex<T> for RangeFull {
+    type Output = [T];
 
-    fn get(self, view: BufferView<'a, [T]>) -> Option<Self::Output> {
-        if self < view.len {
-            Some(BufferView {
-                buffer: unsafe { mem::transmute(view.buffer) },
-                offset_in_bytes: view.offset_in_bytes + self * mem::size_of::<T>(),
-                len: 1,
-            })
-        } else {
-            None
-        }
-    }
-
-    unsafe fn get_unchecked(self, view: BufferView<'a, [T]>) -> Self::Output {
-        BufferView {
-            buffer: mem::transmute(view.buffer),
-            offset_in_bytes: view.offset_in_bytes + self * mem::size_of::<T>(),
-            len: 1,
-        }
-    }
-}
-
-impl<'a, T> BufferIndex<&'a Buffer<[T]>> for RangeFull {
-    type Output = BufferView<'a, [T]>;
-
-    fn get(self, buffer: &'a Buffer<[T]>) -> Option<Self::Output> {
+    fn get(self, buffer: &Buffer<[T]>) -> Option<BufferView<Self::Output>> {
         Some(BufferView {
             buffer,
             offset_in_bytes: 0,
@@ -636,7 +729,7 @@ impl<'a, T> BufferIndex<&'a Buffer<[T]>> for RangeFull {
         })
     }
 
-    unsafe fn get_unchecked(self, buffer: &'a Buffer<[T]>) -> Self::Output {
+    unsafe fn get_unchecked(self, buffer: &Buffer<[T]>) -> BufferView<Self::Output> {
         BufferView {
             buffer,
             offset_in_bytes: 0,
@@ -645,30 +738,10 @@ impl<'a, T> BufferIndex<&'a Buffer<[T]>> for RangeFull {
     }
 }
 
-impl<'a, T> BufferIndex<BufferView<'a, [T]>> for RangeFull {
-    type Output = BufferView<'a, [T]>;
+impl<T> BufferSliceIndex<T> for Range<usize> {
+    type Output = [T];
 
-    fn get(self, view: BufferView<'a, [T]>) -> Option<Self::Output> {
-        Some(BufferView {
-            buffer: view.buffer,
-            offset_in_bytes: view.offset_in_bytes,
-            len: view.len,
-        })
-    }
-
-    unsafe fn get_unchecked(self, view: BufferView<'a, [T]>) -> Self::Output {
-        BufferView {
-            buffer: view.buffer,
-            offset_in_bytes: view.offset_in_bytes,
-            len: view.len,
-        }
-    }
-}
-
-impl<'a, T> BufferIndex<&'a Buffer<[T]>> for Range<usize> {
-    type Output = BufferView<'a, [T]>;
-
-    fn get(self, buffer: &'a Buffer<[T]>) -> Option<Self::Output> {
+    fn get(self, buffer: &Buffer<[T]>) -> Option<BufferView<Self::Output>> {
         let Range { start, end } = self;
 
         if start > end || end > buffer.data.len {
@@ -682,7 +755,7 @@ impl<'a, T> BufferIndex<&'a Buffer<[T]>> for Range<usize> {
         }
     }
 
-    unsafe fn get_unchecked(self, buffer: &'a Buffer<[T]>) -> Self::Output {
+    unsafe fn get_unchecked(self, buffer: &Buffer<[T]>) -> BufferView<Self::Output> {
         BufferView {
             buffer,
             offset_in_bytes: self.start * mem::size_of::<T>(),
@@ -691,10 +764,118 @@ impl<'a, T> BufferIndex<&'a Buffer<[T]>> for Range<usize> {
     }
 }
 
-impl<'a, T> BufferIndex<BufferView<'a, [T]>> for Range<usize> {
-    type Output = BufferView<'a, [T]>;
+impl<T> BufferSliceIndex<T> for RangeInclusive<usize> {
+    type Output = [T];
 
-    fn get(self, view: BufferView<'a, [T]>) -> Option<Self::Output> {
+    fn get(self, buffer: &Buffer<[T]>) -> Option<BufferView<Self::Output>> {
+        if *self.end() == usize::max_value() {
+            None
+        } else {
+            buffer.get(*self.start()..self.end() + 1)
+        }
+    }
+
+    unsafe fn get_unchecked(self, buffer: &Buffer<[T]>) -> BufferView<Self::Output> {
+        buffer.get_unchecked(*self.start()..self.end() + 1)
+    }
+}
+
+impl<T> BufferSliceIndex<T> for RangeFrom<usize> {
+    type Output = [T];
+
+    fn get(self, buffer: &Buffer<[T]>) -> Option<BufferView<Self::Output>> {
+        buffer.get(self.start..buffer.data.len)
+    }
+
+    unsafe fn get_unchecked(self, buffer: &Buffer<[T]>) -> BufferView<Self::Output> {
+        buffer.get_unchecked(self.start..buffer.data.len)
+    }
+}
+
+impl<T> BufferSliceIndex<T> for RangeTo<usize> {
+    type Output = [T];
+
+    fn get(self, buffer: &Buffer<[T]>) -> Option<BufferView<Self::Output>> {
+        buffer.get(0..self.end)
+    }
+
+    unsafe fn get_unchecked(self, buffer: &Buffer<[T]>) -> BufferView<Self::Output> {
+        buffer.get_unchecked(0..self.end)
+    }
+}
+
+impl<T> BufferSliceIndex<T> for RangeToInclusive<usize> {
+    type Output = [T];
+
+    fn get(self, buffer: &Buffer<[T]>) -> Option<BufferView<Self::Output>> {
+        buffer.get(0..=self.end)
+    }
+
+    unsafe fn get_unchecked(self, buffer: &Buffer<[T]>) -> BufferView<Self::Output> {
+        buffer.get_unchecked(0..=self.end)
+    }
+}
+
+/// A helper trait type for indexing operations on a [BufferView] that contains a slice.
+pub trait BufferViewSliceIndex<T>: Sized {
+    /// The output type returned by the indexing operations.
+    type Output: ?Sized;
+
+    /// Returns a view on the output for this operation if in bounds, or `None` otherwise.
+    fn get<'a>(self, view: &'a BufferView<[T]>) -> Option<BufferView<'a, Self::Output>>;
+
+    /// Returns a view on the output for this operation, without performing any bounds checking.
+    unsafe fn get_unchecked<'a>(self, view: &'a BufferView<[T]>) -> BufferView<'a, Self::Output>;
+}
+
+impl<T> BufferViewSliceIndex<T> for usize {
+    type Output = T;
+
+    fn get<'a>(self, view: &'a BufferView<[T]>) -> Option<BufferView<'a, Self::Output>> {
+        if self < view.len {
+            Some(BufferView {
+                buffer: unsafe { mem::transmute(view.buffer) },
+                offset_in_bytes: view.offset_in_bytes + self * mem::size_of::<T>(),
+                len: 1,
+            })
+        } else {
+            None
+        }
+    }
+
+    unsafe fn get_unchecked<'a>(self, view: &'a BufferView<[T]>) -> BufferView<'a, Self::Output> {
+        BufferView {
+            buffer: mem::transmute(view.buffer),
+            offset_in_bytes: view.offset_in_bytes + self * mem::size_of::<T>(),
+            len: 1,
+        }
+    }
+}
+
+impl<T> BufferViewSliceIndex<T> for RangeFull {
+    type Output = [T];
+
+    fn get<'a>(self, view: &'a BufferView<[T]>) -> Option<BufferView<'a, Self::Output>> {
+        Some(BufferView {
+            buffer: view.buffer,
+            offset_in_bytes: view.offset_in_bytes,
+            len: view.len,
+        })
+    }
+
+    unsafe fn get_unchecked<'a>(self, view: &'a BufferView<[T]>) -> BufferView<'a, Self::Output> {
+        BufferView {
+            buffer: view.buffer,
+            offset_in_bytes: view.offset_in_bytes,
+            len: view.len,
+        }
+    }
+}
+
+impl<T> BufferViewSliceIndex<T> for Range<usize> {
+    type Output = [T];
+
+    fn get<'a>(self, view: &'a BufferView<[T]>) -> Option<BufferView<'a, Self::Output>> {
         let Range { start, end } = self;
 
         if start > end || end > view.len {
@@ -708,7 +889,7 @@ impl<'a, T> BufferIndex<BufferView<'a, [T]>> for Range<usize> {
         }
     }
 
-    unsafe fn get_unchecked(self, view: BufferView<'a, [T]>) -> Self::Output {
+    unsafe fn get_unchecked<'a>(self, view: &'a BufferView<[T]>) -> BufferView<'a, Self::Output> {
         BufferView {
             buffer: view.buffer,
             offset_in_bytes: view.offset_in_bytes + self.start * mem::size_of::<T>(),
@@ -717,107 +898,81 @@ impl<'a, T> BufferIndex<BufferView<'a, [T]>> for Range<usize> {
     }
 }
 
-impl<'a, T> BufferIndex<&'a Buffer<[T]>> for RangeInclusive<usize> {
-    type Output = BufferView<'a, [T]>;
+impl<T> BufferViewSliceIndex<T> for RangeInclusive<usize> {
+    type Output = [T];
 
-    fn get(self, buffer: &'a Buffer<[T]>) -> Option<Self::Output> {
+    fn get<'a>(self, view: &'a BufferView<[T]>) -> Option<BufferView<'a, Self::Output>> {
         if *self.end() == usize::max_value() {
             None
         } else {
-            (*self.start()..self.end() + 1).get(buffer)
+            view.get(*self.start()..self.end() + 1)
         }
     }
 
-    unsafe fn get_unchecked(self, buffer: &'a Buffer<[T]>) -> Self::Output {
-        (*self.start()..self.end() + 1).get_unchecked(buffer)
+    unsafe fn get_unchecked<'a>(self, view: &'a BufferView<[T]>) -> BufferView<'a, Self::Output> {
+        view.get_unchecked(*self.start()..self.end() + 1)
     }
 }
 
-impl<'a, T> BufferIndex<BufferView<'a, [T]>> for RangeInclusive<usize> {
-    type Output = BufferView<'a, [T]>;
+impl<T> BufferViewSliceIndex<T> for RangeFrom<usize> {
+    type Output = [T];
 
-    fn get(self, view: BufferView<'a, [T]>) -> Option<Self::Output> {
-        if *self.end() == usize::max_value() {
-            None
-        } else {
-            (*self.start()..self.end() + 1).get(view)
+    fn get<'a>(self, view: &'a BufferView<[T]>) -> Option<BufferView<'a, Self::Output>> {
+        view.get(self.start..view.len)
+    }
+
+    unsafe fn get_unchecked<'a>(self, view: &'a BufferView<[T]>) -> BufferView<'a, Self::Output> {
+        view.get_unchecked(self.start..view.len)
+    }
+}
+
+impl<T> BufferViewSliceIndex<T> for RangeTo<usize> {
+    type Output = [T];
+
+    fn get<'a>(self, view: &'a BufferView<[T]>) -> Option<BufferView<'a, Self::Output>> {
+        view.get(0..self.end)
+    }
+
+    unsafe fn get_unchecked<'a>(self, view: &'a BufferView<[T]>) -> BufferView<'a, Self::Output> {
+        view.get_unchecked(0..self.end)
+    }
+}
+
+impl<T> BufferViewSliceIndex<T> for RangeToInclusive<usize> {
+    type Output = [T];
+
+    fn get<'a>(self, view: &'a BufferView<[T]>) -> Option<BufferView<'a, Self::Output>> {
+        view.get(0..=self.end)
+    }
+
+    unsafe fn get_unchecked<'a>(self, view: &'a BufferView<[T]>) -> BufferView<'a, Self::Output> {
+        view.get_unchecked(0..=self.end)
+    }
+}
+
+/// A helper trait type for indexing operations on a [BufferViewMut] that contains a slice.
+pub trait BufferViewMutSliceIndex<T>: BufferViewSliceIndex<T> {
+    /// Returns a mutable view on the output for this operation if in bounds, or `None` otherwise.
+    fn get_mut<'a>(
+        self,
+        view: &'a mut BufferViewMut<[T]>,
+    ) -> Option<BufferViewMut<'a, Self::Output>> {
+        self.get(view).map(|view| BufferViewMut {
+            inner: view,
+            _marker: marker::PhantomData,
+        })
+    }
+
+    /// Returns a mutable view the output for this operation, without performing any bounds
+    /// checking.
+    unsafe fn get_unchecked_mut<'a>(
+        self,
+        view: &'a mut BufferViewMut<[T]>,
+    ) -> BufferViewMut<'a, Self::Output> {
+        BufferViewMut {
+            inner: self.get_unchecked(view),
+            _marker: marker::PhantomData,
         }
-    }
-
-    unsafe fn get_unchecked(self, view: BufferView<'a, [T]>) -> Self::Output {
-        (*self.start()..self.end() + 1).get_unchecked(view)
-    }
-}
-
-impl<'a, T> BufferIndex<&'a Buffer<[T]>> for RangeFrom<usize> {
-    type Output = BufferView<'a, [T]>;
-
-    fn get(self, buffer: &'a Buffer<[T]>) -> Option<Self::Output> {
-        (self.start..buffer.data.len).get(buffer)
-    }
-
-    unsafe fn get_unchecked(self, buffer: &'a Buffer<[T]>) -> Self::Output {
-        (self.start..buffer.data.len).get_unchecked(buffer)
-    }
-}
-
-impl<'a, T> BufferIndex<BufferView<'a, [T]>> for RangeFrom<usize> {
-    type Output = BufferView<'a, [T]>;
-
-    fn get(self, view: BufferView<'a, [T]>) -> Option<Self::Output> {
-        (self.start..view.len).get(view)
-    }
-
-    unsafe fn get_unchecked(self, view: BufferView<'a, [T]>) -> Self::Output {
-        (self.start..view.len).get_unchecked(view)
-    }
-}
-
-impl<'a, T> BufferIndex<&'a Buffer<[T]>> for RangeTo<usize> {
-    type Output = BufferView<'a, [T]>;
-
-    fn get(self, buffer: &'a Buffer<[T]>) -> Option<Self::Output> {
-        (0..self.end).get(buffer)
-    }
-
-    unsafe fn get_unchecked(self, buffer: &'a Buffer<[T]>) -> Self::Output {
-        (0..self.end).get_unchecked(buffer)
-    }
-}
-
-impl<'a, T> BufferIndex<BufferView<'a, [T]>> for RangeTo<usize> {
-    type Output = BufferView<'a, [T]>;
-
-    fn get(self, view: BufferView<'a, [T]>) -> Option<Self::Output> {
-        (0..self.end).get(view)
-    }
-
-    unsafe fn get_unchecked(self, view: BufferView<'a, [T]>) -> Self::Output {
-        (0..self.end).get_unchecked(view)
-    }
-}
-
-impl<'a, T> BufferIndex<&'a Buffer<[T]>> for RangeToInclusive<usize> {
-    type Output = BufferView<'a, [T]>;
-
-    fn get(self, buffer: &'a Buffer<[T]>) -> Option<Self::Output> {
-        (0..=self.end).get(buffer)
-    }
-
-    unsafe fn get_unchecked(self, buffer: &'a Buffer<[T]>) -> Self::Output {
-        (0..=self.end).get_unchecked(buffer)
-    }
-}
-
-impl<'a, T> BufferIndex<BufferView<'a, [T]>> for RangeToInclusive<usize> {
-    type Output = BufferView<'a, [T]>;
-
-    fn get(self, view: BufferView<'a, [T]>) -> Option<Self::Output> {
-        (0..=self.end).get(view)
-    }
-
-    unsafe fn get_unchecked(self, view: BufferView<'a, [T]>) -> Self::Output {
-        (0..=self.end).get_unchecked(view)
     }
 }
 
@@ -1242,6 +1397,10 @@ unsafe impl GpuTask<Connection> for DropCommand {
 
         state
             .vertex_array_cache_mut()
+            .remove_buffer_dependents(self.id, gl);
+
+        state
+            .transform_feedback_cache_mut()
             .remove_buffer_dependents(self.id, gl);
 
         let value = unsafe { JsId::into_value(self.id) };

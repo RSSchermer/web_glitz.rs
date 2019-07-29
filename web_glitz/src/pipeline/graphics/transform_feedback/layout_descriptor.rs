@@ -170,35 +170,6 @@ pub enum TransformFeedbackAttributeType {
     UnsignedIntegerVector4,
 }
 
-impl TransformFeedbackAttributeType {
-    pub(crate) fn from_type_id(id: u32) -> Self {
-        match id {
-            Gl::FLOAT => TransformFeedbackAttributeType::Float,
-            Gl::FLOAT_VEC2 => TransformFeedbackAttributeType::FloatVector2,
-            Gl::FLOAT_VEC3 => TransformFeedbackAttributeType::FloatVector3,
-            Gl::FLOAT_VEC4 => TransformFeedbackAttributeType::FloatVector4,
-            Gl::FLOAT_MAT2 => TransformFeedbackAttributeType::FloatMatrix2x2,
-            Gl::FLOAT_MAT3 => TransformFeedbackAttributeType::FloatMatrix3x3,
-            Gl::FLOAT_MAT4 => TransformFeedbackAttributeType::FloatMatrix4x4,
-            Gl::FLOAT_MAT2X3 => TransformFeedbackAttributeType::FloatMatrix2x3,
-            Gl::FLOAT_MAT2X4 => TransformFeedbackAttributeType::FloatMatrix2x4,
-            Gl::FLOAT_MAT3X2 => TransformFeedbackAttributeType::FloatMatrix3x2,
-            Gl::FLOAT_MAT3X4 => TransformFeedbackAttributeType::FloatMatrix3x4,
-            Gl::FLOAT_MAT4X2 => TransformFeedbackAttributeType::FloatMatrix4x2,
-            Gl::FLOAT_MAT4X3 => TransformFeedbackAttributeType::FloatMatrix4x3,
-            Gl::INT => TransformFeedbackAttributeType::Integer,
-            Gl::INT_VEC2 => TransformFeedbackAttributeType::IntegerVector2,
-            Gl::INT_VEC3 => TransformFeedbackAttributeType::IntegerVector3,
-            Gl::INT_VEC4 => TransformFeedbackAttributeType::IntegerVector4,
-            Gl::UNSIGNED_INT => TransformFeedbackAttributeType::UnsignedInteger,
-            Gl::UNSIGNED_INT_VEC2 => TransformFeedbackAttributeType::UnsignedIntegerVector2,
-            Gl::UNSIGNED_INT_VEC3 => TransformFeedbackAttributeType::UnsignedIntegerVector3,
-            Gl::UNSIGNED_INT_VEC4 => TransformFeedbackAttributeType::UnsignedIntegerVector4,
-            id => panic!("Invalid feedback varying type id: {}", id),
-        }
-    }
-}
-
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
 pub struct TransformFeedbackLayoutDescriptor {
     layout: Vec<LayoutElement>,

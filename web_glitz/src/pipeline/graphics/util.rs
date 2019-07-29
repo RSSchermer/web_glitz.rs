@@ -87,6 +87,18 @@ impl Deref for BufferDescriptors {
     }
 }
 
+impl Clone for BufferDescriptors {
+    fn clone(&self) -> Self {
+        let mut buffer_descriptors = BufferDescriptors::new();
+
+        for descriptor in self.iter() {
+            buffer_descriptors.push(descriptor.clone())
+        }
+
+        buffer_descriptors
+    }
+}
+
 impl Drop for BufferDescriptors {
     fn drop(&mut self) {
         for vertex_buffer in self.storage[0..self.len].iter_mut() {

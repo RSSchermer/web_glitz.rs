@@ -178,13 +178,13 @@ impl VertexInputLayoutDescriptor {
         'outer: for slot in slot_descriptors.iter() {
             for element in self.layout.iter() {
                 if let LayoutElement::NextAttribute(attribute_descriptor) = element {
-                    if attribute_descriptor.location == slot.location() {
+                    if attribute_descriptor.location == slot.location {
                         if !attribute_descriptor
                             .format
                             .is_compatible(slot.attribute_type)
                         {
                             return Err(IncompatibleVertexInputLayout::TypeMismatch {
-                                location: slot.location(),
+                                location: slot.location,
                             });
                         }
 
@@ -194,7 +194,7 @@ impl VertexInputLayoutDescriptor {
             }
 
             return Err(IncompatibleVertexInputLayout::MissingAttribute {
-                location: slot.location(),
+                location: slot.location,
             });
         }
 
@@ -483,20 +483,11 @@ pub enum IncompatibleVertexInputLayout {
 
 /// Describes an input slot on a [GraphicsPipeline].
 pub(crate) struct VertexAttributeSlotDescriptor {
-    pub(crate) location: u32,
-    pub(crate) attribute_type: VertexAttributeType,
-}
-
-impl VertexAttributeSlotDescriptor {
     /// The shader location of the attribute slot.
-    pub fn location(&self) -> u32 {
-        self.location
-    }
+    pub(crate) location: u32,
 
     /// The type of attribute required to fill the slot.
-    pub fn attribute_type(&self) -> VertexAttributeType {
-        self.attribute_type
-    }
+    pub(crate) attribute_type: VertexAttributeType,
 }
 
 /// Enumerates the possible attribute types that might be required to fill an attribute slot.

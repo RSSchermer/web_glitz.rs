@@ -26,12 +26,13 @@ use crate::runtime::index_lru::IndexLRU;
 use crate::util::{identical, JsId};
 use web_sys::{
     WebGl2RenderingContext as Gl, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlRenderbuffer,
-    WebGlSampler, WebGlTexture, WebGlVertexArrayObject,
+    WebGlSampler, WebGlTexture, WebGlVertexArrayObject, WebGlTransformFeedback
 };
 
 pub struct DynamicState {
     framebuffer_cache: FnvHashMap<u64, (Framebuffer, [Option<JsId>; 17])>,
     vertex_array_cache: FnvHashMap<u64, (WebGlVertexArrayObject, [Option<JsId>; 17])>,
+    transform_feedback_cache: FnvHashMap<u64, (WebGlTransformFeedback, [Option<JsId>; 16])>,
     program_cache: FnvHashMap<ProgramKey, Program>,
     read_framebuffer: WebGlFramebuffer,
     max_draw_buffers: usize,
@@ -57,6 +58,7 @@ pub struct DynamicState {
     texture_units_lru: IndexLRU,
     texture_units_textures: Vec<Option<WebGlTexture>>,
     bound_vertex_array: Option<WebGlVertexArrayObject>,
+    bound_transform_feedback: Option<WebGlTransformFeedback>,
     active_texture: u32,
     clear_color: [f32; 4],
     clear_depth: f32,
@@ -127,6 +129,10 @@ impl DynamicState {
 
     pub(crate) fn vertex_array_cache_mut(&mut self) -> VertexArrayCache {
         VertexArrayCache { state: self }
+    }
+
+    pub(crate) fn transform_feedback_cache_mut(&mut self) -> TransformFeedbackCache {
+        TransformFeedbackCache { state: self }
     }
 
     pub(crate) fn program_cache_mut(&mut self) -> ProgramCache {
@@ -591,6 +597,27 @@ impl DynamicState {
 
             Some(move |context: &Gl| {
                 context.bind_vertex_array(vertex_array);
+
+                Ok(())
+            })
+        } else {
+            None
+        }
+    }
+
+    pub fn bound_transform_feedback(&self) -> Option<&WebGlTransformFeedback> {
+        self.bound_transform_feedback.as_ref()
+    }
+
+    pub fn set_bound_transform_feedback<'a>(
+        &mut self,
+        transform_feedback: Option<&'a WebGlTransformFeedback>,
+    ) -> impl ContextUpdate<'a, ()> {
+        if !identical(transform_feedback, self.bound_transform_feedback.as_ref()) {
+            self.bound_transform_feedback = transform_feedback.map(|tf| tf.clone());
+
+            Some(move |context: &Gl| {
+                context.bind_transform_feedback(Gl::TRANSFORM_FEEDBACK, transform_feedback);
 
                 Ok(())
             })
@@ -1422,6 +1449,7 @@ impl DynamicState {
         DynamicState {
             framebuffer_cache: FnvHashMap::default(),
             vertex_array_cache: FnvHashMap::default(),
+            transform_feedback_cache: FnvHashMap::default(),
             program_cache: FnvHashMap::default(),
             read_framebuffer: context.create_framebuffer().unwrap(),
             max_draw_buffers: context
@@ -1471,6 +1499,7 @@ impl DynamicState {
             texture_units_lru: IndexLRU::new(max_combined_texture_image_units),
             texture_units_textures: vec![None; max_combined_texture_image_units],
             bound_vertex_array: None,
+            bound_transform_feedback: None,
             active_texture: 0,
             clear_color: [0.0, 0.0, 0.0, 0.0],
             clear_depth: 1.0,
@@ -1989,6 +2018,97 @@ impl<'a> VertexArrayCache<'a> {
 
                 if is_dependent {
                     gl.delete_vertex_array(Some(vao));
+                }
+
+                !is_dependent
+            })
+    }
+}
+
+pub(crate) struct TransformFeedbackCache<'a> {
+    state: &'a mut DynamicState,
+}
+
+impl<'a> TransformFeedbackCache<'a> {
+    pub(crate) fn bind_or_create(
+        &mut self,
+        program_id: JsId,
+        vertex_buffers: &[BufferDescriptor],
+        gl: &Gl,
+    ) -> (&WebGlTransformFeedback, bool) {
+        let mut hasher = FnvHasher::default();
+
+        program_id.hash(&mut hasher);
+        vertex_buffers.hash(&mut hasher);
+
+        let key = hasher.finish();
+        let DynamicState {
+            transform_feedback_cache,
+            bound_transform_feedback,
+            bound_transform_feedback_buffers,
+            ..
+        } = &mut self.state;
+
+        let mut fresh = true;
+
+        let (transform_feedback, _) = transform_feedback_cache
+            .entry(key)
+            .and_modify(|(transform_feedback, _)| {
+                if !identical(Some(transform_feedback), bound_transform_feedback.as_ref()) {
+                    gl.bind_transform_feedback(Gl::TRANSFORM_FEEDBACK, Some(transform_feedback));
+
+                    *bound_transform_feedback = Some(transform_feedback.clone());
+                }
+
+                fresh = false;
+            })
+            .or_insert_with(|| {
+                let transform_feedback = gl.create_transform_feedback().unwrap();
+
+                gl.bind_transform_feedback(Gl::TRANSFORM_FEEDBACK, Some(&transform_feedback));
+
+                *bound_transform_feedback = Some(transform_feedback.clone());
+
+                let mut buffer_ids = [None; 16];
+
+                for (i, buffer_descriptor) in vertex_buffers.iter().enumerate() {
+                        let buffer_id = buffer_descriptor.buffer_data.id();
+                        let offset = buffer_descriptor.offset_in_bytes;
+                        let size = buffer_descriptor.size_in_bytes;
+
+                        unsafe {
+                            buffer_id
+                                .unwrap()
+                                .with_value_unchecked(|buffer: &WebGlBuffer| {
+                                    bound_transform_feedback_buffers[i] = BufferRange::OffsetSize(buffer.clone(), offset, size);
+
+                                    gl.bind_buffer_range_with_i32_and_i32(
+                                            Gl::TRANSFORM_FEEDBACK_BUFFER,
+                                            i as u32,
+                                            Some(buffer),
+                                            offset as i32,
+                                            size as i32,
+                                        );
+                                });
+                        }
+
+                        buffer_ids[i] = buffer_id;
+                    }
+
+                (transform_feedback, buffer_ids)
+            });
+
+        (transform_feedback, fresh)
+    }
+
+    pub(crate) fn remove_buffer_dependents(&mut self, buffer_id: JsId, gl: &Gl) {
+        self.state
+            .transform_feedback_cache
+            .retain(|_, (tf, buffer_ids)| {
+                let is_dependent = buffer_ids.iter().any(|id| id == &Some(buffer_id));
+
+                if is_dependent {
+                    gl.delete_transform_feedback(Some(tf));
                 }
 
                 !is_dependent

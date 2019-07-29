@@ -5,15 +5,13 @@ use crate::pipeline::graphics::{TypedVertexInputLayout, Vertex};
 /// Encodes a description of a (set of) buffer(s) or buffer region(s) that can serve as the vertex
 /// input data source(s) for a graphics pipeline.
 pub trait VertexBuffers {
-    fn encode<'a>(
-        &self,
-        context: &'a mut VertexBuffersEncodingContext,
-    ) -> VertexBuffersEncoding<'a>;
+    fn encode<'a>(self, context: &'a mut VertexBuffersEncodingContext)
+        -> VertexBuffersEncoding<'a>;
 }
 
 /// Helper trait for the implementation of [VertexBuffers] for tuple types.
 pub trait VertexBuffer {
-    fn encode(&self, encoding: &mut VertexBuffersEncoding);
+    fn encode(self, encoding: &mut VertexBuffersEncoding);
 }
 
 /// Sub-trait of [VertexBuffers], where a type statically describes the vertex attribute layout
@@ -99,8 +97,8 @@ impl<'a, T> VertexBuffer for &'a Buffer<[T]>
 where
     T: Vertex,
 {
-    fn encode(&self, encoding: &mut VertexBuffersEncoding) {
-        encoding.add_vertex_buffer(*self);
+    fn encode(self, encoding: &mut VertexBuffersEncoding) {
+        encoding.add_vertex_buffer(self);
     }
 }
 
@@ -115,8 +113,8 @@ impl<'a, T> VertexBuffer for BufferView<'a, [T]>
 where
     T: Vertex,
 {
-    fn encode(&self, encoding: &mut VertexBuffersEncoding) {
-        encoding.add_vertex_buffer(*self);
+    fn encode(self, encoding: &mut VertexBuffersEncoding) {
+        encoding.add_vertex_buffer(self);
     }
 }
 
@@ -133,7 +131,7 @@ macro_rules! impl_vertex_buffers {
         where
             $($T: VertexBuffer),*
         {
-            fn encode<'a>(&self, context: &'a mut VertexBuffersEncodingContext) -> VertexBuffersEncoding<'a> {
+            fn encode<'a>(self, context: &'a mut VertexBuffersEncodingContext) -> VertexBuffersEncoding<'a> {
                 let mut encoding = VertexBuffersEncoding::new(context);
 
                 #[allow(unused_parens, non_snake_case)]

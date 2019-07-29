@@ -42,6 +42,40 @@ use crate::runtime::state::{ContextUpdate, DynamicState};
 use crate::runtime::Connection;
 use crate::task::{sequence, ContextId, Empty, GpuTask, Progress, Sequence};
 use crate::util::JsId;
+use crate::pipeline::graphics::graphics_pipeline::{TransformFeedbackDescriptor, RecordTransformFeedback};
+use std::sync::atomic::Ordering;
+
+/// Helper trait for implementing [Framebuffer::pipeline_task] for both a plain graphics pipeline
+/// and a graphics pipeline that will record transform feedback.
+pub trait GraphicsPipelineState<V, R, Tf> {
+    /// Creates a new pipeline task.
+    ///
+    /// See [Framebuffer::pipeline_task] for details.
+    fn pipeline_task<C, Ds, F, T>(&self, framebuffer: &Framebuffer<C, Ds>, f: F) -> PipelineTask<T>
+    where
+        F: Fn(ActiveGraphicsPipeline<V, R, Tf>) -> T,
+        T: GpuTask<PipelineTaskContext>;
+}
+
+impl<V, R, Tf> GraphicsPipelineState<V, R, Tf> for GraphicsPipeline<V, R, Tf> {
+    fn pipeline_task<C, Ds, F, T>(&self, framebuffer: &Framebuffer<C, Ds>, f: F) -> PipelineTask<T>
+    where
+        F: Fn(ActiveGraphicsPipeline<V, R, Tf>) -> T,
+        T: GpuTask<PipelineTaskContext>,
+    {
+        PipelineTask::new(framebuffer, self, None, f)
+    }
+}
+
+impl<'a, V, R, Tf, Fb> GraphicsPipelineState<V, R, Tf> for RecordTransformFeedback<'a, V, R, Tf, Fb> {
+    fn pipeline_task<C, Ds, F, T>(&self, framebuffer: &Framebuffer<C, Ds>, f: F) -> PipelineTask<T>
+        where
+            F: Fn(ActiveGraphicsPipeline<V, R, Tf>) -> T,
+            T: GpuTask<PipelineTaskContext>,
+    {
+        PipelineTask::new(framebuffer, &self.pipeline, Some(self.descriptor.clone()), f)
+    }
+}
 
 /// Represents a set of image memory buffers that serve as the rendering destination for a
 /// [RenderPass].
@@ -117,52 +151,13 @@ impl<C, Ds> Framebuffer<C, Ds> {
     ///
     /// Panics if the task returned by `f` contains commands that were constructed for a different
     /// pipeline task context.
-    pub fn pipeline_task<V, R, Tf, F, T>(
-        &self,
-        graphics_pipeline: &GraphicsPipeline<V, R, Tf>,
-        f: F,
-    ) -> PipelineTask<T>
+    pub fn pipeline_task<P, V, R, Tf, F, T>(&self, pipeline: &P, f: F) -> PipelineTask<T>
     where
+        P: GraphicsPipelineState<V, R, Tf>,
         F: Fn(ActiveGraphicsPipeline<V, R, Tf>) -> T,
         T: GpuTask<PipelineTaskContext>,
     {
-        if self.context_id != graphics_pipeline.context_id() {
-            panic!("The pipeline does not belong to the same context as the framebuffer.");
-        }
-
-        let id = self.last_pipeline_task_id.get();
-
-        self.last_pipeline_task_id.set(id + 1);
-
-        let mut hasher = FnvHasher::default();
-
-        (self.render_pass_id, id).hash(&mut hasher);
-
-        let pipeline_task_id = hasher.finish() as usize;
-
-        let task = f(ActiveGraphicsPipeline {
-            pipeline_task_id,
-            pipeline: graphics_pipeline,
-        });
-
-        if task.context_id() != ContextId::Id(pipeline_task_id) {
-            panic!("Task does not belong to the pipeline task context.")
-        }
-
-        PipelineTask {
-            id: pipeline_task_id,
-            render_pass_id: self.render_pass_id,
-            task,
-            program_id: graphics_pipeline.program_id(),
-            attribute_layout: graphics_pipeline.vertex_attribute_layout().clone(),
-            primitive_assembly: graphics_pipeline.primitive_assembly().clone(),
-            depth_test: graphics_pipeline.depth_test().clone(),
-            stencil_test: graphics_pipeline.stencil_test().clone(),
-            scissor_region: graphics_pipeline.scissor_region().clone(),
-            blending: graphics_pipeline.blending().clone(),
-            viewport: graphics_pipeline.viewport().clone(),
-            framebuffer_dimensions: self.dimensions,
-        }
+        pipeline.pipeline_task(self, f)
     }
 }
 
@@ -705,6 +700,7 @@ pub struct PipelineTask<T> {
     id: usize,
     render_pass_id: usize,
     task: T,
+    transform_feedback: Option<TransformFeedbackDescriptor>,
     program_id: JsId,
     attribute_layout: VertexInputLayoutDescriptor,
     primitive_assembly: PrimitiveAssembly,
@@ -714,6 +710,51 @@ pub struct PipelineTask<T> {
     blending: Option<Blending>,
     viewport: Viewport,
     framebuffer_dimensions: Option<(u32, u32)>,
+}
+
+impl<T> PipelineTask<T> where T: GpuTask<PipelineTaskContext> {
+    pub(crate) fn new<C, Ds, V, R, Tf, F>(framebuffer: &Framebuffer<C, Ds>, pipeline: &GraphicsPipeline<V, R, Tf>, transform_feedback: Option<TransformFeedbackDescriptor>, f: F) -> Self where
+        F: Fn(ActiveGraphicsPipeline<V, R, Tf>) -> T
+    {
+        if framebuffer.context_id != pipeline.context_id() {
+            panic!("The pipeline does not belong to the same context as the framebuffer.");
+        }
+
+        let id = framebuffer.last_pipeline_task_id.get();
+
+        framebuffer.last_pipeline_task_id.set(id + 1);
+
+        let mut hasher = FnvHasher::default();
+
+        (framebuffer.render_pass_id, id).hash(&mut hasher);
+
+        let pipeline_task_id = hasher.finish() as usize;
+
+        let task = f(ActiveGraphicsPipeline {
+            pipeline_task_id,
+            pipeline,
+        });
+
+        if task.context_id() != ContextId::Id(pipeline_task_id) {
+            panic!("Task does not belong to the pipeline task context.")
+        }
+
+        PipelineTask {
+            id: pipeline_task_id,
+            render_pass_id: framebuffer.render_pass_id,
+            task,
+            transform_feedback,
+            program_id: pipeline.program_id(),
+            attribute_layout: pipeline.vertex_attribute_layout().clone(),
+            primitive_assembly: pipeline.primitive_assembly().clone(),
+            depth_test: pipeline.depth_test().cloned(),
+            stencil_test: pipeline.stencil_test().cloned(),
+            scissor_region: pipeline.scissor_region().clone(),
+            blending: pipeline.blending().cloned(),
+            viewport: pipeline.viewport().clone(),
+            framebuffer_dimensions: framebuffer.dimensions,
+        }
+    }
 }
 
 unsafe impl<T, O> GpuTask<RenderPassContext> for PipelineTask<T>
@@ -744,6 +785,32 @@ where
                 gl.drawing_buffer_height() as u32,
             )
         });
+
+        let pause_transform_feedback = self.transform_feedback.as_ref().map(|transform_feedback| {
+            let initialized = transform_feedback.initialized.compare_and_swap(false, true, Ordering::Acquire);
+
+            let (_, fresh) = state.transform_feedback_cache_mut().bind_or_create(self.program_id, &transform_feedback.buffers, gl);
+
+            if initialized {
+                gl.resume_transform_feedback();
+            } else {
+                if !fresh {
+                    gl.end_transform_feedback();
+                }
+
+                let mode = match self.primitive_assembly {
+                    PrimitiveAssembly::Points => Gl::POINTS,
+                    PrimitiveAssembly::Lines(_) => Gl::LINES,
+                    PrimitiveAssembly::LineStrip(_) => Gl::LINES,
+                    PrimitiveAssembly::LineLoop(_) => Gl::LINES,
+                    PrimitiveAssembly::Triangles {..} => Gl::TRIANGLES,
+                    PrimitiveAssembly::TriangleStrip {..} => Gl::TRIANGLES,
+                    PrimitiveAssembly::TriangleFan {..} => Gl::TRIANGLES,
+                };
+
+                gl.begin_transform_feedback(mode);
+            }
+        }).is_some();
 
         match self.scissor_region {
             Region2D::Area((x, y), width, height) => {
@@ -780,13 +847,21 @@ where
         StencilTest::apply(&self.stencil_test, connection);
         Blending::apply(&self.blending, connection);
 
-        self.task.progress(&mut PipelineTaskContext {
+        let res = self.task.progress(&mut PipelineTaskContext {
             pipeline_task_id: self.id,
             connection: context.connection_mut() as *mut Connection,
             attribute_layout: &self.attribute_layout,
             vertex_buffers: BufferDescriptors::new(),
             index_buffer: None,
-        })
+        });
+
+        if pause_transform_feedback {
+            let (gl, _) = unsafe { context.unpack_mut() };
+
+            gl.pause_transform_feedback();
+        }
+
+        res
     }
 }
 
