@@ -148,6 +148,18 @@ pub enum PrimitiveAssembly {
 }
 
 impl PrimitiveAssembly {
+    pub(crate) fn transform_feedback_mode(&self) -> u32 {
+        match self {
+            PrimitiveAssembly::Points => Gl::POINTS,
+            PrimitiveAssembly::Lines(_) => Gl::LINES,
+            PrimitiveAssembly::LineStrip(_) => Gl::LINES,
+            PrimitiveAssembly::LineLoop(_) => Gl::LINES,
+            PrimitiveAssembly::Triangles {..} => Gl::TRIANGLES,
+            PrimitiveAssembly::TriangleStrip {..} => Gl::TRIANGLES,
+            PrimitiveAssembly::TriangleFan {..} => Gl::TRIANGLES,
+        }
+    }
+
     pub(crate) fn topology(&self) -> Topology {
         match self {
             PrimitiveAssembly::Points => Topology::Point,

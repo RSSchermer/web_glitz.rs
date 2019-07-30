@@ -11,6 +11,7 @@ mod interface_block;
 mod interface_block_component;
 mod repr_std140;
 mod resources;
+mod transform_feedback;
 mod util;
 mod vertex;
 
@@ -50,6 +51,13 @@ pub fn derive_resources(input: TokenStream) -> TokenStream {
     resources::expand_derive_resources(&input)
         .unwrap_or_else(compile_error)
         .into()
+}
+
+#[proc_macro_derive(TransformFeedback)]
+pub fn derive_transform_feedback(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+
+    transform_feedback::expand_derive_transform_feedback(&input).into()
 }
 
 #[proc_macro_derive(Vertex, attributes(vertex_attribute))]

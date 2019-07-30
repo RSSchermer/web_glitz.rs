@@ -1,7 +1,7 @@
 use std::borrow::Borrow;
-use std::cell::Cell;
+use std::cell::{Cell, UnsafeCell};
 use std::hash::{Hash, Hasher};
-use std::marker;
+use std::{marker, mem};
 
 use fnv::FnvHasher;
 
@@ -38,12 +38,14 @@ use crate::pipeline::resources::bind_group_encoding::{
 use crate::pipeline::resources::Resources;
 use crate::render_pass::RenderPassContext;
 use crate::render_target::attachable_image_ref::{AttachableImageData, AttachableImageRef};
-use crate::runtime::state::{ContextUpdate, DynamicState};
+use crate::runtime::state::{ContextUpdate, DynamicState, BufferRange};
 use crate::runtime::Connection;
 use crate::task::{sequence, ContextId, Empty, GpuTask, Progress, Sequence};
 use crate::util::JsId;
-use crate::pipeline::graphics::graphics_pipeline::{TransformFeedbackDescriptor, RecordTransformFeedback};
+use crate::pipeline::graphics::graphics_pipeline::{TransformFeedbackData, RecordTransformFeedback, TransformFeedbackState};
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
+use wasm_bindgen::JsValue;
 
 /// Helper trait for implementing [Framebuffer::pipeline_task] for both a plain graphics pipeline
 /// and a graphics pipeline that will record transform feedback.
@@ -73,7 +75,7 @@ impl<'a, V, R, Tf, Fb> GraphicsPipelineState<V, R, Tf> for RecordTransformFeedba
             F: Fn(ActiveGraphicsPipeline<V, R, Tf>) -> T,
             T: GpuTask<PipelineTaskContext>,
     {
-        PipelineTask::new(framebuffer, &self.pipeline, Some(self.descriptor.clone()), f)
+        PipelineTask::new(framebuffer, &self.pipeline, Some(self.buffers.clone()), f)
     }
 }
 
@@ -700,8 +702,9 @@ pub struct PipelineTask<T> {
     id: usize,
     render_pass_id: usize,
     task: T,
-    transform_feedback: Option<TransformFeedbackDescriptor>,
     program_id: JsId,
+    transform_feedback_data: Arc<UnsafeCell<Option<TransformFeedbackData>>>,
+    transform_feedback_buffers: Option<BufferDescriptors>,
     attribute_layout: VertexInputLayoutDescriptor,
     primitive_assembly: PrimitiveAssembly,
     depth_test: Option<DepthTest>,
@@ -713,7 +716,7 @@ pub struct PipelineTask<T> {
 }
 
 impl<T> PipelineTask<T> where T: GpuTask<PipelineTaskContext> {
-    pub(crate) fn new<C, Ds, V, R, Tf, F>(framebuffer: &Framebuffer<C, Ds>, pipeline: &GraphicsPipeline<V, R, Tf>, transform_feedback: Option<TransformFeedbackDescriptor>, f: F) -> Self where
+    pub(crate) fn new<C, Ds, V, R, Tf, F>(framebuffer: &Framebuffer<C, Ds>, pipeline: &GraphicsPipeline<V, R, Tf>, transform_feedback_buffers: Option<BufferDescriptors>, f: F) -> Self where
         F: Fn(ActiveGraphicsPipeline<V, R, Tf>) -> T
     {
         if framebuffer.context_id != pipeline.context_id() {
@@ -743,7 +746,8 @@ impl<T> PipelineTask<T> where T: GpuTask<PipelineTaskContext> {
             id: pipeline_task_id,
             render_pass_id: framebuffer.render_pass_id,
             task,
-            transform_feedback,
+            transform_feedback_data: pipeline.transform_feedback_data.clone(),
+            transform_feedback_buffers,
             program_id: pipeline.program_id(),
             attribute_layout: pipeline.vertex_attribute_layout().clone(),
             primitive_assembly: pipeline.primitive_assembly().clone(),
@@ -786,31 +790,101 @@ where
             )
         });
 
-        let pause_transform_feedback = self.transform_feedback.as_ref().map(|transform_feedback| {
-            let initialized = transform_feedback.initialized.compare_and_swap(false, true, Ordering::Acquire);
+        let transform_feedback_data = unsafe { &mut *self.transform_feedback_data.get() };
 
-            let (_, fresh) = state.transform_feedback_cache_mut().bind_or_create(self.program_id, &transform_feedback.buffers, gl);
+        if let Some(transform_feedback_buffers) = &self.transform_feedback_buffers {
 
-            if initialized {
-                gl.resume_transform_feedback();
-            } else {
-                if !fresh {
-                    gl.end_transform_feedback();
+            if let Some(transform_feedback_data) = transform_feedback_data.as_mut() {
+                unsafe {
+                    transform_feedback_data.id.with_value_unchecked(|transform_feedback| {
+                        state.set_bound_transform_feedback(Some(transform_feedback)).apply(gl).unwrap();
+                    });
                 }
 
-                let mode = match self.primitive_assembly {
-                    PrimitiveAssembly::Points => Gl::POINTS,
-                    PrimitiveAssembly::Lines(_) => Gl::LINES,
-                    PrimitiveAssembly::LineStrip(_) => Gl::LINES,
-                    PrimitiveAssembly::LineLoop(_) => Gl::LINES,
-                    PrimitiveAssembly::Triangles {..} => Gl::TRIANGLES,
-                    PrimitiveAssembly::TriangleStrip {..} => Gl::TRIANGLES,
-                    PrimitiveAssembly::TriangleFan {..} => Gl::TRIANGLES,
-                };
+                if &transform_feedback_data.buffers != transform_feedback_buffers {
+                    for (i, buffer) in transform_feedback_buffers.iter().enumerate() {
+                        let offset = buffer.offset_in_bytes;
+                        let size = buffer.size_in_bytes;
 
-                gl.begin_transform_feedback(mode);
+                        unsafe {
+                            buffer.buffer_data.id().unwrap().with_value_unchecked(|buffer| {
+                                state.set_bound_transform_feedback_buffer_range(i as u32, BufferRange::OffsetSize(buffer, offset, size)).apply(gl).unwrap();
+                            })
+                        }
+                    }
+
+                    for i in transform_feedback_buffers.len()..transform_feedback_data.buffers.len() {
+                        state.set_bound_transform_feedback_buffer_range(i as u32, BufferRange::None).apply(gl).unwrap();
+                    }
+
+                    transform_feedback_data.buffers = transform_feedback_buffers.clone();
+                }
+
+                match transform_feedback_data.state {
+                    TransformFeedbackState::Inactive => {
+                        gl.begin_transform_feedback(self.primitive_assembly.transform_feedback_mode());
+                    }
+                    TransformFeedbackState::Paused => {
+                        gl.resume_transform_feedback();
+                    }
+                    TransformFeedbackState::Recording => ()
+                }
+
+                transform_feedback_data.state = TransformFeedbackState::Recording;
+            } else {
+                let transform_feedback = gl.create_transform_feedback().unwrap();
+
+                state.set_bound_transform_feedback(Some(&transform_feedback)).apply(gl).unwrap();
+
+                for (i, buffer) in transform_feedback_buffers.iter().enumerate() {
+                    let offset = buffer.offset_in_bytes;
+                    let size = buffer.size_in_bytes;
+
+                    unsafe {
+                        buffer.buffer_data.id().unwrap().with_value_unchecked(|buffer| {
+                            state.set_bound_transform_feedback_buffer_range(i as u32, BufferRange::OffsetSize(buffer, offset, size)).apply(gl).unwrap();
+                        })
+                    }
+                }
+
+                gl.begin_transform_feedback(self.primitive_assembly.transform_feedback_mode());
+
+                *transform_feedback_data = Some(TransformFeedbackData {
+                    id: JsId::from_value(transform_feedback.into()),
+                    buffers: transform_feedback_buffers.clone(),
+                    state: TransformFeedbackState::Recording
+                });
             }
-        }).is_some();
+
+            // Make sure none of the transform feedback buffers are bound to any other bind slots as
+            // this will cause the browser to error in the next draw command.
+            state.set_bound_array_buffer(None).apply(gl).unwrap();
+            state.set_bound_copy_read_buffer(None).apply(gl).unwrap();
+            state.set_bound_copy_write_buffer(None).apply(gl).unwrap();
+            state.set_bound_element_array_buffer(None).apply(gl).unwrap();
+            state.set_bound_pixel_pack_buffer(None).apply(gl).unwrap();
+            state.set_bound_pixel_unpack_buffer(None).apply(gl).unwrap();
+        } else {
+            if let Some(transform_feedback_data) = transform_feedback_data.as_mut() {
+                if transform_feedback_data.state != TransformFeedbackState::Inactive {
+                    unsafe {
+                        transform_feedback_data.id.with_value_unchecked(|transform_feedback| {
+                            state.set_bound_transform_feedback(Some(transform_feedback)).apply(gl).unwrap();
+                        });
+
+                        gl.end_transform_feedback();
+
+                        // Unbind all transform feedback buffers, otherwise the browser will error
+                        // the next time they are used in a draw command.
+                        for i in 0..transform_feedback_data.buffers.len() {
+                            state.set_bound_transform_feedback_buffer_range(i as u32, BufferRange::None).apply(gl).unwrap();
+                        }
+
+                        transform_feedback_data.state = TransformFeedbackState::Inactive;
+                    }
+                }
+            }
+        }
 
         match self.scissor_region {
             Region2D::Area((x, y), width, height) => {
@@ -855,10 +929,14 @@ where
             index_buffer: None,
         });
 
-        if pause_transform_feedback {
-            let (gl, _) = unsafe { context.unpack_mut() };
+        if let Some(transform_feedback_data) = transform_feedback_data.as_mut() {
+            if transform_feedback_data.state == TransformFeedbackState::Recording {
+                let (gl, _) = unsafe { context.unpack_mut() };
 
-            gl.pause_transform_feedback();
+                gl.pause_transform_feedback();
+
+                transform_feedback_data.state = TransformFeedbackState::Paused;
+            }
         }
 
         res

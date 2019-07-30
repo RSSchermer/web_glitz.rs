@@ -4,6 +4,8 @@ use serde::{Serialize, Serializer};
 use web_sys::{WebGl2RenderingContext as Gl, WebGlProgram};
 
 use crate::runtime::CreateGraphicsPipelineError;
+use std::borrow::Borrow;
+use std::ops::Deref;
 
 pub unsafe trait TransformFeedback {
     const ATTRIBUTE_DESCRIPTORS: &'static [TransformFeedbackAttributeDescriptor];
@@ -132,8 +134,8 @@ impl_into_transform_feedback_layout_descriptor!(16);
 /// See also [TransformFeedbackLayoutDescriptor].
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
 pub struct TransformFeedbackAttributeDescriptor {
-    /// The name of the output attribute as defined by the shader code.
-    pub name: String,
+    /// The identifier of the output attribute as defined by the shader code.
+    pub ident: TransformFeedbackAttributeIdentifier,
 
     /// The type of the output attribute.
     pub attribute_type: TransformFeedbackAttributeType,
@@ -142,6 +144,60 @@ pub struct TransformFeedbackAttributeDescriptor {
     ///
     /// Always `1` for non-array attributes.
     pub size: usize,
+}
+
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
+pub enum TransformFeedbackAttributeIdentifier {
+    Dynamic(String),
+    Static(&'static str)
+}
+
+impl From<String> for TransformFeedbackAttributeIdentifier {
+    fn from(ident: String) -> Self {
+        TransformFeedbackAttributeIdentifier::Dynamic(ident)
+    }
+}
+impl From<&'static str> for TransformFeedbackAttributeIdentifier {
+    fn from(ident: &'static str) -> Self {
+        TransformFeedbackAttributeIdentifier::Static(ident)
+    }
+}
+
+//impl ToString for TransformFeedbackAttributeIdentifier {
+//    fn to_string(&self) -> String {
+//        match self {
+//            TransformFeedbackAttributeIdentifier::Dynamic(ident) => ident.clone(),
+//            TransformFeedbackAttributeIdentifier::Static(ident) => ident.to_string()
+//        }
+//    }
+//}
+
+impl Deref for TransformFeedbackAttributeIdentifier {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            TransformFeedbackAttributeIdentifier::Dynamic(ident) => ident,
+            TransformFeedbackAttributeIdentifier::Static(ident) => ident
+        }
+    }
+}
+//
+//impl Borrow<str> for TransformFeedbackAttributeIdentifier {
+//    fn borrow(&self) -> &str {
+//        match self {
+//            TransformFeedbackAttributeIdentifier::Dynamic(ident) => ident,
+//            TransformFeedbackAttributeIdentifier::Static(ident) => ident
+//        }
+//    }
+//}
+//
+impl Serialize for TransformFeedbackAttributeIdentifier {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where
+        S: Serializer
+    {
+        serializer.serialize_str(self.borrow())
+    }
 }
 
 /// Enumerates the possible transform stage output types that may be recorded as transform feedback.
@@ -189,7 +245,7 @@ impl TransformFeedbackLayoutDescriptor {
 
                 if info.size() != attribute.size as i32 {
                     return Err(CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                        attribute.name.clone(),
+                        attribute.ident.to_string(),
                     ));
                 }
 
@@ -198,7 +254,7 @@ impl TransformFeedbackLayoutDescriptor {
                         if info.type_() != Gl::FLOAT {
                             return Err(
                                 CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                    attribute.name.clone(),
+                                    attribute.ident.to_string(),
                                 ),
                             );
                         }
@@ -207,7 +263,7 @@ impl TransformFeedbackLayoutDescriptor {
                         if info.type_() != Gl::FLOAT_VEC2 {
                             return Err(
                                 CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                    attribute.name.clone(),
+                                    attribute.ident.to_string(),
                                 ),
                             );
                         }
@@ -216,7 +272,7 @@ impl TransformFeedbackLayoutDescriptor {
                         if info.type_() != Gl::FLOAT_VEC3 {
                             return Err(
                                 CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                    attribute.name.clone(),
+                                    attribute.ident.to_string(),
                                 ),
                             );
                         }
@@ -225,7 +281,7 @@ impl TransformFeedbackLayoutDescriptor {
                         if info.type_() != Gl::FLOAT_VEC4 {
                             return Err(
                                 CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                    attribute.name.clone(),
+                                    attribute.ident.to_string(),
                                 ),
                             );
                         }
@@ -234,7 +290,7 @@ impl TransformFeedbackLayoutDescriptor {
                         if info.type_() != Gl::FLOAT_MAT2 {
                             return Err(
                                 CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                    attribute.name.clone(),
+                                    attribute.ident.to_string(),
                                 ),
                             );
                         }
@@ -243,7 +299,7 @@ impl TransformFeedbackLayoutDescriptor {
                         if info.type_() != Gl::FLOAT_MAT2X3 {
                             return Err(
                                 CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                    attribute.name.clone(),
+                                    attribute.ident.to_string(),
                                 ),
                             );
                         }
@@ -252,7 +308,7 @@ impl TransformFeedbackLayoutDescriptor {
                         if info.type_() != Gl::FLOAT_MAT2X4 {
                             return Err(
                                 CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                    attribute.name.clone(),
+                                    attribute.ident.to_string(),
                                 ),
                             );
                         }
@@ -261,7 +317,7 @@ impl TransformFeedbackLayoutDescriptor {
                         if info.type_() != Gl::FLOAT_MAT3X2 {
                             return Err(
                                 CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                    attribute.name.clone(),
+                                    attribute.ident.to_string(),
                                 ),
                             );
                         }
@@ -270,7 +326,7 @@ impl TransformFeedbackLayoutDescriptor {
                         if info.type_() != Gl::FLOAT_MAT3 {
                             return Err(
                                 CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                    attribute.name.clone(),
+                                    attribute.ident.to_string(),
                                 ),
                             );
                         }
@@ -279,7 +335,7 @@ impl TransformFeedbackLayoutDescriptor {
                         if info.type_() != Gl::FLOAT_MAT3X4 {
                             return Err(
                                 CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                    attribute.name.clone(),
+                                    attribute.ident.to_string(),
                                 ),
                             );
                         }
@@ -288,7 +344,7 @@ impl TransformFeedbackLayoutDescriptor {
                         if info.type_() != Gl::FLOAT_MAT4X2 {
                             return Err(
                                 CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                    attribute.name.clone(),
+                                    attribute.ident.to_string(),
                                 ),
                             );
                         }
@@ -297,7 +353,7 @@ impl TransformFeedbackLayoutDescriptor {
                         if info.type_() != Gl::FLOAT_MAT4X3 {
                             return Err(
                                 CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                    attribute.name.clone(),
+                                    attribute.ident.to_string(),
                                 ),
                             );
                         }
@@ -306,7 +362,7 @@ impl TransformFeedbackLayoutDescriptor {
                         if info.type_() != Gl::FLOAT_MAT4 {
                             return Err(
                                 CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                    attribute.name.clone(),
+                                    attribute.ident.to_string(),
                                 ),
                             );
                         }
@@ -315,7 +371,7 @@ impl TransformFeedbackLayoutDescriptor {
                         if info.type_() != Gl::INT {
                             return Err(
                                 CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                    attribute.name.clone(),
+                                    attribute.ident.to_string(),
                                 ),
                             );
                         }
@@ -324,7 +380,7 @@ impl TransformFeedbackLayoutDescriptor {
                         if info.type_() != Gl::INT_VEC2 {
                             return Err(
                                 CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                    attribute.name.clone(),
+                                    attribute.ident.to_string(),
                                 ),
                             );
                         }
@@ -333,7 +389,7 @@ impl TransformFeedbackLayoutDescriptor {
                         if info.type_() != Gl::INT_VEC3 {
                             return Err(
                                 CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                    attribute.name.clone(),
+                                    attribute.ident.to_string(),
                                 ),
                             );
                         }
@@ -342,7 +398,7 @@ impl TransformFeedbackLayoutDescriptor {
                         if info.type_() != Gl::INT_VEC4 {
                             return Err(
                                 CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                    attribute.name.clone(),
+                                    attribute.ident.to_string(),
                                 ),
                             );
                         }
@@ -351,7 +407,7 @@ impl TransformFeedbackLayoutDescriptor {
                         if info.type_() != Gl::UNSIGNED_INT {
                             return Err(
                                 CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                    attribute.name.clone(),
+                                    attribute.ident.to_string(),
                                 ),
                             );
                         }
@@ -360,7 +416,7 @@ impl TransformFeedbackLayoutDescriptor {
                         if info.type_() != Gl::UNSIGNED_INT_VEC2 {
                             return Err(
                                 CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                    attribute.name.clone(),
+                                    attribute.ident.to_string(),
                                 ),
                             );
                         }
@@ -369,7 +425,7 @@ impl TransformFeedbackLayoutDescriptor {
                         if info.type_() != Gl::UNSIGNED_INT_VEC3 {
                             return Err(
                                 CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                    attribute.name.clone(),
+                                    attribute.ident.to_string(),
                                 ),
                             );
                         }
@@ -378,7 +434,7 @@ impl TransformFeedbackLayoutDescriptor {
                         if info.type_() != Gl::UNSIGNED_INT_VEC4 {
                             return Err(
                                 CreateGraphicsPipelineError::TransformFeedbackTypeMismatch(
-                                    attribute.name.clone(),
+                                    attribute.ident.to_string(),
                                 ),
                             );
                         }
@@ -505,12 +561,12 @@ pub struct TransformFeedbackLayoutAllocationHint {
 ///
 /// builder.add_bind_slot()
 ///     .add_attribute(TransformFeedbackAttributeDescriptor {
-///         name: "position".to_string(),
+///         ident: "position".into(),
 ///         attribute_type: TransformFeedbackAttributeType::FloatVector3,
 ///         size: 1
 ///     })
 ///     .add_attribute(TransformFeedbackAttributeDescriptor {
-///         name: "normal".to_string(),
+///         ident: "normal".into(),
 ///         attribute_type: TransformFeedbackAttributeType::FloatVector3,
 ///         size: 1
 ///     });
@@ -737,7 +793,7 @@ impl<'a> Serialize for TransformFeedbackVaryings<'a> {
         for element in layout {
             match element {
                 LayoutElement::NextAttribute(descriptor) => {
-                    seq.serialize_element(&descriptor.name)?;
+                    seq.serialize_element(&descriptor.ident)?;
                 }
                 LayoutElement::NextBindSlot => {
                     seq.serialize_element("gl_NextBuffer")?;

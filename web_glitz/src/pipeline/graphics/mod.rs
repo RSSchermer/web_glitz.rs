@@ -29,7 +29,7 @@ pub use self::transform_feedback::{
     TransformFeedbackBuffersEncoding, TransformFeedbackBuffersEncodingContext,
     TransformFeedbackLayoutAllocationHint, TransformFeedbackLayoutDescriptor,
     TransformFeedbackLayoutDescriptorBuilder, TypedTransformFeedbackBuffer,
-    TypedTransformFeedbackBuffers, TypedTransformFeedbackLayout,
+    TypedTransformFeedbackBuffers, TypedTransformFeedbackLayout, TransformFeedbackAttributeIdentifier
 };
 
 pub(crate) mod vertex;

@@ -5,7 +5,7 @@ pub use self::layout_descriptor::{
     TransformFeedbackBufferSlotAttributes, TransformFeedbackBufferSlotRef,
     TransformFeedbackBufferSlots, TransformFeedbackLayoutAllocationHint,
     TransformFeedbackLayoutDescriptor, TransformFeedbackLayoutDescriptorBuilder,
-    TypedTransformFeedbackLayout,
+    TypedTransformFeedbackLayout, TransformFeedbackAttributeIdentifier
 };
 
 pub(crate) mod transform_feedback_buffers;

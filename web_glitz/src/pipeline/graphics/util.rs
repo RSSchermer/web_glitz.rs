@@ -1,10 +1,11 @@
 use std::hash::{Hash, Hasher};
 use std::mem::{ManuallyDrop, MaybeUninit};
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 use std::{mem, ptr};
 
 use crate::buffer::{BufferData, BufferView};
+use wasm_bindgen::JsValue;
 
 /// Describes an input source for vertex attribute data.
 #[derive(Clone)]
@@ -33,6 +34,12 @@ impl BufferDescriptor {
     }
 }
 
+impl PartialEq for BufferDescriptor {
+    fn eq(&self, other: &Self) -> bool {
+        self.offset_in_bytes == other.offset_in_bytes && self.size_in_bytes == other.size_in_bytes && self.buffer_data.id() == other.buffer_data.id()
+    }
+}
+
 impl Hash for BufferDescriptor {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.buffer_data.id().hash(state);
@@ -42,7 +49,7 @@ impl Hash for BufferDescriptor {
 }
 
 pub(crate) struct BufferDescriptors {
-    storage: ManuallyDrop<[BufferDescriptor; 16]>,
+    storage: [ManuallyDrop<BufferDescriptor>; 16],
     len: usize,
 }
 
@@ -50,40 +57,46 @@ impl BufferDescriptors {
     pub fn new() -> Self {
         BufferDescriptors {
             storage: unsafe {
-                ManuallyDrop::new([
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                    MaybeUninit::uninit().assume_init(),
-                ])
+                [
+                    ManuallyDrop::new(MaybeUninit::uninit().assume_init()),
+                    ManuallyDrop::new(MaybeUninit::uninit().assume_init()),
+                    ManuallyDrop::new(MaybeUninit::uninit().assume_init()),
+                    ManuallyDrop::new(MaybeUninit::uninit().assume_init()),
+                    ManuallyDrop::new(MaybeUninit::uninit().assume_init()),
+                    ManuallyDrop::new(MaybeUninit::uninit().assume_init()),
+                    ManuallyDrop::new(MaybeUninit::uninit().assume_init()),
+                    ManuallyDrop::new(MaybeUninit::uninit().assume_init()),
+                    ManuallyDrop::new(MaybeUninit::uninit().assume_init()),
+                    ManuallyDrop::new(MaybeUninit::uninit().assume_init()),
+                    ManuallyDrop::new(MaybeUninit::uninit().assume_init()),
+                    ManuallyDrop::new(MaybeUninit::uninit().assume_init()),
+                    ManuallyDrop::new(MaybeUninit::uninit().assume_init()),
+                    ManuallyDrop::new(MaybeUninit::uninit().assume_init()),
+                    ManuallyDrop::new(MaybeUninit::uninit().assume_init()),
+                    ManuallyDrop::new(MaybeUninit::uninit().assume_init()),
+                ]
             },
             len: 0,
         }
     }
 
     pub fn push(&mut self, descriptor: BufferDescriptor) {
-        self.storage[self.len] = descriptor;
+        self.storage[self.len] = ManuallyDrop::new(descriptor);
         self.len += 1;
     }
 }
 
 impl Deref for BufferDescriptors {
-    type Target = [BufferDescriptor];
+    type Target = [ManuallyDrop<BufferDescriptor>];
 
     fn deref(&self) -> &Self::Target {
         &self.storage[0..self.len]
+    }
+}
+
+impl PartialEq for BufferDescriptors {
+    fn eq(&self, other: &Self) -> bool {
+        self.deref() == other.deref()
     }
 }
 
@@ -92,7 +105,8 @@ impl Clone for BufferDescriptors {
         let mut buffer_descriptors = BufferDescriptors::new();
 
         for descriptor in self.iter() {
-            buffer_descriptors.push(descriptor.clone())
+
+            buffer_descriptors.push(descriptor.deref().clone())
         }
 
         buffer_descriptors
@@ -103,7 +117,7 @@ impl Drop for BufferDescriptors {
     fn drop(&mut self) {
         for vertex_buffer in self.storage[0..self.len].iter_mut() {
             unsafe {
-                ptr::drop_in_place(vertex_buffer as *mut BufferDescriptor);
+                ptr::drop_in_place(vertex_buffer.deref_mut() as *mut BufferDescriptor);
             }
         }
     }
