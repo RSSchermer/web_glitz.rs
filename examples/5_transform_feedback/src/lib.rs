@@ -22,11 +22,11 @@ use web_sys::{window, HtmlCanvasElement};
 // In this example we'll use the same type both as our "Vertex" type and as our "TransformFeedback"
 // type. To facilitate this in a safe way we derive `web_glitz::derive::TransformFeedback` in
 // addition to deriving `web_glitz::derive::Vertex` as we did in `/examples/1_uniform_block`. Also,
-// to ensure that we can use this type with our graphics pipeline, we need to make sure that the
-// field names we use match exactly the names of the `out` values that we wish to record in our
-// vertex shader (see `./vertex.glsl`). We must also ensure that the field types we use are
-// compatible with the GLSL types used for these `out` values. This will be verified by reflecting
-// on the shader code when we create our pipeline.
+// to successfully use this type with our graphics pipeline, we need to make sure that the field
+// names we use exactly match the names of the `out` values that we wish to record in our vertex
+// shader (see `./vertex.glsl`). We must also ensure that the field types we use are compatible with
+// the GLSL types used for these `out` values. This will be verified by reflecting on the shader
+// code when we create our pipeline.
 #[derive(web_glitz::derive::Vertex, web_glitz::derive::TransformFeedback, Clone, Copy, Default)]
 struct Vertex {
     #[vertex_attribute(location = 0, format = "Float2_f32")]
