@@ -196,6 +196,8 @@ pub type mat4x2 = array<vec2, 4>;
 pub type mat4x3 = array<vec3, 4>;
 pub type mat4x4 = array<vec4, 4>;
 
+// TODO: these still cause the nightly compiler to panic (as of 2019-7-31)
+
 pub fn mat2x2(c0: vec2, c1: vec2) -> mat2x2 {
     unimplemented!()
     //array![c0, c1]
