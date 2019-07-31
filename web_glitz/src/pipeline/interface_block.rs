@@ -142,8 +142,8 @@ pub unsafe trait InterfaceBlockComponent: StableRepr {
 /// This trait is required to be implemented for any type that wishes to implement [InterfaceBlock]
 /// or [InterfaceBlockComponent].
 ///
-/// This trait is automatically implemented for any type marked with [web_glitz::std140::ReprStd140],
-/// including any user-defined structs marked with the `#[repr_std140]` attribute.
+/// This trait is automatically implemented for any type marked with [ReprStd140], including any
+/// user-defined structs marked with the `#[repr_std140]` attribute.
 ///
 /// # Unsafe
 ///
