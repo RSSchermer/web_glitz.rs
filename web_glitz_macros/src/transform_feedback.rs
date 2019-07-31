@@ -3,6 +3,10 @@ use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{Data, DeriveInput, Ident};
 
+// TODO: investigate whether the presence of #[repr(C)] should be required. Currently this can only
+// be safely derived for structs for which all fields are 4 byte aligned, which may be enough to
+// guarantee defined behaviour, but I've not yet explicitly verified that it is.
+
 pub fn expand_derive_transform_feedback(input: &DeriveInput) -> TokenStream {
     if let Data::Struct(data) = &input.data {
         let struct_name = &input.ident;
