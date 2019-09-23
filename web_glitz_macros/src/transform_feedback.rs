@@ -13,7 +13,11 @@ pub fn expand_derive_transform_feedback(input: &DeriveInput) -> TokenStream {
         let mod_path = quote!(_web_glitz::pipeline::graphics);
 
         let recurse = data.fields.iter().map(|field| {
-            let name = field.ident.clone().expect("`TransformFeedback` can only be derived for a struct with named fields.").to_string();
+            let name = field
+                .ident
+                .clone()
+                .expect("`TransformFeedback` can only be derived for a struct with named fields.")
+                .to_string();
             let ty = &field.ty;
             let span = field.span();
 
@@ -39,7 +43,10 @@ pub fn expand_derive_transform_feedback(input: &DeriveInput) -> TokenStream {
         };
 
         let suffix = struct_name.to_string().trim_start_matches("r#").to_owned();
-        let dummy_const = Ident::new(&format!("_IMPL_TRANSFORM_FEEDBACK_FOR_{}", suffix), Span::call_site());
+        let dummy_const = Ident::new(
+            &format!("_IMPL_TRANSFORM_FEEDBACK_FOR_{}", suffix),
+            Span::call_site(),
+        );
 
         let generated = quote! {
             #[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]

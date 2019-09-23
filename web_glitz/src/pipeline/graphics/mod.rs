@@ -23,13 +23,13 @@ pub use self::shader::{FragmentShader, VertexShader};
 pub(crate) mod transform_feedback;
 pub use self::transform_feedback::{
     TransformFeedback, TransformFeedbackAttribute, TransformFeedbackAttributeDescriptor,
-    TransformFeedbackAttributeType, TransformFeedbackBuffer,
+    TransformFeedbackAttributeIdentifier, TransformFeedbackAttributeType, TransformFeedbackBuffer,
     TransformFeedbackBufferSlotAttributeAttacher, TransformFeedbackBufferSlotAttributes,
     TransformFeedbackBufferSlotRef, TransformFeedbackBufferSlots, TransformFeedbackBuffers,
     TransformFeedbackBuffersEncoding, TransformFeedbackBuffersEncodingContext,
     TransformFeedbackLayoutAllocationHint, TransformFeedbackLayoutDescriptor,
     TransformFeedbackLayoutDescriptorBuilder, TypedTransformFeedbackBuffer,
-    TypedTransformFeedbackBuffers, TypedTransformFeedbackLayout, TransformFeedbackAttributeIdentifier
+    TypedTransformFeedbackBuffers, TypedTransformFeedbackLayout,
 };
 
 pub(crate) mod vertex;

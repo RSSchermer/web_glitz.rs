@@ -149,7 +149,7 @@ pub struct TransformFeedbackAttributeDescriptor {
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
 pub enum TransformFeedbackAttributeIdentifier {
     Dynamic(String),
-    Static(&'static str)
+    Static(&'static str),
 }
 
 impl From<String> for TransformFeedbackAttributeIdentifier {
@@ -178,7 +178,7 @@ impl Deref for TransformFeedbackAttributeIdentifier {
     fn deref(&self) -> &Self::Target {
         match self {
             TransformFeedbackAttributeIdentifier::Dynamic(ident) => ident,
-            TransformFeedbackAttributeIdentifier::Static(ident) => ident
+            TransformFeedbackAttributeIdentifier::Static(ident) => ident,
         }
     }
 }
@@ -193,8 +193,9 @@ impl Deref for TransformFeedbackAttributeIdentifier {
 //}
 //
 impl Serialize for TransformFeedbackAttributeIdentifier {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where
-        S: Serializer
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
     {
         serializer.serialize_str(self.borrow())
     }

@@ -36,7 +36,9 @@ impl BufferDescriptor {
 
 impl PartialEq for BufferDescriptor {
     fn eq(&self, other: &Self) -> bool {
-        self.offset_in_bytes == other.offset_in_bytes && self.size_in_bytes == other.size_in_bytes && self.buffer_data.id() == other.buffer_data.id()
+        self.offset_in_bytes == other.offset_in_bytes
+            && self.size_in_bytes == other.size_in_bytes
+            && self.buffer_data.id() == other.buffer_data.id()
     }
 }
 
@@ -105,7 +107,6 @@ impl Clone for BufferDescriptors {
         let mut buffer_descriptors = BufferDescriptors::new();
 
         for descriptor in self.iter() {
-
             buffer_descriptors.push(descriptor.deref().clone())
         }
 

@@ -3,7 +3,11 @@ use std::sync::Arc;
 
 use crate::image::Region2D;
 use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
-use crate::pipeline::graphics::{Blending, DepthTest, FragmentShader, PrimitiveAssembly, StencilTest, TransformFeedbackLayoutDescriptor, TypedVertexInputLayout, Untyped, VertexInputLayoutDescriptor, VertexShader, Viewport, TypedTransformFeedbackLayout};
+use crate::pipeline::graphics::{
+    Blending, DepthTest, FragmentShader, PrimitiveAssembly, StencilTest,
+    TransformFeedbackLayoutDescriptor, TypedTransformFeedbackLayout, TypedVertexInputLayout,
+    Untyped, VertexInputLayoutDescriptor, VertexShader, Viewport,
+};
 use crate::pipeline::resources::Resources;
 
 /// Enumerates the strategies available to map pipeline resource slots to binding indices.
@@ -350,8 +354,8 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
     pub fn typed_transform_feedback_layout<T>(
         self,
     ) -> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T>
-        where
-            T: TypedTransformFeedbackLayout,
+    where
+        T: TypedTransformFeedbackLayout,
     {
         GraphicsPipelineDescriptorBuilder {
             _vertex_shader: marker::PhantomData,

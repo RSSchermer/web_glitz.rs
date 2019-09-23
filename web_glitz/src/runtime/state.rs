@@ -26,7 +26,7 @@ use crate::runtime::index_lru::IndexLRU;
 use crate::util::{identical, JsId};
 use web_sys::{
     WebGl2RenderingContext as Gl, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlRenderbuffer,
-    WebGlSampler, WebGlTexture, WebGlVertexArrayObject, WebGlTransformFeedback
+    WebGlSampler, WebGlTexture, WebGlTransformFeedback, WebGlVertexArrayObject,
 };
 
 pub struct DynamicState {
@@ -2606,10 +2606,8 @@ pub enum CreateProgramError {
 pub(crate) struct Program {
     gl_object: WebGlProgram,
     attribute_slot_descriptors: Vec<VertexAttributeSlotDescriptor>,
-    resource_slot_descriptors: Vec<ResourceSlotDescriptor>
+    resource_slot_descriptors: Vec<ResourceSlotDescriptor>,
 }
-
-
 
 impl Program {
     pub fn gl_object(&self) -> &WebGlProgram {

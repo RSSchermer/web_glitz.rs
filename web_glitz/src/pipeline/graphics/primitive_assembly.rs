@@ -154,9 +154,9 @@ impl PrimitiveAssembly {
             PrimitiveAssembly::Lines(_) => Gl::LINES,
             PrimitiveAssembly::LineStrip(_) => Gl::LINES,
             PrimitiveAssembly::LineLoop(_) => Gl::LINES,
-            PrimitiveAssembly::Triangles {..} => Gl::TRIANGLES,
-            PrimitiveAssembly::TriangleStrip {..} => Gl::TRIANGLES,
-            PrimitiveAssembly::TriangleFan {..} => Gl::TRIANGLES,
+            PrimitiveAssembly::Triangles { .. } => Gl::TRIANGLES,
+            PrimitiveAssembly::TriangleStrip { .. } => Gl::TRIANGLES,
+            PrimitiveAssembly::TriangleFan { .. } => Gl::TRIANGLES,
         }
     }
 

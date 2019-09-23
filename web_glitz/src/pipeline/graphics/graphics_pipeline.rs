@@ -4,7 +4,13 @@ use std::sync::Arc;
 
 use crate::image::Region2D;
 use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
-use crate::pipeline::graphics::{Blending, DepthTest, GraphicsPipelineDescriptor, PrimitiveAssembly, SlotBindingStrategy, StencilTest, TransformFeedbackLayoutDescriptor, TypedTransformFeedbackBuffers, TypedTransformFeedbackLayout, VertexInputLayoutDescriptor, Viewport, TransformFeedbackBuffersEncodingContext};
+use crate::pipeline::graphics::util::BufferDescriptors;
+use crate::pipeline::graphics::{
+    Blending, DepthTest, GraphicsPipelineDescriptor, PrimitiveAssembly, SlotBindingStrategy,
+    StencilTest, TransformFeedbackBuffersEncodingContext, TransformFeedbackLayoutDescriptor,
+    TypedTransformFeedbackBuffers, TypedTransformFeedbackLayout, VertexInputLayoutDescriptor,
+    Viewport,
+};
 use crate::pipeline::resources::resource_slot::{SlotBindingChecker, SlotBindingUpdater};
 use crate::pipeline::resources::Resources;
 use crate::runtime::state::{ContextUpdate, DynamicState, ProgramKey};
@@ -12,10 +18,9 @@ use crate::runtime::{Connection, CreateGraphicsPipelineError, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
 use fnv::FnvHasher;
+use std::cell::UnsafeCell;
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::AtomicBool;
-use crate::pipeline::graphics::util::BufferDescriptors;
-use std::cell::UnsafeCell;
 use wasm_bindgen::{JsCast, JsValue};
 
 /// Encapsulates the state for a graphics pipeline.
@@ -42,7 +47,7 @@ pub struct GraphicsPipeline<V, R, Tf> {
     scissor_region: Region2D,
     blending: Option<Blending>,
     viewport: Viewport,
-    pub(crate) transform_feedback_data: Arc<UnsafeCell<Option<TransformFeedbackData>>>
+    pub(crate) transform_feedback_data: Arc<UnsafeCell<Option<TransformFeedbackData>>>,
 }
 
 impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
@@ -124,8 +129,10 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
     {
         RecordTransformFeedback {
             pipeline: self,
-            buffers: transform_feedback_buffers.encode(&mut TransformFeedbackBuffersEncodingContext::new()).into_descriptors(),
-            _marker: marker::PhantomData
+            buffers: transform_feedback_buffers
+                .encode(&mut TransformFeedbackBuffersEncodingContext::new())
+                .into_descriptors(),
+            _marker: marker::PhantomData,
         }
     }
 }
@@ -222,7 +229,7 @@ where
             scissor_region: descriptor.scissor_region.clone(),
             blending: descriptor.blending.clone(),
             viewport: descriptor.viewport.clone(),
-            transform_feedback_data: Arc::new(UnsafeCell::new(None))
+            transform_feedback_data: Arc::new(UnsafeCell::new(None)),
         })
     }
 }
@@ -230,20 +237,20 @@ where
 pub struct RecordTransformFeedback<'a, V, R, Tf, Fb> {
     pub(crate) pipeline: &'a mut GraphicsPipeline<V, R, Tf>,
     pub(crate) buffers: BufferDescriptors,
-    _marker: marker::PhantomData<Fb>
+    _marker: marker::PhantomData<Fb>,
 }
 
 pub(crate) struct TransformFeedbackData {
     pub(crate) id: JsId,
     pub(crate) state: TransformFeedbackState,
-    pub(crate) buffers: BufferDescriptors
+    pub(crate) buffers: BufferDescriptors,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub(crate) enum TransformFeedbackState {
     Inactive,
     Recording,
-    Paused
+    Paused,
 }
 
 /// Error returned when trying to create a graphics pipeline and the shaders fail to link.
@@ -255,27 +262,39 @@ pub struct ShaderLinkingError {
 }
 
 trait GraphicsPipelineDropper {
-    fn drop_graphics_pipeline(&self, id: JsId, transform_feedback_data: Arc<UnsafeCell<Option<TransformFeedbackData>>>);
+    fn drop_graphics_pipeline(
+        &self,
+        id: JsId,
+        transform_feedback_data: Arc<UnsafeCell<Option<TransformFeedbackData>>>,
+    );
 }
 
 impl<T> GraphicsPipelineDropper for T
 where
     T: RenderingContext,
 {
-    fn drop_graphics_pipeline(&self, program_id: JsId, transform_feedback_data: Arc<UnsafeCell<Option<TransformFeedbackData>>>) {
-        self.submit(GraphicsPipelineDropCommand { program_id, transform_feedback_data });
+    fn drop_graphics_pipeline(
+        &self,
+        program_id: JsId,
+        transform_feedback_data: Arc<UnsafeCell<Option<TransformFeedbackData>>>,
+    ) {
+        self.submit(GraphicsPipelineDropCommand {
+            program_id,
+            transform_feedback_data,
+        });
     }
 }
 
 impl<V, R, Tf> Drop for GraphicsPipeline<V, R, Tf> {
     fn drop(&mut self) {
-        self.dropper.drop_graphics_pipeline(self.program_id, self.transform_feedback_data.clone());
+        self.dropper
+            .drop_graphics_pipeline(self.program_id, self.transform_feedback_data.clone());
     }
 }
 
 struct GraphicsPipelineDropCommand {
     program_id: JsId,
-    transform_feedback_data: Arc<UnsafeCell<Option<TransformFeedbackData>>>
+    transform_feedback_data: Arc<UnsafeCell<Option<TransformFeedbackData>>>,
 }
 
 unsafe impl GpuTask<Connection> for GraphicsPipelineDropCommand {
@@ -294,10 +313,14 @@ unsafe impl GpuTask<Connection> for GraphicsPipelineDropCommand {
             let (gl, state) = unsafe { connection.unpack_mut() };
 
             unsafe {
-                let transform_feedback = JsId::into_value(transform_feedback_data.id).unchecked_into();
+                let transform_feedback =
+                    JsId::into_value(transform_feedback_data.id).unchecked_into();
 
                 if transform_feedback_data.state != TransformFeedbackState::Inactive {
-                    state.set_bound_transform_feedback(Some(&transform_feedback)).apply(gl).unwrap();
+                    state
+                        .set_bound_transform_feedback(Some(&transform_feedback))
+                        .apply(gl)
+                        .unwrap();
 
                     if transform_feedback_data.state != TransformFeedbackState::Inactive {
                         gl.end_transform_feedback();
