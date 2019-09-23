@@ -520,6 +520,15 @@ pub enum boolean {
 unsafe impl ReprStd140 for boolean {}
 unsafe impl Std140ArrayElement for boolean {}
 
+impl From<bool> for boolean {
+    fn from(value: bool) -> Self {
+        match value {
+            true => boolean::True,
+            false => boolean::False
+        }
+    }
+}
+
 #[repr(C, align(8))]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct bvec2(pub boolean, pub boolean);
