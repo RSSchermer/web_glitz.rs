@@ -118,11 +118,6 @@
 
 use std::ops::{Index, IndexMut, Deref, DerefMut};
 
-use crate::pipeline::interface_block::{
-    CheckCompatibility, Incompatible, InterfaceBlockComponent, MatrixOrder, MemoryUnitDescriptor,
-    UnitLayout,
-};
-
 /// Initializes a `std140` array.
 ///
 /// # Example

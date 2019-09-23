@@ -5,7 +5,6 @@ use std::sync::Arc;
 use std::{mem, ptr};
 
 use crate::buffer::{BufferData, BufferView};
-use wasm_bindgen::JsValue;
 
 /// Describes an input source for vertex attribute data.
 #[derive(Clone)]

@@ -1,10 +1,10 @@
 use std::borrow::Borrow;
 use std::cell::{Cell, UnsafeCell};
 use std::hash::{Hash, Hasher};
-use std::{marker, mem};
+use std::marker;
+use std::sync::Arc;
 
 use fnv::FnvHasher;
-
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::image::format::{
@@ -45,9 +45,6 @@ use crate::runtime::state::{BufferRange, ContextUpdate, DynamicState};
 use crate::runtime::Connection;
 use crate::task::{sequence, ContextId, Empty, GpuTask, Progress, Sequence};
 use crate::util::JsId;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
-use wasm_bindgen::JsValue;
 
 /// Helper trait for implementing [Framebuffer::pipeline_task] for both a plain graphics pipeline
 /// and a graphics pipeline that will record transform feedback.

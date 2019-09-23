@@ -1,6 +1,11 @@
 use std::any::TypeId;
+use std::cell::UnsafeCell;
+use std::hash::{Hash, Hasher};
 use std::marker;
 use std::sync::Arc;
+
+use fnv::FnvHasher;
+use wasm_bindgen::{JsCast};
 
 use crate::image::Region2D;
 use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
@@ -17,11 +22,6 @@ use crate::runtime::state::{ContextUpdate, DynamicState, ProgramKey};
 use crate::runtime::{Connection, CreateGraphicsPipelineError, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
-use fnv::FnvHasher;
-use std::cell::UnsafeCell;
-use std::hash::{Hash, Hasher};
-use std::sync::atomic::AtomicBool;
-use wasm_bindgen::{JsCast, JsValue};
 
 /// Encapsulates the state for a graphics pipeline.
 ///

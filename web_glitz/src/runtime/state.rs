@@ -10,7 +10,7 @@ use js_sys::Uint32Array;
 use wasm_bindgen::JsValue;
 
 use crate::pipeline::graphics::transform_feedback::layout_descriptor::TransformFeedbackVaryings;
-use crate::pipeline::graphics::util::{BufferDescriptor, BufferDescriptors};
+use crate::pipeline::graphics::util::BufferDescriptors;
 use crate::pipeline::graphics::vertex::index_buffer::IndexBufferDescriptor;
 use crate::pipeline::graphics::vertex::layout_descriptor::VertexAttributeSlotDescriptor;
 use crate::pipeline::graphics::{

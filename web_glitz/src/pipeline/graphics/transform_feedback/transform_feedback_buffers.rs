@@ -1,7 +1,6 @@
 use crate::buffer::{Buffer, BufferViewMut};
 use crate::pipeline::graphics::util::{BufferDescriptor, BufferDescriptors};
 use crate::pipeline::graphics::{TransformFeedback, TypedTransformFeedbackLayout};
-use wasm_bindgen::JsValue;
 
 /// Encodes a description of a (set of) buffer(s) or buffer region(s) that can record the output
 /// feedback from the transform stage of a graphics pipeline.

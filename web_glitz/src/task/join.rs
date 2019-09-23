@@ -47,7 +47,7 @@ macro_rules! generate_join {
                 let mut all_done = self.a.progress(execution_context);
 
                 $(
-                    all_done = all_done && self.$B.progress(execution_context);;
+                    all_done = all_done && self.$B.progress(execution_context);
                 )*
 
                 if all_done {
@@ -126,7 +126,7 @@ macro_rules! generate_join_left {
                 let mut all_done = self.a.progress(execution_context);
 
                 $(
-                    all_done = all_done && self.$B.progress(execution_context);;
+                    all_done = all_done && self.$B.progress(execution_context);
                 )*
 
                 if all_done {
