@@ -1,9 +1,11 @@
 [package]
 name = "web-glitz"
 version = "0.1.0"
+description = "Rusty low-level web-graphics library on top of WebGL 2.0."
 authors = ["Roland Schermer <roland0507@gmail.com>"]
 edition = "2018"
 repository = "https://github.com/RSSchermer/weg_glitz.rs"
+homepage = "https://github.com/RSSchermer/weg_glitz.rs"
 license = "MIT"
 readme = "../README.md"
 
@@ -15,7 +17,7 @@ js-sys = "0.3.24"
 serde = "1.0"
 serde_derive = "1.0"
 proc-macro-hack = "0.5"
-web-glitz-macros = { version = "0.1.0", path = "../web_glitz_macros" }
+web-glitz-macros = "0.1.0"
 
 [dependencies.wasm-bindgen]
 version = "0.2.48"
