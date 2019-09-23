@@ -1,8 +1,10 @@
 [package]
 name = "web-glitz-macros"
 version = "0.1.0"
+description = "Procedural macros for the web-glitz crate."
 authors = ["Roland Schermer <roland0507@gmail.com>"]
 edition = "2018"
+homepage = "https://github.com/RSSchermer/weg_glitz.rs"
 repository = "https://github.com/RSSchermer/weg_glitz.rs"
 license = "MIT"
 
