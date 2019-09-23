@@ -3,9 +3,9 @@
 //! This module contains types that may be used to define Rust struct types that match the std140
 //! memory layout.
 //!
-//! Std140 is a standardized memory layout for shader interface blocks (e.g. uniform blocks). An
-//! interface block is a group op typed GLSL variables. For details on the layout rules for std140,
-//! please refer to the section 2.12.6.4 "Standard Uniform Block Layout" of the
+//! Std140 is a standardized memory layout for GLSL shader interface blocks (e.g. uniform blocks).
+//! An interface block is a group op typed GLSL variables. For details on the layout rules for
+//! std140, please refer to the section 2.12.6.4 "Standard Uniform Block Layout" of the
 //! [OpenGL ES 3.0 Specification](https://www.khronos.org/registry/OpenGL/specs/es/3.0/es_spec_3.0.pdf).
 //!
 //! This module aims to make it easy to construct and manipulate a block of std140 compatible memory
@@ -14,7 +14,8 @@
 //! position. Position here relates to the order in which block members and struct fields are
 //! declared, e.g.: the 1st block member must be compatible with the 1st struct field, the 2nd block
 //! member must be compatible with the 2nd struct field, etc. The struct itself has to be marked
-//! with the `#[web_glitz::repr_std140]` attribute: this ensure the rust compiler will
+//! with the `#[web_glitz::repr_std140]` attribute: this ensure the rust compiler will correctly
+//! order and align the fields.
 //!
 //! For GLSL primitive types, compatibility is defined by the following mapping from GLSL types to
 //! `web_glitz::std140` types:
@@ -113,16 +114,27 @@
 //! ```
 //!
 //! Note that although the field names match the block member names in this example, this is not
-//! strictly necessary, only pairwise field-type compatibility is required.
+//! strictly necessary: only pairwise field-type compatibility is required.
 
-use std::ops::{Index, IndexMut};
+use std::ops::{Index, IndexMut, Deref, DerefMut};
 
 use crate::pipeline::interface_block::{
     CheckCompatibility, Incompatible, InterfaceBlockComponent, MatrixOrder, MemoryUnitDescriptor,
     UnitLayout,
 };
 
-/// Initializes `std140` array.
+/// Initializes a `std140` array.
+///
+/// # Example
+///
+/// ```
+/// use web_glitz::std140;
+///
+/// let std140_array: std140::array<std140::vec2, 2> = std140::array![
+///     std140::vec2(1.0, 0.0),
+///     std140::vec2(0.0, 1.0),
+/// ];
+/// ```
 pub use crate::std140_array as array;
 
 pub use web_glitz_macros::repr_std140;
@@ -133,6 +145,7 @@ pub unsafe trait ReprStd140 {}
 /// Marker trait for types that can be used as the element type for std140 [array]s.
 pub unsafe trait Std140ArrayElement: ReprStd140 {}
 
+#[derive(Clone, Copy)]
 pub struct array<T, const LEN: usize>
 where
     T: Std140ArrayElement,
@@ -147,6 +160,18 @@ where
     #[doc(hidden)]
     pub fn from_wrapped(wrapped: [ArrayElementWrapper<T>; LEN]) -> Self {
         array { internal: wrapped }
+    }
+}
+
+impl<T, const LEN: usize> PartialEq for array<T, { LEN }> where T: Std140ArrayElement + PartialEq {
+    fn eq(&self, other: &Self) -> bool {
+        for i in 0..LEN {
+            if self.internal[i] != other.internal[i] {
+                return false;
+            }
+        }
+
+        true
     }
 }
 
@@ -188,616 +213,12 @@ macro_rules! std140_array {
 }
 
 unsafe impl<T, const LEN: usize> ReprStd140 for array<T, { LEN }> where
-    T: Std140ArrayElement {
-
-}
-
-unsafe impl<const LEN: usize> InterfaceBlockComponent for array<int, { LEN }> {
-    fn check_compatibility<'a, 'b, I>(component_offset: usize, remainder: &'a mut I) -> CheckCompatibility where
-        I: Iterator<Item=&'b MemoryUnitDescriptor>,
-        'b: 'a {
-        if let Some(unit) = remainder.next() {
-            if unit.offset() != component_offset {
-                CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
-            } else {
-                match *unit.layout() {
-                    UnitLayout::IntegerArray { stride, len } if stride == 16 && len == LEN => {
-                        CheckCompatibility::Continue
-                    }
-                    _ => CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
-                        unit.clone(),
-                        UnitLayout::IntegerArray { stride: 16, len: LEN },
-                    )),
-                }
-            }
-        } else {
-            CheckCompatibility::Finished
-        }
-    }
-}
-
-unsafe impl<const LEN: usize> InterfaceBlockComponent for array<ivec2, { LEN }> {
-    fn check_compatibility<'a, 'b, I>(component_offset: usize, remainder: &'a mut I) -> CheckCompatibility where
-        I: Iterator<Item=&'b MemoryUnitDescriptor>,
-        'b: 'a {
-        if let Some(unit) = remainder.next() {
-            if unit.offset() != component_offset {
-                CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
-            } else {
-                match *unit.layout() {
-                    UnitLayout::IntegerVector2Array { stride, len } if stride == 16 && len == LEN => {
-                        CheckCompatibility::Continue
-                    }
-                    _ => CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
-                        unit.clone(),
-                        UnitLayout::IntegerVector2Array { stride: 16, len: LEN },
-                    )),
-                }
-            }
-        } else {
-            CheckCompatibility::Finished
-        }
-    }
-}
-
-unsafe impl<const LEN: usize> InterfaceBlockComponent for array<ivec3, { LEN }> {
-    fn check_compatibility<'a, 'b, I>(component_offset: usize, remainder: &'a mut I) -> CheckCompatibility where
-        I: Iterator<Item=&'b MemoryUnitDescriptor>,
-        'b: 'a {
-        if let Some(unit) = remainder.next() {
-            if unit.offset() != component_offset {
-                CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
-            } else {
-                match *unit.layout() {
-                    UnitLayout::IntegerVector3Array { stride, len } if stride == 16 && len == LEN => {
-                        CheckCompatibility::Continue
-                    }
-                    _ => CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
-                        unit.clone(),
-                        UnitLayout::IntegerVector3Array { stride: 16, len: LEN },
-                    )),
-                }
-            }
-        } else {
-            CheckCompatibility::Finished
-        }
-    }
-}
-
-unsafe impl<const LEN: usize> InterfaceBlockComponent for array<ivec4, { LEN }> {
-    fn check_compatibility<'a, 'b, I>(component_offset: usize, remainder: &'a mut I) -> CheckCompatibility where
-        I: Iterator<Item=&'b MemoryUnitDescriptor>,
-        'b: 'a {
-        if let Some(unit) = remainder.next() {
-            if unit.offset() != component_offset {
-                CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
-            } else {
-                match *unit.layout() {
-                    UnitLayout::IntegerVector4Array { stride, len } if stride == 16 && len == LEN => {
-                        CheckCompatibility::Continue
-                    }
-                    _ => CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
-                        unit.clone(),
-                        UnitLayout::IntegerVector4Array { stride: 16, len: LEN },
-                    )),
-                }
-            }
-        } else {
-            CheckCompatibility::Finished
-        }
-    }
-}
-
-unsafe impl<const LEN: usize> InterfaceBlockComponent for array<uint, { LEN }> {
-    fn check_compatibility<'a, 'b, I>(component_offset: usize, remainder: &'a mut I) -> CheckCompatibility where
-        I: Iterator<Item=&'b MemoryUnitDescriptor>,
-        'b: 'a {
-        if let Some(unit) = remainder.next() {
-            if unit.offset() != component_offset {
-                CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
-            } else {
-                match *unit.layout() {
-                    UnitLayout::UnsignedIntegerArray { stride, len } if stride == 16 && len == LEN => {
-                        CheckCompatibility::Continue
-                    }
-                    _ => CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
-                        unit.clone(),
-                        UnitLayout::UnsignedIntegerArray { stride: 16, len: LEN },
-                    )),
-                }
-            }
-        } else {
-            CheckCompatibility::Finished
-        }
-    }
-}
-
-unsafe impl<const LEN: usize> InterfaceBlockComponent for array<uvec2, { LEN }> {
-    fn check_compatibility<'a, 'b, I>(component_offset: usize, remainder: &'a mut I) -> CheckCompatibility where
-        I: Iterator<Item=&'b MemoryUnitDescriptor>,
-        'b: 'a {
-        if let Some(unit) = remainder.next() {
-            if unit.offset() != component_offset {
-                CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
-            } else {
-                match *unit.layout() {
-                    UnitLayout::UnsignedIntegerVector2Array { stride, len } if stride == 16 && len == LEN => {
-                        CheckCompatibility::Continue
-                    }
-                    _ => CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
-                        unit.clone(),
-                        UnitLayout::UnsignedIntegerVector2Array { stride: 16, len: LEN },
-                    )),
-                }
-            }
-        } else {
-            CheckCompatibility::Finished
-        }
-    }
-}
-
-unsafe impl<const LEN: usize> InterfaceBlockComponent for array<uvec3, { LEN }> {
-    fn check_compatibility<'a, 'b, I>(component_offset: usize, remainder: &'a mut I) -> CheckCompatibility where
-        I: Iterator<Item=&'b MemoryUnitDescriptor>,
-        'b: 'a {
-        if let Some(unit) = remainder.next() {
-            if unit.offset() != component_offset {
-                CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
-            } else {
-                match *unit.layout() {
-                    UnitLayout::UnsignedIntegerVector3Array { stride, len } if stride == 16 && len == LEN => {
-                        CheckCompatibility::Continue
-                    }
-                    _ => CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
-                        unit.clone(),
-                        UnitLayout::UnsignedIntegerVector3Array { stride: 16, len: LEN },
-                    )),
-                }
-            }
-        } else {
-            CheckCompatibility::Finished
-        }
-    }
-}
-
-unsafe impl<const LEN: usize> InterfaceBlockComponent for array<uvec4, { LEN }> {
-    fn check_compatibility<'a, 'b, I>(component_offset: usize, remainder: &'a mut I) -> CheckCompatibility where
-        I: Iterator<Item=&'b MemoryUnitDescriptor>,
-        'b: 'a {
-        if let Some(unit) = remainder.next() {
-            if unit.offset() != component_offset {
-                CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
-            } else {
-                match *unit.layout() {
-                    UnitLayout::UnsignedIntegerVector4Array { stride, len } if stride == 16 && len == LEN => {
-                        CheckCompatibility::Continue
-                    }
-                    _ => CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
-                        unit.clone(),
-                        UnitLayout::UnsignedIntegerVector4Array { stride: 16, len: LEN },
-                    )),
-                }
-            }
-        } else {
-            CheckCompatibility::Finished
-        }
-    }
-}
-
-unsafe impl<const LEN: usize> InterfaceBlockComponent for array<boolean, { LEN }> {
-    fn check_compatibility<'a, 'b, I>(component_offset: usize, remainder: &'a mut I) -> CheckCompatibility where
-        I: Iterator<Item=&'b MemoryUnitDescriptor>,
-        'b: 'a {
-        if let Some(unit) = remainder.next() {
-            if unit.offset() != component_offset {
-                CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
-            } else {
-                match *unit.layout() {
-                    UnitLayout::BoolArray { stride, len } if stride == 16 && len == LEN => {
-                        CheckCompatibility::Continue
-                    }
-                    _ => CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
-                        unit.clone(),
-                        UnitLayout::BoolArray { stride: 16, len: LEN },
-                    )),
-                }
-            }
-        } else {
-            CheckCompatibility::Finished
-        }
-    }
-}
-
-unsafe impl<const LEN: usize> InterfaceBlockComponent for array<bvec2, { LEN }> {
-    fn check_compatibility<'a, 'b, I>(component_offset: usize, remainder: &'a mut I) -> CheckCompatibility where
-        I: Iterator<Item=&'b MemoryUnitDescriptor>,
-        'b: 'a {
-        if let Some(unit) = remainder.next() {
-            if unit.offset() != component_offset {
-                CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
-            } else {
-                match *unit.layout() {
-                    UnitLayout::BoolVector2Array { stride, len } if stride == 16 && len == LEN => {
-                        CheckCompatibility::Continue
-                    }
-                    _ => CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
-                        unit.clone(),
-                        UnitLayout::BoolVector2Array { stride: 16, len: LEN },
-                    )),
-                }
-            }
-        } else {
-            CheckCompatibility::Finished
-        }
-    }
-}
-
-unsafe impl<const LEN: usize> InterfaceBlockComponent for array<bvec3, { LEN }> {
-    fn check_compatibility<'a, 'b, I>(component_offset: usize, remainder: &'a mut I) -> CheckCompatibility where
-        I: Iterator<Item=&'b MemoryUnitDescriptor>,
-        'b: 'a {
-        if let Some(unit) = remainder.next() {
-            if unit.offset() != component_offset {
-                CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
-            } else {
-                match *unit.layout() {
-                    UnitLayout::BoolVector3Array { stride, len } if stride == 16 && len == LEN => {
-                        CheckCompatibility::Continue
-                    }
-                    _ => CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
-                        unit.clone(),
-                        UnitLayout::BoolVector3Array { stride: 16, len: LEN },
-                    )),
-                }
-            }
-        } else {
-            CheckCompatibility::Finished
-        }
-    }
-}
-
-unsafe impl<const LEN: usize> InterfaceBlockComponent for array<bvec4, { LEN }> {
-    fn check_compatibility<'a, 'b, I>(component_offset: usize, remainder: &'a mut I) -> CheckCompatibility where
-        I: Iterator<Item=&'b MemoryUnitDescriptor>,
-        'b: 'a {
-        if let Some(unit) = remainder.next() {
-            if unit.offset() != component_offset {
-                CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
-            } else {
-                match *unit.layout() {
-                    UnitLayout::BoolVector4Array { stride, len } if stride == 16 && len == LEN => {
-                        CheckCompatibility::Continue
-                    }
-                    _ => CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
-                        unit.clone(),
-                        UnitLayout::BoolVector4Array { stride: 16, len: LEN },
-                    )),
-                }
-            }
-        } else {
-            CheckCompatibility::Finished
-        }
-    }
-}
-
-unsafe impl<const LEN: usize> InterfaceBlockComponent for array<float, { LEN }> {
-    fn check_compatibility<'a, 'b, I>(component_offset: usize, remainder: &'a mut I) -> CheckCompatibility where
-        I: Iterator<Item=&'b MemoryUnitDescriptor>,
-        'b: 'a {
-        if let Some(unit) = remainder.next() {
-            if unit.offset() != component_offset {
-                CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
-            } else {
-                match *unit.layout() {
-                    UnitLayout::FloatArray { stride, len } if stride == 16 && len == LEN => {
-                        CheckCompatibility::Continue
-                    }
-                    _ => CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
-                        unit.clone(),
-                        UnitLayout::FloatArray { stride: 16, len: LEN },
-                    )),
-                }
-            }
-        } else {
-            CheckCompatibility::Finished
-        }
-    }
-}
-
-unsafe impl<const LEN: usize> InterfaceBlockComponent for array<vec2, { LEN }> {
-    fn check_compatibility<'a, 'b, I>(
-        component_offset: usize,
-        remainder: &'a mut I,
-    ) -> CheckCompatibility
-        where
-            I: Iterator<Item = &'b MemoryUnitDescriptor>,
-            'b: 'a,
-    {
-        if let Some(unit) = remainder.next() {
-            if unit.offset() != component_offset {
-                CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
-            } else {
-                match *unit.layout() {
-                    UnitLayout::FloatVector2Array { stride, len } if stride == 16 && len == LEN => {
-                        CheckCompatibility::Continue
-                    }
-                    UnitLayout::Matrix2x2 {
-                        order,
-                        matrix_stride,
-                    } if LEN == 2 && order == MatrixOrder::ColumnMajor && matrix_stride == 16 => {
-                        CheckCompatibility::Continue
-                    }
-                    UnitLayout::Matrix2x2Array {
-                        order,
-                        matrix_stride,
-                        array_stride,
-                        len,
-                    } if LEN == len * 2 && order == MatrixOrder::ColumnMajor && matrix_stride == 16 => {
-                        CheckCompatibility::Continue
-                    }
-                    UnitLayout::Matrix2x3 {
-                        order,
-                        matrix_stride,
-                    } if LEN == 3 && order == MatrixOrder::ColumnMajor && matrix_stride == 16 => {
-                        CheckCompatibility::Continue
-                    }
-                    UnitLayout::Matrix2x3Array {
-                        order,
-                        matrix_stride,
-                        array_stride,
-                        len,
-                    } if LEN == len * 3 && order == MatrixOrder::ColumnMajor && matrix_stride == 16 => {
-                        CheckCompatibility::Continue
-                    }
-                    UnitLayout::Matrix2x4 {
-                        order,
-                        matrix_stride,
-                    } if LEN == 4 && order == MatrixOrder::ColumnMajor && matrix_stride == 16 => {
-                        CheckCompatibility::Continue
-                    }
-                    UnitLayout::Matrix2x4Array {
-                        order,
-                        matrix_stride,
-                        array_stride,
-                        len,
-                    } if LEN == len * 4 && order == MatrixOrder::ColumnMajor && matrix_stride == 16 => {
-                        CheckCompatibility::Continue
-                    }
-                    _ => CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
-                        unit.clone(),
-                        UnitLayout::FloatVector2Array { stride: 16, len: LEN },
-                    )),
-                }
-            }
-        } else {
-            CheckCompatibility::Finished
-        }
-    }
-}
-
-unsafe impl<const LEN: usize> InterfaceBlockComponent for array<vec3, { LEN }> {
-    fn check_compatibility<'a, 'b, I>(
-        component_offset: usize,
-        remainder: &'a mut I,
-    ) -> CheckCompatibility
-        where
-            I: Iterator<Item = &'b MemoryUnitDescriptor>,
-            'b: 'a,
-    {
-        if let Some(unit) = remainder.next() {
-            if unit.offset() != component_offset {
-                CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
-            } else {
-                match *unit.layout() {
-                    UnitLayout::FloatVector3Array { stride, len } if stride == 16 && len == LEN => {
-                        CheckCompatibility::Continue
-                    }
-                    UnitLayout::Matrix3x2 {
-                        order,
-                        matrix_stride,
-                    } if LEN == 2 && order == MatrixOrder::ColumnMajor && matrix_stride == 16 => {
-                        CheckCompatibility::Continue
-                    }
-                    UnitLayout::Matrix3x2Array {
-                        order,
-                        matrix_stride,
-                        array_stride,
-                        len,
-                    } if LEN == len * 2 && order == MatrixOrder::ColumnMajor && matrix_stride == 16 => {
-                        CheckCompatibility::Continue
-                    }
-                    UnitLayout::Matrix3x3 {
-                        order,
-                        matrix_stride,
-                    } if LEN == 3 && order == MatrixOrder::ColumnMajor && matrix_stride == 16 => {
-                        CheckCompatibility::Continue
-                    }
-                    UnitLayout::Matrix3x3Array {
-                        order,
-                        matrix_stride,
-                        array_stride,
-                        len,
-                    } if LEN == len * 3 && order == MatrixOrder::ColumnMajor && matrix_stride == 16 => {
-                        CheckCompatibility::Continue
-                    }
-                    UnitLayout::Matrix3x4 {
-                        order,
-                        matrix_stride,
-                    } if LEN == 4 && order == MatrixOrder::ColumnMajor && matrix_stride == 16 => {
-                        CheckCompatibility::Continue
-                    }
-                    UnitLayout::Matrix3x4Array {
-                        order,
-                        matrix_stride,
-                        array_stride,
-                        len,
-                    } if LEN == len * 4 && order == MatrixOrder::ColumnMajor && matrix_stride == 16 => {
-                        CheckCompatibility::Continue
-                    }
-                    _ => CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
-                        unit.clone(),
-                        UnitLayout::FloatVector3Array { stride: 16, len: LEN },
-                    )),
-                }
-            }
-        } else {
-            CheckCompatibility::Finished
-        }
-    }
-}
-
-unsafe impl<const LEN: usize> InterfaceBlockComponent for array<vec4, { LEN }> {
-    fn check_compatibility<'a, 'b, I>(
-        component_offset: usize,
-        remainder: &'a mut I,
-    ) -> CheckCompatibility
-        where
-            I: Iterator<Item = &'b MemoryUnitDescriptor>,
-            'b: 'a,
-    {
-        if let Some(unit) = remainder.next() {
-            if unit.offset() != component_offset {
-                CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
-            } else {
-                match *unit.layout() {
-                    UnitLayout::FloatVector4Array { stride, len } if stride == 16 && len == LEN => {
-                        CheckCompatibility::Continue
-                    }
-                    UnitLayout::Matrix4x2 {
-                        order,
-                        matrix_stride,
-                    } if LEN == 2 && order == MatrixOrder::ColumnMajor && matrix_stride == 16 => {
-                        CheckCompatibility::Continue
-                    }
-                    UnitLayout::Matrix4x2Array {
-                        order,
-                        matrix_stride,
-                        array_stride,
-                        len,
-                    } if LEN == len * 2 && order == MatrixOrder::ColumnMajor && matrix_stride == 16 => {
-                        CheckCompatibility::Continue
-                    }
-                    UnitLayout::Matrix4x3 {
-                        order,
-                        matrix_stride,
-                    } if LEN == 3 && order == MatrixOrder::ColumnMajor && matrix_stride == 16 => {
-                        CheckCompatibility::Continue
-                    }
-                    UnitLayout::Matrix4x3Array {
-                        order,
-                        matrix_stride,
-                        array_stride,
-                        len,
-                    } if LEN == len * 3 && order == MatrixOrder::ColumnMajor && matrix_stride == 16 => {
-                        CheckCompatibility::Continue
-                    }
-                    UnitLayout::Matrix4x4 {
-                        order,
-                        matrix_stride,
-                    } if LEN == 4 && order == MatrixOrder::ColumnMajor && matrix_stride == 16 => {
-                        CheckCompatibility::Continue
-                    }
-                    UnitLayout::Matrix4x4Array {
-                        order,
-                        matrix_stride,
-                        array_stride,
-                        len,
-                    } if LEN == len * 4 && order == MatrixOrder::ColumnMajor && matrix_stride == 16 => {
-                        CheckCompatibility::Continue
-                    }
-                    _ => CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
-                        unit.clone(),
-                        UnitLayout::FloatVector3Array { stride: 16, len: LEN },
-                    )),
-                }
-            }
-        } else {
-            CheckCompatibility::Finished
-        }
-    }
-}
-
-pub type mat2x2 = array<vec2, 2>;
-pub type mat2x3 = array<vec3, 2>;
-pub type mat2x4 = array<vec4, 2>;
-pub type mat3x2 = array<vec2, 3>;
-pub type mat3x3 = array<vec3, 3>;
-pub type mat3x4 = array<vec4, 3>;
-pub type mat4x2 = array<vec2, 4>;
-pub type mat4x3 = array<vec3, 4>;
-pub type mat4x4 = array<vec4, 4>;
-
-pub fn mat2x2(c0: vec2, c1: vec2) -> mat2x2 {
-    array![c0, c1]
-}
-
-pub fn mat2x3(c0: vec3, c1: vec3) -> mat2x3 {
-    array![c0, c1]
-}
-
-pub fn mat2x4(c0: vec4, c1: vec4) -> mat2x4 {
-    array![c0, c1]
-}
-
-pub fn mat3x2(c0: vec2, c1: vec2, c2: vec2) -> mat3x2 {
-    array![c0, c1, c2]
-}
-
-pub fn mat3x3(c0: vec3, c1: vec3, c2: vec3) -> mat3x3 {
-    array![c0, c1, c2]
-}
-
-pub fn mat3x4(c0: vec4, c1: vec4, c2: vec4) -> mat3x4 {
-    array![c0, c1, c2]
-}
-
-pub fn mat4x2(c0: vec2, c1: vec2, c2: vec2, c3: vec2) -> mat4x2 {
-    array![c0, c1, c2, c3]
-}
-
-pub fn mat4x3(c0: vec3, c1: vec3, c2: vec3, c3: vec3) -> mat4x3 {
-    array![c0, c1, c2, c3]
-}
-
-pub fn mat4x4(c0: vec4, c1: vec4, c2: vec4, c3: vec4) -> mat4x4 {
-    array![c0, c1, c2, c3]
-}
-
-macro_rules! impl_interface_block_component {
-    ($T:ident, $layout:expr) => {
-        unsafe impl InterfaceBlockComponent for $T {
-            fn check_compatibility<'a, 'b, I>(
-                component_offset: usize,
-                remainder: &'a mut I,
-            ) -> CheckCompatibility
-            where
-                I: Iterator<Item = &'b MemoryUnitDescriptor>,
-                'b: 'a,
-            {
-                if let Some(unit) = remainder.next() {
-                    if unit.offset() != component_offset {
-                        CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
-                    } else if unit.layout() != &$layout {
-                        CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
-                            unit.clone(),
-                            $layout,
-                        ))
-                    } else {
-                        CheckCompatibility::Continue
-                    }
-                } else {
-                    CheckCompatibility::Finished
-                }
-            }
-        }
-    };
-}
+    T: Std140ArrayElement {}
 
 #[repr(C, align(4))]
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct float(pub f32);
 
-impl_interface_block_component!(float, UnitLayout::Float);
 unsafe impl ReprStd140 for float {}
 unsafe impl Std140ArrayElement for float {}
 
@@ -805,7 +226,6 @@ unsafe impl Std140ArrayElement for float {}
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct vec2(pub f32, pub f32);
 
-impl_interface_block_component!(vec2, UnitLayout::FloatVector2);
 unsafe impl ReprStd140 for vec2 {}
 unsafe impl Std140ArrayElement for vec2 {}
 
@@ -835,7 +255,6 @@ impl IndexMut<usize> for vec2 {
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct vec3(pub f32, pub f32, pub f32);
 
-impl_interface_block_component!(vec3, UnitLayout::FloatVector3);
 unsafe impl ReprStd140 for vec3 {}
 unsafe impl Std140ArrayElement for vec3 {}
 
@@ -867,7 +286,6 @@ impl IndexMut<usize> for vec3 {
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct vec4(pub f32, pub f32, pub f32, pub f32);
 
-impl_interface_block_component!(vec4, UnitLayout::FloatVector4);
 unsafe impl ReprStd140 for vec4 {}
 unsafe impl Std140ArrayElement for vec4 {}
 
@@ -901,7 +319,6 @@ impl IndexMut<usize> for vec4 {
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct int(pub i32);
 
-impl_interface_block_component!(int, UnitLayout::Integer);
 unsafe impl ReprStd140 for int {}
 unsafe impl Std140ArrayElement for int {}
 
@@ -909,7 +326,6 @@ unsafe impl Std140ArrayElement for int {}
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct ivec2(pub i32, pub i32);
 
-impl_interface_block_component!(ivec2, UnitLayout::IntegerVector2);
 unsafe impl ReprStd140 for ivec2 {}
 unsafe impl Std140ArrayElement for ivec2 {}
 
@@ -939,7 +355,6 @@ impl IndexMut<usize> for ivec2 {
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct ivec3(pub i32, pub i32, pub i32);
 
-impl_interface_block_component!(ivec3, UnitLayout::IntegerVector3);
 unsafe impl ReprStd140 for ivec3 {}
 unsafe impl Std140ArrayElement for ivec3 {}
 
@@ -971,7 +386,6 @@ impl IndexMut<usize> for ivec3 {
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct ivec4(pub i32, pub i32, pub i32, pub i32);
 
-impl_interface_block_component!(ivec4, UnitLayout::IntegerVector4);
 unsafe impl ReprStd140 for ivec4 {}
 unsafe impl Std140ArrayElement for ivec4 {}
 
@@ -1005,7 +419,6 @@ impl IndexMut<usize> for ivec4 {
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct uint(pub u32);
 
-impl_interface_block_component!(uint, UnitLayout::UnsignedInteger);
 unsafe impl ReprStd140 for uint {}
 unsafe impl Std140ArrayElement for uint {}
 
@@ -1013,7 +426,6 @@ unsafe impl Std140ArrayElement for uint {}
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct uvec2(pub u32, pub u32);
 
-impl_interface_block_component!(uvec2, UnitLayout::UnsignedIntegerVector2);
 unsafe impl ReprStd140 for uvec2 {}
 unsafe impl Std140ArrayElement for uvec2 {}
 
@@ -1043,7 +455,6 @@ impl IndexMut<usize> for uvec2 {
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct uvec3(pub u32, pub u32, pub u32);
 
-impl_interface_block_component!(uvec3, UnitLayout::UnsignedIntegerVector3);
 unsafe impl ReprStd140 for uvec3 {}
 unsafe impl Std140ArrayElement for uvec3 {}
 
@@ -1075,7 +486,6 @@ impl IndexMut<usize> for uvec3 {
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct uvec4(pub u32, pub u32, pub u32, pub u32);
 
-impl_interface_block_component!(uvec4, UnitLayout::UnsignedIntegerVector4);
 unsafe impl ReprStd140 for uvec4 {}
 unsafe impl Std140ArrayElement for uvec4 {}
 
@@ -1112,7 +522,6 @@ pub enum boolean {
     False = 0,
 }
 
-impl_interface_block_component!(boolean, UnitLayout::Bool);
 unsafe impl ReprStd140 for boolean {}
 unsafe impl Std140ArrayElement for boolean {}
 
@@ -1120,7 +529,6 @@ unsafe impl Std140ArrayElement for boolean {}
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct bvec2(pub boolean, pub boolean);
 
-impl_interface_block_component!(bvec2, UnitLayout::BoolVector2);
 unsafe impl ReprStd140 for bvec2 {}
 unsafe impl Std140ArrayElement for bvec2 {}
 
@@ -1150,7 +558,6 @@ impl IndexMut<usize> for bvec2 {
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct bvec3(pub boolean, pub boolean, pub boolean);
 
-impl_interface_block_component!(bvec3, UnitLayout::BoolVector3);
 unsafe impl ReprStd140 for bvec3 {}
 unsafe impl Std140ArrayElement for bvec3 {}
 
@@ -1182,7 +589,6 @@ impl IndexMut<usize> for bvec3 {
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct bvec4(pub boolean, pub boolean, pub boolean, pub boolean);
 
-impl_interface_block_component!(bvec4, UnitLayout::BoolVector4);
 unsafe impl ReprStd140 for bvec4 {}
 unsafe impl Std140ArrayElement for bvec4 {}
 
@@ -1211,3 +617,435 @@ impl IndexMut<usize> for bvec4 {
         }
     }
 }
+
+#[derive(Clone, Copy, PartialEq)]
+pub struct mat2x2 {
+    columns: array<vec2, 2>
+}
+
+pub fn mat2x2(c0: vec2, c1: vec2) -> mat2x2 {
+    mat2x2 {
+        columns: array![c0, c1]
+    }
+}
+
+unsafe impl ReprStd140 for mat2x2 {}
+unsafe impl Std140ArrayElement for mat2x2 {}
+
+impl Deref for mat2x2 {
+    type Target = array<vec2, 2>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.columns
+    }
+}
+
+impl DerefMut for mat2x2 {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.columns
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub struct mat2x3 {
+    columns: array<vec3, 2>
+}
+
+pub fn mat2x3(c0: vec3, c1: vec3) -> mat2x3 {
+    mat2x3 {
+        columns: array![c0, c1]
+    }
+}
+
+unsafe impl ReprStd140 for mat2x3 {}
+unsafe impl Std140ArrayElement for mat2x3 {}
+
+impl Deref for mat2x3 {
+    type Target = array<vec3, 2>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.columns
+    }
+}
+
+impl DerefMut for mat2x3 {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.columns
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub struct mat2x4 {
+    columns: array<vec4, 2>
+}
+
+pub fn mat2x4(c0: vec4, c1: vec4) -> mat2x4 {
+    mat2x4 {
+        columns: array![c0, c1]
+    }
+}
+
+unsafe impl ReprStd140 for mat2x4 {}
+unsafe impl Std140ArrayElement for mat2x4 {}
+
+impl Deref for mat2x4 {
+    type Target = array<vec4, 2>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.columns
+    }
+}
+
+impl DerefMut for mat2x4 {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.columns
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub struct mat3x2 {
+    columns: array<vec2, 3>
+}
+
+pub fn mat3x2(c0: vec2, c1: vec2, c2: vec2) -> mat3x2 {
+    mat3x2 {
+        columns: array![c0, c1, c2]
+    }
+}
+
+unsafe impl ReprStd140 for mat3x2 {}
+unsafe impl Std140ArrayElement for mat3x2 {}
+
+impl Deref for mat3x2 {
+    type Target = array<vec2, 3>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.columns
+    }
+}
+
+impl DerefMut for mat3x2 {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.columns
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub struct mat3x3 {
+    columns: array<vec3, 3>
+}
+
+pub fn mat3x3(c0: vec3, c1: vec3, c2: vec3) -> mat3x3 {
+    mat3x3 {
+        columns: array![c0, c1, c2]
+    }
+}
+
+unsafe impl ReprStd140 for mat3x3 {}
+unsafe impl Std140ArrayElement for mat3x3 {}
+
+impl Deref for mat3x3 {
+    type Target = array<vec3, 3>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.columns
+    }
+}
+
+impl DerefMut for mat3x3 {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.columns
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub struct mat3x4 {
+    columns: array<vec4, 3>
+}
+
+pub fn mat3x4(c0: vec4, c1: vec4, c2: vec4) -> mat3x4 {
+    mat3x4 {
+        columns: array![c0, c1, c2]
+    }
+}
+
+unsafe impl ReprStd140 for mat3x4 {}
+unsafe impl Std140ArrayElement for mat3x4 {}
+
+impl Deref for mat3x4 {
+    type Target = array<vec4, 3>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.columns
+    }
+}
+
+impl DerefMut for mat3x4 {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.columns
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub struct mat4x2 {
+    columns: array<vec2, 4>
+}
+
+pub fn mat4x2(c0: vec2, c1: vec2, c2: vec2, c3: vec2) -> mat4x2 {
+    mat4x2 {
+        columns: array![c0, c1, c2, c3]
+    }
+}
+
+unsafe impl ReprStd140 for mat4x2 {}
+unsafe impl Std140ArrayElement for mat4x2 {}
+
+impl Deref for mat4x2 {
+    type Target = array<vec2, 4>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.columns
+    }
+}
+
+impl DerefMut for mat4x2 {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.columns
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub struct mat4x3 {
+    columns: array<vec3, 4>
+}
+
+pub fn mat4x3(c0: vec3, c1: vec3, c2: vec3, c3: vec3) -> mat4x3 {
+    mat4x3 {
+        columns: array![c0, c1, c2, c3]
+    }
+}
+
+unsafe impl ReprStd140 for mat4x3 {}
+unsafe impl Std140ArrayElement for mat4x3 {}
+
+impl Deref for mat4x3 {
+    type Target = array<vec3, 4>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.columns
+    }
+}
+
+impl DerefMut for mat4x3 {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.columns
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
+pub struct mat4x4 {
+    columns: array<vec4, 4>
+}
+
+pub fn mat4x4(c0: vec4, c1: vec4, c2: vec4, c3: vec4) -> mat4x4 {
+    mat4x4 {
+        columns: array![c0, c1, c2, c3]
+    }
+}
+
+unsafe impl ReprStd140 for mat4x4 {}
+unsafe impl Std140ArrayElement for mat4x4 {}
+
+impl Deref for mat4x4 {
+    type Target = array<vec4, 4>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.columns
+    }
+}
+
+impl DerefMut for mat4x4 {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.columns
+    }
+}
+
+macro_rules! impl_interface_block_component {
+    ($T:ident, $layout:expr) => {
+        unsafe impl InterfaceBlockComponent for $T {
+            fn check_compatibility<'a, 'b, I>(
+                component_offset: usize,
+                remainder: &'a mut I,
+            ) -> CheckCompatibility
+            where
+                I: Iterator<Item = &'b MemoryUnitDescriptor>,
+                'b: 'a,
+            {
+                if let Some(unit) = remainder.next() {
+                    if unit.offset() != component_offset {
+                        CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
+                    } else if unit.layout() != &$layout {
+                        CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
+                            unit.clone(),
+                            $layout,
+                        ))
+                    } else {
+                        CheckCompatibility::Continue
+                    }
+                } else {
+                    CheckCompatibility::Finished
+                }
+            }
+        }
+    };
+}
+
+impl_interface_block_component!(float, UnitLayout::Float);
+impl_interface_block_component!(vec2, UnitLayout::FloatVector2);
+impl_interface_block_component!(vec3, UnitLayout::FloatVector3);
+impl_interface_block_component!(vec4, UnitLayout::FloatVector4);
+impl_interface_block_component!(int, UnitLayout::Integer);
+impl_interface_block_component!(ivec2, UnitLayout::IntegerVector2);
+impl_interface_block_component!(ivec3, UnitLayout::IntegerVector3);
+impl_interface_block_component!(ivec4, UnitLayout::IntegerVector4);
+impl_interface_block_component!(uint, UnitLayout::UnsignedInteger);
+impl_interface_block_component!(uvec2, UnitLayout::UnsignedIntegerVector2);
+impl_interface_block_component!(uvec3, UnitLayout::UnsignedIntegerVector3);
+impl_interface_block_component!(uvec4, UnitLayout::UnsignedIntegerVector4);
+impl_interface_block_component!(boolean, UnitLayout::Bool);
+impl_interface_block_component!(bvec2, UnitLayout::BoolVector2);
+impl_interface_block_component!(bvec3, UnitLayout::BoolVector3);
+impl_interface_block_component!(bvec4, UnitLayout::BoolVector4);
+impl_interface_block_component!(mat2x2, UnitLayout::Matrix2x2 {
+    order: MatrixOrder::ColumnMajor,
+    matrix_stride: 16
+});
+impl_interface_block_component!(mat2x3, UnitLayout::Matrix2x3 {
+    order: MatrixOrder::ColumnMajor,
+    matrix_stride: 16
+});
+impl_interface_block_component!(mat2x4, UnitLayout::Matrix2x4 {
+    order: MatrixOrder::ColumnMajor,
+    matrix_stride: 16
+});
+impl_interface_block_component!(mat3x2, UnitLayout::Matrix3x2 {
+    order: MatrixOrder::ColumnMajor,
+    matrix_stride: 16
+});
+impl_interface_block_component!(mat3x3, UnitLayout::Matrix3x3 {
+    order: MatrixOrder::ColumnMajor,
+    matrix_stride: 16
+});
+impl_interface_block_component!(mat3x4, UnitLayout::Matrix3x4 {
+    order: MatrixOrder::ColumnMajor,
+    matrix_stride: 16
+});
+impl_interface_block_component!(mat4x2, UnitLayout::Matrix4x2 {
+    order: MatrixOrder::ColumnMajor,
+    matrix_stride: 16
+});
+impl_interface_block_component!(mat4x3, UnitLayout::Matrix4x3 {
+    order: MatrixOrder::ColumnMajor,
+    matrix_stride: 16
+});
+impl_interface_block_component!(mat4x4, UnitLayout::Matrix4x4 {
+    order: MatrixOrder::ColumnMajor,
+    matrix_stride: 16
+});
+
+macro_rules! impl_interface_block_component_array {
+    ($T:ident, $layout_ident:ident) => {
+        unsafe impl < const LEN: usize > InterfaceBlockComponent for array <$T, { LEN }> {
+            fn check_compatibility <'a, 'b, I> (component_offset: usize, remainder: &'a mut I) -> CheckCompatibility
+            where
+                I: Iterator <Item = &'b MemoryUnitDescriptor>,
+                'b: 'a
+            {
+                if let Some(unit) = remainder.next() {
+                    if unit.offset() != component_offset {
+                        CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
+                    } else {
+                        match *unit.layout() {
+                            UnitLayout::$layout_ident { stride, len } if stride == 16 && len == LEN => {
+                                CheckCompatibility::Continue
+                            }
+                            _ => CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
+                                unit.clone(),
+                                UnitLayout::$layout_ident { stride: 16, len: LEN },
+                            )),
+                        }
+                    }
+                } else {
+                    CheckCompatibility::Finished
+                }
+            }
+        }
+    };
+}
+
+impl_interface_block_component_array!(float, FloatArray);
+impl_interface_block_component_array!(vec2, FloatVector2Array);
+impl_interface_block_component_array!(vec3, FloatVector3Array);
+impl_interface_block_component_array!(vec4, FloatVector4Array);
+impl_interface_block_component_array!(int, IntegerArray);
+impl_interface_block_component_array!(ivec2, IntegerVector2Array);
+impl_interface_block_component_array!(ivec3, IntegerVector3Array);
+impl_interface_block_component_array!(ivec4, IntegerVector4Array);
+impl_interface_block_component_array!(uint, UnsignedIntegerArray);
+impl_interface_block_component_array!(uvec2, UnsignedIntegerVector2Array);
+impl_interface_block_component_array!(uvec3, UnsignedIntegerVector3Array);
+impl_interface_block_component_array!(uvec4, UnsignedIntegerVector4Array);
+impl_interface_block_component_array!(boolean, BoolArray);
+impl_interface_block_component_array!(bvec2, BoolVector2Array);
+impl_interface_block_component_array!(bvec3, BoolVector3Array);
+impl_interface_block_component_array!(bvec4, BoolVector4Array);
+
+macro_rules! impl_interface_block_component_matrix_array {
+    ($T:ident, $layout_ident:ident) => {
+        unsafe impl < const LEN: usize > InterfaceBlockComponent for array <$T, { LEN }> {
+            fn check_compatibility <'a, 'b, I> (component_offset: usize, remainder: &'a mut I) -> CheckCompatibility
+            where
+                I: Iterator <Item = &'b MemoryUnitDescriptor>,
+                'b: 'a
+            {
+                if let Some(unit) = remainder.next() {
+                    if unit.offset() != component_offset {
+                        CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
+                    } else {
+                        match *unit.layout() {
+                            UnitLayout::$layout_ident { order, matrix_stride, array_stride, len } if
+                                order == MatrixOrder::ColumnMajor &&
+                                matrix_stride == 16 &&
+                                array_stride == 16 &&
+                                len == LEN
+                            => {
+                                CheckCompatibility::Continue
+                            }
+                            _ => CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
+                                unit.clone(),
+                                UnitLayout::$layout_ident {
+                                    order: MatrixOrder::ColumnMajor,
+                                    matrix_stride: 16,
+                                    array_stride: 16,
+                                    len: LEN
+                                },
+                            )),
+                        }
+                    }
+                } else {
+                    CheckCompatibility::Finished
+                }
+            }
+        }
+    };
+}
+
+impl_interface_block_component_matrix_array!(mat2x2, Matrix2x2Array);
+impl_interface_block_component_matrix_array!(mat2x3, Matrix2x3Array);
+impl_interface_block_component_matrix_array!(mat2x4, Matrix2x4Array);
+impl_interface_block_component_matrix_array!(mat3x2, Matrix3x2Array);
+impl_interface_block_component_matrix_array!(mat3x3, Matrix3x3Array);
+impl_interface_block_component_matrix_array!(mat3x4, Matrix3x4Array);
+impl_interface_block_component_matrix_array!(mat4x2, Matrix4x2Array);
+impl_interface_block_component_matrix_array!(mat4x3, Matrix4x3Array);
+impl_interface_block_component_matrix_array!(mat4x4, Matrix4x4Array);
