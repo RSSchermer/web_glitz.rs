@@ -1,5 +1,3 @@
-use crate::std140::ReprStd140;
-
 /// Trait that may be implemented on a type which, when stored in a `Buffer`, may safely be used to
 /// back a device interface block (uniform block) that has a compatible memory layout.
 ///
@@ -153,8 +151,6 @@ pub unsafe trait InterfaceBlockComponent: StableRepr {
 /// compiler to optimize their memory layout. However, the compiler may be instructed to use a
 /// well-defined memory layout with the `#[repr]` attribute, e.g. `#[repr(C)]`.
 pub unsafe trait StableRepr {}
-
-unsafe impl<T> StableRepr for T where T: ReprStd140 {}
 
 #[derive(Debug)]
 pub enum Incompatible {
@@ -382,3 +378,187 @@ pub enum UnitLayout {
         len: usize,
     },
 }
+
+use crate::std140;
+
+unsafe impl<T> StableRepr for T where T: std140::ReprStd140 {}
+
+macro_rules! impl_interface_block_component_std140 {
+    ($T:ident, $layout:expr) => {
+        unsafe impl InterfaceBlockComponent for std140::$T {
+            fn check_compatibility<'a, 'b, I>(
+                component_offset: usize,
+                remainder: &'a mut I,
+            ) -> CheckCompatibility
+            where
+                I: Iterator<Item = &'b MemoryUnitDescriptor>,
+                'b: 'a,
+            {
+                if let Some(unit) = remainder.next() {
+                    if unit.offset() != component_offset {
+                        CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
+                    } else if unit.layout() != &$layout {
+                        CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
+                            unit.clone(),
+                            $layout,
+                        ))
+                    } else {
+                        CheckCompatibility::Continue
+                    }
+                } else {
+                    CheckCompatibility::Finished
+                }
+            }
+        }
+    };
+}
+
+impl_interface_block_component_std140!(float, UnitLayout::Float);
+impl_interface_block_component_std140!(vec2, UnitLayout::FloatVector2);
+impl_interface_block_component_std140!(vec3, UnitLayout::FloatVector3);
+impl_interface_block_component_std140!(vec4, UnitLayout::FloatVector4);
+impl_interface_block_component_std140!(int, UnitLayout::Integer);
+impl_interface_block_component_std140!(ivec2, UnitLayout::IntegerVector2);
+impl_interface_block_component_std140!(ivec3, UnitLayout::IntegerVector3);
+impl_interface_block_component_std140!(ivec4, UnitLayout::IntegerVector4);
+impl_interface_block_component_std140!(uint, UnitLayout::UnsignedInteger);
+impl_interface_block_component_std140!(uvec2, UnitLayout::UnsignedIntegerVector2);
+impl_interface_block_component_std140!(uvec3, UnitLayout::UnsignedIntegerVector3);
+impl_interface_block_component_std140!(uvec4, UnitLayout::UnsignedIntegerVector4);
+impl_interface_block_component_std140!(boolean, UnitLayout::Bool);
+impl_interface_block_component_std140!(bvec2, UnitLayout::BoolVector2);
+impl_interface_block_component_std140!(bvec3, UnitLayout::BoolVector3);
+impl_interface_block_component_std140!(bvec4, UnitLayout::BoolVector4);
+impl_interface_block_component_std140!(mat2x2, UnitLayout::Matrix2x2 {
+    order: MatrixOrder::ColumnMajor,
+    matrix_stride: 16
+});
+impl_interface_block_component_std140!(mat2x3, UnitLayout::Matrix2x3 {
+    order: MatrixOrder::ColumnMajor,
+    matrix_stride: 16
+});
+impl_interface_block_component_std140!(mat2x4, UnitLayout::Matrix2x4 {
+    order: MatrixOrder::ColumnMajor,
+    matrix_stride: 16
+});
+impl_interface_block_component_std140!(mat3x2, UnitLayout::Matrix3x2 {
+    order: MatrixOrder::ColumnMajor,
+    matrix_stride: 16
+});
+impl_interface_block_component_std140!(mat3x3, UnitLayout::Matrix3x3 {
+    order: MatrixOrder::ColumnMajor,
+    matrix_stride: 16
+});
+impl_interface_block_component_std140!(mat3x4, UnitLayout::Matrix3x4 {
+    order: MatrixOrder::ColumnMajor,
+    matrix_stride: 16
+});
+impl_interface_block_component_std140!(mat4x2, UnitLayout::Matrix4x2 {
+    order: MatrixOrder::ColumnMajor,
+    matrix_stride: 16
+});
+impl_interface_block_component_std140!(mat4x3, UnitLayout::Matrix4x3 {
+    order: MatrixOrder::ColumnMajor,
+    matrix_stride: 16
+});
+impl_interface_block_component_std140!(mat4x4, UnitLayout::Matrix4x4 {
+    order: MatrixOrder::ColumnMajor,
+    matrix_stride: 16
+});
+
+macro_rules! impl_interface_block_component_std140_array {
+    ($T:ident, $layout_ident:ident) => {
+        unsafe impl < const LEN: usize > InterfaceBlockComponent for std140::array <std140::$T, { LEN }> {
+            fn check_compatibility <'a, 'b, I> (component_offset: usize, remainder: &'a mut I) -> CheckCompatibility
+            where
+                I: Iterator <Item = &'b MemoryUnitDescriptor>,
+                'b: 'a
+            {
+                if let Some(unit) = remainder.next() {
+                    if unit.offset() != component_offset {
+                        CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
+                    } else {
+                        match *unit.layout() {
+                            UnitLayout::$layout_ident { stride, len } if stride == 16 && len == LEN => {
+                                CheckCompatibility::Continue
+                            }
+                            _ => CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
+                                unit.clone(),
+                                UnitLayout::$layout_ident { stride: 16, len: LEN },
+                            )),
+                        }
+                    }
+                } else {
+                    CheckCompatibility::Finished
+                }
+            }
+        }
+    };
+}
+
+impl_interface_block_component_std140_array!(float, FloatArray);
+impl_interface_block_component_std140_array!(vec2, FloatVector2Array);
+impl_interface_block_component_std140_array!(vec3, FloatVector3Array);
+impl_interface_block_component_std140_array!(vec4, FloatVector4Array);
+impl_interface_block_component_std140_array!(int, IntegerArray);
+impl_interface_block_component_std140_array!(ivec2, IntegerVector2Array);
+impl_interface_block_component_std140_array!(ivec3, IntegerVector3Array);
+impl_interface_block_component_std140_array!(ivec4, IntegerVector4Array);
+impl_interface_block_component_std140_array!(uint, UnsignedIntegerArray);
+impl_interface_block_component_std140_array!(uvec2, UnsignedIntegerVector2Array);
+impl_interface_block_component_std140_array!(uvec3, UnsignedIntegerVector3Array);
+impl_interface_block_component_std140_array!(uvec4, UnsignedIntegerVector4Array);
+impl_interface_block_component_std140_array!(boolean, BoolArray);
+impl_interface_block_component_std140_array!(bvec2, BoolVector2Array);
+impl_interface_block_component_std140_array!(bvec3, BoolVector3Array);
+impl_interface_block_component_std140_array!(bvec4, BoolVector4Array);
+
+macro_rules! impl_interface_block_component_std140_matrix_array {
+    ($T:ident, $layout_ident:ident) => {
+        unsafe impl < const LEN: usize > InterfaceBlockComponent for std140::array <std140::$T, { LEN }> {
+            fn check_compatibility <'a, 'b, I> (component_offset: usize, remainder: &'a mut I) -> CheckCompatibility
+            where
+                I: Iterator <Item = &'b MemoryUnitDescriptor>,
+                'b: 'a
+            {
+                if let Some(unit) = remainder.next() {
+                    if unit.offset() != component_offset {
+                        CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
+                    } else {
+                        match *unit.layout() {
+                            UnitLayout::$layout_ident { order, matrix_stride, array_stride, len } if
+                                order == MatrixOrder::ColumnMajor &&
+                                matrix_stride == 16 &&
+                                array_stride == 16 &&
+                                len == LEN
+                            => {
+                                CheckCompatibility::Continue
+                            }
+                            _ => CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
+                                unit.clone(),
+                                UnitLayout::$layout_ident {
+                                    order: MatrixOrder::ColumnMajor,
+                                    matrix_stride: 16,
+                                    array_stride: 16,
+                                    len: LEN
+                                },
+                            )),
+                        }
+                    }
+                } else {
+                    CheckCompatibility::Finished
+                }
+            }
+        }
+    };
+}
+
+impl_interface_block_component_std140_matrix_array!(mat2x2, Matrix2x2Array);
+impl_interface_block_component_std140_matrix_array!(mat2x3, Matrix2x3Array);
+impl_interface_block_component_std140_matrix_array!(mat2x4, Matrix2x4Array);
+impl_interface_block_component_std140_matrix_array!(mat3x2, Matrix3x2Array);
+impl_interface_block_component_std140_matrix_array!(mat3x3, Matrix3x3Array);
+impl_interface_block_component_std140_matrix_array!(mat3x4, Matrix3x4Array);
+impl_interface_block_component_std140_matrix_array!(mat4x2, Matrix4x2Array);
+impl_interface_block_component_std140_matrix_array!(mat4x3, Matrix4x3Array);
+impl_interface_block_component_std140_matrix_array!(mat4x4, Matrix4x4Array);
