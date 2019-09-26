@@ -30,9 +30,7 @@ use crate::pipeline::resources::binding::{
     UnsignedIntegerSampler2DArrayBinding, UnsignedIntegerSampler2DBinding,
     UnsignedIntegerSampler3DBinding, UnsignedIntegerSamplerCubeBinding,
 };
-use crate::pipeline::resources::resource_slot::{
-    Identifier, ResourceSlotDescriptor, SlotBindingConfirmer, SlotBindingMismatch,
-};
+use crate::pipeline::resources::resource_slot::{Identifier, ResourceSlotDescriptor, SlotBindingConfirmer, SlotBindingMismatch, IncompatibleInterface};
 
 /// Provides a group of resources (uniform block buffers, sampled textures) that may be bound to a
 /// pipeline, such that the pipeline may access these resources during execution.
@@ -186,7 +184,7 @@ unsafe impl Resources for () {
 pub enum IncompatibleResources {
     MissingResource(Identifier),
     ResourceTypeMismatch(Identifier),
-    IncompatibleBlockLayout(Identifier, interface_block::Incompatible),
+    IncompatibleInterface(Identifier, IncompatibleInterface),
     SlotBindingMismatch { expected: usize, actual: usize },
 }
 

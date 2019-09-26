@@ -66,19 +66,13 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
         let suffix = struct_name.to_string().trim_start_matches("r#").to_owned();
         let dummy_const = Ident::new(&format!("_IMPL_VERTEX_FOR_{}", suffix), Span::call_site());
 
-        // Modified from the memoffset crate (https://github.com/Gilnaa/memoffset)
-        // TODO: replace with std::mem::offset_of when it becomes available
         let offset_of = quote! {
-            union Transmuter<T: 'static> {
-                pub ptr: &'static T,
-                pub int: usize,
-            }
-
             macro_rules! offset_of {
-                ($parent:ty, $($field:tt)+) => (unsafe {
-                    let x: &'static $parent = Transmuter::<$parent> { int: 0 }.ptr;
+                ($parent:path, $field:ident) => (unsafe {
+                    let base_ptr = std::ptr::null::<$parent>();
+                    let field_ptr = &raw const base_ptr.$field;
 
-                    Transmuter { ptr: &x.$($field)+ }.int
+                    (field_ptr as usize).wrapping_sub(base_ptr as usize)
                 });
             }
         };

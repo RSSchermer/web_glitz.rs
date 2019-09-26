@@ -9,4 +9,4 @@ license = "MIT"
 
 [dev-dependencies]
 compiletest_rs = "0.3.22"
-web-glitz = { version = "0.1.0", path = "../web_glitz" }
+web-glitz = { path = "../web_glitz" }

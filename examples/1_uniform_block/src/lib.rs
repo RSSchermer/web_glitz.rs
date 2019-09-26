@@ -9,7 +9,7 @@
 // This example builds on `/examples/0_triangle`, the comments in this example will focus on the
 // differences/additions.
 
-#![feature(const_fn)]
+#![feature(const_fn, const_raw_ptr_deref, const_raw_ptr_to_usize_cast, const_fn_union, transparent_unions, untagged_unions)]
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -185,12 +185,12 @@ pub fn start() {
         framebuffer.pipeline_task(&pipeline, |active_pipeline| {
             // Our render pass has thus far been identical to the render pass in
             // `/examples/0_triangle`. However, our pipeline now does use resources, so we add
-            // a `bind_resources_command` that binds an instance of our `Resources` type.
+            // a `bind_resources` command which binds an instance of our `Resources` type.
             //
             // Note that, as with the vertex array, WebGlitz wont have to do any additional runtime
             // safety checks here to ensure that the resources are compatible with the pipeline: we
-            // checked this when we created the pipeline and we can now leverage Rust's type system
-            // again to enforce safety at compile time.
+            // checked this when we created the pipeline and we can now once again leverage Rust's
+            // type system to enforce safety at compile time.
             active_pipeline
                 .task_builder()
                 .bind_vertex_buffers(&vertex_buffer)

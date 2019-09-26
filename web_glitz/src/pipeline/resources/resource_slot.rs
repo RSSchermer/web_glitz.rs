@@ -6,7 +6,7 @@ use js_sys::{Uint32Array, Uint8Array};
 use web_sys::{WebGl2RenderingContext as Gl, WebGlProgram, WebGlUniformLocation};
 
 use crate::pipeline::interface_block;
-use crate::pipeline::interface_block::{InterfaceBlock, MatrixOrder, MemoryUnitDescriptor};
+use crate::pipeline::interface_block::{InterfaceBlock, MatrixOrder, MemoryUnit, UnitLayout};
 
 /// Describes a slot for a resource in a GPU pipeline.
 #[derive(Debug)]
@@ -87,7 +87,7 @@ impl From<TextureSamplerSlot> for SlotType {
 
 #[derive(Debug)]
 pub struct UniformBlockSlot {
-    layout: Vec<MemoryUnitDescriptor>,
+    layout: Vec<MemoryUnit>,
     index: u32,
 }
 
@@ -510,9 +510,11 @@ impl UniformBlockSlot {
                 _ => unreachable!(),
             };
 
-            layout.push(MemoryUnitDescriptor::new(offsets[i] as usize, unit));
+            layout.push(MemoryUnit::new(offsets[i] as usize, unit));
         }
 
+        // TODO: unsure if this is ever necessary or if all implementations already guarantee this
+        // ordering; may be possible to skip this.
         layout.sort_unstable_by_key(|unit| unit.offset());
 
         UniformBlockSlot { layout, index }
@@ -522,12 +524,37 @@ impl UniformBlockSlot {
         self.index
     }
 
-    pub fn compatibility<T>(&self) -> Result<(), interface_block::Incompatible>
+    pub(crate) fn compatibility<T>(&self) -> Result<(), IncompatibleInterface>
     where
         T: InterfaceBlock,
     {
-        T::compatibility(&self.layout)
+        let mut expected_iter = self.layout.iter();
+        let mut actual_iter = T::MEMORY_UNITS.into_iter();
+
+        'outer: while let Some(expected_unit) = expected_iter.next() {
+            'inner: while let Some(actual_unit) = actual_iter.next() {
+                if expected_unit.offset() > actual_unit.offset() {
+                    return Err(IncompatibleInterface::MissingUnit(*expected_unit));
+                } else if expected_unit.offset() == actual_unit.offset() {
+                    if expected_unit.layout() == actual_unit.layout() {
+                        continue 'outer;
+                    } else {
+                        return Err(IncompatibleInterface::UnitLayoutMismatch(actual_unit, *expected_unit.layout()));
+                    }
+                }
+            }
+
+            return Err(IncompatibleInterface::MissingUnit(*expected_unit));
+        }
+
+        Ok(())
     }
+}
+
+#[derive(Debug)]
+pub enum IncompatibleInterface {
+    MissingUnit(MemoryUnit),
+    UnitLayoutMismatch(MemoryUnit, UnitLayout),
 }
 
 #[derive(Debug)]

@@ -14,10 +14,9 @@ use crate::image::texture_cube::{
     FloatSampledTextureCube, IntegerSampledTextureCube, ShadowSampledTextureCube,
     UnsignedIntegerSampledTextureCube,
 };
-use crate::pipeline::interface_block;
 use crate::pipeline::interface_block::InterfaceBlock;
 use crate::pipeline::resources::bind_group_encoding::{BindGroupEncoder, BindingDescriptor};
-use crate::pipeline::resources::resource_slot::{SamplerKind, SlotType};
+use crate::pipeline::resources::resource_slot::{SamplerKind, SlotType, IncompatibleInterface};
 
 pub unsafe trait Binding {
     fn compatibility(slot: &SlotType) -> Result<(), Incompatible>;
@@ -30,7 +29,7 @@ pub unsafe trait Binding {
 
 pub enum Incompatible {
     TypeMismatch,
-    LayoutMismatch(interface_block::Incompatible),
+    IncompatibleInterface(IncompatibleInterface),
 }
 
 pub struct BufferBinding<'a, T> {
@@ -47,7 +46,7 @@ where
         match slot {
             SlotType::UniformBlock(slot) => slot
                 .compatibility::<T>()
-                .map_err(|e| Incompatible::LayoutMismatch(e)),
+                .map_err(|e| Incompatible::IncompatibleInterface(e)),
             _ => Err(Incompatible::TypeMismatch),
         }
     }

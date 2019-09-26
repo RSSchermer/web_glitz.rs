@@ -27,9 +27,8 @@
 /// }
 /// ```
 ///
-/// The [InterfaceBlockComponent] trait may also be automatically derived on a struct when all of
-/// its members implement [InterfaceBlockComponent], which allows you to safely define custom
-/// interface block components:
+/// The [InterfaceBlockComponent] trait is also implemented for any type that implements
+/// [InterfaceBlock]:
 ///
 /// ```
 /// use web_glitz::pipeline::interface_block::InterfaceBlock;
@@ -37,7 +36,7 @@
 /// use web_glitz::std140::repr_std140;
 ///
 /// #[repr_std140]
-/// #[derive(web_glitz::derive::InterfaceBlockComponent)]
+/// #[derive(web_glitz::derive::InterfaceBlock)]
 /// struct PointLight {
 ///     position: std140::vec3,
 ///     color: std140::vec3,
@@ -59,19 +58,17 @@
 /// `#[repr_std140]` attribute to ensure that the struct layout matches the std140 specification;
 /// this is not a strict requirement for automatically deriving the [InterfaceBlock] trait. However,
 /// the [InterfaceBlock] (and [InterfaceBlockComponent]) trait(s) do rely on the struct having a
-/// stable representation across builds; the Rust compiler gives no consistency guarantees for type
-/// representations between builds (that is: if a type seems compatible with a memory layout on your
-/// current build, it is not guaranteed to remain compatible on any future builds), unless a
-/// specific representation is specified with the `#[repr]` attribute
-/// (e.g. `#[repr(C, align(16))]`). The marker trait [StableRepr] may be unsafely implemented on
-/// types to mark them as having a stable representation. [StableRepr] is automatically implemented
-/// for any struct marked with `#[repr_std140]`.
+/// stable representation across builds; the Rust compiler gives no consistency guarantees for
+/// non-primitive type representations between builds (that is: if a type seems compatible with a
+/// memory layout on your current build, it is not guaranteed to remain compatible on any future
+/// builds), unless a specific representation is specified with the `#[repr]` attribute (e.g.
+/// `#[repr(C, align(16))]`). The marker trait [StableRepr] may be unsafely implemented on types to
+/// mark them as having a stable representation. [StableRepr] is automatically implemented for any
+/// struct marked with `#[repr_std140]`.
 pub unsafe trait InterfaceBlock: StableRepr {
-    /// Verifies the compatibility of this type's memory layout against the given `memory_layout`.
-    ///
-    /// Implementations of this trait may assume the [MemoryUnitDescriptor]s in the `memory_layout`
-    /// to be ordered by memory offset.
-    fn compatibility(memory_layout: &[MemoryUnitDescriptor]) -> Result<(), Incompatible>;
+    type MemoryUnits: IntoIterator<Item=MemoryUnit>;
+
+    const MEMORY_UNITS: Self::MemoryUnits;
 }
 
 /// Trait that may be implemented on types that are to be used as struct members for a struct
@@ -85,41 +82,18 @@ pub unsafe trait InterfaceBlock: StableRepr {
 ///
 /// # Unsafe
 ///
-/// If `check_compatibility` returns [CheckCompatibility::Finished] or
-/// [CheckCompatibility::Continue], then the type must be compatible with the memory layout it was
-/// checked against, otherwise pipelines that use this type as part of an interface block may
-/// produce unpredictable results.
+/// Any instance of a type that implements this trait must be bitwise compatible with the memory
+/// layout specified by [MEMORY_UNITS].
 pub unsafe trait InterfaceBlockComponent: StableRepr {
-    /// Checks whether this component is compatible with a certain memory layout, when used at
-    /// offset `component_offset` relative to the start of the interface block in which it is used.
-    ///
-    /// Implementers may assume the `remainder` iterator to be advanced to the first memory unit
-    /// that is expected to be provided by this type, such that the first call to [Iterator::next]
-    /// yields the first [MemoryUnitDescriptor] this type is expected to match. The implementation
-    /// may expect the iterator to yield [MemoryUnitDescriptor]s in order of offset
-    /// ([MemoryUnitDescriptor::offset]). If the type does not contain a memory unit matching the
-    /// memory unit's [UnitLayout] ([MemoryUnitDescriptor::layout]) at the memory unit's offset,
-    /// then [CheckCompatibility::Incompatible] must be returned. Note that the offset of any memory
-    /// units yielded by the iterator are relative to the start of the interface block, not relative
-    /// to the start of this component: given `internal_offset` an offset relative to the start of
-    /// the component, the offset relative to the start of the interface block may be computed as
-    /// `component_offset + internal_offset`.
-    ///
-    /// The implementation is expected to advance the iterator once for every memory unit this type
-    /// defines (*not* once for every component - you may pass the iterator to a sub-component
-    /// which is then expected to advance the iterator once for every memory unit it defines, in a
-    /// recursive fashion), such that the iterator may be passed on to the next component (if any)
-    /// afterwards. If the iterator completes during this operation ([Iterator::next] returns
-    /// [None]), then the implementation is expected to return [CheckCompatibility::Finished]
-    /// (unless the component was found to be incompatible with a prior memory unit descriptor, in
-    /// which case [CheckCompatibility::Incompatible] should be returned).
-    fn check_compatibility<'a, 'b, I>(
-        component_offset: usize,
-        remainder: &'a mut I,
-    ) -> CheckCompatibility
-    where
-        I: Iterator<Item = &'b MemoryUnitDescriptor>,
-        'b: 'a;
+    type MemoryUnits: IntoIterator<Item=MemoryUnit>;
+
+    const MEMORY_UNITS: Self::MemoryUnits;
+}
+
+unsafe impl<T> InterfaceBlockComponent for T where T: InterfaceBlock {
+    type MemoryUnits = T::MemoryUnits;
+
+    const MEMORY_UNITS: Self::MemoryUnits = T::MEMORY_UNITS;
 }
 
 /// Marker trait for types that are guaranteed have a stable memory representation across builds.
@@ -152,28 +126,16 @@ pub unsafe trait InterfaceBlockComponent: StableRepr {
 /// well-defined memory layout with the `#[repr]` attribute, e.g. `#[repr(C)]`.
 pub unsafe trait StableRepr {}
 
-#[derive(Debug)]
-pub enum Incompatible {
-    MissingUnit(MemoryUnitDescriptor),
-    UnitLayoutMismatch(MemoryUnitDescriptor, UnitLayout),
-}
-
-pub enum CheckCompatibility {
-    Continue,
-    Finished,
-    Incompatible(Incompatible),
-}
-
 /// Describes a memory unit in an interface block at which it occurs, and its [UnitLayout].
-#[derive(PartialEq, Clone, Debug)]
-pub struct MemoryUnitDescriptor {
+#[derive(PartialEq, Clone, Copy, Debug)]
+pub struct MemoryUnit {
     offset: usize,
     layout: UnitLayout,
 }
 
-impl MemoryUnitDescriptor {
+impl MemoryUnit {
     pub(crate) fn new(offset: usize, layout: UnitLayout) -> Self {
-        MemoryUnitDescriptor { offset, layout }
+        MemoryUnit { offset, layout }
     }
 
     /// The offset at which this [MemoryUnitDescriptor] occurs within the interface block.
@@ -205,7 +167,7 @@ pub enum MatrixOrder {
 
 /// Enumerates the kinds of memory unit layouts for memory units that can occur within an interface
 /// block.
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub enum UnitLayout {
     Float,
     FloatArray {
@@ -379,36 +341,121 @@ pub enum UnitLayout {
     },
 }
 
+pub struct OffsetMemoryUnits<I> {
+    memory_units: I,
+    offset: usize
+}
+
+impl<I> OffsetMemoryUnits<I> where I: IntoIterator<Item=MemoryUnit> {
+    pub const fn new(memory_units: I, offset: usize) -> Self {
+        OffsetMemoryUnits {
+            memory_units,
+            offset
+        }
+    }
+}
+
+impl<I> IntoIterator for OffsetMemoryUnits<I> where I: IntoIterator<Item=MemoryUnit> {
+    type Item = MemoryUnit;
+    type IntoIter = OffsettingMemoryUnitIter<I::IntoIter>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        OffsettingMemoryUnitIter {
+            iter: self.memory_units.into_iter(),
+            offset: self.offset
+        }
+    }
+}
+
+pub struct OffsettingMemoryUnitIter<I> {
+    iter: I,
+    offset: usize
+}
+
+impl<I> Iterator for OffsettingMemoryUnitIter<I> where I: Iterator<Item=MemoryUnit> {
+    type Item = MemoryUnit;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|unit| {
+            let MemoryUnit {
+                offset,
+                layout
+            } = unit;
+
+            MemoryUnit {
+                offset: offset + self.offset,
+                layout
+            }
+        })
+    }
+}
+
+pub struct LeafMemoryUnitIter {
+    unit: Option<MemoryUnit>
+}
+
+impl LeafMemoryUnitIter {
+    pub fn new(memory_unit: MemoryUnit) -> Self {
+        LeafMemoryUnitIter {
+            unit: Some(memory_unit)
+        }
+    }
+}
+
+impl Iterator for LeafMemoryUnitIter {
+    type Item = MemoryUnit;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.unit.take()
+    }
+}
+
+impl IntoIterator for MemoryUnit {
+    type Item = MemoryUnit;
+    type IntoIter = LeafMemoryUnitIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        LeafMemoryUnitIter::new(self)
+    }
+}
+
+pub struct Chain<A, B> {
+    a: A,
+    b: B
+}
+
+impl<A, B> Chain<A, B> where A: IntoIterator, B: IntoIterator<Item=A::Item> {
+    pub const fn new(a: A, b: B) -> Self {
+        Chain {
+            a,
+            b,
+        }
+    }
+}
+
+impl<A, B> IntoIterator for Chain<A, B> where A: IntoIterator, B: IntoIterator<Item=A::Item> {
+    type Item = A::Item;
+    type IntoIter = std::iter::Chain<A::IntoIter, B::IntoIter>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.a.into_iter().chain(self.b.into_iter())
+    }
+}
+
 use crate::std140;
+use std::borrow::Borrow;
 
 unsafe impl<T> StableRepr for T where T: std140::ReprStd140 {}
 
 macro_rules! impl_interface_block_component_std140 {
     ($T:ident, $layout:expr) => {
         unsafe impl InterfaceBlockComponent for std140::$T {
-            fn check_compatibility<'a, 'b, I>(
-                component_offset: usize,
-                remainder: &'a mut I,
-            ) -> CheckCompatibility
-            where
-                I: Iterator<Item = &'b MemoryUnitDescriptor>,
-                'b: 'a,
-            {
-                if let Some(unit) = remainder.next() {
-                    if unit.offset() != component_offset {
-                        CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
-                    } else if unit.layout() != &$layout {
-                        CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
-                            unit.clone(),
-                            $layout,
-                        ))
-                    } else {
-                        CheckCompatibility::Continue
-                    }
-                } else {
-                    CheckCompatibility::Finished
-                }
-            }
+            type MemoryUnits = MemoryUnit;
+
+            const MEMORY_UNITS: Self::MemoryUnits = MemoryUnit {
+                offset: 0,
+                layout: $layout
+            };
         }
     };
 }
@@ -468,30 +515,16 @@ impl_interface_block_component_std140!(mat4x4, UnitLayout::Matrix4x4 {
 
 macro_rules! impl_interface_block_component_std140_array {
     ($T:ident, $layout_ident:ident) => {
-        unsafe impl < const LEN: usize > InterfaceBlockComponent for std140::array <std140::$T, { LEN }> {
-            fn check_compatibility <'a, 'b, I> (component_offset: usize, remainder: &'a mut I) -> CheckCompatibility
-            where
-                I: Iterator <Item = &'b MemoryUnitDescriptor>,
-                'b: 'a
-            {
-                if let Some(unit) = remainder.next() {
-                    if unit.offset() != component_offset {
-                        CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
-                    } else {
-                        match *unit.layout() {
-                            UnitLayout::$layout_ident { stride, len } if stride == 16 && len == LEN => {
-                                CheckCompatibility::Continue
-                            }
-                            _ => CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
-                                unit.clone(),
-                                UnitLayout::$layout_ident { stride: 16, len: LEN },
-                            )),
-                        }
-                    }
-                } else {
-                    CheckCompatibility::Finished
-                }
-            }
+        unsafe impl <const LEN: usize> InterfaceBlockComponent for std140::array <std140::$T, { LEN }> {
+            type MemoryUnits = MemoryUnit;
+
+            const MEMORY_UNITS: Self::MemoryUnits = MemoryUnit {
+                offset: 0,
+                layout: UnitLayout::$layout_ident {
+                    stride: 16,
+                    len: LEN,
+                },
+            };
         }
     };
 }
@@ -515,40 +548,18 @@ impl_interface_block_component_std140_array!(bvec4, BoolVector4Array);
 
 macro_rules! impl_interface_block_component_std140_matrix_array {
     ($T:ident, $layout_ident:ident) => {
-        unsafe impl < const LEN: usize > InterfaceBlockComponent for std140::array <std140::$T, { LEN }> {
-            fn check_compatibility <'a, 'b, I> (component_offset: usize, remainder: &'a mut I) -> CheckCompatibility
-            where
-                I: Iterator <Item = &'b MemoryUnitDescriptor>,
-                'b: 'a
-            {
-                if let Some(unit) = remainder.next() {
-                    if unit.offset() != component_offset {
-                        CheckCompatibility::Incompatible(Incompatible::MissingUnit(unit.clone()))
-                    } else {
-                        match *unit.layout() {
-                            UnitLayout::$layout_ident { order, matrix_stride, array_stride, len } if
-                                order == MatrixOrder::ColumnMajor &&
-                                matrix_stride == 16 &&
-                                array_stride == 16 &&
-                                len == LEN
-                            => {
-                                CheckCompatibility::Continue
-                            }
-                            _ => CheckCompatibility::Incompatible(Incompatible::UnitLayoutMismatch(
-                                unit.clone(),
-                                UnitLayout::$layout_ident {
-                                    order: MatrixOrder::ColumnMajor,
-                                    matrix_stride: 16,
-                                    array_stride: 16,
-                                    len: LEN
-                                },
-                            )),
-                        }
-                    }
-                } else {
-                    CheckCompatibility::Finished
-                }
-            }
+        unsafe impl <const LEN: usize> InterfaceBlockComponent for std140::array <std140::$T, { LEN }> {
+            type MemoryUnits = MemoryUnit;
+
+            const MEMORY_UNITS: Self::MemoryUnits = MemoryUnit {
+                offset: 0,
+                layout: UnitLayout::$layout_ident {
+                    order: MatrixOrder::ColumnMajor,
+                    array_stride: 16,
+                    matrix_stride: 16,
+                    len: LEN,
+                },
+            };
         }
     };
 }

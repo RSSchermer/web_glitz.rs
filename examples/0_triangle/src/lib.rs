@@ -5,7 +5,7 @@
 // (OpenGL/WebGl, Direct3D, Metal, Vulkan, ...), then this should hopefully make sense.
 
 // For the time being, the `web_glitz::Vertex` derive macro requires that we enable this feature:
-#![feature(const_fn)]
+#![feature(const_fn, const_raw_ptr_deref, const_raw_ptr_to_usize_cast, untagged_unions)]
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;

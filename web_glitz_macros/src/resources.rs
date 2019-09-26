@@ -63,8 +63,8 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
                         Err(#mod_path::binding::Incompatible::TypeMismatch) => {
                             return Err(#mod_path::IncompatibleResources::ResourceTypeMismatch(descriptor.identifier().clone()));
                         },
-                        Err(#mod_path::binding::Incompatible::LayoutMismatch(err)) => {
-                            return Err(#mod_path::IncompatibleResources::IncompatibleBlockLayout(descriptor.identifier().clone(), err));
+                        Err(#mod_path::binding::Incompatible::IncompatibleInterface(err)) => {
+                            return Err(#mod_path::IncompatibleResources::IncompatibleInterface(descriptor.identifier().clone(), err));
                         }
                     };
 
@@ -90,8 +90,8 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
                         Err(#mod_path::binding::Incompatible::TypeMismatch) => {
                             return Err(#mod_path::IncompatibleResources::ResourceTypeMismatch(descriptor.identifier().clone()));
                         },
-                        Err(#mod_path::binding::Incompatible::LayoutMismatch(err)) => {
-                            return Err(#mod_path::IncompatibleResources::IncompatibleBlockLayout(descriptor.identifier().clone(), err));
+                        Err(#mod_path::binding::Incompatible::IncompatibleInterface(err)) => {
+                            return Err(#mod_path::IncompatibleResources::IncompatibleInterface(descriptor.identifier().clone(), err));
                         }
                     };
 

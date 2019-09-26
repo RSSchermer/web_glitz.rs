@@ -17,7 +17,7 @@ js-sys = "0.3.24"
 serde = "1.0"
 serde_derive = "1.0"
 proc-macro-hack = "0.5"
-web-glitz-macros = "0.1.0"
+web-glitz-macros = { path = "../web_glitz_macros" }
 
 [dependencies.wasm-bindgen]
 version = "0.2.48"

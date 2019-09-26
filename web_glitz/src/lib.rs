@@ -28,7 +28,9 @@
 
 #![feature(
     coerce_unsized,
+    const_fn,
     const_generics,
+    const_slice_len,
     fn_traits,
     slice_index_methods,
     unboxed_closures,
@@ -37,7 +39,7 @@
 
 pub mod derive {
     pub use web_glitz_macros::{
-        InterfaceBlock, InterfaceBlockComponent, Resources, TransformFeedback, Vertex,
+        InterfaceBlock, Resources, TransformFeedback, Vertex,
     };
 }
 

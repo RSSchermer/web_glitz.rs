@@ -8,7 +8,6 @@ use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
 mod interface_block;
-mod interface_block_component;
 mod repr_std140;
 mod resources;
 mod transform_feedback;
@@ -26,20 +25,11 @@ pub fn repr_std140(args: TokenStream, input: TokenStream) -> TokenStream {
         .into()
 }
 
-#[proc_macro_derive(InterfaceBlock, attributes(vertex_attribute))]
+#[proc_macro_derive(InterfaceBlock)]
 pub fn derive_interface_block(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     interface_block::expand_derive_interface_block(&input)
-        .unwrap_or_else(compile_error)
-        .into()
-}
-
-#[proc_macro_derive(InterfaceBlockComponent, attributes(vertex_attribute))]
-pub fn derive_interface_block_component(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-
-    interface_block_component::expand_derive_interface_block_component(&input)
         .unwrap_or_else(compile_error)
         .into()
 }

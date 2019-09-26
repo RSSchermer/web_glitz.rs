@@ -4,7 +4,7 @@
 // This example builds on `/examples/0_triangle`, the comments in this example will focus on the
 // differences/additions.
 
-#![feature(const_fn)]
+#![feature(const_fn, const_raw_ptr_deref, const_raw_ptr_to_usize_cast, untagged_unions)]
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
