@@ -20,8 +20,7 @@ use crate::pipeline::graphics::{
     FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, IncompatibleVertexInputLayout,
     ShaderLinkingError, VertexShader,
 };
-use crate::pipeline::resources::resource_slot::Identifier;
-use crate::pipeline::resources::{IncompatibleResources, Resources};
+use crate::pipeline::resources::{IncompatibleResources, ResourceSlotIdentifier};
 use crate::render_pass::{RenderPass, RenderPassContext};
 use crate::render_target::RenderTargetDescription;
 use crate::runtime::state::{CreateProgramError, DynamicState};
@@ -274,14 +273,13 @@ pub trait RenderingContext {
     ///
     /// ```
     /// # use web_glitz::runtime::RenderingContext;
-    /// # use web_glitz::pipeline::graphics::{VertexShader, FragmentShader};
-    /// # use web_glitz::vertex::Vertex;
-    /// # use web_glitz::pipeline::resources::Resources;
+    /// # use web_glitz::pipeline::graphics::{VertexShader, FragmentShader, TypedVertexInputLayout};
+    /// # use web_glitz::pipeline::resources::TypedResourceBindingsLayout;
     /// # fn wrapper<Rc, MyVertex, MyResources>(
     /// #     context: &Rc,
     /// #     vertex_shader: &VertexShader,
     /// #     fragment_shader: &FragmentShader
-    /// # ) where Rc: RenderingContext, MyVertex: Vertex, MyResources: Resources + 'static {
+    /// # ) where Rc: RenderingContext, MyVertex: TypedVertexInputLayout, MyResources: TypedResourceBindingsLayout {
     /// use web_glitz::pipeline::graphics::{
     ///     GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder, CullingMode,
     ///     SlotBindingStrategy, DepthTest
@@ -296,7 +294,7 @@ pub trait RenderingContext {
     ///     .fragment_shader(&fragment_shader)
     ///     .enable_depth_test(DepthTest::default())
     ///     .typed_vertex_attribute_layout::<MyVertex>()
-    ///     .resource_layout::<MyResources>(SlotBindingStrategy::Update)
+    ///     .typed_resource_bindings_layout::<MyResources>()
     ///     .finish();
     ///
     /// let graphics_pipeline = context.create_graphics_pipeline(&descriptor).unwrap();
@@ -304,8 +302,8 @@ pub trait RenderingContext {
     /// ```
     ///
     /// Here `vertex_shader` is a [VertexShader], `fragment_shader` is a [FragmentShader],
-    /// `MyVertex` is a type that implements [AttributeSlotLayoutCompatible], `MyResources` is a
-    /// type that implements [Resources] and `context` is a [RenderingContext].
+    /// `MyVertex` is a type that implements [TypedVertexInputLayout], `MyResources` is a
+    /// type that implements [TypedResourceBindingsLayout] and `context` is a [RenderingContext].
     ///
     /// # Panics
     ///
@@ -314,9 +312,7 @@ pub trait RenderingContext {
     fn create_graphics_pipeline<V, R, Tf>(
         &self,
         descriptor: &GraphicsPipelineDescriptor<V, R, Tf>,
-    ) -> Result<GraphicsPipeline<V, R, Tf>, CreateGraphicsPipelineError>
-    where
-        R: Resources + 'static;
+    ) -> Result<GraphicsPipeline<V, R, Tf>, CreateGraphicsPipelineError>;
 
     /// Creates a new [RenderPass] that targets the `render_target` and performs the render pass
     /// task produced by `f`.
@@ -661,7 +657,7 @@ pub enum CreateGraphicsPipelineError {
     /// Note that WebGlitz does not support non-opaque uniform types (such as `float`, `vec4`,
     /// `mat4`) outside of uniform blocks, only opaque (texture/shader types) are supported. All
     /// basic non-opaque uniform slots must be declared as part of a uniform block.
-    UnsupportedUniformType(Identifier, &'static str),
+    UnsupportedUniformType(ResourceSlotIdentifier, &'static str),
 
     /// Variant that is returned when the input attribute layout declared for the pipeline (see
     /// [GraphicsPipelineBuilder::vertex_input_layout]) does not match the actual input attribute

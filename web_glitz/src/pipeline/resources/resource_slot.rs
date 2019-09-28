@@ -1,76 +1,48 @@
-use std::fmt;
-use std::hash::{Hash, Hasher};
-
-use fnv::FnvHasher;
 use js_sys::{Uint32Array, Uint8Array};
 use web_sys::{WebGl2RenderingContext as Gl, WebGlProgram, WebGlUniformLocation};
 
-use crate::pipeline::interface_block;
-use crate::pipeline::interface_block::{InterfaceBlock, MatrixOrder, MemoryUnit, UnitLayout};
+use crate::pipeline::interface_block::{MatrixOrder, MemoryUnit, UnitLayout};
+use crate::pipeline::resources::resources::{ResourceSlotKind, SampledTextureType};
+use crate::pipeline::resources::ResourceSlotIdentifier;
 
 /// Describes a slot for a resource in a GPU pipeline.
 #[derive(Debug)]
-pub struct ResourceSlotDescriptor {
-    identifier: Identifier,
+pub(crate) struct ShaderResourceSlotDescriptor {
+    identifier: ResourceSlotIdentifier,
     slot: SlotType,
 }
 
-impl ResourceSlotDescriptor {
-    pub(crate) fn new(identifier: Identifier, slot: SlotType) -> Self {
-        ResourceSlotDescriptor { identifier, slot }
+impl ShaderResourceSlotDescriptor {
+    pub(crate) fn new(identifier: ResourceSlotIdentifier, slot: SlotType) -> Self {
+        ShaderResourceSlotDescriptor { identifier, slot }
     }
 
     /// Returns the identifier for the slot.
-    pub fn identifier(&self) -> &Identifier {
+    pub(crate) fn identifier(&self) -> &ResourceSlotIdentifier {
         &self.identifier
     }
 
     /// Returns information about the type of the slot.
     ///
     /// See [SlotType] for details.
-    pub fn slot_type(&self) -> &SlotType {
+    pub(crate) fn slot_type(&self) -> &SlotType {
         &self.slot
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct Identifier {
-    name: String,
-    hash_fnv64: u64,
-}
-
-impl Identifier {
-    pub(crate) fn new(name: String) -> Self {
-        let mut hasher = FnvHasher::default();
-
-        name.hash(&mut hasher);
-
-        let hash_fnv64 = hasher.finish();
-
-        Identifier { name, hash_fnv64 }
-    }
-
-    pub fn hash_fnv64(&self) -> u64 {
-        self.hash_fnv64
-    }
-}
-
-impl fmt::Display for Identifier {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.name)
-    }
-}
-
-impl PartialEq for Identifier {
-    fn eq(&self, other: &Self) -> bool {
-        self.hash_fnv64 == other.hash_fnv64
-    }
-}
-
 #[derive(Debug)]
-pub enum SlotType {
+pub(crate) enum SlotType {
     UniformBlock(UniformBlockSlot),
     TextureSampler(TextureSamplerSlot),
+}
+
+impl SlotType {
+    pub(crate) fn is_kind(&self, kind: ResourceSlotKind) -> bool {
+        match self {
+            SlotType::UniformBlock(_) => kind.is_uniform_buffer(),
+            SlotType::TextureSampler(_) => kind.is_sampled_texture(),
+        }
+    }
 }
 
 impl From<UniformBlockSlot> for SlotType {
@@ -86,7 +58,7 @@ impl From<TextureSamplerSlot> for SlotType {
 }
 
 #[derive(Debug)]
-pub struct UniformBlockSlot {
+pub(crate) struct UniformBlockSlot {
     layout: Vec<MemoryUnit>,
     index: u32,
 }
@@ -524,22 +496,20 @@ impl UniformBlockSlot {
         self.index
     }
 
-    pub(crate) fn compatibility<T>(&self) -> Result<(), IncompatibleInterface>
-    where
-        T: InterfaceBlock,
+    pub(crate) fn compatibility(&self, memory_layout: &[MemoryUnit]) -> Result<(), IncompatibleInterface>
     {
-        let mut expected_iter = self.layout.iter();
-        let mut actual_iter = T::MEMORY_UNITS.into_iter();
-
-        'outer: while let Some(expected_unit) = expected_iter.next() {
-            'inner: while let Some(actual_unit) = actual_iter.next() {
+        'outer: for expected_unit in self.layout.iter() {
+            'inner: for actual_unit in memory_layout.iter() {
                 if expected_unit.offset() > actual_unit.offset() {
                     return Err(IncompatibleInterface::MissingUnit(*expected_unit));
                 } else if expected_unit.offset() == actual_unit.offset() {
                     if expected_unit.layout() == actual_unit.layout() {
                         continue 'outer;
                     } else {
-                        return Err(IncompatibleInterface::UnitLayoutMismatch(actual_unit, *expected_unit.layout()));
+                        return Err(IncompatibleInterface::UnitLayoutMismatch(
+                            *actual_unit,
+                            *expected_unit.layout(),
+                        ));
                     }
                 }
             }
@@ -558,13 +528,13 @@ pub enum IncompatibleInterface {
 }
 
 #[derive(Debug)]
-pub struct TextureSamplerSlot {
+pub(crate) struct TextureSamplerSlot {
     location: WebGlUniformLocation,
-    kind: SamplerKind,
+    kind: SampledTextureType,
 }
 
 impl TextureSamplerSlot {
-    pub(crate) fn new(location: WebGlUniformLocation, kind: SamplerKind) -> Self {
+    pub(crate) fn new(location: WebGlUniformLocation, kind: SampledTextureType) -> Self {
         TextureSamplerSlot { location, kind }
     }
 
@@ -572,90 +542,12 @@ impl TextureSamplerSlot {
         &self.location
     }
 
-    pub fn kind(&self) -> SamplerKind {
+    pub(crate) fn kind(&self) -> SampledTextureType {
         self.kind
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub enum SamplerKind {
-    FloatSampler2D,
-    IntegerSampler2D,
-    UnsignedIntegerSampler2D,
-    FloatSampler2DArray,
-    IntegerSampler2DArray,
-    UnsignedIntegerSampler2DArray,
-    FloatSampler3D,
-    IntegerSampler3D,
-    UnsignedIntegerSampler3D,
-    FloatSamplerCube,
-    IntegerSamplerCube,
-    UnsignedIntegerSamplerCube,
-    Sampler2DShadow,
-    Sampler2DArrayShadow,
-    SamplerCubeShadow,
-}
-
-pub trait SlotBindingConfirmer {
-    fn confirm_slot_binding(
-        &self,
-        descriptor: &ResourceSlotDescriptor,
-        binding: usize,
-    ) -> Result<(), SlotBindingMismatch>;
-}
-
-pub struct SlotBindingMismatch {
-    pub expected: usize,
-    pub actual: usize,
-}
-
-pub struct SlotBindingChecker<'a> {
-    gl: &'a Gl,
-    program: &'a WebGlProgram,
-}
-
-impl<'a> SlotBindingChecker<'a> {
-    pub(crate) fn new(gl: &'a Gl, program: &'a WebGlProgram) -> Self {
-        SlotBindingChecker { gl, program }
-    }
-}
-
-impl<'a> SlotBindingConfirmer for SlotBindingChecker<'a> {
-    fn confirm_slot_binding(
-        &self,
-        descriptor: &ResourceSlotDescriptor,
-        binding: usize,
-    ) -> Result<(), SlotBindingMismatch> {
-        let initial_binding = match descriptor.slot_type() {
-            SlotType::TextureSampler(slot) => self
-                .gl
-                .get_uniform(&self.program, slot.location())
-                .as_f64()
-                .unwrap() as usize,
-            SlotType::UniformBlock(slot) => self
-                .gl
-                .get_active_uniform_block_parameter(
-                    &self.program,
-                    slot.index(),
-                    Gl::UNIFORM_BLOCK_BINDING,
-                )
-                .unwrap()
-                .as_f64()
-                .unwrap() as usize,
-        };
-
-        if initial_binding == binding {
-            Ok(())
-        } else {
-            Err(SlotBindingMismatch {
-                expected: binding,
-                actual: initial_binding,
-            })
-        }
-    }
-}
-
-pub struct SlotBindingUpdater<'a> {
+pub(crate) struct SlotBindingUpdater<'a> {
     gl: &'a Gl,
     program: &'a WebGlProgram,
 }
@@ -664,24 +556,20 @@ impl<'a> SlotBindingUpdater<'a> {
     pub(crate) fn new(gl: &'a Gl, program: &'a WebGlProgram) -> Self {
         SlotBindingUpdater { gl, program }
     }
-}
 
-impl<'a> SlotBindingConfirmer for SlotBindingUpdater<'a> {
-    fn confirm_slot_binding(
+    pub(crate) fn update_slot_binding(
         &self,
-        descriptor: &ResourceSlotDescriptor,
-        binding: usize,
-    ) -> Result<(), SlotBindingMismatch> {
+        descriptor: &ShaderResourceSlotDescriptor,
+        binding: u32,
+    ) {
         match descriptor.slot_type() {
             SlotType::TextureSampler(slot) => {
                 self.gl.uniform1i(Some(slot.location()), binding as i32);
             }
             SlotType::UniformBlock(slot) => {
                 self.gl
-                    .uniform_block_binding(self.program, slot.index(), binding as u32);
+                    .uniform_block_binding(self.program, slot.index(), binding);
             }
         }
-
-        Ok(())
     }
 }

@@ -116,7 +116,7 @@
 //! Note that although the field names match the block member names in this example, this is not
 //! strictly necessary: only pairwise field-type compatibility is required.
 
-use std::ops::{Index, IndexMut, Deref, DerefMut};
+use std::ops::{Deref, DerefMut, Index, IndexMut};
 
 /// Initializes a `std140` array.
 ///
@@ -158,7 +158,10 @@ where
     }
 }
 
-impl<T, const LEN: usize> PartialEq for array<T, { LEN }> where T: Std140ArrayElement + PartialEq {
+impl<T, const LEN: usize> PartialEq for array<T, { LEN }>
+where
+    T: Std140ArrayElement + PartialEq,
+{
     fn eq(&self, other: &Self) -> bool {
         for i in 0..LEN {
             if self.internal[i] != other.internal[i] {
@@ -207,8 +210,7 @@ macro_rules! std140_array {
     ($($x:expr,)*) => ($crate::std140_array![$($x),*])
 }
 
-unsafe impl<T, const LEN: usize> ReprStd140 for array<T, { LEN }> where
-    T: Std140ArrayElement {}
+unsafe impl<T, const LEN: usize> ReprStd140 for array<T, { LEN }> where T: Std140ArrayElement {}
 
 #[repr(C, align(4))]
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -524,7 +526,7 @@ impl From<bool> for boolean {
     fn from(value: bool) -> Self {
         match value {
             true => boolean::True,
-            false => boolean::False
+            false => boolean::False,
         }
     }
 }
@@ -624,12 +626,12 @@ impl IndexMut<usize> for bvec4 {
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct mat2x2 {
-    columns: array<vec2, 2>
+    columns: array<vec2, 2>,
 }
 
 pub fn mat2x2(c0: vec2, c1: vec2) -> mat2x2 {
     mat2x2 {
-        columns: array![c0, c1]
+        columns: array![c0, c1],
     }
 }
 
@@ -652,12 +654,12 @@ impl DerefMut for mat2x2 {
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct mat2x3 {
-    columns: array<vec3, 2>
+    columns: array<vec3, 2>,
 }
 
 pub fn mat2x3(c0: vec3, c1: vec3) -> mat2x3 {
     mat2x3 {
-        columns: array![c0, c1]
+        columns: array![c0, c1],
     }
 }
 
@@ -680,12 +682,12 @@ impl DerefMut for mat2x3 {
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct mat2x4 {
-    columns: array<vec4, 2>
+    columns: array<vec4, 2>,
 }
 
 pub fn mat2x4(c0: vec4, c1: vec4) -> mat2x4 {
     mat2x4 {
-        columns: array![c0, c1]
+        columns: array![c0, c1],
     }
 }
 
@@ -708,12 +710,12 @@ impl DerefMut for mat2x4 {
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct mat3x2 {
-    columns: array<vec2, 3>
+    columns: array<vec2, 3>,
 }
 
 pub fn mat3x2(c0: vec2, c1: vec2, c2: vec2) -> mat3x2 {
     mat3x2 {
-        columns: array![c0, c1, c2]
+        columns: array![c0, c1, c2],
     }
 }
 
@@ -736,12 +738,12 @@ impl DerefMut for mat3x2 {
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct mat3x3 {
-    columns: array<vec3, 3>
+    columns: array<vec3, 3>,
 }
 
 pub fn mat3x3(c0: vec3, c1: vec3, c2: vec3) -> mat3x3 {
     mat3x3 {
-        columns: array![c0, c1, c2]
+        columns: array![c0, c1, c2],
     }
 }
 
@@ -764,12 +766,12 @@ impl DerefMut for mat3x3 {
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct mat3x4 {
-    columns: array<vec4, 3>
+    columns: array<vec4, 3>,
 }
 
 pub fn mat3x4(c0: vec4, c1: vec4, c2: vec4) -> mat3x4 {
     mat3x4 {
-        columns: array![c0, c1, c2]
+        columns: array![c0, c1, c2],
     }
 }
 
@@ -792,12 +794,12 @@ impl DerefMut for mat3x4 {
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct mat4x2 {
-    columns: array<vec2, 4>
+    columns: array<vec2, 4>,
 }
 
 pub fn mat4x2(c0: vec2, c1: vec2, c2: vec2, c3: vec2) -> mat4x2 {
     mat4x2 {
-        columns: array![c0, c1, c2, c3]
+        columns: array![c0, c1, c2, c3],
     }
 }
 
@@ -820,12 +822,12 @@ impl DerefMut for mat4x2 {
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct mat4x3 {
-    columns: array<vec3, 4>
+    columns: array<vec3, 4>,
 }
 
 pub fn mat4x3(c0: vec3, c1: vec3, c2: vec3, c3: vec3) -> mat4x3 {
     mat4x3 {
-        columns: array![c0, c1, c2, c3]
+        columns: array![c0, c1, c2, c3],
     }
 }
 
@@ -848,12 +850,12 @@ impl DerefMut for mat4x3 {
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct mat4x4 {
-    columns: array<vec4, 4>
+    columns: array<vec4, 4>,
 }
 
 pub fn mat4x4(c0: vec4, c1: vec4, c2: vec4, c3: vec4) -> mat4x4 {
     mat4x4 {
-        columns: array![c0, c1, c2, c3]
+        columns: array![c0, c1, c2, c3],
     }
 }
 

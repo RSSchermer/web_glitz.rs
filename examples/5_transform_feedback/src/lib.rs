@@ -3,7 +3,14 @@
 // This example builds on `/examples/1_uniform_block`, the comments in this example will focus on
 // the differences/additions.
 
-#![feature(const_fn, const_raw_ptr_deref, const_raw_ptr_to_usize_cast, const_fn_union, transparent_unions, untagged_unions)]
+#![feature(
+    const_fn,
+    const_raw_ptr_deref,
+    const_raw_ptr_to_usize_cast,
+    const_fn_union,
+    transparent_unions,
+    untagged_unions
+)]
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;

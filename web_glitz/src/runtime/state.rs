@@ -1,4 +1,3 @@
-use std::any::TypeId;
 use std::borrow::Borrow;
 use std::collections::hash_map::Entry;
 use std::hash::{Hash, Hasher};
@@ -8,6 +7,11 @@ use fnv::{FnvHashMap, FnvHasher};
 use js_sys::Uint32Array;
 
 use wasm_bindgen::JsValue;
+
+use web_sys::{
+    WebGl2RenderingContext as Gl, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlRenderbuffer,
+    WebGlSampler, WebGlTexture, WebGlTransformFeedback, WebGlVertexArrayObject,
+};
 
 use crate::pipeline::graphics::transform_feedback::layout_descriptor::TransformFeedbackVaryings;
 use crate::pipeline::graphics::util::BufferDescriptors;
@@ -19,15 +23,12 @@ use crate::pipeline::graphics::{
     VertexInputLayoutDescriptor, WindingOrder,
 };
 use crate::pipeline::resources::resource_slot::{
-    Identifier, ResourceSlotDescriptor, SamplerKind, TextureSamplerSlot, UniformBlockSlot,
+    ShaderResourceSlotDescriptor, TextureSamplerSlot, UniformBlockSlot,
 };
+use crate::pipeline::resources::{ResourceSlotIdentifier, SampledTextureType};
 use crate::render_target::attachable_image_ref::AttachableImageData;
 use crate::runtime::index_lru::IndexLRU;
 use crate::util::{identical, JsId};
-use web_sys::{
-    WebGl2RenderingContext as Gl, WebGlBuffer, WebGlFramebuffer, WebGlProgram, WebGlRenderbuffer,
-    WebGlSampler, WebGlTexture, WebGlTransformFeedback, WebGlVertexArrayObject,
-};
 
 pub struct DynamicState {
     framebuffer_cache: FnvHashMap<u64, (Framebuffer, [Option<JsId>; 17])>,
@@ -2108,11 +2109,11 @@ impl<'a> ProgramCache<'a> {
                     let name = gl
                         .get_active_uniform_block_name(&program_object, i)
                         .unwrap();
-                    let identifier = Identifier::new(name);
+                    let identifier = ResourceSlotIdentifier::Dynamic(name);
                     let slot = UniformBlockSlot::new(gl, &program_object, i as usize);
 
                     resource_slot_descriptors
-                        .push(ResourceSlotDescriptor::new(identifier, slot.into()));
+                        .push(ShaderResourceSlotDescriptor::new(identifier, slot.into()));
                 }
 
                 for i in 0..active_uniform_count {
@@ -2122,7 +2123,7 @@ impl<'a> ProgramCache<'a> {
                     // As well as retrieving the location, this also filters out uniforms are part of
                     // uniform blocks, as these won't have locations.
                     if let Some(location) = gl.get_uniform_location(&program_object, &name) {
-                        let identifier = Identifier::new(name);
+                        let identifier = ResourceSlotIdentifier::Dynamic(name);
 
                         if info.size() == 1 {
                             let slot = match info.type_() {
@@ -2270,65 +2271,71 @@ impl<'a> ProgramCache<'a> {
                                         "FLOAT_MAT4x3",
                                     ));
                                 }
-                                Gl::SAMPLER_2D => {
-                                    TextureSamplerSlot::new(location, SamplerKind::FloatSampler2D)
-                                }
-                                Gl::SAMPLER_3D => {
-                                    TextureSamplerSlot::new(location, SamplerKind::FloatSampler3D)
-                                }
-                                Gl::SAMPLER_CUBE => {
-                                    TextureSamplerSlot::new(location, SamplerKind::FloatSamplerCube)
-                                }
-                                Gl::SAMPLER_2D_SHADOW => {
-                                    TextureSamplerSlot::new(location, SamplerKind::Sampler2DShadow)
-                                }
+                                Gl::SAMPLER_2D => TextureSamplerSlot::new(
+                                    location,
+                                    SampledTextureType::FloatSampler2D,
+                                ),
+                                Gl::SAMPLER_3D => TextureSamplerSlot::new(
+                                    location,
+                                    SampledTextureType::FloatSampler3D,
+                                ),
+                                Gl::SAMPLER_CUBE => TextureSamplerSlot::new(
+                                    location,
+                                    SampledTextureType::FloatSamplerCube,
+                                ),
+                                Gl::SAMPLER_2D_SHADOW => TextureSamplerSlot::new(
+                                    location,
+                                    SampledTextureType::Sampler2DShadow,
+                                ),
                                 Gl::SAMPLER_2D_ARRAY => TextureSamplerSlot::new(
                                     location,
-                                    SamplerKind::FloatSampler2DArray,
+                                    SampledTextureType::FloatSampler2DArray,
                                 ),
                                 Gl::SAMPLER_2D_ARRAY_SHADOW => TextureSamplerSlot::new(
                                     location,
-                                    SamplerKind::Sampler2DArrayShadow,
+                                    SampledTextureType::Sampler2DArrayShadow,
                                 ),
                                 Gl::SAMPLER_CUBE_SHADOW => TextureSamplerSlot::new(
                                     location,
-                                    SamplerKind::SamplerCubeShadow,
+                                    SampledTextureType::SamplerCubeShadow,
                                 ),
-                                Gl::INT_SAMPLER_2D => {
-                                    TextureSamplerSlot::new(location, SamplerKind::IntegerSampler2D)
-                                }
-                                Gl::INT_SAMPLER_3D => {
-                                    TextureSamplerSlot::new(location, SamplerKind::IntegerSampler3D)
-                                }
+                                Gl::INT_SAMPLER_2D => TextureSamplerSlot::new(
+                                    location,
+                                    SampledTextureType::IntegerSampler2D,
+                                ),
+                                Gl::INT_SAMPLER_3D => TextureSamplerSlot::new(
+                                    location,
+                                    SampledTextureType::IntegerSampler3D,
+                                ),
                                 Gl::INT_SAMPLER_CUBE => TextureSamplerSlot::new(
                                     location,
-                                    SamplerKind::IntegerSamplerCube,
+                                    SampledTextureType::IntegerSamplerCube,
                                 ),
                                 Gl::INT_SAMPLER_2D_ARRAY => TextureSamplerSlot::new(
                                     location,
-                                    SamplerKind::IntegerSampler2DArray,
+                                    SampledTextureType::IntegerSampler2DArray,
                                 ),
                                 Gl::UNSIGNED_INT_SAMPLER_2D => TextureSamplerSlot::new(
                                     location,
-                                    SamplerKind::UnsignedIntegerSampler2D,
+                                    SampledTextureType::UnsignedIntegerSampler2D,
                                 ),
                                 Gl::UNSIGNED_INT_SAMPLER_3D => TextureSamplerSlot::new(
                                     location,
-                                    SamplerKind::UnsignedIntegerSampler3D,
+                                    SampledTextureType::UnsignedIntegerSampler3D,
                                 ),
                                 Gl::UNSIGNED_INT_SAMPLER_CUBE => TextureSamplerSlot::new(
                                     location,
-                                    SamplerKind::UnsignedIntegerSamplerCube,
+                                    SampledTextureType::UnsignedIntegerSamplerCube,
                                 ),
                                 Gl::UNSIGNED_INT_SAMPLER_2D_ARRAY => TextureSamplerSlot::new(
                                     location,
-                                    SamplerKind::UnsignedIntegerSampler2DArray,
+                                    SampledTextureType::UnsignedIntegerSampler2DArray,
                                 ),
                                 _ => unreachable!(),
                             };
 
                             resource_slot_descriptors
-                                .push(ResourceSlotDescriptor::new(identifier, slot.into()));
+                                .push(ShaderResourceSlotDescriptor::new(identifier, slot.into()));
                         } else {
                             match info.type_() {
                                 Gl::FLOAT => {
@@ -2600,13 +2607,13 @@ impl<'a> ProgramCache<'a> {
 
 pub enum CreateProgramError {
     ShaderLinkingError(String),
-    UnsupportedUniformType(Identifier, &'static str),
+    UnsupportedUniformType(ResourceSlotIdentifier, &'static str),
 }
 
 pub(crate) struct Program {
     gl_object: WebGlProgram,
     attribute_slot_descriptors: Vec<VertexAttributeSlotDescriptor>,
-    resource_slot_descriptors: Vec<ResourceSlotDescriptor>,
+    resource_slot_descriptors: Vec<ShaderResourceSlotDescriptor>,
 }
 
 impl Program {
@@ -2618,7 +2625,7 @@ impl Program {
         &self.attribute_slot_descriptors
     }
 
-    pub fn resource_slot_descriptors(&self) -> &[ResourceSlotDescriptor] {
+    pub fn resource_slot_descriptors(&self) -> &[ShaderResourceSlotDescriptor] {
         &self.resource_slot_descriptors
     }
 }
@@ -2628,5 +2635,5 @@ pub(crate) struct ProgramKey {
     pub(crate) vertex_shader_id: JsId,
     pub(crate) fragment_shader_id: JsId,
     pub(crate) transform_feedback_layout_key: Option<u64>,
-    pub(crate) resources_type_id: TypeId,
+    pub(crate) resource_bindings_layout: u64,
 }

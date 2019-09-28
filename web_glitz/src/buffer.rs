@@ -262,6 +262,13 @@ where
     }
 }
 
+impl<'a, T> BufferView<'a, T> {
+    /// The size in bytes of the viewed buffer region.
+    pub fn size_in_bytes(&self) -> usize {
+        std::mem::size_of::<T>()
+    }
+}
+
 impl<'a, T> BufferView<'a, T>
 where
     T: Copy,

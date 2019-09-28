@@ -1,5 +1,6 @@
 use std::borrow::Borrow;
-use std::mem;
+use std::hash::{Hasher, Hash};
+use std::ops::Deref;
 
 use crate::buffer::{Buffer, BufferView};
 use crate::image::texture_2d::{
@@ -17,20 +18,188 @@ use crate::image::texture_cube::{
     FloatSampledTextureCube, IntegerSampledTextureCube, ShadowSampledTextureCube,
     UnsignedIntegerSampledTextureCube,
 };
-use crate::pipeline::interface_block;
-use crate::pipeline::interface_block::InterfaceBlock;
-use crate::pipeline::resources::bind_group_encoding::{
-    BindGroupEncoding, BindGroupEncodingContext, BindingDescriptor,
+use crate::pipeline::interface_block::{InterfaceBlock, MemoryUnit};
+use crate::pipeline::resources::resource_bindings_encoding::{
+    BindingDescriptor, ResourceBindingsEncoding, ResourceBindingsEncodingContext,
 };
-use crate::pipeline::resources::binding::{
-    Binding, BufferBinding, FloatSampler2DArrayBinding, FloatSampler2DBinding,
-    FloatSampler3DBinding, FloatSamplerCubeBinding, IntegerSampler2DArrayBinding,
-    IntegerSampler2DBinding, IntegerSampler3DBinding, IntegerSamplerCubeBinding,
-    ShadowSampler2DArrayBinding, ShadowSampler2DBinding, ShadowSamplerCubeBinding,
-    UnsignedIntegerSampler2DArrayBinding, UnsignedIntegerSampler2DBinding,
-    UnsignedIntegerSampler3DBinding, UnsignedIntegerSamplerCubeBinding,
-};
-use crate::pipeline::resources::resource_slot::{Identifier, ResourceSlotDescriptor, SlotBindingConfirmer, SlotBindingMismatch, IncompatibleInterface};
+use crate::pipeline::resources::resource_slot::IncompatibleInterface;
+use crate::pipeline::resources::StaticResourceBindingsEncoder;
+
+pub trait TypedResourceBindingsLayout {
+    type Layout: Into<TypedResourceBindingsLayoutDescriptor>;
+
+    const LAYOUT: Self::Layout;
+}
+
+pub trait ResourceBindings {
+    type Bindings: Borrow<[BindingDescriptor]> + 'static;
+
+    fn encode(
+        self,
+        encoding_context: &mut ResourceBindingsEncodingContext,
+    ) -> ResourceBindingsEncoding<Self::Bindings>;
+}
+
+pub unsafe trait TypedResourceBindings: ResourceBindings {
+    type Layout: TypedResourceBindingsLayout;
+}
+
+#[derive(Clone, Debug)]
+pub struct ResourceBindingsLayoutDescriptor {
+    pub(crate) bindings: Vec<ResourceSlotDescriptor>,
+}
+
+#[derive(Clone, Debug)]
+pub enum ResourceSlotIdentifier {
+    Static(&'static str),
+    Dynamic(String),
+}
+
+impl From<&'static str> for ResourceSlotIdentifier {
+    fn from(value: &'static str) -> Self {
+        ResourceSlotIdentifier::Static(value)
+    }
+}
+
+impl From<String> for ResourceSlotIdentifier {
+    fn from(value: String) -> Self {
+        ResourceSlotIdentifier::Dynamic(value)
+    }
+}
+
+impl PartialEq for ResourceSlotIdentifier {
+    fn eq(&self, other: &Self) -> bool {
+        self.deref() == other.deref()
+    }
+}
+
+impl Hash for ResourceSlotIdentifier {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        let as_str: &str = self.deref();
+
+        as_str.hash(state);
+    }
+}
+
+impl Deref for ResourceSlotIdentifier {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            ResourceSlotIdentifier::Static(s) => s,
+            ResourceSlotIdentifier::Dynamic(s) => s,
+        }
+    }
+}
+
+#[derive(Clone, Hash, PartialEq, Debug)]
+pub struct ResourceSlotDescriptor {
+    pub slot_identifier: ResourceSlotIdentifier,
+    pub slot_index: u32,
+    pub slot_kind: ResourceSlotKind,
+}
+
+impl From<TypedResourceSlotDescriptor> for ResourceSlotDescriptor {
+    fn from(descriptor: TypedResourceSlotDescriptor) -> Self {
+        let TypedResourceSlotDescriptor {
+            slot_identifier,
+            slot_index,
+            slot_type,
+        } = descriptor;
+
+        ResourceSlotDescriptor {
+            slot_identifier,
+            slot_index,
+            slot_kind: slot_type.into(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Hash, PartialEq, Debug)]
+pub enum ResourceSlotKind {
+    // A WebGPU version would add `has_dynamic_offset`.
+    UniformBuffer,
+    // A WebGPU version would add `dimensionality`, `component_type` and `is_multisampled`.
+    SampledTexture,
+}
+
+impl ResourceSlotKind {
+    pub fn is_uniform_buffer(&self) -> bool {
+        if let ResourceSlotKind::UniformBuffer = self {
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn is_sampled_texture(&self) -> bool {
+        if let ResourceSlotKind::UniformBuffer = self {
+            true
+        } else {
+            false
+        }
+    }
+}
+
+impl From<ResourceSlotType> for ResourceSlotKind {
+    fn from(slot_type: ResourceSlotType) -> Self {
+        match slot_type {
+            ResourceSlotType::UniformBuffer(_) => ResourceSlotKind::UniformBuffer,
+            ResourceSlotType::SampledTexture(_) => ResourceSlotKind::SampledTexture,
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct TypedResourceBindingsLayoutDescriptor {
+    pub(crate) bindings: &'static [TypedResourceSlotDescriptor],
+}
+
+impl From<()> for TypedResourceBindingsLayoutDescriptor {
+    fn from(_: ()) -> Self {
+        TypedResourceBindingsLayoutDescriptor { bindings: &[] }
+    }
+}
+
+impl From<&'static [TypedResourceSlotDescriptor]> for TypedResourceBindingsLayoutDescriptor {
+    fn from(bindings: &'static [TypedResourceSlotDescriptor]) -> Self {
+        TypedResourceBindingsLayoutDescriptor { bindings }
+    }
+}
+
+#[derive(Clone, PartialEq, Debug)]
+pub struct TypedResourceSlotDescriptor {
+    pub slot_identifier: ResourceSlotIdentifier,
+    pub slot_index: u32,
+    pub slot_type: ResourceSlotType,
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum ResourceSlotType {
+    // A WebGPU version would add `has_dynamic_offset`.
+    UniformBuffer(&'static [MemoryUnit]),
+    // A WebGPU version would add `dimensionality`, `component_type` and `is_multisampled`.
+    SampledTexture(SampledTextureType),
+}
+
+#[derive(Clone, Copy, Hash, PartialEq, Debug)]
+pub enum SampledTextureType {
+    FloatSampler2D,
+    IntegerSampler2D,
+    UnsignedIntegerSampler2D,
+    FloatSampler2DArray,
+    IntegerSampler2DArray,
+    UnsignedIntegerSampler2DArray,
+    FloatSampler3D,
+    IntegerSampler3D,
+    UnsignedIntegerSampler3D,
+    FloatSamplerCube,
+    IntegerSamplerCube,
+    UnsignedIntegerSamplerCube,
+    Sampler2DShadow,
+    Sampler2DArrayShadow,
+    SamplerCubeShadow,
+}
 
 /// Provides a group of resources (uniform block buffers, sampled textures) that may be bound to a
 /// pipeline, such that the pipeline may access these resources during execution.
@@ -127,97 +296,99 @@ use crate::pipeline::resources::resource_slot::{Identifier, ResourceSlotDescript
 /// resource bindings declared this type will be checked against the pipeline's resource slots when
 /// the pipeline is created, see [RenderingContext::create_graphics_pipeline].
 pub unsafe trait Resources {
+    type Layout: Into<TypedResourceBindingsLayoutDescriptor>;
+
     type Bindings: Borrow<[BindingDescriptor]> + 'static;
 
-    /// Confirms that the [BindGroupEncoding] for these [Resources] as created by
-    /// [encode_bind_group] will match a pipeline's resource slots as describe by the [descriptors],
-    /// using the [confirmer].
-    ///
-    /// If this function does not return an error, then calling [encode_bind_group] for any instance
-    /// of the type will return a [BindGroupEncoding] that can be safely used with any pipeline
-    /// described by the [descriptors].
-    fn confirm_slot_bindings<C>(
-        confirmer: &C,
-        descriptors: &[ResourceSlotDescriptor],
-    ) -> Result<(), IncompatibleResources>
-    where
-        C: SlotBindingConfirmer;
+    const LAYOUT: Self::Layout;
 
-    /// Encodes these [Resources] into a bind group, so that they can be bound to specific `binding`
-    /// indices efficiently before a pipeline is executed.
-    fn into_bind_group(
+    fn encode_bindings(
         self,
-        context: &mut BindGroupEncodingContext,
-    ) -> BindGroupEncoding<Self::Bindings>;
+        encoding_context: &mut ResourceBindingsEncodingContext,
+    ) -> ResourceBindingsEncoding<Self::Bindings>;
 }
 
-unsafe impl Resources for () {
+impl<T> TypedResourceBindingsLayout for T
+where
+    T: Resources,
+{
+    type Layout = T::Layout;
+
+    const LAYOUT: Self::Layout = T::LAYOUT;
+}
+
+impl<T> ResourceBindings for T
+where
+    T: Resources,
+{
+    type Bindings = T::Bindings;
+
+    fn encode(
+        self,
+        encoding_context: &mut ResourceBindingsEncodingContext,
+    ) -> ResourceBindingsEncoding<Self::Bindings> {
+        self.encode_bindings(encoding_context)
+    }
+}
+
+unsafe impl<T> TypedResourceBindings for T
+where
+    T: Resources,
+{
+    type Layout = Self;
+}
+
+impl TypedResourceBindingsLayout for () {
+    type Layout = TypedResourceBindingsLayoutDescriptor;
+
+    const LAYOUT: Self::Layout = TypedResourceBindingsLayoutDescriptor { bindings: &[] };
+}
+
+impl ResourceBindings for () {
     type Bindings = [BindingDescriptor; 0];
 
-    fn confirm_slot_bindings<C>(
-        _confirmer: &C,
-        descriptors: &[ResourceSlotDescriptor],
-    ) -> Result<(), IncompatibleResources>
-    where
-        C: SlotBindingConfirmer,
-    {
-        if let Some(descriptor) = descriptors.first() {
-            Err(IncompatibleResources::MissingResource(
-                descriptor.identifier().clone(),
-            ))
-        } else {
-            Ok(())
-        }
-    }
-
-    fn into_bind_group(
+    fn encode(
         self,
-        context: &mut BindGroupEncodingContext,
-    ) -> BindGroupEncoding<Self::Bindings> {
-        BindGroupEncoding::empty(context)
+        encoding_context: &mut ResourceBindingsEncodingContext,
+    ) -> ResourceBindingsEncoding<Self::Bindings> {
+        ResourceBindingsEncoding::empty(encoding_context)
     }
+}
+
+unsafe impl TypedResourceBindings for () {
+    type Layout = ();
 }
 
 /// Error returned by [Resources::confirm_slot_bindings] when the [Resources] don't match the
 /// resource slot bindings.
 #[derive(Debug)]
 pub enum IncompatibleResources {
-    MissingResource(Identifier),
-    ResourceTypeMismatch(Identifier),
-    IncompatibleInterface(Identifier, IncompatibleInterface),
+    MissingResource(ResourceSlotIdentifier),
+    ResourceTypeMismatch(ResourceSlotIdentifier),
+    IncompatibleInterface(ResourceSlotIdentifier, IncompatibleInterface),
     SlotBindingMismatch { expected: usize, actual: usize },
-}
-
-impl From<SlotBindingMismatch> for IncompatibleResources {
-    fn from(err: SlotBindingMismatch) -> Self {
-        IncompatibleResources::SlotBindingMismatch {
-            expected: err.expected,
-            actual: err.actual,
-        }
-    }
 }
 
 /// Trait implemented for types that can be bound to a pipeline as a buffer resource.
 pub unsafe trait BufferResource {
-    /// The type of binding for this resource.
-    type Binding: Binding;
-
-    /// Turns this buffer resource into a binding for the given `index`.
-    fn into_binding(self, index: u32) -> Self::Binding;
+    /// Encodes a binding for this resource.
+    fn encode<B>(
+        self,
+        slot_index: u32,
+        encoder: StaticResourceBindingsEncoder<B>,
+    ) -> StaticResourceBindingsEncoder<(BindingDescriptor, B)>;
 }
 
 unsafe impl<'a, T> BufferResource for &'a Buffer<T>
 where
     T: InterfaceBlock,
 {
-    type Binding = BufferBinding<'a, T>;
-
-    fn into_binding(self, index: u32) -> Self::Binding {
-        BufferBinding {
-            index,
-            buffer_view: self.into(),
-            size_in_bytes: mem::size_of::<T>(),
-        }
+    fn encode<B>(
+        self,
+        slot_index: u32,
+        encoder: StaticResourceBindingsEncoder<B>,
+    ) -> StaticResourceBindingsEncoder<(BindingDescriptor, B)> {
+        encoder.add_buffer_view(slot_index, self.into())
     }
 }
 
@@ -225,187 +396,171 @@ unsafe impl<'a, T> BufferResource for BufferView<'a, T>
 where
     T: InterfaceBlock,
 {
-    type Binding = BufferBinding<'a, T>;
-
-    fn into_binding(self, index: u32) -> Self::Binding {
-        BufferBinding {
-            index,
-            buffer_view: self,
-            size_in_bytes: mem::size_of::<T>(),
-        }
+    fn encode<B>(
+        self,
+        slot_index: u32,
+        encoder: StaticResourceBindingsEncoder<B>,
+    ) -> StaticResourceBindingsEncoder<(BindingDescriptor, B)> {
+        encoder.add_buffer_view(slot_index, self)
     }
 }
 
 /// Trait implemented for types that can be bound to a pipeline as a texture resource.
 pub unsafe trait TextureResource {
-    /// The type of binding for this resource.
-    type Binding: Binding;
-
-    /// Turns this texture resource into a binding for the given `index`.
-    fn into_binding(self, index: u32) -> Self::Binding;
+    /// Encodes a binding for this resource.
+    fn encode<B>(
+        self,
+        slot_index: u32,
+        encoder: StaticResourceBindingsEncoder<B>,
+    ) -> StaticResourceBindingsEncoder<(BindingDescriptor, B)>;
 }
 
 unsafe impl<'a> TextureResource for FloatSampledTexture2D<'a> {
-    type Binding = FloatSampler2DBinding<'a>;
-
-    fn into_binding(self, index: u32) -> Self::Binding {
-        FloatSampler2DBinding {
-            texture_unit: index,
-            resource: self,
-        }
+    fn encode<B>(
+        self,
+        slot_index: u32,
+        encoder: StaticResourceBindingsEncoder<B>,
+    ) -> StaticResourceBindingsEncoder<(BindingDescriptor, B)> {
+        encoder.add_float_sampled_texture_2d(slot_index, self)
     }
 }
 
 unsafe impl<'a> TextureResource for FloatSampledTexture2DArray<'a> {
-    type Binding = FloatSampler2DArrayBinding<'a>;
-
-    fn into_binding(self, index: u32) -> Self::Binding {
-        FloatSampler2DArrayBinding {
-            texture_unit: index,
-            resource: self,
-        }
+    fn encode<B>(
+        self,
+        slot_index: u32,
+        encoder: StaticResourceBindingsEncoder<B>,
+    ) -> StaticResourceBindingsEncoder<(BindingDescriptor, B)> {
+        encoder.add_float_sampled_texture_2d_array(slot_index, self)
     }
 }
 
 unsafe impl<'a> TextureResource for FloatSampledTexture3D<'a> {
-    type Binding = FloatSampler3DBinding<'a>;
-
-    fn into_binding(self, index: u32) -> Self::Binding {
-        FloatSampler3DBinding {
-            texture_unit: index,
-            resource: self,
-        }
+    fn encode<B>(
+        self,
+        slot_index: u32,
+        encoder: StaticResourceBindingsEncoder<B>,
+    ) -> StaticResourceBindingsEncoder<(BindingDescriptor, B)> {
+        encoder.add_float_sampled_texture_3d(slot_index, self)
     }
 }
 
 unsafe impl<'a> TextureResource for FloatSampledTextureCube<'a> {
-    type Binding = FloatSamplerCubeBinding<'a>;
-
-    fn into_binding(self, index: u32) -> Self::Binding {
-        FloatSamplerCubeBinding {
-            texture_unit: index,
-            resource: self,
-        }
+    fn encode<B>(
+        self,
+        slot_index: u32,
+        encoder: StaticResourceBindingsEncoder<B>,
+    ) -> StaticResourceBindingsEncoder<(BindingDescriptor, B)> {
+        encoder.add_float_sampled_texture_cube(slot_index, self)
     }
 }
 
 unsafe impl<'a> TextureResource for IntegerSampledTexture2D<'a> {
-    type Binding = IntegerSampler2DBinding<'a>;
-
-    fn into_binding(self, index: u32) -> Self::Binding {
-        IntegerSampler2DBinding {
-            texture_unit: index,
-            resource: self,
-        }
+    fn encode<B>(
+        self,
+        slot_index: u32,
+        encoder: StaticResourceBindingsEncoder<B>,
+    ) -> StaticResourceBindingsEncoder<(BindingDescriptor, B)> {
+        encoder.add_integer_sampled_texture_2d(slot_index, self)
     }
 }
 
 unsafe impl<'a> TextureResource for IntegerSampledTexture2DArray<'a> {
-    type Binding = IntegerSampler2DArrayBinding<'a>;
-
-    fn into_binding(self, index: u32) -> Self::Binding {
-        IntegerSampler2DArrayBinding {
-            texture_unit: index,
-            resource: self,
-        }
+    fn encode<B>(
+        self,
+        slot_index: u32,
+        encoder: StaticResourceBindingsEncoder<B>,
+    ) -> StaticResourceBindingsEncoder<(BindingDescriptor, B)> {
+        encoder.add_integer_sampled_texture_2d_array(slot_index, self)
     }
 }
 
 unsafe impl<'a> TextureResource for IntegerSampledTexture3D<'a> {
-    type Binding = IntegerSampler3DBinding<'a>;
-
-    fn into_binding(self, index: u32) -> Self::Binding {
-        IntegerSampler3DBinding {
-            texture_unit: index,
-            resource: self,
-        }
+    fn encode<B>(
+        self,
+        slot_index: u32,
+        encoder: StaticResourceBindingsEncoder<B>,
+    ) -> StaticResourceBindingsEncoder<(BindingDescriptor, B)> {
+        encoder.add_integer_sampled_texture_3d(slot_index, self)
     }
 }
 
 unsafe impl<'a> TextureResource for IntegerSampledTextureCube<'a> {
-    type Binding = IntegerSamplerCubeBinding<'a>;
-
-    fn into_binding(self, index: u32) -> Self::Binding {
-        IntegerSamplerCubeBinding {
-            texture_unit: index,
-            resource: self,
-        }
+    fn encode<B>(
+        self,
+        slot_index: u32,
+        encoder: StaticResourceBindingsEncoder<B>,
+    ) -> StaticResourceBindingsEncoder<(BindingDescriptor, B)> {
+        encoder.add_integer_sampled_texture_cube(slot_index, self)
     }
 }
 
 unsafe impl<'a> TextureResource for UnsignedIntegerSampledTexture2D<'a> {
-    type Binding = UnsignedIntegerSampler2DBinding<'a>;
-
-    fn into_binding(self, index: u32) -> Self::Binding {
-        UnsignedIntegerSampler2DBinding {
-            texture_unit: index,
-            resource: self,
-        }
+    fn encode<B>(
+        self,
+        slot_index: u32,
+        encoder: StaticResourceBindingsEncoder<B>,
+    ) -> StaticResourceBindingsEncoder<(BindingDescriptor, B)> {
+        encoder.add_unsigned_integer_sampled_texture_2d(slot_index, self)
     }
 }
 
 unsafe impl<'a> TextureResource for UnsignedIntegerSampledTexture2DArray<'a> {
-    type Binding = UnsignedIntegerSampler2DArrayBinding<'a>;
-
-    fn into_binding(self, index: u32) -> Self::Binding {
-        UnsignedIntegerSampler2DArrayBinding {
-            texture_unit: index,
-            resource: self,
-        }
+    fn encode<B>(
+        self,
+        slot_index: u32,
+        encoder: StaticResourceBindingsEncoder<B>,
+    ) -> StaticResourceBindingsEncoder<(BindingDescriptor, B)> {
+        encoder.add_unsigned_integer_sampled_texture_2d_array(slot_index, self)
     }
 }
 
 unsafe impl<'a> TextureResource for UnsignedIntegerSampledTexture3D<'a> {
-    type Binding = UnsignedIntegerSampler3DBinding<'a>;
-
-    fn into_binding(self, index: u32) -> Self::Binding {
-        UnsignedIntegerSampler3DBinding {
-            texture_unit: index,
-            resource: self,
-        }
+    fn encode<B>(
+        self,
+        slot_index: u32,
+        encoder: StaticResourceBindingsEncoder<B>,
+    ) -> StaticResourceBindingsEncoder<(BindingDescriptor, B)> {
+        encoder.add_unsigned_integer_sampled_texture_3d(slot_index, self)
     }
 }
 
 unsafe impl<'a> TextureResource for UnsignedIntegerSampledTextureCube<'a> {
-    type Binding = UnsignedIntegerSamplerCubeBinding<'a>;
-
-    fn into_binding(self, index: u32) -> Self::Binding {
-        UnsignedIntegerSamplerCubeBinding {
-            texture_unit: index,
-            resource: self,
-        }
+    fn encode<B>(
+        self,
+        slot_index: u32,
+        encoder: StaticResourceBindingsEncoder<B>,
+    ) -> StaticResourceBindingsEncoder<(BindingDescriptor, B)> {
+        encoder.add_unsigned_integer_sampled_texture_cube(slot_index, self)
     }
 }
 
 unsafe impl<'a> TextureResource for ShadowSampledTexture2D<'a> {
-    type Binding = ShadowSampler2DBinding<'a>;
-
-    fn into_binding(self, index: u32) -> Self::Binding {
-        ShadowSampler2DBinding {
-            texture_unit: index,
-            resource: self,
-        }
+    fn encode<B>(
+        self,
+        slot_index: u32,
+        encoder: StaticResourceBindingsEncoder<B>,
+    ) -> StaticResourceBindingsEncoder<(BindingDescriptor, B)> {
+        encoder.add_shadow_sampled_texture_2d(slot_index, self)
     }
 }
 
 unsafe impl<'a> TextureResource for ShadowSampledTexture2DArray<'a> {
-    type Binding = ShadowSampler2DArrayBinding<'a>;
-
-    fn into_binding(self, index: u32) -> Self::Binding {
-        ShadowSampler2DArrayBinding {
-            texture_unit: index,
-            resource: self,
-        }
+    fn encode<B>(
+        self,
+        slot_index: u32,
+        encoder: StaticResourceBindingsEncoder<B>,
+    ) -> StaticResourceBindingsEncoder<(BindingDescriptor, B)> {
+        encoder.add_shadow_sampled_texture_2d_array(slot_index, self)
     }
 }
 
 unsafe impl<'a> TextureResource for ShadowSampledTextureCube<'a> {
-    type Binding = ShadowSamplerCubeBinding<'a>;
-
-    fn into_binding(self, index: u32) -> Self::Binding {
-        ShadowSamplerCubeBinding {
-            texture_unit: index,
-            resource: self,
-        }
+    fn encode<B>(
+        self,
+        slot_index: u32,
+        encoder: StaticResourceBindingsEncoder<B>,
+    ) -> StaticResourceBindingsEncoder<(BindingDescriptor, B)> {
+        encoder.add_shadow_sampled_texture_cube(slot_index, self)
     }
 }

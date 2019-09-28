@@ -38,9 +38,7 @@
 )]
 
 pub mod derive {
-    pub use web_glitz_macros::{
-        InterfaceBlock, Resources, TransformFeedback, Vertex,
-    };
+    pub use web_glitz_macros::{InterfaceBlock, Resources, TransformFeedback, Vertex};
 }
 
 pub mod buffer;

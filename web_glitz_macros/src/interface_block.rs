@@ -1,7 +1,7 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
 use syn::spanned::Spanned;
-use syn::{Data, DeriveInput, Ident, Field};
+use syn::{Data, DeriveInput, Field, Ident};
 
 pub fn expand_derive_interface_block(input: &DeriveInput) -> Result<TokenStream, String> {
     if let Data::Struct(data) = &input.data {
@@ -10,7 +10,11 @@ pub fn expand_derive_interface_block(input: &DeriveInput) -> Result<TokenStream,
 
         let chain = data.fields.iter().enumerate().map(|(position, field)| {
             let ty = &field.ty;
-            let ident = field.ident.clone().map(|i| i.into_token_stream()).unwrap_or(position.into_token_stream());
+            let ident = field
+                .ident
+                .clone()
+                .map(|i| i.into_token_stream())
+                .unwrap_or(position.into_token_stream());
             let span = field.span();
 
             quote_spanned! {span=>
@@ -22,7 +26,14 @@ pub fn expand_derive_interface_block(input: &DeriveInput) -> Result<TokenStream,
         });
 
         let chain_type = {
-            fn chain_recursive<'a, I>(mod_path: &TokenStream, init: TokenStream, iter: &mut I) -> TokenStream where I: Iterator<Item=&'a Field> {
+            fn chain_recursive<'a, I>(
+                mod_path: &TokenStream,
+                init: TokenStream,
+                iter: &mut I,
+            ) -> TokenStream
+            where
+                I: Iterator<Item = &'a Field>,
+            {
                 if let Some(field) = iter.next() {
                     let ty = &field.ty;
                     let res = quote! {
@@ -41,9 +52,13 @@ pub fn expand_derive_interface_block(input: &DeriveInput) -> Result<TokenStream,
 
             let mut iter = data.fields.iter();
 
-            chain_recursive(&mod_path, quote! {
-                std::iter::Empty<#mod_path::MemoryUnit>
-            }, &mut iter)
+            chain_recursive(
+                &mod_path,
+                quote! {
+                    std::iter::Empty<#mod_path::MemoryUnit>
+                },
+                &mut iter,
+            )
         };
 
         let suffix = struct_name.to_string().trim_start_matches("r#").to_owned();

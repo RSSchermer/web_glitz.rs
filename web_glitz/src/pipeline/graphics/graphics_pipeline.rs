@@ -1,23 +1,27 @@
-use std::any::TypeId;
 use std::cell::UnsafeCell;
 use std::hash::{Hash, Hasher};
 use std::marker;
 use std::sync::Arc;
 
 use fnv::FnvHasher;
-use wasm_bindgen::{JsCast};
+use wasm_bindgen::JsCast;
 
 use crate::image::Region2D;
+use crate::pipeline::graphics::descriptor::ResourceBindingsLayoutKind;
 use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
 use crate::pipeline::graphics::util::BufferDescriptors;
 use crate::pipeline::graphics::{
-    Blending, DepthTest, GraphicsPipelineDescriptor, PrimitiveAssembly, SlotBindingStrategy,
-    StencilTest, TransformFeedbackBuffersEncodingContext, TransformFeedbackLayoutDescriptor,
-    TypedTransformFeedbackBuffers, TypedTransformFeedbackLayout, VertexInputLayoutDescriptor,
-    Viewport,
+    Blending, DepthTest, GraphicsPipelineDescriptor, PrimitiveAssembly, StencilTest,
+    TransformFeedbackBuffersEncodingContext, TransformFeedbackLayoutDescriptor,
+    TypedTransformFeedbackBuffers, TypedTransformFeedbackLayout, Untyped,
+    VertexInputLayoutDescriptor, Viewport,
 };
-use crate::pipeline::resources::resource_slot::{SlotBindingChecker, SlotBindingUpdater};
-use crate::pipeline::resources::Resources;
+use crate::pipeline::resources::resource_slot::{SlotBindingUpdater, SlotType};
+use crate::pipeline::resources::{
+    IncompatibleResources, ResourceBindingsLayoutDescriptor,
+    ResourceSlotType, TypedResourceBindingsLayout,
+    TypedResourceBindingsLayoutDescriptor,
+};
 use crate::runtime::state::{ContextUpdate, DynamicState, ProgramKey};
 use crate::runtime::{Connection, CreateGraphicsPipelineError, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
@@ -40,6 +44,7 @@ pub struct GraphicsPipeline<V, R, Tf> {
     fragment_shader_data: Arc<FragmentShaderData>,
     vertex_attribute_layout: VertexInputLayoutDescriptor,
     transform_feedback_layout: Option<TransformFeedbackLayoutDescriptor>,
+    resource_bindings_layout: ResourceBindingsLayoutKind,
     primitive_assembly: PrimitiveAssembly,
     program_id: JsId,
     depth_test: Option<DepthTest>,
@@ -137,9 +142,28 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
     }
 }
 
+impl<V, Tf> GraphicsPipeline<V, Untyped, Tf> {
+    pub fn resource_bindings_layout(&self) -> &ResourceBindingsLayoutDescriptor {
+        match &self.resource_bindings_layout {
+            ResourceBindingsLayoutKind::Minimal(layout) => layout,
+            _ => unreachable!(),
+        }
+    }
+}
+
 impl<V, R, Tf> GraphicsPipeline<V, R, Tf>
 where
-    R: Resources + 'static,
+    R: TypedResourceBindingsLayout,
+{
+    pub fn resource_bindings_layout(&self) -> &TypedResourceBindingsLayoutDescriptor {
+        match &self.resource_bindings_layout {
+            ResourceBindingsLayoutKind::Typed(layout) => layout,
+            _ => unreachable!(),
+        }
+    }
+}
+
+impl<V, R, Tf> GraphicsPipeline<V, R, Tf>
 {
     pub(crate) fn create<Rc>(
         context: &Rc,
@@ -177,7 +201,7 @@ where
             ProgramKey {
                 vertex_shader_id: descriptor.vertex_shader_data.id().unwrap(),
                 fragment_shader_id: descriptor.fragment_shader_data.id().unwrap(),
-                resources_type_id: TypeId::of::<R>(),
+                resource_bindings_layout: descriptor.resource_bindings_layout.key(),
                 transform_feedback_layout_key,
             },
             &descriptor.transform_feedback_layout,
@@ -192,25 +216,88 @@ where
             .vertex_attribute_layout
             .check_compatibility(program.attribute_slot_descriptors())?;
 
-        match descriptor.binding_strategy {
-            SlotBindingStrategy::Check => {
-                let confirmer = SlotBindingChecker::new(gl, program.gl_object());
+        let program_object = program.gl_object();
 
-                R::confirm_slot_bindings(&confirmer, program.resource_slot_descriptors())?;
+        state
+            .set_active_program(Some(program_object))
+            .apply(gl)
+            .unwrap();
+
+        let updater = SlotBindingUpdater::new(gl, program_object);
+
+        match &descriptor.resource_bindings_layout {
+            ResourceBindingsLayoutKind::Minimal(layout) => {
+                'outer: for slot in program.resource_slot_descriptors() {
+                    'inner: for descriptor in &layout.bindings {
+                        if &descriptor.slot_identifier == slot.identifier() {
+                            if slot.slot_type().is_kind(descriptor.slot_kind) {
+                                updater.update_slot_binding(slot, descriptor.slot_index as u32);
+
+                                continue 'outer;
+                            } else {
+                                return Err(IncompatibleResources::ResourceTypeMismatch(
+                                    slot.identifier().clone(),
+                                )
+                                .into());
+                            }
+                        }
+                    }
+
+                    return Err(
+                        IncompatibleResources::MissingResource(slot.identifier().clone()).into(),
+                    );
+                }
             }
-            SlotBindingStrategy::Update => {
-                let program_object = program.gl_object();
+            ResourceBindingsLayoutKind::Typed(layout) => {
+                'outer: for slot in program.resource_slot_descriptors() {
+                    'inner: for descriptor in layout.bindings.iter() {
+                        if &descriptor.slot_identifier == slot.identifier() {
+                            match slot.slot_type() {
+                                SlotType::UniformBlock(uniform_block_slot) => {
+                                    if let ResourceSlotType::UniformBuffer(layout) =
+                                        descriptor.slot_type
+                                    {
+                                        uniform_block_slot.compatibility(layout).map_err(|e| {
+                                            IncompatibleResources::IncompatibleInterface(slot.identifier().clone(), e)
+                                        })?;
+                                    } else {
+                                        return Err(IncompatibleResources::ResourceTypeMismatch(
+                                            slot.identifier().clone(),
+                                        )
+                                        .into());
+                                    }
+                                }
+                                SlotType::TextureSampler(texture_sampler_slot) => {
+                                    match descriptor.slot_type {
+                                        ResourceSlotType::SampledTexture(tpe)
+                                            if tpe == texture_sampler_slot.kind() =>
+                                        {
+                                            ()
+                                        }
+                                        _ => {
+                                            return Err(
+                                                IncompatibleResources::ResourceTypeMismatch(
+                                                    slot.identifier().clone(),
+                                                )
+                                                .into(),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
 
-                state
-                    .set_active_program(Some(program_object))
-                    .apply(gl)
-                    .unwrap();
+                            updater.update_slot_binding(slot, descriptor.slot_index as u32);
 
-                let confirmer = SlotBindingUpdater::new(gl, program_object);
+                            continue 'outer;
+                        }
+                    }
 
-                R::confirm_slot_bindings(&confirmer, program.resource_slot_descriptors())?;
+                    return Err(
+                        IncompatibleResources::MissingResource(slot.identifier().clone()).into(),
+                    );
+                }
             }
-        };
+        }
 
         Ok(GraphicsPipeline {
             _vertex_attribute_layout_marker: marker::PhantomData,
@@ -222,6 +309,7 @@ where
             fragment_shader_data: descriptor.fragment_shader_data.clone(),
             vertex_attribute_layout: descriptor.vertex_attribute_layout.clone(),
             transform_feedback_layout: descriptor.transform_feedback_layout.clone(),
+            resource_bindings_layout: descriptor.resource_bindings_layout.clone(),
             primitive_assembly: descriptor.primitive_assembly.clone(),
             program_id: JsId::from_value(program.gl_object().into()),
             depth_test: descriptor.depth_test.clone(),

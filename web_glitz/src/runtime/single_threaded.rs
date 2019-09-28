@@ -93,7 +93,6 @@ use crate::pipeline::graphics::shader::{
 use crate::pipeline::graphics::{
     FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, VertexShader,
 };
-use crate::pipeline::resources::Resources;
 use crate::render_pass::{
     DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
     DefaultStencilBuffer, RenderPass, RenderPassContext, RenderPassId,
@@ -193,8 +192,6 @@ impl RenderingContext for SingleThreadedContext {
         &self,
         descriptor: &GraphicsPipelineDescriptor<V, R, Tf>,
     ) -> Result<GraphicsPipeline<V, R, Tf>, CreateGraphicsPipelineError>
-    where
-        R: Resources + 'static,
     {
         let executor = self.executor.borrow_mut();
         let mut connection = executor.connection.borrow_mut();

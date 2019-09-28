@@ -35,10 +35,8 @@ use crate::pipeline::graphics::{
     PrimitiveAssembly, StencilTest, TypedVertexBuffers, TypedVertexInputLayout, VertexBuffers,
     VertexBuffersEncodingContext, VertexInputLayoutDescriptor, Viewport,
 };
-use crate::pipeline::resources::bind_group_encoding::{
-    BindGroupEncodingContext, BindingDescriptor,
-};
-use crate::pipeline::resources::Resources;
+use crate::pipeline::resources::{ResourceBindings, TypedResourceBindings};
+use crate::pipeline::resources::{BindingDescriptor, ResourceBindingsEncodingContext};
 use crate::render_pass::RenderPassContext;
 use crate::render_target::attachable_image_ref::{AttachableImageData, AttachableImageRef};
 use crate::runtime::state::{BufferRange, ContextUpdate, DynamicState};
@@ -1208,7 +1206,7 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
         Sequence<T, BindResourcesCommand<R::Bindings>, PipelineTaskContext>,
     >
     where
-        R: Resources,
+        R: TypedResourceBindings,
         T: GpuTask<PipelineTaskContext>,
     {
         GraphicsPipelineTaskBuilder {
@@ -1219,9 +1217,7 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
                 self.task,
                 BindResourcesCommand {
                     pipeline_task_id: self.pipeline_task_id,
-                    resource_bindings: resources
-                        .into_bind_group(&mut BindGroupEncodingContext::new(self.context_id))
-                        .into_descriptors(),
+                    resource_bindings: resources.encode(&mut ResourceBindingsEncodingContext::new(self.context_id)).into_descriptors(),
                 },
             ),
             _pipeline: marker::PhantomData,
@@ -1303,7 +1299,7 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
     >
     where
         Vb: VertexBuffers,
-        Rb: Resources,
+        Rb: ResourceBindings,
         T: GpuTask<PipelineTaskContext>,
     {
         GraphicsPipelineTaskBuilder {
@@ -1404,7 +1400,7 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
     where
         Vb: VertexBuffers,
         Ib: IndexBuffer,
-        Rb: Resources,
+        Rb: ResourceBindings,
         T: GpuTask<PipelineTaskContext>,
     {
         GraphicsPipelineTaskBuilder {

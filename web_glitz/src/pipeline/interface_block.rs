@@ -66,7 +66,7 @@
 /// mark them as having a stable representation. [StableRepr] is automatically implemented for any
 /// struct marked with `#[repr_std140]`.
 pub unsafe trait InterfaceBlock: StableRepr {
-    type MemoryUnits: IntoIterator<Item=MemoryUnit>;
+    type MemoryUnits: IntoIterator<Item = MemoryUnit>;
 
     const MEMORY_UNITS: Self::MemoryUnits;
 }
@@ -85,12 +85,15 @@ pub unsafe trait InterfaceBlock: StableRepr {
 /// Any instance of a type that implements this trait must be bitwise compatible with the memory
 /// layout specified by [MEMORY_UNITS].
 pub unsafe trait InterfaceBlockComponent: StableRepr {
-    type MemoryUnits: IntoIterator<Item=MemoryUnit>;
+    type MemoryUnits: IntoIterator<Item = MemoryUnit>;
 
     const MEMORY_UNITS: Self::MemoryUnits;
 }
 
-unsafe impl<T> InterfaceBlockComponent for T where T: InterfaceBlock {
+unsafe impl<T> InterfaceBlockComponent for T
+where
+    T: InterfaceBlock,
+{
     type MemoryUnits = T::MemoryUnits;
 
     const MEMORY_UNITS: Self::MemoryUnits = T::MEMORY_UNITS;
@@ -343,61 +346,67 @@ pub enum UnitLayout {
 
 pub struct OffsetMemoryUnits<I> {
     memory_units: I,
-    offset: usize
+    offset: usize,
 }
 
-impl<I> OffsetMemoryUnits<I> where I: IntoIterator<Item=MemoryUnit> {
+impl<I> OffsetMemoryUnits<I>
+where
+    I: IntoIterator<Item = MemoryUnit>,
+{
     pub const fn new(memory_units: I, offset: usize) -> Self {
         OffsetMemoryUnits {
             memory_units,
-            offset
+            offset,
         }
     }
 }
 
-impl<I> IntoIterator for OffsetMemoryUnits<I> where I: IntoIterator<Item=MemoryUnit> {
+impl<I> IntoIterator for OffsetMemoryUnits<I>
+where
+    I: IntoIterator<Item = MemoryUnit>,
+{
     type Item = MemoryUnit;
     type IntoIter = OffsettingMemoryUnitIter<I::IntoIter>;
 
     fn into_iter(self) -> Self::IntoIter {
         OffsettingMemoryUnitIter {
             iter: self.memory_units.into_iter(),
-            offset: self.offset
+            offset: self.offset,
         }
     }
 }
 
 pub struct OffsettingMemoryUnitIter<I> {
     iter: I,
-    offset: usize
+    offset: usize,
 }
 
-impl<I> Iterator for OffsettingMemoryUnitIter<I> where I: Iterator<Item=MemoryUnit> {
+impl<I> Iterator for OffsettingMemoryUnitIter<I>
+where
+    I: Iterator<Item = MemoryUnit>,
+{
     type Item = MemoryUnit;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|unit| {
-            let MemoryUnit {
-                offset,
-                layout
-            } = unit;
+            let MemoryUnit { offset, layout } = unit;
 
             MemoryUnit {
                 offset: offset + self.offset,
-                layout
+                layout,
             }
         })
     }
 }
 
 pub struct LeafMemoryUnitIter {
-    unit: Option<MemoryUnit>
+    unit: Option<MemoryUnit>,
 }
 
 impl LeafMemoryUnitIter {
     pub fn new(memory_unit: MemoryUnit) -> Self {
         LeafMemoryUnitIter {
-            unit: Some(memory_unit)
+            unit: Some(memory_unit),
         }
     }
 }
@@ -421,19 +430,24 @@ impl IntoIterator for MemoryUnit {
 
 pub struct Chain<A, B> {
     a: A,
-    b: B
+    b: B,
 }
 
-impl<A, B> Chain<A, B> where A: IntoIterator, B: IntoIterator<Item=A::Item> {
+impl<A, B> Chain<A, B>
+where
+    A: IntoIterator,
+    B: IntoIterator<Item = A::Item>,
+{
     pub const fn new(a: A, b: B) -> Self {
-        Chain {
-            a,
-            b,
-        }
+        Chain { a, b }
     }
 }
 
-impl<A, B> IntoIterator for Chain<A, B> where A: IntoIterator, B: IntoIterator<Item=A::Item> {
+impl<A, B> IntoIterator for Chain<A, B>
+where
+    A: IntoIterator,
+    B: IntoIterator<Item = A::Item>,
+{
     type Item = A::Item;
     type IntoIter = std::iter::Chain<A::IntoIter, B::IntoIter>;
 
@@ -443,7 +457,6 @@ impl<A, B> IntoIterator for Chain<A, B> where A: IntoIterator, B: IntoIterator<I
 }
 
 use crate::std140;
-use std::borrow::Borrow;
 
 unsafe impl<T> StableRepr for T where T: std140::ReprStd140 {}
 
@@ -454,7 +467,7 @@ macro_rules! impl_interface_block_component_std140 {
 
             const MEMORY_UNITS: Self::MemoryUnits = MemoryUnit {
                 offset: 0,
-                layout: $layout
+                layout: $layout,
             };
         }
     };
@@ -476,46 +489,75 @@ impl_interface_block_component_std140!(boolean, UnitLayout::Bool);
 impl_interface_block_component_std140!(bvec2, UnitLayout::BoolVector2);
 impl_interface_block_component_std140!(bvec3, UnitLayout::BoolVector3);
 impl_interface_block_component_std140!(bvec4, UnitLayout::BoolVector4);
-impl_interface_block_component_std140!(mat2x2, UnitLayout::Matrix2x2 {
-    order: MatrixOrder::ColumnMajor,
-    matrix_stride: 16
-});
-impl_interface_block_component_std140!(mat2x3, UnitLayout::Matrix2x3 {
-    order: MatrixOrder::ColumnMajor,
-    matrix_stride: 16
-});
-impl_interface_block_component_std140!(mat2x4, UnitLayout::Matrix2x4 {
-    order: MatrixOrder::ColumnMajor,
-    matrix_stride: 16
-});
-impl_interface_block_component_std140!(mat3x2, UnitLayout::Matrix3x2 {
-    order: MatrixOrder::ColumnMajor,
-    matrix_stride: 16
-});
-impl_interface_block_component_std140!(mat3x3, UnitLayout::Matrix3x3 {
-    order: MatrixOrder::ColumnMajor,
-    matrix_stride: 16
-});
-impl_interface_block_component_std140!(mat3x4, UnitLayout::Matrix3x4 {
-    order: MatrixOrder::ColumnMajor,
-    matrix_stride: 16
-});
-impl_interface_block_component_std140!(mat4x2, UnitLayout::Matrix4x2 {
-    order: MatrixOrder::ColumnMajor,
-    matrix_stride: 16
-});
-impl_interface_block_component_std140!(mat4x3, UnitLayout::Matrix4x3 {
-    order: MatrixOrder::ColumnMajor,
-    matrix_stride: 16
-});
-impl_interface_block_component_std140!(mat4x4, UnitLayout::Matrix4x4 {
-    order: MatrixOrder::ColumnMajor,
-    matrix_stride: 16
-});
+impl_interface_block_component_std140!(
+    mat2x2,
+    UnitLayout::Matrix2x2 {
+        order: MatrixOrder::ColumnMajor,
+        matrix_stride: 16
+    }
+);
+impl_interface_block_component_std140!(
+    mat2x3,
+    UnitLayout::Matrix2x3 {
+        order: MatrixOrder::ColumnMajor,
+        matrix_stride: 16
+    }
+);
+impl_interface_block_component_std140!(
+    mat2x4,
+    UnitLayout::Matrix2x4 {
+        order: MatrixOrder::ColumnMajor,
+        matrix_stride: 16
+    }
+);
+impl_interface_block_component_std140!(
+    mat3x2,
+    UnitLayout::Matrix3x2 {
+        order: MatrixOrder::ColumnMajor,
+        matrix_stride: 16
+    }
+);
+impl_interface_block_component_std140!(
+    mat3x3,
+    UnitLayout::Matrix3x3 {
+        order: MatrixOrder::ColumnMajor,
+        matrix_stride: 16
+    }
+);
+impl_interface_block_component_std140!(
+    mat3x4,
+    UnitLayout::Matrix3x4 {
+        order: MatrixOrder::ColumnMajor,
+        matrix_stride: 16
+    }
+);
+impl_interface_block_component_std140!(
+    mat4x2,
+    UnitLayout::Matrix4x2 {
+        order: MatrixOrder::ColumnMajor,
+        matrix_stride: 16
+    }
+);
+impl_interface_block_component_std140!(
+    mat4x3,
+    UnitLayout::Matrix4x3 {
+        order: MatrixOrder::ColumnMajor,
+        matrix_stride: 16
+    }
+);
+impl_interface_block_component_std140!(
+    mat4x4,
+    UnitLayout::Matrix4x4 {
+        order: MatrixOrder::ColumnMajor,
+        matrix_stride: 16
+    }
+);
 
 macro_rules! impl_interface_block_component_std140_array {
     ($T:ident, $layout_ident:ident) => {
-        unsafe impl <const LEN: usize> InterfaceBlockComponent for std140::array <std140::$T, { LEN }> {
+        unsafe impl<const LEN: usize> InterfaceBlockComponent
+            for std140::array<std140::$T, { LEN }>
+        {
             type MemoryUnits = MemoryUnit;
 
             const MEMORY_UNITS: Self::MemoryUnits = MemoryUnit {
@@ -548,7 +590,9 @@ impl_interface_block_component_std140_array!(bvec4, BoolVector4Array);
 
 macro_rules! impl_interface_block_component_std140_matrix_array {
     ($T:ident, $layout_ident:ident) => {
-        unsafe impl <const LEN: usize> InterfaceBlockComponent for std140::array <std140::$T, { LEN }> {
+        unsafe impl<const LEN: usize> InterfaceBlockComponent
+            for std140::array<std140::$T, { LEN }>
+        {
             type MemoryUnits = MemoryUnit;
 
             const MEMORY_UNITS: Self::MemoryUnits = MemoryUnit {

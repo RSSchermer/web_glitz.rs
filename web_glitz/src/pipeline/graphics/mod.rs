@@ -2,9 +2,7 @@ mod blending;
 pub use self::blending::{BlendEquation, BlendFactor, Blending};
 
 mod descriptor;
-pub use self::descriptor::{
-    GraphicsPipelineDescriptor, GraphicsPipelineDescriptorBuilder, SlotBindingStrategy,
-};
+pub use self::descriptor::{GraphicsPipelineDescriptor, GraphicsPipelineDescriptorBuilder};
 
 mod fragment_test;
 pub use self::fragment_test::{

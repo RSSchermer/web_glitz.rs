@@ -8,15 +8,40 @@ use crate::pipeline::graphics::{
     TransformFeedbackLayoutDescriptor, TypedTransformFeedbackLayout, TypedVertexInputLayout,
     Untyped, VertexInputLayoutDescriptor, VertexShader, Viewport,
 };
-use crate::pipeline::resources::Resources;
+use crate::pipeline::resources::{
+    ResourceBindingsLayoutDescriptor, ResourceSlotDescriptor, Resources,
+    TypedResourceBindingsLayout, TypedResourceBindingsLayoutDescriptor,
+};
+use fnv::FnvHasher;
+use std::hash::{Hash, Hasher};
 
-/// Enumerates the strategies available to map pipeline resource slots to binding indices.
-///
-/// See [GraphicsPipelineDescriptorBuilder::resource_layout].
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub enum SlotBindingStrategy {
-    Check,
-    Update,
+#[derive(Clone, Debug)]
+pub(crate) enum ResourceBindingsLayoutKind {
+    Minimal(ResourceBindingsLayoutDescriptor),
+    Typed(TypedResourceBindingsLayoutDescriptor),
+}
+
+impl ResourceBindingsLayoutKind {
+    pub(crate) fn key(&self) -> u64 {
+        let mut hasher = FnvHasher::default();
+
+        match self {
+            ResourceBindingsLayoutKind::Minimal(descriptor) => {
+                for binding in descriptor.bindings.iter() {
+                    binding.hash(&mut hasher);
+                }
+            }
+            ResourceBindingsLayoutKind::Typed(descriptor) => {
+                for binding in descriptor.bindings.iter() {
+                    let minimal_descriptor: ResourceSlotDescriptor = binding.clone().into();
+
+                    minimal_descriptor.hash(&mut hasher);
+                }
+            }
+        }
+
+        hasher.finish()
+    }
 }
 
 /// Provides a description from which a [GraphicsPipeline] may be created.
@@ -36,13 +61,13 @@ pub struct GraphicsPipelineDescriptor<V, R, Tf> {
     pub(crate) fragment_shader_data: Arc<FragmentShaderData>,
     pub(crate) vertex_attribute_layout: VertexInputLayoutDescriptor,
     pub(crate) transform_feedback_layout: Option<TransformFeedbackLayoutDescriptor>,
+    pub(crate) resource_bindings_layout: ResourceBindingsLayoutKind,
     pub(crate) primitive_assembly: PrimitiveAssembly,
     pub(crate) depth_test: Option<DepthTest>,
     pub(crate) stencil_test: Option<StencilTest>,
     pub(crate) scissor_region: Region2D,
     pub(crate) blending: Option<Blending>,
     pub(crate) viewport: Viewport,
-    pub(crate) binding_strategy: SlotBindingStrategy,
 }
 
 impl GraphicsPipelineDescriptor<(), (), ()> {
@@ -62,13 +87,13 @@ impl GraphicsPipelineDescriptor<(), (), ()> {
             fragment_shader: None,
             vertex_input_layout: ().into(),
             transform_feedback_layout: None,
+            resource_bindings_layout: ResourceBindingsLayoutKind::Typed(().into()),
             primitive_assembly: None,
             depth_test: None,
             stencil_test: None,
             scissor_region: Region2D::Fill,
             blending: None,
             viewport: Viewport::Auto,
-            binding_strategy: SlotBindingStrategy::Check,
         }
     }
 }
@@ -84,38 +109,27 @@ impl GraphicsPipelineDescriptor<(), (), ()> {
 ///   value.
 /// - The fragment shader stage can be specified with [fragment_shader]. See [FragmentShader] for
 ///   details on the fragment shader stage. Must be set explicitly, has no default value.
+/// - The vertex input layout may be specified with [typed_vertex_input_layout] or
+///   [untyped_vertex_input_layout]. Defaults to the (typed) empty vertex input layout `()`.
+/// - The resource bindings layout may be specified with [typed_resource_bindings_layout] or
+///   [untyped_resource_bindings_layout]. Defaults to the (typed) empty resource bindings layout
+///   `()`.
+/// - The transform feedback layout may be specified with [typed_transform_feedback_layout] or
+///   [untyped_transform_feedback_layout]. Defaults to the (typed) empty transform feedback layout
+///   `()`.
 /// - The depth test can be enabled with [enable_depth_test]. See [DepthTest] for details on the
-///   depth test. Does not need to be set explicitly, will default to disabled.
+///   depth test. If not set explicitly, will default to disabled.
 /// - The stencil test can be enabled with [enable_stencil_test]. See [StencilTest] for details on
-///   the stencil test. Does not need to be set explicitly, will default to disabled.
+///   the stencil test. If not set explicitly, will default to disabled.
 /// - A scissor region may be specified with [scissor_region]. Any fragments outside the scissor
 ///   region will be discarded before the fragment processing stages. If not set explicitly, the
 ///   the scissor region defaults to [Region2D::Fill] and will match the size of the framebuffer
 ///   that is the current draw target.
-/// - Blending can be enabled with [enable_blending]. See [Blending] for details on blending. Does
-///   not need to be set explicitly, will default to disabled.
+/// - Blending can be enabled with [enable_blending]. See [Blending] for details on blending. If not
+///   set explicitly, will default to disabled.
 /// - The viewport may be specified with [viewport]. See [Viewport] for details on the viewport. If
 ///   no viewport is explicitly specified, then the viewport will default to [Viewport::Auto].
 ///
-/// Additionally, static type information about the interface of the graphics pipeline with external
-/// data sources must be specified:
-///
-/// - The vertex input layout type must be specified with [vertex_input_layout]. This must be a
-///   type that implements [AttributeSlotLayoutCompatible]. Note that
-///   [AttributeSlotLayoutCompatible] is implemented for any type that implements [Vertex] and any
-///   tuple of types that implement [Vertex] (e.g. `(Vertex1, Vertex2, Vertex3)`).
-/// - The resource layout must be specified with [resource_layout]. This must be a type that
-///   implements [Resources].
-///
-/// When the descriptor that results from this builder is used to create a graphics pipeline (see
-/// [RenderingContext::create_graphics_pipeline]), the vertex input layout and resource layout
-/// associated with these types is checked against the actual vertex input layout and resource
-/// layout defined by the pipeline's programmable shader stages (by reflecting on the code for these
-/// shader stages). If the layout defined by these types and the actual layout defined by the
-/// shader stages do not match, then pipeline creation will fail and an error is returned instead.
-/// If the layouts do match, then vertex input streams and resources of the specified types may be
-/// safely bound to the pipeline when creating draw commands (see [PipelineTask::draw_command])
-/// without additional runtime checks.
 ///
 /// Finally, the [GraphicsPipelineDescriptor] may be finalized by calling [finish]. [finish] may
 /// only be called if at least the following have been explicitly specified:
@@ -123,16 +137,14 @@ impl GraphicsPipelineDescriptor<(), (), ()> {
 /// - The vertex shader with [vertex_shader].
 /// - The primitive assembly algorithm with [primitive_assembly].
 /// - The fragment shader with [fragment_shader].
-/// - The vertex input layout type with [vertex_input_layout].
-/// - The resource layout type with [resource_layout].
 ///
 /// # Example
 ///
 /// ```
 /// # use web_glitz::pipeline::graphics::{VertexShader, FragmentShader};
-/// # use web_glitz::pipeline::resources::Resources;
-/// # use web_glitz::vertex::Vertex;
-/// # fn wrapper<MyVertex: Vertex, MyResources: Resources>(
+/// # use web_glitz::pipeline::resources::TypedResourceBindingsLayout;
+/// # use web_glitz::vertex::TypedVertexInputLayout;
+/// # fn wrapper<MyVertex: TypedVertexInputLayout, MyResources: TypedResourceBindingsLayout>(
 /// #     vertex_shader: VertexShader,
 /// #     fragment_shader: FragmentShader
 /// # ) {
@@ -150,14 +162,14 @@ impl GraphicsPipelineDescriptor<(), (), ()> {
 ///     .fragment_shader(&fragment_shader)
 ///     .enable_depth_test(DepthTest::default())
 ///     .typed_vertex_attribute_layout::<MyVertex>()
-///     .resource_layout::<MyResources>(SlotBindingStrategy::Update)
+///     .typed_resource_bindings_layout::<MyResources>()
 ///     .finish();
 /// # }
 /// ```
 ///
 /// Here `vertex_shader` is a [VertexShader], `fragment_shader` is a [FragmentShader], `MyVertex` is
-/// a type that implements [AttributeSlotLayoutCompatible] and `MyResources` is a type that
-/// implements [Resources].
+/// a type that implements [TypedVertexInputLayout] and `MyResources` is a type that
+/// implements [TypedResourceBindingsLayout].
 pub struct GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, Tf> {
     _vertex_shader: marker::PhantomData<Vs>,
     _primitive_assembly: marker::PhantomData<Pa>,
@@ -168,6 +180,7 @@ pub struct GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, Tf> {
     vertex_shader: Option<Arc<VertexShaderData>>,
     vertex_input_layout: VertexInputLayoutDescriptor,
     transform_feedback_layout: Option<TransformFeedbackLayoutDescriptor>,
+    resource_bindings_layout: ResourceBindingsLayoutKind,
     fragment_shader: Option<Arc<FragmentShaderData>>,
     primitive_assembly: Option<PrimitiveAssembly>,
     depth_test: Option<DepthTest>,
@@ -175,7 +188,6 @@ pub struct GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, Tf> {
     scissor_region: Region2D,
     blending: Option<Blending>,
     viewport: Viewport,
-    binding_strategy: SlotBindingStrategy,
 }
 
 impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, Tf> {
@@ -197,6 +209,7 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             vertex_shader: Some(vertex_shader.data().clone()),
             vertex_input_layout: self.vertex_input_layout,
             transform_feedback_layout: self.transform_feedback_layout,
+            resource_bindings_layout: self.resource_bindings_layout,
             primitive_assembly: self.primitive_assembly,
             fragment_shader: self.fragment_shader,
             depth_test: self.depth_test,
@@ -204,7 +217,6 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             scissor_region: self.scissor_region,
             blending: self.blending,
             viewport: self.viewport,
-            binding_strategy: self.binding_strategy,
         }
     }
 
@@ -226,6 +238,7 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             vertex_shader: self.vertex_shader,
             vertex_input_layout: self.vertex_input_layout,
             transform_feedback_layout: self.transform_feedback_layout,
+            resource_bindings_layout: self.resource_bindings_layout,
             primitive_assembly: Some(primitive_assembly),
             fragment_shader: self.fragment_shader,
             depth_test: self.depth_test,
@@ -233,7 +246,6 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             scissor_region: self.scissor_region,
             blending: self.blending,
             viewport: self.viewport,
-            binding_strategy: self.binding_strategy,
         }
     }
 
@@ -255,6 +267,7 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             vertex_shader: self.vertex_shader,
             vertex_input_layout: self.vertex_input_layout,
             transform_feedback_layout: self.transform_feedback_layout,
+            resource_bindings_layout: self.resource_bindings_layout,
             primitive_assembly: self.primitive_assembly,
             fragment_shader: Some(fragment_shader.data().clone()),
             depth_test: self.depth_test,
@@ -262,7 +275,6 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             scissor_region: self.scissor_region,
             blending: self.blending,
             viewport: self.viewport,
-            binding_strategy: self.binding_strategy,
         }
     }
 
@@ -298,6 +310,7 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             vertex_shader: self.vertex_shader,
             vertex_input_layout: T::LAYOUT_DESCRIPTION.into(),
             transform_feedback_layout: self.transform_feedback_layout,
+            resource_bindings_layout: self.resource_bindings_layout,
             primitive_assembly: self.primitive_assembly,
             fragment_shader: self.fragment_shader,
             depth_test: self.depth_test,
@@ -305,7 +318,6 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             scissor_region: self.scissor_region,
             blending: self.blending,
             viewport: self.viewport,
-            binding_strategy: self.binding_strategy,
         }
     }
 
@@ -323,6 +335,7 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             vertex_shader: self.vertex_shader,
             vertex_input_layout: vertex_attribute_layout,
             transform_feedback_layout: self.transform_feedback_layout,
+            resource_bindings_layout: self.resource_bindings_layout,
             primitive_assembly: self.primitive_assembly,
             fragment_shader: self.fragment_shader,
             depth_test: self.depth_test,
@@ -330,7 +343,6 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             scissor_region: self.scissor_region,
             blending: self.blending,
             viewport: self.viewport,
-            binding_strategy: self.binding_strategy,
         }
     }
 
@@ -367,6 +379,7 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             vertex_shader: self.vertex_shader,
             vertex_input_layout: self.vertex_input_layout,
             transform_feedback_layout: Some(T::LAYOUT_DESCRIPTION.into()),
+            resource_bindings_layout: self.resource_bindings_layout,
             primitive_assembly: self.primitive_assembly,
             fragment_shader: self.fragment_shader,
             depth_test: self.depth_test,
@@ -374,7 +387,6 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             scissor_region: self.scissor_region,
             blending: self.blending,
             viewport: self.viewport,
-            binding_strategy: self.binding_strategy,
         }
     }
 
@@ -392,6 +404,7 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             vertex_shader: self.vertex_shader,
             vertex_input_layout: self.vertex_input_layout,
             transform_feedback_layout: Some(transform_feedback_layout),
+            resource_bindings_layout: self.resource_bindings_layout,
             primitive_assembly: self.primitive_assembly,
             fragment_shader: self.fragment_shader,
             depth_test: self.depth_test,
@@ -399,12 +412,11 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             scissor_region: self.scissor_region,
             blending: self.blending,
             viewport: self.viewport,
-            binding_strategy: self.binding_strategy,
         }
     }
 
-    /// Specifies a [Resources] type that determines the resource layout and resource binding
-    /// strategy for any graphics pipeline created from the descriptor.
+    /// Specifies a [TypedResourceBindingsLayout] type that determines the resource bindings layout
+    /// for any graphics pipeline created from the descriptor.
     ///
     /// When the descriptor that results from this builder is used to create a graphics pipeline
     /// (see [RenderingContext::create_graphics_pipeline]), the resource layout associated with
@@ -413,23 +425,16 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
     /// layout defined by this type and the actual layout defined by the shader stages do not match,
     /// then pipeline creation will fail and an error is returned instead. If the layouts do match,
     /// then instances of this type may be safely bound to the pipeline's resource slots when
-    /// creating draw commands without additional runtime checks (see [PipelineTask::draw_command]).
+    /// creating pipeline tasks draw commands without additional runtime checks (see
+    /// [PipelineTaskBuilder::bind_resources]).
     ///
-    /// The `strategy` specified the strategy used to match the pipeline's resource slots to the
-    /// resource bindings provided by the [Resources] type. If [SlotBindingStrategy::Check] is used,
-    /// then [RenderingContext::create_graphics_pipeline] will verify whether or not the default
-    /// binding indices used by the pipeline's resource slots are identical to the resource
-    /// associated with that slot name on the [Resources] type. If any slot is incompatible, then
-    /// [RenderingContext::create_graphics_pipeline] will fail and return an error. If
-    /// [SlotBindingStrategy::Update] is used, then [RenderingContext::create_graphics_pipeline]
-    /// will override the pipeline's default slot binding indices with the indices associated with
-    /// the corresponding resource on the [Resources] type.
-    pub fn resource_layout<T>(
+    /// Note that [TypedResourceBindingsLayout] is implemented for any type that derives
+    /// [Resources].
+    pub fn typed_resource_bindings_layout<T>(
         self,
-        strategy: SlotBindingStrategy,
     ) -> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, T, Tf>
     where
-        T: Resources,
+        T: TypedResourceBindingsLayout,
     {
         GraphicsPipelineDescriptorBuilder {
             _vertex_shader: marker::PhantomData,
@@ -441,6 +446,7 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             vertex_shader: self.vertex_shader,
             vertex_input_layout: self.vertex_input_layout,
             transform_feedback_layout: self.transform_feedback_layout,
+            resource_bindings_layout: ResourceBindingsLayoutKind::Typed(T::LAYOUT.into()),
             primitive_assembly: self.primitive_assembly,
             fragment_shader: self.fragment_shader,
             depth_test: self.depth_test,
@@ -448,7 +454,31 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
             scissor_region: self.scissor_region,
             blending: self.blending,
             viewport: self.viewport,
-            binding_strategy: strategy,
+        }
+    }
+
+    pub fn untyped_resource_bindings_layout(
+        self,
+        layout: ResourceBindingsLayoutDescriptor,
+    ) -> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, Untyped, Tf> {
+        GraphicsPipelineDescriptorBuilder {
+            _vertex_shader: marker::PhantomData,
+            _primitive_assembly: marker::PhantomData,
+            _fragment_shader: marker::PhantomData,
+            _transform_feedback: marker::PhantomData,
+            _vertex_attribute_layout: marker::PhantomData,
+            _resource_layout: marker::PhantomData,
+            vertex_shader: self.vertex_shader,
+            vertex_input_layout: self.vertex_input_layout,
+            transform_feedback_layout: self.transform_feedback_layout,
+            resource_bindings_layout: ResourceBindingsLayoutKind::Minimal(layout),
+            primitive_assembly: self.primitive_assembly,
+            fragment_shader: self.fragment_shader,
+            depth_test: self.depth_test,
+            stencil_test: self.stencil_test,
+            scissor_region: self.scissor_region,
+            blending: self.blending,
+            viewport: self.viewport,
         }
     }
 
@@ -517,13 +547,13 @@ where
             fragment_shader_data: self.fragment_shader.unwrap(),
             vertex_attribute_layout: self.vertex_input_layout,
             transform_feedback_layout: self.transform_feedback_layout,
+            resource_bindings_layout: self.resource_bindings_layout,
             primitive_assembly: self.primitive_assembly.unwrap(),
             depth_test: self.depth_test,
             stencil_test: self.stencil_test,
             scissor_region: self.scissor_region,
             blending: self.blending,
             viewport: self.viewport,
-            binding_strategy: self.binding_strategy,
         }
     }
 }
