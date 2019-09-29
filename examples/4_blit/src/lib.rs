@@ -6,9 +6,7 @@
 
 #![feature(
     const_fn,
-    const_raw_ptr_deref,
     const_raw_ptr_to_usize_cast,
-    untagged_unions
 )]
 
 use wasm_bindgen::prelude::*;

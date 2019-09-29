@@ -401,11 +401,9 @@ pub enum SampledTextureType {
 /// types use a separate set of bindings: a `#[texture_resource(...)]` field may declare the same
 /// `binding` index as a `#[buffer_resource(...)]`.
 pub unsafe trait Resources {
-    type Layout: Into<TypedResourceBindingsLayoutDescriptor>;
-
     type Bindings: Borrow<[BindingDescriptor]> + 'static;
 
-    const LAYOUT: Self::Layout;
+    const LAYOUT: &'static [TypedResourceSlotDescriptor];
 
     fn encode_bindings(
         self,
@@ -417,9 +415,9 @@ impl<T> TypedResourceBindingsLayout for T
 where
     T: Resources,
 {
-    type Layout = T::Layout;
+    type Layout = &'static [TypedResourceSlotDescriptor];
 
-    const LAYOUT: Self::Layout = T::LAYOUT;
+    const LAYOUT: &'static [TypedResourceSlotDescriptor] = T::LAYOUT;
 }
 
 impl<T> ResourceBindings for T
@@ -479,6 +477,8 @@ pub enum IncompatibleResources {
 /// When automatically deriving the [Resources] trait, fields marked with `#[buffer_resource(...)]`
 /// must implement this trait.
 pub unsafe trait BufferResource {
+    const MEMORY_UNITS: &'static [MemoryUnit];
+
     /// Encodes a binding for this resource at the specified `slot_index`.
     fn encode<B>(
         self,
@@ -491,6 +491,8 @@ unsafe impl<'a, T> BufferResource for &'a Buffer<T>
 where
     T: InterfaceBlock,
 {
+    const MEMORY_UNITS: &'static [MemoryUnit] = T::MEMORY_UNITS;
+
     fn encode<B>(
         self,
         slot_index: u32,
@@ -504,6 +506,8 @@ unsafe impl<'a, T> BufferResource for BufferView<'a, T>
 where
     T: InterfaceBlock,
 {
+    const MEMORY_UNITS: &'static [MemoryUnit] = T::MEMORY_UNITS;
+
     fn encode<B>(
         self,
         slot_index: u32,
@@ -518,6 +522,8 @@ where
 /// When automatically deriving the [Resources] trait, fields marked with `#[texture_resource(...)]`
 /// must implement this trait.
 pub unsafe trait TextureResource {
+    const SAMPLED_TEXTURE_TYPE: SampledTextureType;
+
     /// Encodes a binding for this resource at the specified `slot_index`.
     fn encode<B>(
         self,
@@ -527,6 +533,8 @@ pub unsafe trait TextureResource {
 }
 
 unsafe impl<'a> TextureResource for FloatSampledTexture2D<'a> {
+    const SAMPLED_TEXTURE_TYPE: SampledTextureType = SampledTextureType::FloatSampler2D;
+
     fn encode<B>(
         self,
         slot_index: u32,
@@ -537,6 +545,8 @@ unsafe impl<'a> TextureResource for FloatSampledTexture2D<'a> {
 }
 
 unsafe impl<'a> TextureResource for FloatSampledTexture2DArray<'a> {
+    const SAMPLED_TEXTURE_TYPE: SampledTextureType = SampledTextureType::FloatSampler2DArray;
+
     fn encode<B>(
         self,
         slot_index: u32,
@@ -547,6 +557,8 @@ unsafe impl<'a> TextureResource for FloatSampledTexture2DArray<'a> {
 }
 
 unsafe impl<'a> TextureResource for FloatSampledTexture3D<'a> {
+    const SAMPLED_TEXTURE_TYPE: SampledTextureType = SampledTextureType::FloatSampler3D;
+
     fn encode<B>(
         self,
         slot_index: u32,
@@ -557,6 +569,8 @@ unsafe impl<'a> TextureResource for FloatSampledTexture3D<'a> {
 }
 
 unsafe impl<'a> TextureResource for FloatSampledTextureCube<'a> {
+    const SAMPLED_TEXTURE_TYPE: SampledTextureType = SampledTextureType::FloatSamplerCube;
+
     fn encode<B>(
         self,
         slot_index: u32,
@@ -567,6 +581,8 @@ unsafe impl<'a> TextureResource for FloatSampledTextureCube<'a> {
 }
 
 unsafe impl<'a> TextureResource for IntegerSampledTexture2D<'a> {
+    const SAMPLED_TEXTURE_TYPE: SampledTextureType = SampledTextureType::IntegerSampler2D;
+
     fn encode<B>(
         self,
         slot_index: u32,
@@ -577,6 +593,8 @@ unsafe impl<'a> TextureResource for IntegerSampledTexture2D<'a> {
 }
 
 unsafe impl<'a> TextureResource for IntegerSampledTexture2DArray<'a> {
+    const SAMPLED_TEXTURE_TYPE: SampledTextureType = SampledTextureType::IntegerSampler2DArray;
+
     fn encode<B>(
         self,
         slot_index: u32,
@@ -587,6 +605,8 @@ unsafe impl<'a> TextureResource for IntegerSampledTexture2DArray<'a> {
 }
 
 unsafe impl<'a> TextureResource for IntegerSampledTexture3D<'a> {
+    const SAMPLED_TEXTURE_TYPE: SampledTextureType = SampledTextureType::IntegerSampler3D;
+
     fn encode<B>(
         self,
         slot_index: u32,
@@ -597,6 +617,8 @@ unsafe impl<'a> TextureResource for IntegerSampledTexture3D<'a> {
 }
 
 unsafe impl<'a> TextureResource for IntegerSampledTextureCube<'a> {
+    const SAMPLED_TEXTURE_TYPE: SampledTextureType = SampledTextureType::IntegerSamplerCube;
+
     fn encode<B>(
         self,
         slot_index: u32,
@@ -607,6 +629,8 @@ unsafe impl<'a> TextureResource for IntegerSampledTextureCube<'a> {
 }
 
 unsafe impl<'a> TextureResource for UnsignedIntegerSampledTexture2D<'a> {
+    const SAMPLED_TEXTURE_TYPE: SampledTextureType = SampledTextureType::UnsignedIntegerSampler2D;
+
     fn encode<B>(
         self,
         slot_index: u32,
@@ -617,6 +641,8 @@ unsafe impl<'a> TextureResource for UnsignedIntegerSampledTexture2D<'a> {
 }
 
 unsafe impl<'a> TextureResource for UnsignedIntegerSampledTexture2DArray<'a> {
+    const SAMPLED_TEXTURE_TYPE: SampledTextureType = SampledTextureType::UnsignedIntegerSampler2DArray;
+
     fn encode<B>(
         self,
         slot_index: u32,
@@ -627,6 +653,8 @@ unsafe impl<'a> TextureResource for UnsignedIntegerSampledTexture2DArray<'a> {
 }
 
 unsafe impl<'a> TextureResource for UnsignedIntegerSampledTexture3D<'a> {
+    const SAMPLED_TEXTURE_TYPE: SampledTextureType = SampledTextureType::UnsignedIntegerSampler3D;
+
     fn encode<B>(
         self,
         slot_index: u32,
@@ -637,6 +665,8 @@ unsafe impl<'a> TextureResource for UnsignedIntegerSampledTexture3D<'a> {
 }
 
 unsafe impl<'a> TextureResource for UnsignedIntegerSampledTextureCube<'a> {
+    const SAMPLED_TEXTURE_TYPE: SampledTextureType = SampledTextureType::UnsignedIntegerSamplerCube;
+
     fn encode<B>(
         self,
         slot_index: u32,
@@ -647,6 +677,8 @@ unsafe impl<'a> TextureResource for UnsignedIntegerSampledTextureCube<'a> {
 }
 
 unsafe impl<'a> TextureResource for ShadowSampledTexture2D<'a> {
+    const SAMPLED_TEXTURE_TYPE: SampledTextureType = SampledTextureType::Sampler2DShadow;
+
     fn encode<B>(
         self,
         slot_index: u32,
@@ -657,6 +689,8 @@ unsafe impl<'a> TextureResource for ShadowSampledTexture2D<'a> {
 }
 
 unsafe impl<'a> TextureResource for ShadowSampledTexture2DArray<'a> {
+    const SAMPLED_TEXTURE_TYPE: SampledTextureType = SampledTextureType::Sampler2DArrayShadow;
+
     fn encode<B>(
         self,
         slot_index: u32,
@@ -667,6 +701,8 @@ unsafe impl<'a> TextureResource for ShadowSampledTexture2DArray<'a> {
 }
 
 unsafe impl<'a> TextureResource for ShadowSampledTextureCube<'a> {
+    const SAMPLED_TEXTURE_TYPE: SampledTextureType = SampledTextureType::SamplerCubeShadow;
+
     fn encode<B>(
         self,
         slot_index: u32,

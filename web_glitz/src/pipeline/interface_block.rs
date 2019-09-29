@@ -66,9 +66,7 @@
 /// mark them as having a stable representation. [StableRepr] is automatically implemented for any
 /// struct marked with `#[repr_std140]`.
 pub unsafe trait InterfaceBlock: StableRepr {
-    type MemoryUnits: IntoIterator<Item = MemoryUnit>;
-
-    const MEMORY_UNITS: Self::MemoryUnits;
+    const MEMORY_UNITS: &'static [MemoryUnit];
 }
 
 /// Trait that may be implemented on types that are to be used as struct members for a struct
@@ -85,18 +83,14 @@ pub unsafe trait InterfaceBlock: StableRepr {
 /// Any instance of a type that implements this trait must be bitwise compatible with the memory
 /// layout specified by [MEMORY_UNITS].
 pub unsafe trait InterfaceBlockComponent: StableRepr {
-    type MemoryUnits: IntoIterator<Item = MemoryUnit>;
-
-    const MEMORY_UNITS: Self::MemoryUnits;
+    const MEMORY_UNITS: &'static [MemoryUnit];
 }
 
 unsafe impl<T> InterfaceBlockComponent for T
 where
     T: InterfaceBlock,
 {
-    type MemoryUnits = T::MemoryUnits;
-
-    const MEMORY_UNITS: Self::MemoryUnits = T::MEMORY_UNITS;
+    const MEMORY_UNITS: &'static [MemoryUnit] = T::MEMORY_UNITS;
 }
 
 /// Marker trait for types that are guaranteed have a stable memory representation across builds.
@@ -132,26 +126,13 @@ pub unsafe trait StableRepr {}
 /// Describes a memory unit in an interface block at which it occurs, and its [UnitLayout].
 #[derive(PartialEq, Clone, Copy, Debug)]
 pub struct MemoryUnit {
-    offset: usize,
-    layout: UnitLayout,
-}
-
-impl MemoryUnit {
-    pub(crate) fn new(offset: usize, layout: UnitLayout) -> Self {
-        MemoryUnit { offset, layout }
-    }
-
     /// The offset at which this [MemoryUnitDescriptor] occurs within the interface block.
-    pub fn offset(&self) -> usize {
-        self.offset
-    }
+    pub offset: usize,
 
     /// The [UnitLayout] of this [MemoryUnitDescriptor].
     ///
     /// See the documentation [UnitLayout] for details.
-    pub fn layout(&self) -> &UnitLayout {
-        &self.layout
-    }
+    pub layout: UnitLayout,
 }
 
 /// Enumerates the value orderings in memory for matrices.
@@ -344,118 +325,6 @@ pub enum UnitLayout {
     },
 }
 
-pub struct OffsetMemoryUnits<I> {
-    memory_units: I,
-    offset: usize,
-}
-
-impl<I> OffsetMemoryUnits<I>
-where
-    I: IntoIterator<Item = MemoryUnit>,
-{
-    pub const fn new(memory_units: I, offset: usize) -> Self {
-        OffsetMemoryUnits {
-            memory_units,
-            offset,
-        }
-    }
-}
-
-impl<I> IntoIterator for OffsetMemoryUnits<I>
-where
-    I: IntoIterator<Item = MemoryUnit>,
-{
-    type Item = MemoryUnit;
-    type IntoIter = OffsettingMemoryUnitIter<I::IntoIter>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        OffsettingMemoryUnitIter {
-            iter: self.memory_units.into_iter(),
-            offset: self.offset,
-        }
-    }
-}
-
-pub struct OffsettingMemoryUnitIter<I> {
-    iter: I,
-    offset: usize,
-}
-
-impl<I> Iterator for OffsettingMemoryUnitIter<I>
-where
-    I: Iterator<Item = MemoryUnit>,
-{
-    type Item = MemoryUnit;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|unit| {
-            let MemoryUnit { offset, layout } = unit;
-
-            MemoryUnit {
-                offset: offset + self.offset,
-                layout,
-            }
-        })
-    }
-}
-
-pub struct LeafMemoryUnitIter {
-    unit: Option<MemoryUnit>,
-}
-
-impl LeafMemoryUnitIter {
-    pub fn new(memory_unit: MemoryUnit) -> Self {
-        LeafMemoryUnitIter {
-            unit: Some(memory_unit),
-        }
-    }
-}
-
-impl Iterator for LeafMemoryUnitIter {
-    type Item = MemoryUnit;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.unit.take()
-    }
-}
-
-impl IntoIterator for MemoryUnit {
-    type Item = MemoryUnit;
-    type IntoIter = LeafMemoryUnitIter;
-
-    fn into_iter(self) -> Self::IntoIter {
-        LeafMemoryUnitIter::new(self)
-    }
-}
-
-pub struct Chain<A, B> {
-    a: A,
-    b: B,
-}
-
-impl<A, B> Chain<A, B>
-where
-    A: IntoIterator,
-    B: IntoIterator<Item = A::Item>,
-{
-    pub const fn new(a: A, b: B) -> Self {
-        Chain { a, b }
-    }
-}
-
-impl<A, B> IntoIterator for Chain<A, B>
-where
-    A: IntoIterator,
-    B: IntoIterator<Item = A::Item>,
-{
-    type Item = A::Item;
-    type IntoIter = std::iter::Chain<A::IntoIter, B::IntoIter>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.a.into_iter().chain(self.b.into_iter())
-    }
-}
-
 use crate::std140;
 
 unsafe impl<T> StableRepr for T where T: std140::ReprStd140 {}
@@ -463,12 +332,12 @@ unsafe impl<T> StableRepr for T where T: std140::ReprStd140 {}
 macro_rules! impl_interface_block_component_std140 {
     ($T:ident, $layout:expr) => {
         unsafe impl InterfaceBlockComponent for std140::$T {
-            type MemoryUnits = MemoryUnit;
-
-            const MEMORY_UNITS: Self::MemoryUnits = MemoryUnit {
-                offset: 0,
-                layout: $layout,
-            };
+            const MEMORY_UNITS: &'static [MemoryUnit] = &[
+                MemoryUnit {
+                    offset: 0,
+                    layout: $layout,
+                }
+            ];
         }
     };
 }
@@ -558,15 +427,15 @@ macro_rules! impl_interface_block_component_std140_array {
         unsafe impl<const LEN: usize> InterfaceBlockComponent
             for std140::array<std140::$T, { LEN }>
         {
-            type MemoryUnits = MemoryUnit;
-
-            const MEMORY_UNITS: Self::MemoryUnits = MemoryUnit {
-                offset: 0,
-                layout: UnitLayout::$layout_ident {
-                    stride: 16,
-                    len: LEN,
-                },
-            };
+            const MEMORY_UNITS: &'static [MemoryUnit] = &[
+                MemoryUnit {
+                    offset: 0,
+                    layout: UnitLayout::$layout_ident {
+                        stride: 16,
+                        len: LEN,
+                    },
+                }
+            ];
         }
     };
 }
@@ -593,17 +462,17 @@ macro_rules! impl_interface_block_component_std140_matrix_array {
         unsafe impl<const LEN: usize> InterfaceBlockComponent
             for std140::array<std140::$T, { LEN }>
         {
-            type MemoryUnits = MemoryUnit;
-
-            const MEMORY_UNITS: Self::MemoryUnits = MemoryUnit {
-                offset: 0,
-                layout: UnitLayout::$layout_ident {
-                    order: MatrixOrder::ColumnMajor,
-                    array_stride: 16,
-                    matrix_stride: 16,
-                    len: LEN,
-                },
-            };
+            const MEMORY_UNITS: &'static [MemoryUnit] = &[
+                MemoryUnit {
+                    offset: 0,
+                    layout: UnitLayout::$layout_ident {
+                        order: MatrixOrder::ColumnMajor,
+                        array_stride: 16,
+                        matrix_stride: 16,
+                        len: LEN,
+                    },
+                }
+            ];
         }
     };
 }

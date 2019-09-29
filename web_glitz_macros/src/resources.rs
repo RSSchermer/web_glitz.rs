@@ -46,56 +46,32 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
             };
         }
 
-        let buffer_resource_confirmations = buffer_resources.iter().map(|field| {
-            let mut hasher = FnvHasher::default();
-
-            field.name.hash(&mut hasher);
-
-            let hash = hasher.finish();
+        let buffer_slot_descriptors = buffer_resources.iter().map(|field| {
             let ty = &field.ty;
-            let binding = field.binding as usize;
+            let slot_identifier = &field.name;
+            let slot_index = field.binding as u32;
             let span = field.span;
 
             quote_spanned! {span=>
-                #hash => {
-                    match <#ty as #mod_path::BufferResource>::Binding::compatibility(slot) {
-                        Ok(()) => (),
-                        Err(#mod_path::binding::Incompatible::TypeMismatch) => {
-                            return Err(#mod_path::IncompatibleResources::ResourceTypeMismatch(descriptor.identifier().clone()));
-                        },
-                        Err(#mod_path::binding::Incompatible::IncompatibleInterface(err)) => {
-                            return Err(#mod_path::IncompatibleResources::IncompatibleInterface(descriptor.identifier().clone(), err));
-                        }
-                    };
-
-                    confirmer.confirm_slot_binding(descriptor, #binding)?;
+                #mod_path::TypedResourceSlotDescriptor {
+                    slot_identifier: #mod_path::ResourceSlotIdentifier::Static(#slot_identifier),
+                    slot_index: #slot_index,
+                    slot_type: #mod_path::ResourceSlotType::UniformBuffer(<#ty as #mod_path::BufferResource>::MEMORY_UNITS)
                 }
             }
         });
 
-        let texture_resource_confirmations = texture_resources.iter().map(|field| {
-            let mut hasher = FnvHasher::default();
-
-            field.name.hash(&mut hasher);
-
-            let hash = hasher.finish();
+        let texture_slot_descriptors = texture_resources.iter().map(|field| {
             let ty = &field.ty;
-            let binding = field.binding as usize;
+            let slot_identifier = &field.name;
+            let slot_index = field.binding as u32;
             let span = field.span;
 
             quote_spanned! {span=>
-                #hash => {
-                    match <#ty as #mod_path::TextureResource>::Binding::compatibility(slot) {
-                        Ok(()) => (),
-                        Err(#mod_path::binding::Incompatible::TypeMismatch) => {
-                            return Err(#mod_path::IncompatibleResources::ResourceTypeMismatch(descriptor.identifier().clone()));
-                        },
-                        Err(#mod_path::binding::Incompatible::IncompatibleInterface(err)) => {
-                            return Err(#mod_path::IncompatibleResources::IncompatibleInterface(descriptor.identifier().clone(), err));
-                        }
-                    };
-
-                    confirmer.confirm_slot_binding(descriptor, #binding)?;
+                #mod_path::TypedResourceSlotDescriptor {
+                    slot_identifier: #mod_path::ResourceSlotIdentifier::Static(#slot_identifier),
+                    slot_index: #slot_index,
+                    slot_type: #mod_path::ResourceSlotType::SampledTexture(<#ty as #mod_path::TextureResource>::SAMPLED_TEXTURE_TYPE)
                 }
             }
         });
@@ -110,7 +86,7 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
             let binding = field.binding as u32;
 
             quote! {
-                let encoder = self.#field_name.into_binding(#binding).encode(encoder);
+                let encoder = self.#field_name.encode(#binding, encoder);
             }
         });
 
@@ -124,7 +100,7 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
             let binding = field.binding as u32;
 
             quote! {
-                let encoder = self.#field_name.into_binding(#binding).encode(encoder);
+                let encoder = self.#field_name.encode(#binding, encoder);
             }
         });
 
@@ -135,33 +111,18 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
         let impl_block = quote! {
             #[automatically_derived]
             unsafe impl #impl_generics #mod_path::Resources for #struct_name #ty_generics #where_clause {
-                type Bindings = [#mod_path::bind_group_encoding::BindingDescriptor;#total_bindings];
+                type Bindings = [#mod_path::BindingDescriptor;#total_bindings];
 
-                fn confirm_slot_bindings<C>(
-                    confirmer: &C,
-                    descriptors: &[#mod_path::resource_slot::ResourceSlotDescriptor],
-                ) -> Result<(), #mod_path::IncompatibleResources>
-                where
-                    C: #mod_path::resource_slot::SlotBindingConfirmer
-                {
-                    for descriptor in descriptors.iter() {
-                        let slot = descriptor.slot_type();
+                const LAYOUT: &'static [#mod_path::TypedResourceSlotDescriptor] = &[
+                    #(#buffer_slot_descriptors,)*
+                    #(#texture_slot_descriptors,)*
+                ];
 
-                        match descriptor.identifier().hash_fnv64() {
-                            #(#buffer_resource_confirmations)*
-                            #(#texture_resource_confirmations)*
-                            _=> return Err(#mod_path::IncompatibleResources::MissingResource(descriptor.identifier().clone()))
-                        }
-                    }
-
-                    Ok(())
-                }
-
-                fn into_bind_group(
+                fn encode_bindings(
                     self,
-                    context: &mut #mod_path::bind_group_encoding::BindGroupEncodingContext,
-                ) -> #mod_path::bind_group_encoding::BindGroupEncoding<Self::Bindings> {
-                    let encoder = #mod_path::bind_group_encoding::BindGroupEncoder::new(context);
+                    context: &mut #mod_path::ResourceBindingsEncodingContext,
+                ) -> #mod_path::ResourceBindingsEncoding<Self::Bindings> {
+                    let encoder = #mod_path::StaticResourceBindingsEncoder::new(context);
 
                     #(#buffer_resource_encodings)*
                     #(#texture_resource_encodings)*
@@ -186,7 +147,6 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
                 extern crate web_glitz as _web_glitz;
 
                 use #mod_path::{BufferResource, TextureResource};
-                use #mod_path::binding::Binding;
 
                 #impl_block
             };

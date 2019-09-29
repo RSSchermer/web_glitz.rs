@@ -482,12 +482,12 @@ impl UniformBlockSlot {
                 _ => unreachable!(),
             };
 
-            layout.push(MemoryUnit::new(offsets[i] as usize, unit));
+            layout.push(MemoryUnit { offset: offsets[i] as usize, layout: unit });
         }
 
         // TODO: unsure if this is ever necessary or if all implementations already guarantee this
         // ordering; may be possible to skip this.
-        layout.sort_unstable_by_key(|unit| unit.offset());
+        layout.sort_unstable_by_key(|unit| unit.offset);
 
         UniformBlockSlot { layout, index }
     }
@@ -500,15 +500,15 @@ impl UniformBlockSlot {
     {
         'outer: for expected_unit in self.layout.iter() {
             'inner: for actual_unit in memory_layout.iter() {
-                if expected_unit.offset() > actual_unit.offset() {
+                if expected_unit.offset > actual_unit.offset {
                     return Err(IncompatibleInterface::MissingUnit(*expected_unit));
-                } else if expected_unit.offset() == actual_unit.offset() {
-                    if expected_unit.layout() == actual_unit.layout() {
+                } else if expected_unit.offset == actual_unit.offset {
+                    if expected_unit.layout == actual_unit.layout {
                         continue 'outer;
                     } else {
                         return Err(IncompatibleInterface::UnitLayoutMismatch(
                             *actual_unit,
-                            *expected_unit.layout(),
+                            expected_unit.layout,
                         ));
                     }
                 }

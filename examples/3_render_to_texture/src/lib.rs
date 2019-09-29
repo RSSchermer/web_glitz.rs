@@ -5,9 +5,7 @@
 
 #![feature(
     const_fn,
-    const_raw_ptr_deref,
     const_raw_ptr_to_usize_cast,
-    untagged_unions
 )]
 
 use wasm_bindgen::prelude::*;
@@ -19,7 +17,7 @@ use web_glitz::image::format::RGBA8;
 use web_glitz::image::texture_2d::{FloatSampledTexture2D, Texture2DDescriptor};
 use web_glitz::image::MipmapLevels;
 use web_glitz::pipeline::graphics::{
-    CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, SlotBindingStrategy, WindingOrder,
+    CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
 use web_glitz::render_target::{FloatAttachment, LoadOp, RenderTarget, StoreOp};
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
@@ -88,7 +86,7 @@ pub fn start() {
                 })
                 .fragment_shader(&primary_fragment_shader)
                 .typed_vertex_attribute_layout::<PrimaryVertex>()
-                .resource_layout::<PrimaryResources>(SlotBindingStrategy::Update)
+                .typed_resource_bindings_layout::<PrimaryResources>()
                 .finish(),
         )
         .unwrap();

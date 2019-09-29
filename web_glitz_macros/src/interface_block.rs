@@ -8,7 +8,16 @@ pub fn expand_derive_interface_block(input: &DeriveInput) -> Result<TokenStream,
         let mod_path = quote!(_web_glitz::pipeline::interface_block);
         let struct_name = &input.ident;
 
-        let chain = data.fields.iter().enumerate().map(|(position, field)| {
+        let recurse_len = data.fields.iter().map(|field| {
+            let ty = &field.ty;
+            let span = field.span();
+
+            quote_spanned! {span=>
+                <#ty as #mod_path::InterfaceBlockComponent>::MEMORY_UNITS.len()
+            }
+        });
+
+        let recurse_array = data.fields.iter().enumerate().map(|(position, field)| {
             let ty = &field.ty;
             let ident = field
                 .ident
@@ -18,48 +27,19 @@ pub fn expand_derive_interface_block(input: &DeriveInput) -> Result<TokenStream,
             let span = field.span();
 
             quote_spanned! {span=>
-                let offset = offset_of!(#struct_name, #ident);
+                let base_offset = offset_of!(#struct_name, #ident);
                 let memory_units = <#ty as #mod_path::InterfaceBlockComponent>::MEMORY_UNITS;
-                let offset_memory_units = #mod_path::OffsetMemoryUnits::new(memory_units, offset);
-                let chain = #mod_path::Chain::new(chain, offset_memory_units);
-            }
-        });
 
-        let chain_type = {
-            fn chain_recursive<'a, I>(
-                mod_path: &TokenStream,
-                init: TokenStream,
-                iter: &mut I,
-            ) -> TokenStream
-            where
-                I: Iterator<Item = &'a Field>,
-            {
-                if let Some(field) = iter.next() {
-                    let ty = &field.ty;
-                    let res = quote! {
-                        #mod_path::OffsetMemoryUnits<<#ty as #mod_path::InterfaceBlockComponent>::MemoryUnits>
+                for memory_unit in memory_units {
+                    array[i] = #mod_path::MemoryUnit {
+                        offset: base_offset + memory_unit.offset,
+                        layout: memory_unit.layout
                     };
 
-                    let remainder = chain_recursive(mod_path, res, iter);
-
-                    quote! {
-                        #mod_path::Chain<#init, #remainder>
-                    }
-                } else {
-                    init
+                    i += 1;
                 }
             }
-
-            let mut iter = data.fields.iter();
-
-            chain_recursive(
-                &mod_path,
-                quote! {
-                    std::iter::Empty<#mod_path::MemoryUnit>
-                },
-                &mut iter,
-            )
-        };
+        });
 
         let suffix = struct_name.to_string().trim_start_matches("r#").to_owned();
         let dummy_const = Ident::new(
@@ -83,14 +63,20 @@ pub fn expand_derive_interface_block(input: &DeriveInput) -> Result<TokenStream,
         let impl_block = quote! {
             #[automatically_derived]
             unsafe impl #impl_generics #mod_path::InterfaceBlock for #struct_name #ty_generics #where_clause {
-                type MemoryUnits = #chain_type;
+                const MEMORY_UNITS: &'static [#mod_path::MemoryUnit] = &{
+                    const LEN: usize = #(#recurse_len)+*;
 
-                const MEMORY_UNITS: Self::MemoryUnits = {
-                    let chain = std::iter::empty();
+                    // Initialize array with temporary values;
+                    let array = [#mod_path::MemoryUnit {
+                        offset: 0,
+                        layout: #mod_path::UnitLayout::Float
+                    }; LEN];
 
-                    #(#chain)*
+                    let mut i = 0;
 
-                    chain
+                    #(#recurse_array)*
+
+                    array
                 };
             }
         };

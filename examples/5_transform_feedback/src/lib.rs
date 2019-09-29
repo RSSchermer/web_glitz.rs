@@ -5,11 +5,8 @@
 
 #![feature(
     const_fn,
-    const_raw_ptr_deref,
     const_raw_ptr_to_usize_cast,
-    const_fn_union,
-    transparent_unions,
-    untagged_unions
+    const_slice_len
 )]
 
 use wasm_bindgen::prelude::*;
@@ -17,7 +14,7 @@ use wasm_bindgen::JsCast;
 
 use web_glitz::buffer::{Buffer, UsageHint};
 use web_glitz::pipeline::graphics::{
-    CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, SlotBindingStrategy, WindingOrder,
+    CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 use web_glitz::std140;
@@ -92,7 +89,7 @@ pub fn start() {
                 .fragment_shader(&fragment_shader)
                 .typed_vertex_attribute_layout::<Vertex>()
                 .typed_transform_feedback_layout::<Vertex>()
-                .resource_layout::<Resources>(SlotBindingStrategy::Update)
+                .typed_resource_bindings_layout::<Resources>()
                 .finish(),
         )
         .unwrap();

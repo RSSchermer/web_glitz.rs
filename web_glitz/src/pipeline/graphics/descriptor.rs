@@ -534,8 +534,6 @@ impl<Vs, Pa, Fs, V, R, Tf> GraphicsPipelineDescriptorBuilder<Vs, Pa, Fs, V, R, T
 
 impl<V, R, Tf>
     GraphicsPipelineDescriptorBuilder<VertexShader, PrimitiveAssembly, FragmentShader, V, R, Tf>
-where
-    R: Resources,
 {
     /// Finishes building and returns the [GraphicsPipelineDescriptor].
     pub fn finish(self) -> GraphicsPipelineDescriptor<V, R, Tf> {
