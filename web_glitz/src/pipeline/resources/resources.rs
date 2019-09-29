@@ -25,30 +25,102 @@ use crate::pipeline::resources::resource_bindings_encoding::{
 use crate::pipeline::resources::resource_slot::IncompatibleInterface;
 use crate::pipeline::resources::StaticResourceBindingsEncoder;
 
+/// A resource bindings layout description attached to a type.
+///
+/// See also [TypedResourceBindingsLayoutDescriptor].
+///
+/// This trait becomes useful in combination with the [TypedResourceBindings] trait. If a
+/// [TypedResourceBindingsLayout] is attached to a [GraphicsPipeline] (see
+/// [GraphicsPipelineDescriptorBuilder::typed_resource_bindings_layout]), then
+/// [TypedResourceBindings] with a matching [TypedResourceBindings::Layout] may be bound to the
+/// pipeline without further runtime checks.
+///
+/// Note that [TypedResourceBindingsLayout] is safe to implement, but implementing
+/// [TypedResourceBindings] is unsafe: the resource bindings encoded by a [TypedResourceBindings]
+/// implementation must always be compatible with the bindings layout specified by its
+/// [TypedResourceBindings::Layout], see [TypedResourceBindings] for details.
 pub trait TypedResourceBindingsLayout {
     type Layout: Into<TypedResourceBindingsLayoutDescriptor>;
 
     const LAYOUT: Self::Layout;
 }
 
+/// Encodes a description of how a set of resources is bound to a pipeline, such that the pipeline
+/// may access these resources during its execution.
+///
+/// # Example
+///
+/// ```
+/// use web_glitz::buffer::Buffer;
+/// use web_glitz::image::texture_2d::FloatSampledTexture2D;
+/// use web_glitz::pipeline::resources::{ResourceBindings, BindingDescriptor, ResourceBindingsEncodingContext, ResourceBindingsEncoding, StaticResourceBindingsEncoder};
+///
+/// struct Resources<'a> {
+///     buffer_resource: &'a Buffer<f32>,
+///     texture_resource: FloatSampledTexture2D<'a>
+/// }
+///
+/// impl ResourceBindings for Resources {
+///     type Bindings = [BindingDescriptor; 2];
+///
+///     fn encode(
+///         self,
+///         encoding_context: &mut ResourceBindingsEncodingContext
+///     ) -> ResourceBindingsEncoding<Self::Bindings> {
+///         let encoder = StaticResourceBindingsEncoder::new(encoding_context);
+///
+///         let encoder = encoder.add_buffer_view(0, self.buffer_resource.into());
+///         let encoder = encoder.add_float_sampled_texture_2d(0, self.texture_resource);
+///
+///         encoder.finish()
+///     }
+/// }
+/// ```
+///
+/// See also [StaticResourceBindingsEncoder]. Note that when multiple bindings of the same type bind
+/// to the same slot-index, then only the binding that was added last will be used. However, buffer
+/// resources and texture resources belong to distinct bind groups, their slot-indices do not
+/// interact.
+///
+/// This trait is automically implemented for any type that derives the [Resources] trait.
 pub trait ResourceBindings {
+    /// Type that describes the collection of bindings.
     type Bindings: Borrow<[BindingDescriptor]> + 'static;
 
+    /// Encodes a description of how this set of resources is bound to a pipeline.
     fn encode(
         self,
         encoding_context: &mut ResourceBindingsEncodingContext,
     ) -> ResourceBindingsEncoding<Self::Bindings>;
 }
 
+/// Sub-trait of [ResourceBindings], where a type statically describes its resource bindings layout.
+///
+/// Resource bindings that implement this trait may be bound to graphics pipelines with a matching
+/// [TypedResourceBindingsLayout] without further runtime checks.
+///
+/// # Unsafe
+///
+/// This trait must only by implemented for [ResourceBindings] types if the recourse bindings
+/// encoding for any instance of the the type is guaranteed to compatible with the resource slots
+/// on a pipeline that matches the [Layout].
 pub unsafe trait TypedResourceBindings: ResourceBindings {
+    /// A type statically associated with a resource bindings layout with which the encoding of
+    /// any instance of these [TypedResourceBindings] is compatible.
     type Layout: TypedResourceBindingsLayout;
 }
 
+/// A minimal description of the resource binding slots used by a pipeline.
+///
+/// This type only contains the minimally necessary information for initializing a pipeline. See
+/// also [TypedResourceBindingsLayoutDescriptor] for a type that includes information that may be
+/// type checked against the resource types defined by the pipeline's shader stages.
 #[derive(Clone, Debug)]
 pub struct ResourceBindingsLayoutDescriptor {
     pub(crate) bindings: Vec<ResourceSlotDescriptor>,
 }
 
+/// Identifies a resource slot in a pipeline.
 #[derive(Clone, Debug)]
 pub enum ResourceSlotIdentifier {
     Static(&'static str),
@@ -92,10 +164,18 @@ impl Deref for ResourceSlotIdentifier {
     }
 }
 
+/// Describes a single resource slot in a pipeline.
+///
+/// See also [ResourceBindingsLayoutDescriptor].
 #[derive(Clone, Hash, PartialEq, Debug)]
 pub struct ResourceSlotDescriptor {
+    /// The identifier for the slot.
     pub slot_identifier: ResourceSlotIdentifier,
+
+    /// The index of the slot.
     pub slot_index: u32,
+
+    /// The kind of resource slot.
     pub slot_kind: ResourceSlotKind,
 }
 
@@ -115,6 +195,9 @@ impl From<TypedResourceSlotDescriptor> for ResourceSlotDescriptor {
     }
 }
 
+/// Enumerates the different kinds of resource slots a pipeline can define.
+///
+/// See also [ResourceSlotDescriptor].
 #[derive(Clone, Copy, Hash, PartialEq, Debug)]
 pub enum ResourceSlotKind {
     // A WebGPU version would add `has_dynamic_offset`.
@@ -124,6 +207,7 @@ pub enum ResourceSlotKind {
 }
 
 impl ResourceSlotKind {
+    /// Whether or not this is a uniform buffer slot.
     pub fn is_uniform_buffer(&self) -> bool {
         if let ResourceSlotKind::UniformBuffer = self {
             true
@@ -132,6 +216,7 @@ impl ResourceSlotKind {
         }
     }
 
+    /// Whether or not this is a sampled-texture slot.
     pub fn is_sampled_texture(&self) -> bool {
         if let ResourceSlotKind::UniformBuffer = self {
             true
@@ -150,6 +235,13 @@ impl From<ResourceSlotType> for ResourceSlotKind {
     }
 }
 
+/// A typed description of the resource binding slots used by a pipeline.
+///
+/// This type includes description of the exact resource type used for each resource slot, which may
+/// be checked against the resource types defined by the pipeline's shader stages.
+///
+/// See also [ResourceBindingsLayoutDescriptor] a descriptor that only includes the minimum of
+/// information necessary to initialize a pipeline.
 #[derive(Clone, PartialEq, Debug)]
 pub struct TypedResourceBindingsLayoutDescriptor {
     pub(crate) bindings: &'static [TypedResourceSlotDescriptor],
@@ -167,21 +259,33 @@ impl From<&'static [TypedResourceSlotDescriptor]> for TypedResourceBindingsLayou
     }
 }
 
+/// Describes a single resource slot in a pipeline and its type.
+///
+/// See also [TypedResourceBindingsLayoutDescriptor].
 #[derive(Clone, PartialEq, Debug)]
 pub struct TypedResourceSlotDescriptor {
+    /// The identifier for the slot.
     pub slot_identifier: ResourceSlotIdentifier,
+
+    /// The index of the slot.
     pub slot_index: u32,
+
+    /// The type of the slot.
     pub slot_type: ResourceSlotType,
 }
 
+/// Enumerates the slot types for a [TypedResourceSlotDescriptor].
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum ResourceSlotType {
+    /// A uniform buffer slot and its memory layout as a collection of [MemoryUnit]s.
     // A WebGPU version would add `has_dynamic_offset`.
     UniformBuffer(&'static [MemoryUnit]),
+    /// A sampled-texture slot and it's [SampledTextureType].
     // A WebGPU version would add `dimensionality`, `component_type` and `is_multisampled`.
     SampledTexture(SampledTextureType),
 }
 
+/// Enumerates the types available for sampled-texture resource slot.
 #[derive(Clone, Copy, Hash, PartialEq, Debug)]
 pub enum SampledTextureType {
     FloatSampler2D,
@@ -202,7 +306,13 @@ pub enum SampledTextureType {
 }
 
 /// Provides a group of resources (uniform block buffers, sampled textures) that may be bound to a
-/// pipeline, such that the pipeline may access these resources during execution.
+/// pipeline, such that the pipeline may access these resources during its execution.
+///
+/// This type acts as an automatically derivable trait for a [TypedResourceBindings] type that acts
+/// as its own [TypedResourceBindingsLayout]. This trait is only intended to be derived
+/// automatically; if your set of resources cannot be adequatly described by automatically deriving
+/// this trait, rather than manually implementing this trait, instead consider manually implementing
+/// the [TypedResourceBindings] and [TypedResourceBindingsLayout] traits separately.
 ///
 /// # Usage
 ///
@@ -290,11 +400,6 @@ pub enum SampledTextureType {
 /// fields and must be internally unique amongst `#[buffer_resource(...)]` fields, both binding
 /// types use a separate set of bindings: a `#[texture_resource(...)]` field may declare the same
 /// `binding` index as a `#[buffer_resource(...)]`.
-///
-/// A [GraphicsPipelineDescriptor] must declare the [Resources] type that may be used with pipelines
-/// created from it, see [GraphicsPipelineDescriptorBuilder::resources]. The compatibility of the
-/// resource bindings declared this type will be checked against the pipeline's resource slots when
-/// the pipeline is created, see [RenderingContext::create_graphics_pipeline].
 pub unsafe trait Resources {
     type Layout: Into<TypedResourceBindingsLayoutDescriptor>;
 
@@ -370,8 +475,11 @@ pub enum IncompatibleResources {
 }
 
 /// Trait implemented for types that can be bound to a pipeline as a buffer resource.
+///
+/// When automatically deriving the [Resources] trait, fields marked with `#[buffer_resource(...)]`
+/// must implement this trait.
 pub unsafe trait BufferResource {
-    /// Encodes a binding for this resource.
+    /// Encodes a binding for this resource at the specified `slot_index`.
     fn encode<B>(
         self,
         slot_index: u32,
@@ -406,8 +514,11 @@ where
 }
 
 /// Trait implemented for types that can be bound to a pipeline as a texture resource.
+///
+/// When automatically deriving the [Resources] trait, fields marked with `#[texture_resource(...)]`
+/// must implement this trait.
 pub unsafe trait TextureResource {
-    /// Encodes a binding for this resource.
+    /// Encodes a binding for this resource at the specified `slot_index`.
     fn encode<B>(
         self,
         slot_index: u32,

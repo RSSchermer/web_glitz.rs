@@ -33,10 +33,11 @@ pub unsafe trait IndexBuffer {
 }
 
 // Note that currently the IndexBufferEncodingContext's only use is to serve as a form of lifetime
-// erasure, it ensures if a buffer is mutable borrowed for transform feedback, then it should be
-// impossible to create an IndexBufferEncoding for that pipeline task that also uses that buffer
-// in safe Rust, without having to keep the actual borrow of that buffer alive (the resulting
-// pipeline task needs to be `'static`).
+// erasure, it ensures if a buffer is mutably borrowed for transform feedback, then it should be
+// impossible in safe Rust to create an IndexBufferEncoding for that pipeline task that also uses
+// that buffer, without having to keep the actual borrow of that buffer alive (the resulting
+// pipeline task needs to be `'static`). This is only safe in combination with a runtime check that
+// confirms a the task's context ID matches the pipeline task's context ID, but that is very cheap.
 
 /// Context for creating a new [IndexBufferEncoding].
 ///

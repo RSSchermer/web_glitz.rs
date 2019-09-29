@@ -31,7 +31,7 @@ use crate::util::JsId;
 ///
 /// See [RenderingContext::create_graphics_pipeline] for details on how a graphics pipeline is
 /// constructed. See [Framebuffer::pipeline_task] for details on how a graphics pipeline may be used
-/// to draw to the framebuffer.
+/// to draw to a framebuffer.
 pub struct GraphicsPipeline<V, R, Tf> {
     _vertex_attribute_layout_marker: marker::PhantomData<V>,
     _resources_marker: marker::PhantomData<R>,
@@ -124,6 +124,9 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
         &self.viewport
     }
 
+    /// Returns a wrapped representation of this graphics pipeline that will record the output of
+    /// the vertex transformation stage(s) for the pipeline in the attached
+    /// `transform_feedback_buffers`.
     pub fn record_transform_feedback<Fb>(
         &mut self,
         transform_feedback_buffers: Fb,
@@ -143,6 +146,9 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
 }
 
 impl<V, Tf> GraphicsPipeline<V, Untyped, Tf> {
+    /// Returns a minimal description of the resource bindings layout used by this pipeline.
+    ///
+    /// See [ResourceBindingsLayoutDescriptor] for details.
     pub fn resource_bindings_layout(&self) -> &ResourceBindingsLayoutDescriptor {
         match &self.resource_bindings_layout {
             ResourceBindingsLayoutKind::Minimal(layout) => layout,
@@ -155,6 +161,9 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf>
 where
     R: TypedResourceBindingsLayout,
 {
+    /// Returns a typed description of the resource bindings layout used by this pipeline.
+    ///
+    /// See [TypedResourceBindingsLayoutDescriptor] for details.
     pub fn resource_bindings_layout(&self) -> &TypedResourceBindingsLayoutDescriptor {
         match &self.resource_bindings_layout {
             ResourceBindingsLayoutKind::Typed(layout) => layout,

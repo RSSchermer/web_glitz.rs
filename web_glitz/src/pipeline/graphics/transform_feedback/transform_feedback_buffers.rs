@@ -95,10 +95,7 @@ impl<'a> TransformFeedbackBuffersEncoding<'a> {
     }
 }
 
-impl<'a, T> TransformFeedbackBuffer for &'a mut Buffer<[T]>
-where
-    T: TransformFeedback,
-{
+impl<'a, T> TransformFeedbackBuffer for &'a mut Buffer<[T]> {
     fn encode(self, encoding: &mut TransformFeedbackBuffersEncoding) {
         encoding.add_feedback_buffer(self);
     }
@@ -111,10 +108,7 @@ where
     type TransformFeedback = T;
 }
 
-impl<'a, T> TransformFeedbackBuffer for BufferViewMut<'a, [T]>
-where
-    T: TransformFeedback,
-{
+impl<'a, T> TransformFeedbackBuffer for BufferViewMut<'a, [T]> {
     fn encode(self, encoding: &mut TransformFeedbackBuffersEncoding) {
         encoding.add_feedback_buffer(self);
     }

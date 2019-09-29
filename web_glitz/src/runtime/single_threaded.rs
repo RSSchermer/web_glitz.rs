@@ -39,34 +39,70 @@
 //! # Unsafe
 //!
 //! Note that the [init] function is marked `unsafe`: the canvas's WebGL2 context must be in its
-//! original state when [init] was called and for the lifetime of the [SingleThreadedContext] or any
-//! of its clones, the state of the context should not be modified through another handle to the
-//! canvas's raw WebGL2 context; the [SingleThreadedContext] tracks the changes it makes to the
-//! state of its associated WebGL2 context in a state cache and if at any point during the execution
-//! of a task the actual state of the WebGL2 and the state cache don't match, unexpected results may
-//! ocurr. In short: if you only initialize one WebGlitz [RenderingContext] or raw WebGL2 context
-//! per canvas, then calling [init] is safe.
+//! original state when [init] was called. Additionally, for the lifetime of the
+//! [SingleThreadedContext] or any of its clones, the state of the context should not be modified
+//! through another handle to the canvas's raw WebGL2 context; the [SingleThreadedContext] tracks
+//! the changes it makes to the state of its associated WebGL2 context in a state cache and if at
+//! any point during the execution of a task the actual state of the WebGL2b context and the cached
+//! state don't match, unexpected results may ocurr. In short: if you only initialize one WebGlitz
+//! [RenderingContext] or raw WebGL2 context per canvas, then calling [init] is safe.
+//!
+//! If you do wish to access or use the raw [web_sys::WebGl2RenderingContext], rather than obtaining
+//! a seperate WebGL2 context directly from the canvas, instead consider implementing your own
+//! [GpuTask]:
+//!
+//! ```
+//! use web_glitz::task::{GpuTask, Progress, ContextId};
+//! use web_glitz::runtime::Connection;
+//!
+//! struct MyTask {
+//!     // ...
+//! }
+//!
+//! unsafe impl GpuTask<Connection> for MyTask {
+//!     type Output = ();
+//!
+//!     fn context_id(&self) -> ContextId {
+//!         ContextId::Any
+//!     }
+//!
+//!     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
+//!         let (raw_context, state_cache) = unsafe { connection.unpack_mut() };
+//!
+//!         // Do something using the raw context...
+//!
+//!         Progress::Finished(())
+//!     }
+//! }
+//! ```
+//!
+//! You may unpack the `connection` into a reference to the raw WebGL2 context and the state cache
+//! by calling [Connection::unpack_mut]. This is unsafe: you must ensure that the state cache
+//! reflects the actual state of the WebGL2 context when your implementation of [GpuTask::progress]
+//! returns (by updating the state cache when necessary, see [DynamicState] for details).
 //!
 //! # Multi-part Tasks and Fencing
 //!
-//! A [GpuTask] may consists of multiple stages where in between stages the task has to wait for a
-//! GPU fence to become signalled. This mostly concerns tasks that contain "read" or download"
+//! A [GpuTask] may consists of multiple stages, where in between stages the task has to wait for a
+//! GPU fence to become signalled. This mostly concerns tasks that contain "read" or "download"
 //! commands (commands with non-void outputs), where the first part of the command sets up the
-//! command, then a fence is inserted and then the actual download occurs; this may avoid stalling
-//! both the CPU and GPU. This runtime handles such tasks by maintaining a "fenced-task" queue for
-//! tasks where [Gpu::progress] returns [Progress::ContinueFenced]. If this queue is not empty, then
-//! a 1ms timeout is scheduled with the JavaScript event queue. After this timeout expires it will
-//! try to again make progress on the tasks in the fenced-task queue (this shortcuts on the first
-//! fence that has not yet become signalled, as WebGL/OpenGL fences cannot become signalled out of
-//! order). If the fenced-task queue is not emptied (either because not all fences became signalled,
-//! or because one of the tasks again returned [Progress::ContinueFenced]), then a new 1ms timeout
-//! is scheduled on the JavaScript event loop. Note that such repeated scheduling of timeout events
-//! in nested callback results in throttling (to ~4ms) in most browsers after a certain number of
-//! iterations (5 in Chrome and FireFox, 6 in Safari and 3 in Edge, at the time of this writing).
-//! Note also that timeouts indicate a minimum timeout: if the JavaScript main thread is already
-//! busy, or higher priority events exists in the queue (micro-tasks or macro-tasks that were
-//! scheduled earlier), then the JavaScript/WASM runtime will finish this work before checking the
-//! fenced-task queue again.
+//! command, then a fence is inserted, and then the actual read/download occurs once the fence is
+//! reached; this may avoid stalls on the CPU and/or GPU. This runtime handles such tasks by
+//! maintaining a "fenced-task" queue for tasks where [GpuTask::progress] returns
+//! [Progress::ContinueFenced]. If this queue is not empty, then a 1ms timeout is scheduled with the
+//! JavaScript event queue. After this timeout expires it will try to again make progress on the
+//! tasks in the fenced-task queue (this shortcircuits on the first fence that has not yet become
+//! signalled, as WebGL/OpenGL fences cannot become signalled out of order). If the fenced-task
+//! queue is not emptied (either because not all fences became signalled, or because one of the
+//! tasks again returned [Progress::ContinueFenced]), then a new 1ms timeout is scheduled on the
+//! JavaScript event loop.
+//!
+//! Note that such repeated scheduling of timeout events may result in throttling (to ~4ms) in most
+//! browsers after a certain number of iterations (5 in Chrome and FireFox, 6 in Safari and 3 in
+//! Edge, at the time of this writing). Note also that timeouts indicate a minimum timeout: if the
+//! JavaScript main thread is already busy, or higher priority events exists in the event queue
+//! (micro-tasks or macro-tasks that were scheduled earlier), then the JavaScript/WASM runtime will
+//! finish this work before checking the fenced-task queue again.
 
 use std::any::TypeId;
 use std::borrow::Borrow;
