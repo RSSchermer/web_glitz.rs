@@ -7,9 +7,8 @@
 // For the time being, the `web_glitz::Vertex` derive macro requires that we enable this feature:
 #![feature(
     const_fn,
-    const_raw_ptr_deref,
     const_raw_ptr_to_usize_cast,
-    untagged_unions
+    raw_address_of
 )]
 
 use wasm_bindgen::prelude::*;

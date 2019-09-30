@@ -6,7 +6,8 @@
 #![feature(
     const_fn,
     const_raw_ptr_to_usize_cast,
-    const_slice_len
+    const_slice_len,
+    raw_address_of
 )]
 
 use wasm_bindgen::prelude::*;
