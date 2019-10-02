@@ -23,24 +23,10 @@ pub(crate) enum ResourceBindingsLayoutKind {
 
 impl ResourceBindingsLayoutKind {
     pub(crate) fn key(&self) -> u64 {
-        let mut hasher = FnvHasher::default();
-
         match self {
-            ResourceBindingsLayoutKind::Minimal(descriptor) => {
-                for binding in descriptor.bindings.iter() {
-                    binding.hash(&mut hasher);
-                }
-            }
-            ResourceBindingsLayoutKind::Typed(descriptor) => {
-                for binding in descriptor.bindings.iter() {
-                    let minimal_descriptor: ResourceSlotDescriptor = binding.clone().into();
-
-                    minimal_descriptor.hash(&mut hasher);
-                }
-            }
+            ResourceBindingsLayoutKind::Minimal(descriptor) => descriptor.key(),
+            ResourceBindingsLayoutKind::Typed(descriptor) => descriptor.key(),
         }
-
-        hasher.finish()
     }
 }
 
@@ -87,7 +73,9 @@ impl GraphicsPipelineDescriptor<(), (), ()> {
             fragment_shader: None,
             vertex_input_layout: ().into(),
             transform_feedback_layout: None,
-            resource_bindings_layout: ResourceBindingsLayoutKind::Typed(().into()),
+            resource_bindings_layout: ResourceBindingsLayoutKind::Typed(
+                TypedResourceBindingsLayoutDescriptor::empty(),
+            ),
             primitive_assembly: None,
             depth_test: None,
             stencil_test: None,

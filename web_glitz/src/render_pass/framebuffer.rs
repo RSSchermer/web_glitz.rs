@@ -35,8 +35,10 @@ use crate::pipeline::graphics::{
     PrimitiveAssembly, StencilTest, TypedVertexBuffers, TypedVertexInputLayout, VertexBuffers,
     VertexBuffersEncodingContext, VertexInputLayoutDescriptor, Viewport,
 };
-use crate::pipeline::resources::{ResourceBindings, TypedResourceBindings};
-use crate::pipeline::resources::{BindingDescriptor, ResourceBindingsEncodingContext};
+use crate::pipeline::resources::resource_bindings_encoding::ResourceBindingDescriptor;
+use crate::pipeline::resources::{
+    BindGroupDescriptor, ResourceBindings, ResourceBindingsEncodingContext, TypedResourceBindings,
+};
 use crate::render_pass::RenderPassContext;
 use crate::render_target::attachable_image_ref::{AttachableImageData, AttachableImageRef};
 use crate::runtime::state::{BufferRange, ContextUpdate, DynamicState};
@@ -1203,7 +1205,7 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
         Vb,
         Ib,
         R,
-        Sequence<T, BindResourcesCommand<R::Bindings>, PipelineTaskContext>,
+        Sequence<T, BindResourcesCommand<R::BindGroups>, PipelineTaskContext>,
     >
     where
         R: TypedResourceBindings,
@@ -1217,7 +1219,9 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
                 self.task,
                 BindResourcesCommand {
                     pipeline_task_id: self.pipeline_task_id,
-                    resource_bindings: resources.encode(&mut ResourceBindingsEncodingContext::new(self.context_id)).into_descriptors(),
+                    resource_bindings: resources
+                        .encode(&mut ResourceBindingsEncodingContext::new(self.context_id))
+                        .bind_groups,
                 },
             ),
             _pipeline: marker::PhantomData,
@@ -1484,7 +1488,7 @@ pub struct BindResourcesCommand<Rb> {
 
 unsafe impl<Rb> GpuTask<PipelineTaskContext> for BindResourcesCommand<Rb>
 where
-    Rb: Borrow<[BindingDescriptor]>,
+    Rb: Borrow<[BindGroupDescriptor]>,
 {
     type Output = ();
 

@@ -18,9 +18,8 @@ use crate::pipeline::graphics::{
 };
 use crate::pipeline::resources::resource_slot::{SlotBindingUpdater, SlotType};
 use crate::pipeline::resources::{
-    IncompatibleResources, ResourceBindingsLayoutDescriptor,
-    ResourceSlotType, TypedResourceBindingsLayout,
-    TypedResourceBindingsLayoutDescriptor,
+    IncompatibleResources, ResourceBindingsLayoutDescriptor, ResourceSlotKind, ResourceSlotType,
+    TypedResourceBindingsLayout, TypedResourceBindingsLayoutDescriptor,
 };
 use crate::runtime::state::{ContextUpdate, DynamicState, ProgramKey};
 use crate::runtime::{Connection, CreateGraphicsPipelineError, RenderingContext};
@@ -172,8 +171,7 @@ where
     }
 }
 
-impl<V, R, Tf> GraphicsPipeline<V, R, Tf>
-{
+impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
     pub(crate) fn create<Rc>(
         context: &Rc,
         connection: &mut Connection,
@@ -236,20 +234,60 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf>
 
         match &descriptor.resource_bindings_layout {
             ResourceBindingsLayoutKind::Minimal(layout) => {
+                let bind_groups = layout.bind_groups();
+                let mut iter = bind_groups.iter();
+
+                let bind_group_0 = iter
+                    .next()
+                    .filter(|g| g.bind_group_index() == 0)
+                    .ok_or(IncompatibleResources::MissingBindGroup(0))?;
+
+                let bind_group_1 = iter
+                    .next()
+                    .filter(|g| g.bind_group_index() == 1)
+                    .ok_or(IncompatibleResources::MissingBindGroup(1))?;
+
                 'outer: for slot in program.resource_slot_descriptors() {
-                    'inner: for descriptor in &layout.bindings {
-                        if &descriptor.slot_identifier == slot.identifier() {
-                            if slot.slot_type().is_kind(descriptor.slot_kind) {
+                    if slot.slot_type().is_kind(ResourceSlotKind::UniformBuffer) {
+                        'inner: for descriptor in bind_group_0.slots() {
+                            if &descriptor.slot_identifier == slot.identifier() {
+                                if !descriptor.slot_kind.is_uniform_buffer() {
+                                    return Err(IncompatibleResources::ResourceTypeMismatch(
+                                        slot.identifier().clone(),
+                                    )
+                                    .into());
+                                }
+
                                 updater.update_slot_binding(slot, descriptor.slot_index as u32);
 
                                 continue 'outer;
-                            } else {
-                                return Err(IncompatibleResources::ResourceTypeMismatch(
-                                    slot.identifier().clone(),
-                                )
-                                .into());
                             }
                         }
+
+                        return Err(IncompatibleResources::MissingResource(
+                            slot.identifier().clone(),
+                        )
+                        .into());
+                    } else if slot.slot_type().is_kind(ResourceSlotKind::SampledTexture) {
+                        'inner: for descriptor in bind_group_1.slots() {
+                            if &descriptor.slot_identifier == slot.identifier() {
+                                if !descriptor.slot_kind.is_sampled_texture() {
+                                    return Err(IncompatibleResources::ResourceTypeMismatch(
+                                        slot.identifier().clone(),
+                                    )
+                                    .into());
+                                }
+
+                                updater.update_slot_binding(slot, descriptor.slot_index as u32);
+
+                                continue 'outer;
+                            }
+                        }
+
+                        return Err(IncompatibleResources::MissingResource(
+                            slot.identifier().clone(),
+                        )
+                        .into());
                     }
 
                     return Err(
@@ -258,52 +296,71 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf>
                 }
             }
             ResourceBindingsLayoutKind::Typed(layout) => {
+                let mut iter = layout.bind_groups().iter();
+
+                let bind_group_0 = iter
+                    .next()
+                    .filter(|g| g.bind_group_index() == 0)
+                    .ok_or(IncompatibleResources::MissingBindGroup(0))?;
+
+                let bind_group_1 = iter
+                    .next()
+                    .filter(|g| g.bind_group_index() == 1)
+                    .ok_or(IncompatibleResources::MissingBindGroup(1))?;
+
                 'outer: for slot in program.resource_slot_descriptors() {
-                    'inner: for descriptor in layout.bindings.iter() {
-                        if &descriptor.slot_identifier == slot.identifier() {
-                            match slot.slot_type() {
-                                SlotType::UniformBlock(uniform_block_slot) => {
-                                    if let ResourceSlotType::UniformBuffer(layout) =
+                    match slot.slot_type() {
+                        SlotType::UniformBlock(uniform_block_slot) => {
+                            'inner: for descriptor in bind_group_0.slots() {
+                                if &descriptor.slot_identifier == slot.identifier() {
+                                    if let ResourceSlotType::UniformBuffer(memory_units) =
                                         descriptor.slot_type
                                     {
-                                        uniform_block_slot.compatibility(layout).map_err(|e| {
-                                            IncompatibleResources::IncompatibleInterface(slot.identifier().clone(), e)
-                                        })?;
+                                        uniform_block_slot.compatibility(memory_units).map_err(
+                                            |e| {
+                                                IncompatibleResources::IncompatibleInterface(
+                                                    slot.identifier().clone(),
+                                                    e,
+                                                )
+                                            },
+                                        )?;
                                     } else {
                                         return Err(IncompatibleResources::ResourceTypeMismatch(
                                             slot.identifier().clone(),
                                         )
                                         .into());
                                     }
-                                }
-                                SlotType::TextureSampler(texture_sampler_slot) => {
-                                    match descriptor.slot_type {
-                                        ResourceSlotType::SampledTexture(tpe)
-                                            if tpe == texture_sampler_slot.kind() =>
-                                        {
-                                            ()
-                                        }
-                                        _ => {
-                                            return Err(
-                                                IncompatibleResources::ResourceTypeMismatch(
-                                                    slot.identifier().clone(),
-                                                )
-                                                .into(),
-                                            )
-                                        }
-                                    }
+
+                                    updater.update_slot_binding(slot, descriptor.slot_index as u32);
+
+                                    continue 'outer;
                                 }
                             }
+                        }
+                        SlotType::TextureSampler(texture_sampler_slot) => {
+                            'inner: for descriptor in bind_group_1.slots() {
+                                if &descriptor.slot_identifier == slot.identifier() {
+                                    if let ResourceSlotType::SampledTexture(tpe) =
+                                        descriptor.slot_type
+                                    {
+                                        if tpe == texture_sampler_slot.kind() {
+                                            updater.update_slot_binding(
+                                                slot,
+                                                descriptor.slot_index as u32,
+                                            );
 
-                            updater.update_slot_binding(slot, descriptor.slot_index as u32);
+                                            continue 'outer;
+                                        }
+                                    }
 
-                            continue 'outer;
+                                    return Err(IncompatibleResources::ResourceTypeMismatch(
+                                        slot.identifier().clone(),
+                                    )
+                                    .into());
+                                }
+                            }
                         }
                     }
-
-                    return Err(
-                        IncompatibleResources::MissingResource(slot.identifier().clone()).into(),
-                    );
                 }
             }
         }

@@ -482,7 +482,10 @@ impl UniformBlockSlot {
                 _ => unreachable!(),
             };
 
-            layout.push(MemoryUnit { offset: offsets[i] as usize, layout: unit });
+            layout.push(MemoryUnit {
+                offset: offsets[i] as usize,
+                layout: unit,
+            });
         }
 
         // TODO: unsure if this is ever necessary or if all implementations already guarantee this
@@ -496,8 +499,10 @@ impl UniformBlockSlot {
         self.index
     }
 
-    pub(crate) fn compatibility(&self, memory_layout: &[MemoryUnit]) -> Result<(), IncompatibleInterface>
-    {
+    pub(crate) fn compatibility(
+        &self,
+        memory_layout: &[MemoryUnit],
+    ) -> Result<(), IncompatibleInterface> {
         'outer: for expected_unit in self.layout.iter() {
             'inner: for actual_unit in memory_layout.iter() {
                 if expected_unit.offset > actual_unit.offset {

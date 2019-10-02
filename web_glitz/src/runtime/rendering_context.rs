@@ -20,7 +20,9 @@ use crate::pipeline::graphics::{
     FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, IncompatibleVertexInputLayout,
     ShaderLinkingError, VertexShader,
 };
-use crate::pipeline::resources::{IncompatibleResources, ResourceSlotIdentifier};
+use crate::pipeline::resources::{
+    BindGroup, BindableResourceGroup, IncompatibleResources, ResourceSlotIdentifier,
+};
 use crate::render_pass::{RenderPass, RenderPassContext};
 use crate::render_target::RenderTargetDescription;
 use crate::runtime::state::{CreateProgramError, DynamicState};
@@ -56,6 +58,10 @@ pub trait RenderingContext {
     ///
     /// See [Extensions] for details.
     fn extensions(&self) -> &Extensions;
+
+    fn create_bind_group<T>(&self, resources: T) -> BindGroup<T>
+    where
+        T: BindableResourceGroup;
 
     /// Creates a new GPU-accessible memory [Buffer].
     ///

@@ -129,6 +129,7 @@ use crate::pipeline::graphics::shader::{
 use crate::pipeline::graphics::{
     FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, VertexShader,
 };
+use crate::pipeline::resources::{BindGroup, BindGroupEncodingContext, BindableResourceGroup};
 use crate::render_pass::{
     DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
     DefaultStencilBuffer, RenderPass, RenderPassContext, RenderPassId,
@@ -185,6 +186,13 @@ impl RenderingContext for SingleThreadedContext {
         &self.extensions
     }
 
+    fn create_bind_group<T>(&self, resources: T) -> BindGroup<T>
+    where
+        T: BindableResourceGroup,
+    {
+        BindGroup::new(self.id, resources)
+    }
+
     fn create_buffer<D, T>(&self, data: D, usage_hint: UsageHint) -> Buffer<T>
     where
         D: IntoBuffer<T>,
@@ -227,8 +235,7 @@ impl RenderingContext for SingleThreadedContext {
     fn create_graphics_pipeline<V, R, Tf>(
         &self,
         descriptor: &GraphicsPipelineDescriptor<V, R, Tf>,
-    ) -> Result<GraphicsPipeline<V, R, Tf>, CreateGraphicsPipelineError>
-    {
+    ) -> Result<GraphicsPipeline<V, R, Tf>, CreateGraphicsPipelineError> {
         let executor = self.executor.borrow_mut();
         let mut connection = executor.connection.borrow_mut();
 

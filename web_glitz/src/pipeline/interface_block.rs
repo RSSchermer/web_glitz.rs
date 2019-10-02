@@ -332,12 +332,10 @@ unsafe impl<T> StableRepr for T where T: std140::ReprStd140 {}
 macro_rules! impl_interface_block_component_std140 {
     ($T:ident, $layout:expr) => {
         unsafe impl InterfaceBlockComponent for std140::$T {
-            const MEMORY_UNITS: &'static [MemoryUnit] = &[
-                MemoryUnit {
-                    offset: 0,
-                    layout: $layout,
-                }
-            ];
+            const MEMORY_UNITS: &'static [MemoryUnit] = &[MemoryUnit {
+                offset: 0,
+                layout: $layout,
+            }];
         }
     };
 }
@@ -427,15 +425,13 @@ macro_rules! impl_interface_block_component_std140_array {
         unsafe impl<const LEN: usize> InterfaceBlockComponent
             for std140::array<std140::$T, { LEN }>
         {
-            const MEMORY_UNITS: &'static [MemoryUnit] = &[
-                MemoryUnit {
-                    offset: 0,
-                    layout: UnitLayout::$layout_ident {
-                        stride: 16,
-                        len: LEN,
-                    },
-                }
-            ];
+            const MEMORY_UNITS: &'static [MemoryUnit] = &[MemoryUnit {
+                offset: 0,
+                layout: UnitLayout::$layout_ident {
+                    stride: 16,
+                    len: LEN,
+                },
+            }];
         }
     };
 }
@@ -462,17 +458,15 @@ macro_rules! impl_interface_block_component_std140_matrix_array {
         unsafe impl<const LEN: usize> InterfaceBlockComponent
             for std140::array<std140::$T, { LEN }>
         {
-            const MEMORY_UNITS: &'static [MemoryUnit] = &[
-                MemoryUnit {
-                    offset: 0,
-                    layout: UnitLayout::$layout_ident {
-                        order: MatrixOrder::ColumnMajor,
-                        array_stride: 16,
-                        matrix_stride: 16,
-                        len: LEN,
-                    },
-                }
-            ];
+            const MEMORY_UNITS: &'static [MemoryUnit] = &[MemoryUnit {
+                offset: 0,
+                layout: UnitLayout::$layout_ident {
+                    order: MatrixOrder::ColumnMajor,
+                    array_stride: 16,
+                    matrix_stride: 16,
+                    len: LEN,
+                },
+            }];
         }
     };
 }
