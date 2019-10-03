@@ -31,6 +31,14 @@ use fnv::FnvHasher;
 use std::marker;
 use std::sync::Arc;
 
+/// Represents a group of bindable resources that may be bound to a pipeline and are shared by all
+/// invocations during the pipeline's execution.
+///
+/// See [RenderingContext::create_bind_group] for details on how a bind group is created.
+///
+/// More than one bind group may be bound to a pipeline, see
+/// [GraphicsPipelineTaskBuilder::bind_resources] and
+/// [GraphicsPipelineTaskBuilder::bind_resources_untyped] for details.
 pub struct BindGroup<T> {
     pub(crate) context_id: usize,
     pub(crate) encoding: Arc<Vec<ResourceBindingDescriptor>>,
@@ -53,6 +61,11 @@ where
     }
 }
 
+/// A minimal description of the resource binding slots used by a pipeline.
+///
+/// This type only contains the minimally necessary information for initializing a pipeline. See
+/// also [TypedResourceBindingsLayoutDescriptor] for a type that includes information that may be
+/// type checked against the resource types defined by the pipeline's shader stages.
 #[derive(Clone, Debug)]
 pub struct ResourceBindingsLayoutDescriptor {
     layout: Vec<LayoutElement>,
@@ -60,6 +73,10 @@ pub struct ResourceBindingsLayoutDescriptor {
 }
 
 impl ResourceBindingsLayoutDescriptor {
+    /// A collection of descriptors for the bind group layouts associated with the resource bindings
+    /// layout.
+    ///
+    /// See also [BindGroupLayout].
     pub fn bind_groups(&self) -> BindGroupLayouts {
         BindGroupLayouts { layout: self }
     }
@@ -90,16 +107,21 @@ struct BindGroupElement {
     len: usize,
 }
 
+/// Returned from [ResourceBindingsLayoutDescriptor::bind_groups], a collection of bind group
+/// layouts associated with a [ResourceBindingsLayoutDescriptor].
 #[derive(Clone, Copy)]
 pub struct BindGroupLayouts<'a> {
     layout: &'a ResourceBindingsLayoutDescriptor,
 }
 
 impl<'a> BindGroupLayouts<'a> {
+    /// The number of bind group layouts associated with the [ResourceBindingsLayoutDescriptor].
     pub fn len(&self) -> usize {
         self.layout.bind_groups
     }
 
+    /// Returns an iterator of the bind group associated with the
+    /// [ResourceBindingsLayoutDescriptor].
     pub fn iter(&self) -> BindGroupLayoutsIter {
         BindGroupLayoutsIter {
             layout: &self.layout.layout,
@@ -122,6 +144,8 @@ impl<'a> IntoIterator for BindGroupLayouts<'a> {
     }
 }
 
+/// Returned from [BindGroupLayouts::iter], an iterator over the bind group layouts associated with
+/// a [ResourceBindingsLayoutDescriptor].
 pub struct BindGroupLayoutsIter<'a> {
     layout: &'a [LayoutElement],
     cursor: usize,
@@ -161,32 +185,43 @@ impl<'a> ExactSizeIterator for BindGroupLayoutsIter<'a> {
     }
 }
 
+/// Describes the layout for a bind group at a specific bind group index in a
+/// [ResourceBindingsLayoutDescriptor].
 pub struct BindGroupLayout<'a> {
     slots: &'a [LayoutElement],
     bind_group_index: u32,
 }
 
 impl<'a> BindGroupLayout<'a> {
+    /// The bind group index for the bind group.
     pub fn bind_group_index(&self) -> u32 {
         self.bind_group_index
     }
 
+    /// A collection of descriptors for the resource slots associated with the bind group.
+    ///
+    /// See also [ResourceSlotDescriptor].
     pub fn slots(&self) -> BindGroupLayoutSlots {
         BindGroupLayoutSlots { slots: self.slots }
     }
 }
 
+/// Returned from [BindGroupLayout::slots], represents the resource slots associated with the
+/// bind group layout.
 pub struct BindGroupLayoutSlots<'a> {
     slots: &'a [LayoutElement],
 }
 
 impl<'a> BindGroupLayoutSlots<'a> {
+    /// Number of resource slots associated with the bind group layout.
     pub fn len(&self) -> usize {
         self.slots.len()
     }
 
-    pub fn iter(&self) -> BindGroupSlotsIter {
-        BindGroupSlotsIter {
+    /// Returns an iterator over descriptors of the resource slots associated with the bind group
+    /// layout.
+    pub fn iter(&self) -> BindGroupLayoutSlotsIter {
+        BindGroupLayoutSlotsIter {
             iter: self.slots.iter(),
         }
     }
@@ -194,20 +229,21 @@ impl<'a> BindGroupLayoutSlots<'a> {
 
 impl<'a> IntoIterator for BindGroupLayoutSlots<'a> {
     type Item = &'a ResourceSlotDescriptor;
-    type IntoIter = BindGroupSlotsIter<'a>;
+    type IntoIter = BindGroupLayoutSlotsIter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        BindGroupSlotsIter {
+        BindGroupLayoutSlotsIter {
             iter: self.slots.into_iter(),
         }
     }
 }
 
-pub struct BindGroupSlotsIter<'a> {
+/// Returned from [BindGroupLayoutSlots::iter], an iterator over the slots in the bind group layout.
+pub struct BindGroupLayoutSlotsIter<'a> {
     iter: std::slice::Iter<'a, LayoutElement>,
 }
 
-impl<'a> Iterator for BindGroupSlotsIter<'a> {
+impl<'a> Iterator for BindGroupLayoutSlotsIter<'a> {
     type Item = &'a ResourceSlotDescriptor;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -225,47 +261,126 @@ impl<'a> Iterator for BindGroupSlotsIter<'a> {
     }
 }
 
-impl<'a> ExactSizeIterator for BindGroupSlotsIter<'a> {
+impl<'a> ExactSizeIterator for BindGroupLayoutSlotsIter<'a> {
     fn len(&self) -> usize {
         self.iter.len()
     }
 }
 
+/// Hint for a [ResourceBindingsLayoutDescriptorBuilder] that indicates how much memory is required
+/// to accommodate the result.
+///
+/// See [ResourceBindingsLayoutDescriptorBuilder::new].
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct ResourceBindingsLayoutDescriptorAllocationHint {
+pub struct LayoutAllocationHint {
+    /// The number of bind groups the layout will declare.
     pub bind_groups: usize,
+
+    /// The total number of resource slots the layout will declare across all bind groups.
     pub total_resource_slots: usize,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct InvalidBindGroupIndex;
-
-pub struct ResourceBindingsLayoutDescriptorBuilder {
-    layout: Vec<LayoutElement>,
-    last_bind_group_index: Option<u32>,
+/// Enumerates the errors that may occur when building a [ResourceBindingsLayoutDescriptor].
+///
+/// See [ResourceBindingsLayoutDescriptorBuilder].
+pub enum ResourceBindingsLayoutBuilderError {
+    InvalidBindGroupSequence(InvalidBindGroupSequence),
+    InvalidResourceSlotSequence(InvalidResourceSlotSequence)
 }
 
-impl ResourceBindingsLayoutDescriptorBuilder {
-    pub fn new(allocation_hint: Option<ResourceBindingsLayoutDescriptorAllocationHint>) -> Self {
+/// Error returned when adding bind groups to a [ResourceBindingsLayoutDescriptorBuilder] out of
+/// order or when adding multiple bind groups that declare the same bind group index.
+///
+/// See [ResourceBindingsLayoutDescriptorBuilder::add_bind_group].
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct InvalidBindGroupSequence {
+    pub current_index: u32,
+    pub previous_index: u32,
+}
+
+/// Builds a [ResourceBindingsLayoutDescriptor].
+///
+/// # Example
+///
+/// ```
+/// use web_glitz::pipeline::resources::{ResourceSlotDescriptor, ResourceBindingsLayoutBuilder, LayoutAllocationHint, ResourceSlotIdentifier, ResourceSlotKind};
+///
+/// let mut builder = ResourceBindingsLayoutBuilder::new(Some(LayoutAllocationHint {
+///     bind_groups: 2,
+///     total_resource_slots: 3,
+/// }));
+///
+/// let resource_bindings_layout = builder
+///     .add_bind_group(0)?
+///         .add_resource_slot(ResourceSlotDescriptor {
+///             slot_index: 0,
+///             slot_identifier: ResourceSlotIdentifier::Static("buffer_0"),
+///             slot_kind: ResourceSlotKind::UniformBuffer
+///         })?
+///         .finish()
+///     .add_bind_group(1)?
+///         .add_resource_slot(ResourceSlotDescriptor {
+///             slot_index: 0,
+///             slot_identifier: ResourceSlotIdentifier::Static("texture_0"),
+///             slot_kind: ResourceSlotKind::SampledTexture
+///         })?
+///         .add_resource_slot(ResourceSlotDescriptor {
+///             slot_index: 1,
+///             slot_identifier: ResourceSlotIdentifier::Static("texture_1"),
+///             slot_kind: ResourceSlotKind::SampledTexture
+///         })?
+///         .finish()
+///     .finish();
+/// ```
+///
+/// Note that all bind groups must be added in increasing order of bind group index and no
+/// 2 bind groups may declare the same bind group index (but bind group indices do not have to be
+/// contiguous); all resource slots must be added to their respective bind groups in increaseing
+/// order of slot index and no 2 resource slots within the same bind group may declare the same
+/// slot index (but slot indices do not have to be contiguous).
+pub struct ResourceBindingsLayoutBuilder {
+    layout: Vec<LayoutElement>,
+    last_bind_group_index: Option<u32>,
+    bind_groups: usize,
+}
+
+impl ResourceBindingsLayoutBuilder {
+    /// Creates a new [ResourceBindingsLayoutDescriptorBuilder].
+    ///
+    /// An optional [LayoutAllocationHint] to indicate to the builder how much memory should be
+    /// allocated to accommodate the result. Note that providing an inaccurate hint will not result
+    /// in any errors, but may result in more than 1 allocation or the allocation of extraneous
+    /// memory.
+    pub fn new(allocation_hint: Option<LayoutAllocationHint>) -> Self {
         let layout = if let Some(hint) = allocation_hint {
             Vec::with_capacity(hint.bind_groups + hint.total_resource_slots)
         } else {
             Vec::new()
         };
 
-        ResourceBindingsLayoutDescriptorBuilder {
+        ResourceBindingsLayoutBuilder {
             layout,
             last_bind_group_index: None,
+            bind_groups: 0,
         }
     }
 
+    /// Adds a bind group to the layout with the given `bind_group_index`.
+    ///
+    /// Returns a builder that may be used to add resource slots to the bind group's layout, or
+    /// returns an [InvalidBindGroupIndex] error if the `bind_group_index` is not greater than the
+    /// previous bind group index (if any): bind groups must be added to the layout in ascending
+    /// order of bind group index and no two bind groups may declare the same bind group index.
     pub fn add_bind_group(
-        &mut self,
+        mut self,
         bind_group_index: u32,
-    ) -> Result<BindGroupLayoutBuilder, InvalidBindGroupIndex> {
+    ) -> Result<BindGroupLayoutBuilder, InvalidBindGroupSequence> {
         if let Some(last_bind_group_index) = self.last_bind_group_index {
             if bind_group_index <= last_bind_group_index {
-                return Err(InvalidBindGroupIndex);
+                return Err(InvalidBindGroupSequence {
+                    current_index: bind_group_index,
+                    previous_index: last_bind_group_index
+                });
             }
         }
 
@@ -277,50 +392,81 @@ impl ResourceBindingsLayoutDescriptorBuilder {
                 len: 0,
             }));
 
+        self.bind_groups += 1;
+
         Ok(BindGroupLayoutBuilder {
-            layout: &mut self.layout,
+            builder: self,
             bind_group_index,
             start,
             last_slot_index: None,
         })
     }
+
+    /// Finishes this builder and returns the resulting [ResourceBindingsLayoutDescriptor].
+    pub fn finish(self) -> ResourceBindingsLayoutDescriptor {
+        ResourceBindingsLayoutDescriptor {
+            layout: self.layout,
+            bind_groups: self.bind_groups,
+        }
+    }
 }
 
+/// Error returned when adding resource slots to a [BindGroupLayoutBuilder] out of order or when
+/// adding multiple resource slots that declare the same slot index.
+///
+/// See [BindGroupLayoutBuilder::add_resource_slot].
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct InvalidSlotIndex;
+pub struct InvalidResourceSlotSequence {
+    pub bind_group_index: u32,
+    pub current_index: u32,
+    pub previous_index: u32
+}
 
-pub struct BindGroupLayoutBuilder<'a> {
-    layout: &'a mut Vec<LayoutElement>,
+/// Returned from [ResourceBindingsLayoutDescriptorBuilder::add_bind_group], accumulates the
+/// resource slot descriptors for a bind group layout description.
+pub struct BindGroupLayoutBuilder {
+    builder: ResourceBindingsLayoutBuilder,
     bind_group_index: u32,
     start: usize,
     last_slot_index: Option<u32>,
 }
 
-impl<'a> BindGroupLayoutBuilder<'a> {
+impl BindGroupLayoutBuilder {
+    /// Adds a resource slot descriptor to the bind group layout.
+    ///
+    /// The slot index declared by the descriptor must be greater than the previous resource slot
+    /// added to this builder (if any), otherwise an [InvalidResourceSlotSequence] error is
+    /// returned: all resource slots must be added to the builder in ascending order of slot index
+    /// and no 2 resource slots must declare the same slot index.
     pub fn add_resource_slot(
         mut self,
         descriptor: ResourceSlotDescriptor,
-    ) -> Result<Self, InvalidSlotIndex> {
+    ) -> Result<Self, InvalidResourceSlotSequence > {
         if let Some(last_slot_index) = self.last_slot_index {
             if descriptor.slot_index <= last_slot_index {
-                return Err(InvalidSlotIndex);
+                return Err(InvalidResourceSlotSequence {
+                    bind_group_index: self.bind_group_index,
+                    current_index: descriptor.slot_index,
+                    previous_index: last_slot_index
+                } );
             }
         }
 
-        self.layout.push(LayoutElement::Slot(descriptor));
+        self.builder.layout.push(LayoutElement::Slot(descriptor));
 
         Ok(self)
     }
-}
 
-impl<'a> Drop for BindGroupLayoutBuilder<'a> {
-    fn drop(&mut self) {
-        let len = self.layout.len() - self.start;
+    /// Finishes the layout for this bind group and returns the [ResourceBindingsLayoutBuilder].
+    pub fn finish(mut self) -> ResourceBindingsLayoutBuilder {
+        let len = self.builder.layout.len() - self.start;
 
-        self.layout[self.start] = LayoutElement::NextBindGroup(BindGroupElement {
+        self.builder.layout[self.start] = LayoutElement::NextBindGroup(BindGroupElement {
             bind_group_index: self.bind_group_index,
             len,
         });
+
+        self.builder
     }
 }
 
@@ -375,7 +521,7 @@ impl TypedResourceBindingsLayoutDescriptor {
     }
 }
 
-/// Describes the layout of a single bind group in a [TypedResourceBindingsLayoutDescriptor].
+/// Describes the resource slot layout of a bind group in a [TypedResourceBindingsLayoutDescriptor].
 #[derive(Clone, Debug)]
 pub struct TypedBindGroupLayoutDescriptor {
     bind_group_index: u32,
@@ -462,6 +608,22 @@ implement_typed_resource_bindings_layout!(T0: 0, T1: 1, T2: 2, T3: 3, T4: 4, T5:
 implement_typed_resource_bindings_layout!(T0: 0, T1: 1, T2: 2, T3: 3, T4: 4, T5: 5, T6: 6, T7: 7, T8: 8, T9: 9, T10: 10, T11: 11, T12: 12, T13: 13, T14: 14);
 implement_typed_resource_bindings_layout!(T0: 0, T1: 1, T2: 2, T3: 3, T4: 4, T5: 5, T6: 6, T7: 7, T8: 8, T9: 9, T10: 10, T11: 11, T12: 12, T13: 13, T14: 14, T15: 15);
 
+/// A description of the resource slot layout of a bind group, attached to a type.
+///
+/// See also [TypedResourceSlotDescriptor].
+///
+/// This trait becomes useful in combination with the [TypedBindableResourceGroup] and
+/// [TypedResourceBindings] traits, the later of which is implemented for any tuple of [BindGroup]s
+/// where each [BindGroup] holds resources that implement [TypedBindableResourceGroup]. If a
+/// pipeline (or a tuple of such bind groups) declares a typed resource bindings layout, then a
+/// (tuple of) bind group(s) with a matching resource layout may be safely bound to the pipeline
+/// without additional runtime checks.
+///
+/// Note that [TypedBindGroupLayout] is safe to implement, but implementing
+/// [TypedBindableResourceGroup] is unsafe: the resource bindings encoded by the
+/// [TypedBindableResourceGroup] implementation must always be compatible with the bind group
+/// layout specified by its [TypedBindableResourceGroup::Layout], see [TypedBindableResourceGroup]
+/// for details.
 pub trait TypedBindGroupLayout {
     const LAYOUT: &'static [TypedResourceSlotDescriptor];
 }
@@ -469,6 +631,36 @@ pub trait TypedBindGroupLayout {
 /// A group of resources that may be used to form a [BindGroup].
 ///
 /// See also [RenderingContext::create_bind_group] for details on how a [BindGroup] is created.
+///
+/// This trait is implemented for any type that implements the [Resources] trait. The [Resources]
+/// trait may automatically derived (see the documentation for [Resources] for details).
+///
+/// # Example
+///
+/// ```
+/// use web_glitz::buffer::Buffer;
+/// use web_glitz::image::texture_2d::FloatSampledTexture2D;
+/// use web_glitz::pipeline::resources::{BindableResourceGroup, BindGroupEncodingContext, BindGroupEncoding, BindGroupEncoder};
+///
+/// struct Resources<'a, 'b> {
+///     uniform_buffer: &'a Buffer<std140::mat4x4>,
+///     texture: FloatSampledTexture2D<'b>
+/// }
+///
+/// impl<'a, 'b> BindableResourceGroup for Resources<'a, 'b> {
+///     fn encode_bind_group(
+///         self,
+///         encoding_context: &mut BindGroupEncodingContext
+///     ) -> BindGroupEncoding<'a> {
+///         let mut encoder = BindGroupEncoder::new(encoding_context, Some(2));
+///
+///         encoder.add_buffer_view(0, self.uniform_buffer.into());
+///         encoder.add_float_sampled_texture_2d(1, self.texture);
+///
+///         encoder.finish()
+///     }
+/// }
+/// ```
 pub trait BindableResourceGroup {
     /// Encodes a description of the bindings for the resources in the group.
     fn encode_bind_group(
@@ -477,7 +669,17 @@ pub trait BindableResourceGroup {
     ) -> BindGroupEncoding;
 }
 
-
+/// Sub-trait of [BindableResourceGroup], where a type statically describes the layout for the
+/// bind group.
+///
+/// A [BindGroup] for resources that implement this trait may be bound to pipeline's with a matching
+/// typed resource bindings layout without additional runtime checks.
+///
+/// # Unsafe
+///
+/// Any instance of a type that implements this trait must encode a bind group (see
+/// [BindableResourceGroup::encode_bind_group]) with a layout that matches the bind group layout
+/// declared by [Layout].
 pub unsafe trait TypedBindableResourceGroup {
     type Layout: TypedBindGroupLayout;
 }
@@ -514,12 +716,13 @@ pub unsafe trait TypedBindableResourceGroup {
 /// }
 /// ```
 ///
-/// See also [StaticResourceBindingsEncoder]. Note that when multiple bindings of the same type bind
-/// to the same slot-index, then only the binding that was added last will be used. However, buffer
-/// resources and texture resources belong to distinct bind groups, their slot-indices do not
-/// interact.
+/// See also [StaticResourceBindingsEncoder].
 ///
-/// This trait is automically implemented for any type that derives the [Resources] trait.
+/// Note that when multiple bindings of the same type bind to the same slot-index, then only the
+/// binding that was added last will be used. However, buffer resources and texture resources belong
+/// to distinct bind groups, their slot-indices do not interact.
+///
+/// This trait is automatically implemented for any type that derives the [Resources] trait.
 pub trait ResourceBindings {
     /// Type that describes the collection of bindings.
     type BindGroups: Borrow<[BindGroupDescriptor]> + 'static;
@@ -529,6 +732,17 @@ pub trait ResourceBindings {
         self,
         encoding_context: &mut ResourceBindingsEncodingContext,
     ) -> ResourceBindingsEncoding<Self::BindGroups>;
+}
+
+impl ResourceBindings for () {
+    type BindGroups = [BindGroupDescriptor; 0];
+
+    fn encode(
+        self,
+        encoding_context: &mut ResourceBindingsEncodingContext,
+    ) -> ResourceBindingsEncoding<Self::BindGroups> {
+        ResourceBindingsEncoding::empty(encoding_context)
+    }
 }
 
 macro_rules! implement_resource_bindings {
@@ -583,6 +797,10 @@ pub unsafe trait TypedResourceBindings: ResourceBindings {
     type Layout: TypedResourceBindingsLayout;
 }
 
+unsafe impl TypedResourceBindings for () {
+    type Layout = ();
+}
+
 macro_rules! impl_typed_resource_bindings {
     ($($T:ident),*) => {
         unsafe impl<$($T),*> TypedResourceBindings for ($(&'_ BindGroup<$T>),*)
@@ -610,16 +828,6 @@ impl_typed_resource_bindings!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, 
 impl_typed_resource_bindings!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13);
 impl_typed_resource_bindings!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14);
 impl_typed_resource_bindings!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15);
-
-/// A minimal description of the resource binding slots used by a pipeline.
-///
-/// This type only contains the minimally necessary information for initializing a pipeline. See
-/// also [TypedResourceBindingsLayoutDescriptor] for a type that includes information that may be
-/// type checked against the resource types defined by the pipeline's shader stages.
-//#[derive(Clone, Debug)]
-//pub struct ResourceBindingsLayoutDescriptor {
-//    pub(crate) bindings: Vec<ResourceSlotDescriptor>,
-//}
 
 /// Identifies a resource slot in a pipeline.
 #[derive(Clone, Debug)]
@@ -782,14 +990,26 @@ pub enum SampledTextureType {
     SamplerCubeShadow,
 }
 
-/// Provides a group of resources (uniform block buffers, sampled textures) that may be bound to a
-/// pipeline, such that the pipeline may access these resources during its execution.
+/// Provides a group of resources (uniform block buffers, sampled textures) that can initialize a
+/// [BindGroup].
 ///
-/// This type acts as an automatically derivable trait for a [TypedResourceBindings] type that acts
-/// as its own [TypedResourceBindingsLayout]. This trait is only intended to be derived
-/// automatically; if your set of resources cannot be adequatly described by automatically deriving
-/// this trait, rather than manually implementing this trait, instead consider manually implementing
-/// the [TypedResourceBindings] and [TypedResourceBindingsLayout] traits separately.
+/// See [RendinderingContext::create_bind_group] for details on how a [BindGroup] is created.
+///
+/// The resulting bind group may be bound to a pipeline, such that all pipeline invokations may
+/// access these resources when the pipeline is executed. See
+/// [GraphicsPipelineTaskBuilder::bind_resources] for details on how bind groups are bound to a
+/// pipeline.
+///
+/// This type acts as an automatically derivable trait for a [TypedBindableResourceGroup] type that
+/// acts as its own [TypedBindGroupLayout]. This trait is only intended to be derived automatically;
+/// if your set of resources cannot be adequatly described by automatically deriving this trait,
+/// rather than manually implementing this trait, instead consider manually implementing the
+/// [TypedBindableResourceGroup] and [TypedBindGroupLayout] traits separately.
+///
+/// Note that a [BindGroup] may also be initialized from an untyped [BindableResourceGroup]. The
+/// resulting bind group will be untyped and binding it to a pipeline is unsafe: you are responsible
+/// for ensuring that the resources you bind match the resources expected by the shader stages of
+/// the pipeline, see [GraphicsPipelineTaskBuilder::bind_resources_untyped] for details.
 ///
 /// # Usage
 ///
@@ -814,8 +1034,14 @@ pub enum SampledTextureType {
 /// }
 /// ```
 ///
+/// Note that GLSL ES 3.0 does not allow you to define your own explicit bind groups. Instead, bind
+/// groups are implicitly defined for each kind of resource:
+///
+/// - Uniform buffers: this bind group uses bind group index `0`.
+/// - Sampled textures: this bind group uses bind group index `1`.
+///
 /// This trait may be safely derived automatically on a type to define how specific resource
-/// instances should be bound to the pipeline before it is executed:
+/// instances should be bound to the pipeline:
 ///
 /// ```
 /// use web_glitz::image::texture_2d::FloatSampledTexture2D;
@@ -825,15 +1051,18 @@ pub enum SampledTextureType {
 /// use web_glitz::std140::repr_std140;
 ///
 /// #[derive(web_glitz::derive::Resources)]
-/// struct MyResources<'a> {
-///     #[texture_resource(binding=0)]
+/// struct BufferResources<'a> {
+///     #[resource(binding=0, name="SomeUniformBlock")]
+///     some_uniform_block: &'a Buffer<SomeUniformBlock>,
+/// }
+///
+/// #[derive(web_glitz::derive::Resources)]
+/// struct TextureResources<'a> {
+///     #[resource(binding=0)]
 ///     some_texture: FloatSampledTexture2D<'a>,
 ///
-///     #[texture_resource(binding=1, name="some_other_texture")]
+///     #[resource(binding=1, name="some_other_texture")]
 ///     second_texture: FloatSampledTexture2DArray<'a>,
-///
-///     #[buffer_resource(binding=0, name="SomeUniformBlock")]
-///     some_uniform_block: &'a Buffer<SomeUniformBlock>
 /// }
 ///
 /// #[repr_std140]
@@ -844,43 +1073,28 @@ pub enum SampledTextureType {
 /// }
 /// ```
 ///
-/// Any field marked with a `#[texture_resource(...)]` attribute defines a texture binding; any
-/// field marked with a `#[buffer_resource(...)]` attribute defines a buffer binding.
+/// Any field marked with a `#[resource(...)]` attribute defines a resource binding; unmarked fields
+/// are ignored when initializing a bind group.
 ///
-/// A `#[texture_resource(...)]` attribute must always declare a `binding` index; this should be a
-/// positive integer that is smaller than the [RenderingContext::max_texture_resource_index] for the
-/// [RenderingContext] with which you intend to use the [Resources] (hardware dependent, at least
-/// `32`). If the field name does not match the resource name used in the shader code, then the
-/// attribute should also declare a `name` with a string that does match the resource name used in
-/// the shader code; if the field name does match the name used in the shader, then `name` may be
-/// omitted. The field's type must implement [TextureResource]; a `#[texture_resource(...)]` field
-/// that does not implement [TextureResource] will result in a compilation error. If multiple
-/// `#[texture_resource(...)]` fields are defined, then all fields must declare a unique `binding`
-/// index; 2 or more `#[texture_resource(...)]` fields with the same `binding` index will result in
-/// a compilation error.
+/// A `#[resource(...)]` attribute must always declare a `binding` index; for a texture this should
+/// be a positive integer that is smaller than the [RenderingContext::max_texture_resource_index] of
+/// the [RenderingContext] with which you intend to use the [Resources] (hardware dependent, at
+/// least `32`); for a uniform buffer this should be a positive integer that is smaller than the
+/// [RenderingContext::max_buffer_resource_index] for the [RenderingContext] with which you intend
+/// to use the [Resources] (hardware dependent, at least `24`).
 ///
-/// A `#[buffer_resource(...)]` attribute must always declare a `binding` index; this should be a
-/// positive integer that is smaller than the [RenderingContext::max_buffer_resource_index] for the
-/// [RenderingContext] with which you intend to use the [Resources] (hardware dependent, at least
-/// `24`). If the field name does not match the block name used in the shader code, then the
-/// attribute should also declare a `name` with a string that does match the block name used in the
-/// shader code; if the field name does match the name used in the shader, then `name` may be
-/// omitted. The field's type must implement [BufferResource]; a `#[buffer_resource(...)]` field
-/// that does not implement [BufferResource] will result in a compilation error. The type contained
-/// in the resource must implement [InterfaceBlock] and its memory layout should match the layout
-/// expected by the pipeline (see [InterfaceBlock] and [web_glitz::std140]). If multiple
-/// `#[buffer_resource(...)]` fields are defined, then all fields must declare a unique `binding`
-/// index; 2 or more `#[buffer_resource(...)]` fields with the same `binding` index will result in a
-/// compilation error.
+/// If the field name does not match the resource name used in the shader code, then the attribute
+/// should also declare a `name` with a string that does match the resource name used in the shader
+/// code; if the field name does match the name used in the shader, then `name` may be omitted.
 ///
-/// Note that while `binding` indices must be internally unique amongst `#[texture_resource(...)]`
-/// fields and must be internally unique amongst `#[buffer_resource(...)]` fields, both binding
-/// types use a separate set of bindings: a `#[texture_resource(...)]` field may declare the same
-/// `binding` index as a `#[buffer_resource(...)]`.
+/// The field's type must implement [Resource]; marking a field that does not implement [Resource]
+/// with `#[resource(...)]` will result in a compilation error. If multiple `#[resource(...)]`
+/// fields are defined, then all fields must declare a unique `binding` index; 2 or more
+/// `#[resource(...)]` fields with the same `binding` index will also result in a compilation error.
 pub unsafe trait Resources {
     const LAYOUT: &'static [TypedResourceSlotDescriptor];
 
-    fn encode_binding_group(
+    fn encode_bind_group(
         self,
         encoding_context: &mut BindGroupEncodingContext,
     ) -> BindGroupEncoding;
@@ -901,7 +1115,7 @@ where
         self,
         encoding_context: &mut BindGroupEncodingContext,
     ) -> BindGroupEncoding {
-        <T as Resources>::encode_binding_group(self, encoding_context)
+        <T as Resources>::encode_bind_group(self, encoding_context)
     }
 }
 
@@ -949,7 +1163,7 @@ pub unsafe trait Resource {
     const TYPE: ResourceSlotType;
 
     /// Encodes a binding for this resource at the specified `slot_index`.
-    fn encode<B>(self, slot_index: u32, encoder: &mut BindGroupEncoder);
+    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder);
 }
 
 unsafe impl<'a, T> Resource for &'a Buffer<T>
@@ -958,7 +1172,7 @@ where
 {
     const TYPE: ResourceSlotType = ResourceSlotType::UniformBuffer(T::MEMORY_UNITS);
 
-    fn encode<B>(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
+    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
         encoder.add_buffer_view(slot_index, self.into());
     }
 }
@@ -969,7 +1183,7 @@ where
 {
     const TYPE: ResourceSlotType = ResourceSlotType::UniformBuffer(T::MEMORY_UNITS);
 
-    fn encode<B>(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
+    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
         encoder.add_buffer_view(slot_index, self);
     }
 }
@@ -978,7 +1192,7 @@ unsafe impl<'a> Resource for FloatSampledTexture2D<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::FloatSampler2D);
 
-    fn encode<B>(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
+    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
         encoder.add_float_sampled_texture_2d(slot_index, self);
     }
 }
@@ -987,7 +1201,7 @@ unsafe impl<'a> Resource for FloatSampledTexture2DArray<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::FloatSampler2DArray);
 
-    fn encode<B>(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
+    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
         encoder.add_float_sampled_texture_2d_array(slot_index, self);
     }
 }
@@ -996,7 +1210,7 @@ unsafe impl<'a> Resource for FloatSampledTexture3D<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::FloatSampler3D);
 
-    fn encode<B>(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
+    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
         encoder.add_float_sampled_texture_3d(slot_index, self);
     }
 }
@@ -1005,7 +1219,7 @@ unsafe impl<'a> Resource for FloatSampledTextureCube<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::FloatSamplerCube);
 
-    fn encode<B>(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
+    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
         encoder.add_float_sampled_texture_cube(slot_index, self);
     }
 }
@@ -1014,7 +1228,7 @@ unsafe impl<'a> Resource for IntegerSampledTexture2D<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::IntegerSampler2D);
 
-    fn encode<B>(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
+    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
         encoder.add_integer_sampled_texture_2d(slot_index, self);
     }
 }
@@ -1023,7 +1237,7 @@ unsafe impl<'a> Resource for IntegerSampledTexture2DArray<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::IntegerSampler2DArray);
 
-    fn encode<B>(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
+    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
         encoder.add_integer_sampled_texture_2d_array(slot_index, self);
     }
 }
@@ -1032,7 +1246,7 @@ unsafe impl<'a> Resource for IntegerSampledTexture3D<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::IntegerSampler3D);
 
-    fn encode<B>(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
+    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
         encoder.add_integer_sampled_texture_3d(slot_index, self);
     }
 }
@@ -1041,7 +1255,7 @@ unsafe impl<'a> Resource for IntegerSampledTextureCube<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::IntegerSamplerCube);
 
-    fn encode<B>(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
+    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
         encoder.add_integer_sampled_texture_cube(slot_index, self);
     }
 }
@@ -1050,7 +1264,7 @@ unsafe impl<'a> Resource for UnsignedIntegerSampledTexture2D<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::UnsignedIntegerSampler2D);
 
-    fn encode<B>(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
+    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
         encoder.add_unsigned_integer_sampled_texture_2d(slot_index, self);
     }
 }
@@ -1059,7 +1273,7 @@ unsafe impl<'a> Resource for UnsignedIntegerSampledTexture2DArray<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::UnsignedIntegerSampler2DArray);
 
-    fn encode<B>(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
+    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
         encoder.add_unsigned_integer_sampled_texture_2d_array(slot_index, self);
     }
 }
@@ -1068,7 +1282,7 @@ unsafe impl<'a> Resource for UnsignedIntegerSampledTexture3D<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::UnsignedIntegerSampler3D);
 
-    fn encode<B>(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
+    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
         encoder.add_unsigned_integer_sampled_texture_3d(slot_index, self);
     }
 }
@@ -1077,7 +1291,7 @@ unsafe impl<'a> Resource for UnsignedIntegerSampledTextureCube<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::UnsignedIntegerSamplerCube);
 
-    fn encode<B>(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
+    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
         encoder.add_unsigned_integer_sampled_texture_cube(slot_index, self);
     }
 }
@@ -1086,7 +1300,7 @@ unsafe impl<'a> Resource for ShadowSampledTexture2D<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::Sampler2DShadow);
 
-    fn encode<B>(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
+    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
         encoder.add_shadow_sampled_texture_2d(slot_index, self);
     }
 }
@@ -1095,7 +1309,7 @@ unsafe impl<'a> Resource for ShadowSampledTexture2DArray<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::Sampler2DArrayShadow);
 
-    fn encode<B>(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
+    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
         encoder.add_shadow_sampled_texture_2d_array(slot_index, self);
     }
 }
@@ -1104,7 +1318,7 @@ unsafe impl<'a> Resource for ShadowSampledTextureCube<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::SamplerCubeShadow);
 
-    fn encode<B>(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
+    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
         encoder.add_shadow_sampled_texture_cube(slot_index, self);
     }
 }

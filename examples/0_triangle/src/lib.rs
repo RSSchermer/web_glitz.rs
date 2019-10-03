@@ -2,9 +2,9 @@
 //
 // This example assumes some familiarity with graphics pipelines, vertex shaders and fragment
 // shaders. However, if you've ever done any graphics programming with another graphics API
-// (OpenGL/WebGl, Direct3D, Metal, Vulkan, ...), then this should hopefully make sense.
+// (OpenGL/WebGl, Direct3D, Metal, Vulkan, ...), then this will hopefully make sense.
 
-// For the time being, the `web_glitz::Vertex` derive macro requires that we enable this feature:
+// For the time being, the `web_glitz::Vertex` derive macro requires that we enable some features:
 #![feature(
     const_fn,
     const_raw_ptr_to_usize_cast,
@@ -22,7 +22,7 @@ use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 
 use web_sys::{window, HtmlCanvasElement};
 
-// First we declare our vertex type and derive `web_glitz::derive::Vertex`. In this example we'll
+// First we declare a vertex type and derive `web_glitz::derive::Vertex`. In this example we'll
 // store an array of 3 of these vertices in a GPU-accessible memory buffer. We'll then feed these as
 // the input to a very simple graphics pipeline that will assemble them into a single triangle.
 //
@@ -37,12 +37,12 @@ use web_sys::{window, HtmlCanvasElement};
 // the data type the pipeline expects for the attribute; this correspondence will be verified when
 // the pipeline is created.
 //
-// There's still one additional thing we have to do: we have to make sure our type implements `Copy`
-// if we want to be able to store it in a GPU-accessible buffer. This is because uploading data to
-// and downloading data from a buffer involves doing a bitwise copy of the data. WebGlitz relies on
-// the semantics associated with the `Copy` trait to make sure that this is safe. `Clone` is a
-// supertrait of `Copy`, so we'll also have to implement `Clone`. Fortunately this is pretty easy:
-// we can automatically derive both `Clone` and `Copy`.
+// We also have to make sure our type implements `Copy` if we want to be able to store it in a
+// GPU-accessible buffer. This is because uploading data to and downloading data from a buffer
+// involves doing a bitwise copy of the data. WebGlitz relies on the semantics associated with the
+// `Copy` trait to make sure that this is safe. `Clone` is a supertrait of `Copy`, so we'll also
+// have to implement `Clone`. Fortunately this is easy: both `Clone` and `Copy` can be automatically
+// derived.
 #[derive(web_glitz::derive::Vertex, Clone, Copy)]
 struct Vertex {
     // We intend to bind this field to the `position` attribute in the vertex shader, which is of
@@ -91,7 +91,7 @@ pub fn start() {
     // - the canvas context is in its default state (you've not previously obtained another context
     //   and modified the state), and;
     // - you will not modify the context state through another copy of the context for as long as
-    //   this context remains alive.
+    //   the WebGlitz context remains alive.
     //
     // We'll use the default `ContextOptions` for this example (see
     // `web_glitz::runtime::ContextOptions` for details on the configurable options).
@@ -104,28 +104,28 @@ pub fn start() {
     let (context, render_target) =
         unsafe { single_threaded::init(&canvas, &ContextOptions::default()).unwrap() };
 
-    // Create and compile our vertex shader using the GLSL code in `/src/primary_vertex.glsl`.
+    // Create and compile a vertex shader using the GLSL code in `/src/primary_vertex.glsl`.
     let vertex_shader = context
         .create_vertex_shader(include_str!("vertex.glsl"))
         .unwrap();
 
-    // Create and compile our fragment shader using the GLSL code in `/src/primary_fragment.glsl`.
+    // Create and compile a fragment shader using the GLSL code in `/src/primary_fragment.glsl`.
     let fragment_shader = context
         .create_fragment_shader(include_str!("fragment.glsl"))
         .unwrap();
 
-    // Create our graphics pipeline. We'll use the vertex and fragment shaders we just initialized
-    // and we'll assemble our vertices into triangles. We also specify a type for the vertex
-    // attribute layout we intend to use with this pipeline. When the pipeline is created, WebGlitz
-    // will reflect on the shader code to verify that this vertex input layout is indeed compatible
-    // with the pipeline, otherwise this will return an error. We'll use our `Vertex` type to
-    // describe the vertex layout.
+    // Create a graphics pipeline. We'll use the vertex and fragment shaders we just initialized
+    // and we'll assemble our vertices into triangles. We also specify a type for the vertex input
+    // layout we intend to use with this pipeline. When the pipeline is created, WebGlitz will
+    // reflect on the shader code to verify that this vertex input layout is indeed compatible with
+    // the pipeline, otherwise this will return an error. We'll use our `Vertex` type to describe
+    // the vertex input layout.
     let pipeline = context
         .create_graphics_pipeline(
             &GraphicsPipelineDescriptor::begin()
                 .vertex_shader(&vertex_shader)
                 .primitive_assembly(PrimitiveAssembly::Triangles {
-                    // Because we're using a triangle topology, we have to specify a `WindingOrder`.
+                    // Because we're using triangle topology, we have to specify a `WindingOrder`.
                     // The winder order determines which side of a triangle its "front" side and
                     // which side is its "back" side, see
                     // `web_glitz::pipeline::graphics::WindingOrder` for details.
@@ -167,25 +167,26 @@ pub fn start() {
 
     // Create a render pass for our default render target.
     //
-    // Here's the simplified conceptual explanation of what will happen in our render pass:
+    // Here's the conceptual explanation of what will happen in our render pass:
     //
     // When this render pass gets executed, the images associated with the render target (a.k.a. the
-    // "attached images" or the "attachments", in this case an RGBA color image that is displayed on
+    // "attached images" or the "attachments"; in this case an RGBA color image that is displayed on
     // the canvas) will be loaded into "framebuffer memory". The second argument is a function that
-    // takes this framebuffer as an argument and returns a render pass task that may then modify the
+    // takes this framebuffer as an argument and returns a render pass task that may modify the
     // contents of the framebuffer. Our render pass will tell the driver to run our `pipeline` once
     // on our `vertex_array` so that we'll "draw" our triangle to the framebuffer. When the task is
-    // done, the contents of the framebuffer will be stored back into the render target image(s). In
-    // this case, that should result in our triangle showing up on the canvas.
+    // done, the contents of the framebuffer will be stored back into the render target image(s).
+    // Since we're using the default render target, that should result in our triangle showing up on
+    // the canvas.
     let render_pass = context.create_render_pass(render_target, |framebuffer| {
         // Return the render pass task. Our render pass task will consist of a pipeline task that
         // uses the pipeline we initialized earlier. The second argument is a function that takes
         // the activated pipeline and returns a pipeline task.
         framebuffer.pipeline_task(&pipeline, |active_pipeline| {
             // This function needs to return a pipeline task. We want to invoke the pipeline with a
-            // "draw" command while our vertex data is bound to it. We'll the pipeline task builder
-            // interface to construct our task safely without needing further runtime checks: the
-            // task builder interface leverages Rust's type system to ensure at compile time that
+            // "draw" command while our vertex data is bound to it. We'll use the pipeline task
+            // builder interface to construct our task safely without runtime checks: the task
+            // builder interface leverages Rust's type system to ensure at compile time that
             // matching data is bound to the pipeline, before allowing us to encode the draw
             // command.
             active_pipeline

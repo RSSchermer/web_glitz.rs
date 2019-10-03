@@ -1,8 +1,8 @@
 // This example shows how to bind a buffer resource to a uniform block in a pipeline.
 //
 // Note that WebGlitz does not support "plain"/"non-opaque" uniforms, only sampler uniforms and
-// uniform blocks are supported; if you want to use a a simple `float`, `vec4`, `mat4`, etc.
-// uniform in your pipeline, it must be part of a uniform block. If you do attempt to use plain
+// uniform blocks are supported; if you want to use a simple `float`, `vec4`, `mat4`, etc.
+// uniform in your pipeline, then it must be part of a uniform block. If you do attempt to use plain
 // uniforms in your shaders, you will receive an error upon pipeline creation. However, WebGlitz
 // attempts to make it very convenient to use uniform blocks that use the `std140` memory layout.
 //
@@ -37,18 +37,18 @@ struct Vertex {
     color: [u8; 3],
 }
 
-// Define our uniform block type.
+// Define a uniform block type.
 //
-// We store an instance of this type in a GPU-accessible buffer to provide the data for our
-// uniform block (as defined in `/src/primary_vertex.glsl`). We've told the driver that we'll be providing
-// the data for the block using the `std140` layout, by annotating it with `layout(std140)`. We'll
-// make sure that our Rust struct will follow the `std140` memory layout rules by adding the
-// `#[repr_std140]` attribute to our struct declaration. `#[repr_std140]` can only be added to
-// structs (not to enums or unions) and only if all fields of the struct implement
+// We store an instance of this type in a GPU-accessible buffer to provide the data for our uniform
+// block (as defined in `/src/primary_vertex.glsl`). We've told the driver that we'll be providing
+// the data for the block using the `std140` layout, by annotating it with `layout(std140)` in the
+// shader code. We can make sure that our Rust struct is compatible with the `std140` memory layout
+// rules by adding the `#[repr_std140]` attribute to our struct declaration. `#[repr_std140]` can
+// only be added to structs (not to enums or unions), and only if all fields of the struct implement
 // `web_glitz::std140::ReprStd140` (a marker trait implemented for types that can be used as fields
 // in `#[repr_std140]` structs), otherwise the struct will fail to compile. `ReprStd140` is
 // implemented for all types in `web_glitz::std140` and is automatically implement for any struct
-// that successfully compiles with the `#[repr_std140]`  attribute (which means our struct here will
+// that successfully compiles with the `#[repr_std140]` attribute (this means our struct here will
 // implement `ReprStd140`).
 //
 // Marking the struct with `#[repr_std140]` is not quite enough for us to use it with a uniform
@@ -57,14 +57,14 @@ struct Vertex {
 // field implements `web_glitz::pipeline::interface_block::InterfaceBlockComponent`:
 //
 // - `StableRepr` is a marker trait for types that will have a stable memory representation across
-//   compilations. By default, the Rust compiler gives only very few guarantees about a struct's
+//   compilations. By default, the Rust compiler gives only limited guarantees about a struct's
 //   memory layout. This allows the compiler to optimize the layout for performance and/or memory
-//   footprint. However, this means that a different/future version of the Rust compiler might
-//   produce a different memory layout for your type; on the old version the type's layout
-//   (accidentally) matched the layout the pipeline expected, but now you're suddenly getting
-//   errors! `StableRepr` is meant to ensure that you don't accidentally fall into this trap.
-//   `StableRepr` implemented for all types that implement `ReprStd140`, including types marked
-//   with `#[repr_std140]`.
+//   footprint. However, this means that a different/future version of the Rust compiler may
+//   produce a different memory layout for your type: on the old version the type's layout may have
+//   (accidentally) matched the layout the pipeline expected, but on the new version you're suddenly
+//   getting errors! `StableRepr` is meant to ensure that you don't accidentally fall into this
+//   trap. `StableRepr` implemented for all types that implement `ReprStd140`, including types
+//   marked with `#[repr_std140]`.
 // - `InterfaceBlockComponent` adds memory layout metadata to our struct which will be verified
 //   against our pipeline when the pipeline is created; if our struct's memory layout does not match
 //   the uniform block layout expected by the pipeline, we will receive an error when we attempt to
@@ -88,28 +88,28 @@ struct Uniforms {
     scale: std140::float,
 }
 
-// Define our resources type and derive `web_glitz::derive::Resources`.
+// Define a resources type and derive `web_glitz::derive::Resources`.
 //
-// We'll provide an instance of this type when we invoke our pipeline to supply it with the
-// resources our pipeline needs access to. In this case we'll need only one resource: a buffer
-// resource for our uniform block.
+// We'll use this type to create a "bind group": a group of resources that may be bound to a GPU
+// pipeline, such that each of the pipeline's invocations may access these resource when the
+// pipeline is executing. In this case, our bind group will consist of only a single resource: a
+// buffer resource for our uniform block.
 #[derive(web_glitz::derive::Resources)]
 struct Resources<'a> {
-    // We'll have to mark the field that will hold our buffer resource with a
-    // `#[buffer_resource(...)]` attribute. We can only use this attribute on fields that implement
+    // We'll have to mark the field that will hold our buffer resource with a `#[resource(...)]`
+    // attribute. We can only use this attribute on fields that implement
     // `web_glitz::pipeline::resources::BufferResource`, otherwise our struct will fail to compile.
     // We have to specify a positive integer for the `binding` index to which we'll bind the
-    // resource, in this case we'll use `0`. If we were to use multiple buffer resources, then
-    // we'd have to make sure that each buffer resource is bound to a unique `binding` index,
-    // otherwise our struct would fail to compile (we can't bind more than one buffer resource to
-    // the same buffer resource binding). Here we use only one buffer resource though, so
-    // we don't have to worry about that.
+    // resource, in this case we'll use `0`. If we were to use multiple resources, then we'd have to
+    // make sure that each buffer resource is bound to a unique `binding` index, otherwise our
+    // struct would fail to compile (we can't bind more than one resource to the same resource
+    // binding).
     //
-    // If the name of our field does not exactly match (case-sensitive) the name of the uniform
+    // If the name of the field does not match exactly (case-sensitive) the name of the uniform
     // block we want to bind our buffer to, then we must also specify a `name`; in this case there
     // is not an exact match, so we explicitly specify the `name` of the block we want to bind to as
     // "Uniforms".
-    #[buffer_resource(binding = 0, name = "Uniforms")]
+    #[resource(binding = 0, name = "Uniforms")]
     uniforms: &'a Buffer<Uniforms>,
 }
 
@@ -135,15 +135,16 @@ pub fn start() {
         .create_fragment_shader(include_str!("fragment.glsl"))
         .unwrap();
 
-    // Create our pipeline.
+    // Create a pipeline.
     //
     // Our pipeline is very similar to the pipeline we used in `/examples/0_triangle`, except this
-    // time our vertex shader uses a uniform block, so we must declare a `resource_layout` type that
-    // will provide a buffer to back it. We'll specify the `Resources` type we defined above.
-    //
-    // We'll also have to specify a `web_glitz::pipeline::resources::BindingStrategy`. We'll use
-    // `BindingStrategy::Update`, to indicate that we wish to override the pipeline's default
-    // bindings with the values we specified on our `Resources` type.
+    // time our vertex shader uses a uniform block, so we must declare a resource layout. The
+    // resource layout must match the resource layout used in our shader code. Note that GLSL ES
+    // 3.0 does not allow us to specify explicit bind groups for resources in the shader code.
+    // Instead, WebGL 2.0 defines 2 implicit bind groups: 1 bind group for all uniform buffers
+    // (bind group `0`) and 1 bind group for all texture-samplers (bind group `1`). We'll use our
+    // `Resources` type to specify the layout for bind group `0`. We're not using any textures, so
+    // we'll use the empty tuple `()` to specify an empty layout for bind group `1`.
     let pipeline = context
         .create_graphics_pipeline(
             &GraphicsPipelineDescriptor::begin()
@@ -154,7 +155,7 @@ pub fn start() {
                 })
                 .fragment_shader(&fragment_shader)
                 .typed_vertex_attribute_layout::<Vertex>()
-                .typed_resource_bindings_layout::<Resources>()
+                .typed_resource_bindings_layout::<(Resources, ())>()
                 .finish(),
         )
         .unwrap();
@@ -186,22 +187,29 @@ pub fn start() {
     // `BufferUsage::StreamDraw` as the usage hint.
     let uniform_buffer = context.create_buffer(uniforms, UsageHint::StreamDraw);
 
+    // Create a bind group for our `Resources` type.
+    let bind_group_0 = context.create_bind_group(Resources {
+        uniforms: &uniform_buffer
+    });
+
+    // Create an empty bind group to match the texture bind group expected by the pipeline.
+    let bind_group_1 = context.create_bind_group(());
+
     let render_pass = context.create_render_pass(render_target, |framebuffer| {
         framebuffer.pipeline_task(&pipeline, |active_pipeline| {
             // Our render pass has thus far been identical to the render pass in
             // `/examples/0_triangle`. However, our pipeline now does use resources, so we add
-            // a `bind_resources` command which binds an instance of our `Resources` type.
+            // a `bind_resources` command to bind our bind group to the pipeline in bind group slot
+            // `0`.
             //
             // Note that, as with the vertex array, WebGlitz wont have to do any additional runtime
-            // safety checks here to ensure that the resources are compatible with the pipeline: we
+            // safety checks here to ensure that the bind group is compatible with the pipeline: we
             // checked this when we created the pipeline and we can now once again leverage Rust's
             // type system to enforce safety at compile time.
             active_pipeline
                 .task_builder()
                 .bind_vertex_buffers(&vertex_buffer)
-                .bind_resources(Resources {
-                    uniforms: &uniform_buffer,
-                })
+                .bind_resources((&bind_group_0, &bind_group_1))
                 .draw(3, 1)
                 .finish()
         })

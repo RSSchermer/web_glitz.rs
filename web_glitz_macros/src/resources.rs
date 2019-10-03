@@ -13,40 +13,27 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
         let mod_path = quote!(_web_glitz::pipeline::resources);
         let mut log = ErrorLog::new();
 
-        let mut buffer_resources: Vec<BufferResourceField> = Vec::new();
-        let mut texture_resources: Vec<TextureResourceField> = Vec::new();
+        let mut resource_fields: Vec<ResourceField> = Vec::new();
 
         for (position, field) in data.fields.iter().enumerate() {
             match ResourcesField::from_ast(field, position, &mut log) {
-                ResourcesField::BufferResource(buffer_resource_field) => {
-                    for field in buffer_resources.iter() {
-                        if field.binding == buffer_resource_field.binding {
+                ResourcesField::Resource(resource_field) => {
+                    for field in resource_fields.iter() {
+                        if field.binding == resource_field.binding {
                             log.log_error(format!(
-                                "Fields `{}` and `{}` cannot both use buffer binding `{}`.",
-                                field.name, buffer_resource_field.name, field.binding
+                                "Fields `{}` and `{}` cannot both use binding `{}`.",
+                                field.name, resource_field.name, field.binding
                             ));
                         }
                     }
 
-                    buffer_resources.push(buffer_resource_field);
-                }
-                ResourcesField::TextureResource(texture_resource_field) => {
-                    for field in texture_resources.iter() {
-                        if field.binding == texture_resource_field.binding {
-                            log.log_error(format!(
-                                "Fields `{}` and `{}` cannot both use texture binding `{}`.",
-                                field.name, texture_resource_field.name, field.binding
-                            ));
-                        }
-                    }
-
-                    texture_resources.push(texture_resource_field);
+                    resource_fields.push(resource_field);
                 }
                 ResourcesField::Excluded => (),
             };
         }
 
-        let buffer_slot_descriptors = buffer_resources.iter().map(|field| {
+        let resource_slot_descriptors = resource_fields.iter().map(|field| {
             let ty = &field.ty;
             let slot_identifier = &field.name;
             let slot_index = field.binding as u32;
@@ -56,27 +43,12 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
                 #mod_path::TypedResourceSlotDescriptor {
                     slot_identifier: #mod_path::ResourceSlotIdentifier::Static(#slot_identifier),
                     slot_index: #slot_index,
-                    slot_type: #mod_path::ResourceSlotType::UniformBuffer(<#ty as #mod_path::BufferResource>::MEMORY_UNITS)
+                    slot_type: <#ty as #mod_path::Resource>::TYPE
                 }
             }
         });
 
-        let texture_slot_descriptors = texture_resources.iter().map(|field| {
-            let ty = &field.ty;
-            let slot_identifier = &field.name;
-            let slot_index = field.binding as u32;
-            let span = field.span;
-
-            quote_spanned! {span=>
-                #mod_path::TypedResourceSlotDescriptor {
-                    slot_identifier: #mod_path::ResourceSlotIdentifier::Static(#slot_identifier),
-                    slot_index: #slot_index,
-                    slot_type: #mod_path::ResourceSlotType::SampledTexture(<#ty as #mod_path::TextureResource>::SAMPLED_TEXTURE_TYPE)
-                }
-            }
-        });
-
-        let buffer_resource_encodings = buffer_resources.iter().map(|field| {
+        let resource_encodings = resource_fields.iter().map(|field| {
             let field_name = field
                 .ident
                 .clone()
@@ -86,46 +58,27 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
             let binding = field.binding as u32;
 
             quote! {
-                let encoder = self.#field_name.encode(#binding, encoder);
+                self.#field_name.encode(#binding, &mut encoder);
             }
         });
-
-        let texture_resource_encodings = texture_resources.iter().map(|field| {
-            let field_name = field
-                .ident
-                .clone()
-                .map(|i| i.into_token_stream())
-                .unwrap_or(field.position.into_token_stream());
-
-            let binding = field.binding as u32;
-
-            quote! {
-                let encoder = self.#field_name.encode(#binding, encoder);
-            }
-        });
-
-        let total_bindings = buffer_resources.len() + texture_resources.len();
 
         let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+        let len = resource_fields.len();
 
         let impl_block = quote! {
             #[automatically_derived]
             unsafe impl #impl_generics #mod_path::Resources for #struct_name #ty_generics #where_clause {
-                type Bindings = [#mod_path::BindingDescriptor;#total_bindings];
-
                 const LAYOUT: &'static [#mod_path::TypedResourceSlotDescriptor] = &[
-                    #(#buffer_slot_descriptors,)*
-                    #(#texture_slot_descriptors,)*
+                    #(#resource_slot_descriptors,)*
                 ];
 
-                fn encode_bindings(
+                fn encode_bind_group(
                     self,
-                    context: &mut #mod_path::ResourceBindingsEncodingContext,
-                ) -> #mod_path::ResourceBindingsEncoding<Self::Bindings> {
-                    let encoder = #mod_path::StaticResourceBindingsEncoder::new(context);
+                    context: &mut #mod_path::BindGroupEncodingContext,
+                ) -> #mod_path::BindGroupEncoding {
+                    let mut encoder = #mod_path::BindGroupEncoder::new(context, Some(#len));
 
-                    #(#buffer_resource_encodings)*
-                    #(#texture_resource_encodings)*
+                    #(#resource_encodings)*
 
                     encoder.finish()
                 }
@@ -146,7 +99,7 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
                 #[allow(rust_2018_idioms)]
                 extern crate web_glitz as _web_glitz;
 
-                use #mod_path::{BufferResource, TextureResource};
+                use #mod_path::Resource;
 
                 #impl_block
             };
@@ -159,8 +112,7 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
 }
 
 enum ResourcesField {
-    BufferResource(BufferResourceField),
-    TextureResource(TextureResourceField),
+    Resource(ResourceField),
     Excluded,
 }
 
@@ -172,27 +124,27 @@ impl ResourcesField {
             .map(|i| i.to_string())
             .unwrap_or(position.to_string());
 
-        let buffer_resource_attributes: Vec<&Attribute> = ast
+        let mut iter = ast
             .attrs
             .iter()
-            .filter(|a| is_buffer_resource_attribute(a))
-            .collect();
+            .filter(|a| is_resource_attribute(a));
 
-        let texture_resource_attributes: Vec<&Attribute> = ast
-            .attrs
-            .iter()
-            .filter(|a| is_texture_resource_attribute(a))
-            .collect();
+        if let Some(attr) = iter.next() {
+            if iter.next().is_some() {
+                log.log_error(format!(
+                    "Cannot add more than 1 #[resource] attribute to field `{}`.",
+                    field_name
+                ));
 
-        if buffer_resource_attributes.len() == 1 && texture_resource_attributes.len() == 0 {
-            let attr = buffer_resource_attributes[0];
+                return ResourcesField::Excluded;
+            }
 
             let meta_items: Vec<NestedMeta> = match attr.interpret_meta() {
                 Some(Meta::List(ref meta)) => meta.nested.iter().cloned().collect(),
-                Some(Meta::Word(ref i)) if i == "buffer_resource" => Vec::new(),
+                Some(Meta::Word(ref i)) if i == "resource" => Vec::new(),
                 _ => {
                     log.log_error(format!(
-                        "Malformed #[buffer_resource] attribute for field `{}`.",
+                        "Malformed #[resource] attribute for field `{}`.",
                         field_name
                     ));
 
@@ -210,7 +162,7 @@ impl ResourcesField {
                             binding = Some(i.value());
                         } else {
                             log.log_error(format!(
-                                "Malformed #[buffer_resource] attribute for field `{}`: \
+                                "Malformed #[resource] attribute for field `{}`: \
                                  expected `binding` to be a positive integer.",
                                 field_name
                             ));
@@ -221,14 +173,14 @@ impl ResourcesField {
                             name = Some(f.value());
                         } else {
                             log.log_error(format!(
-                                "Malformed #[buffer_resource] attribute for field `{}`: \
+                                "Malformed #[resource] attribute for field `{}`: \
                                  expected `name` to be a string.",
                                 field_name
                             ));
                         };
                     }
                     _ => log.log_error(format!(
-                        "Malformed #[buffer_resource] attribute for field `{}`: unrecognized \
+                        "Malformed #[resource] attribute for field `{}`: unrecognized \
                          option `{}`.",
                         field_name,
                         meta_item.into_token_stream()
@@ -238,14 +190,15 @@ impl ResourcesField {
 
             if binding.is_none() {
                 log.log_error(format!(
-                    "Field `{}` is marked a buffer resource, but does not declare a `binding` index.",
+                    "Field `{}` is marked with #[resource], but does not declare a `binding` \
+                    index.",
                     field_name
                 ));
             }
 
             if name.is_none() {
                 log.log_error(format!(
-                    "Field `{}` is marked a buffer attribute, but does not declare a resource name.",
+                    "Field `{}` is marked with #[resource], but does not declare a slot name.",
                     field_name
                 ));
             }
@@ -254,88 +207,7 @@ impl ResourcesField {
                 let binding = binding.unwrap();
                 let name = name.unwrap();
 
-                ResourcesField::BufferResource(BufferResourceField {
-                    ident: ast.ident.clone(),
-                    ty: ast.ty.clone(),
-                    position,
-                    binding,
-                    name,
-                    span: ast.span(),
-                })
-            } else {
-                ResourcesField::Excluded
-            }
-        } else if texture_resource_attributes.len() == 1 && buffer_resource_attributes.len() == 0 {
-            let attr = texture_resource_attributes[0];
-
-            let meta_items: Vec<NestedMeta> = match attr.interpret_meta() {
-                Some(Meta::List(ref meta)) => meta.nested.iter().cloned().collect(),
-                Some(Meta::Word(ref i)) if i == "texture_resource" => Vec::new(),
-                _ => {
-                    log.log_error(format!(
-                        "Malformed #[texture_resource] attribute for field `{}`.",
-                        field_name
-                    ));
-
-                    Vec::new()
-                }
-            };
-
-            let mut binding = None;
-            let mut name = ast.ident.clone().map(|i| i.to_string());
-
-            for meta_item in meta_items.into_iter() {
-                match meta_item {
-                    NestedMeta::Meta(Meta::NameValue(ref m)) if m.ident == "binding" => {
-                        if let Lit::Int(ref i) = m.lit {
-                            binding = Some(i.value());
-                        } else {
-                            log.log_error(format!(
-                                "Malformed #[texture_resource] attribute for field `{}`: \
-                                 expected `binding` to be a positive integer.",
-                                field_name
-                            ));
-                        };
-                    }
-                    NestedMeta::Meta(Meta::NameValue(ref m)) if m.ident == "name" => {
-                        if let Lit::Str(ref f) = m.lit {
-                            name = Some(f.value());
-                        } else {
-                            log.log_error(format!(
-                                "Malformed #[texture_resource] attribute for field `{}`: \
-                                 expected `name` to be a string.",
-                                field_name
-                            ));
-                        };
-                    }
-                    _ => log.log_error(format!(
-                        "Malformed #[texture_resource] attribute for field `{}`: unrecognized \
-                         option `{}`.",
-                        field_name,
-                        meta_item.into_token_stream()
-                    )),
-                }
-            }
-
-            if binding.is_none() {
-                log.log_error(format!(
-                    "Field `{}` is marked a texture resource, but does not declare a `binding` index.",
-                    field_name
-                ));
-            }
-
-            if name.is_none() {
-                log.log_error(format!(
-                    "Field `{}` is marked a texture attribute, but does not declare a resource name.",
-                    field_name
-                ));
-            }
-
-            if binding.is_some() && name.is_some() {
-                let binding = binding.unwrap();
-                let name = name.unwrap();
-
-                ResourcesField::TextureResource(TextureResourceField {
+                ResourcesField::Resource(ResourceField {
                     ident: ast.ident.clone(),
                     ty: ast.ty.clone(),
                     position,
@@ -347,17 +219,12 @@ impl ResourcesField {
                 ResourcesField::Excluded
             }
         } else {
-            log.log_error(format!(
-                "Cannot declare multiple #[buffer_resource] and/or #[texture_resource] attributes on field `{}`.",
-                field_name
-            ));
-
             ResourcesField::Excluded
         }
     }
 }
 
-struct BufferResourceField {
+struct ResourceField {
     ident: Option<Ident>,
     ty: Type,
     position: usize,
@@ -366,19 +233,6 @@ struct BufferResourceField {
     span: Span,
 }
 
-struct TextureResourceField {
-    ident: Option<Ident>,
-    ty: Type,
-    position: usize,
-    binding: u64,
-    name: String,
-    span: Span,
-}
-
-fn is_buffer_resource_attribute(attribute: &Attribute) -> bool {
-    attribute.path.segments[0].ident == "buffer_resource"
-}
-
-fn is_texture_resource_attribute(attribute: &Attribute) -> bool {
-    attribute.path.segments[0].ident == "texture_resource"
+fn is_resource_attribute(attribute: &Attribute) -> bool {
+    attribute.path.segments[0].ident == "resource"
 }

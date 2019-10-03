@@ -1,7 +1,7 @@
 // This example shows how to use a custom render target to render to a texture.
 //
-// This example builds on `/examples/2_textured_triangle`, the comments in this example will focus
-// on the differences/additions.
+// This example builds on `/examples/0_triangle`, the comments in this example will focus on the
+// differences/additions.
 
 #![feature(
     const_fn,
@@ -32,28 +32,28 @@ struct Vertex {
     texture_coordinates: [f32; 2],
 }
 
-// Define our resources type and derive `web_glitz::derive::Resources`.
+// Define a `Resources` type and derive `web_glitz::derive::Resources`.
 //
-// We'll provide an instance of this type when we invoke our pipeline to supply it with the
-// resources our pipeline needs access to. In this case we'll need only one resource: a 2D texture
-// resource that we'll sample for floating point color values.
+// We'll use this type to create a "bind group": a group of resources that may be bound to a GPU
+// pipeline, such that each of the pipeline's invocations may access these resource when the
+// pipeline is executing. In this case, our bind group will consist of only a single resource: a
+// float-sampled 2D texture.
 #[derive(web_glitz::derive::Resources)]
 struct Resources<'a> {
-    // We'll have to mark the field that will hold our texture resource with a
-    // `#[texture_resource(...)]` attribute. We can only use this attribute on fields that implement
-    // `web_glitz::pipeline::resources::TextureResource`, otherwise our struct will fail to compile.
+    // We'll have to mark the field that will hold our texture resource with a `#[resource(...)]`
+    // attribute. We can only use this attribute on fields that implement
+    // `web_glitz::pipeline::resources::Resource`, otherwise our struct will fail to compile.
     // We have to specify a positive integer for the `binding` index to which we'll bind the
-    // resource, in this case we'll use `0`. If we were to use multiple texture resources, then
-    // we'd have to make sure that each texture resource is bound to a unique `binding` index,
-    // otherwise our struct would fail to compile (we can't bind more than one texture resource to
-    // the same texture resource binding). Here we use only one texture resource though, so
-    // we don't have to worry about that.
+    // resource, in this case we'll use `0`. If we were to use multiple resources, then we'd have to
+    // make sure that each resource is bound to a unique `binding` index, otherwise our struct would
+    // fail to compile (we can't bind more than one texture resource to the same texture resource
+    // binding).
     //
     // If the name of our field does not exactly match (case-sensitive) the name of the sampler
     // uniform we want to bind our texture to, then we must also specify a `name`; in this case
     // there is not an exact match, so we explicitly specify the `name` of the sampler uniform we
     // want to bind to as "diffuse_texture".
-    #[texture_resource(binding = 0, name = "diffuse_texture")]
+    #[resource(binding = 0, name = "diffuse_texture")]
     texture: FloatSampledTexture2D<'a>,
 }
 
@@ -78,16 +78,16 @@ pub fn start() {
         .create_fragment_shader(include_str!("fragment.glsl"))
         .unwrap();
 
-    // Create our pipeline.
+    // Create a pipeline.
     //
     // Our pipeline is very similar to the pipeline we used in `/examples/0_triangle`, except this
-    // time our fragment shader uses a texture sampler, so we must declare a `resource_layout` type
-    // that will provide a texture resource to back it. We'll specify the `Resources` type we
-    // defined above.
-    //
-    // We'll also have to specify a `web_glitz::pipeline::resources::BindingStrategy`. We'll use
-    // `BindingStrategy::Update`, to indicate that we wish to override the pipeline's default
-    // bindings with the values we specified on our `Resources` type.
+    // time our vertex shader uses a float-sampled 2D texture, so we must declare a resource layout.
+    // The resource layout must match the resource layout used in our shader code. Note that GLSL ES
+    // 3.0 does not allow us to specify explicit bind groups for resources in the shader code.
+    // Instead, WebGL 2.0 defines 2 implicit bind groups: 1 bind group for all uniform buffers
+    // (bind group `0`) and 1 bind group for all texture-samplers (bind group `1`). We don't use any
+    // uniform buffers in this example, so we'll use the empty tuple `()` to declare an empty layout
+    // for bind group `0`; we'll use our `Resources` type to specify the layout for bind group `1`.
     let pipeline = context
         .create_graphics_pipeline(
             &GraphicsPipelineDescriptor::begin()
@@ -98,7 +98,7 @@ pub fn start() {
                 })
                 .fragment_shader(&fragment_shader)
                 .typed_vertex_attribute_layout::<Vertex>()
-                .typed_resource_bindings_layout::<Resources>()
+                .typed_resource_bindings_layout::<((), Resources)>()
                 .finish(),
         )
         .unwrap();
@@ -120,9 +120,9 @@ pub fn start() {
 
     let vertex_buffer = context.create_buffer(vertex_data, UsageHint::StreamDraw);
 
-    // Create a new 2D texture that uses the RGBA8 storage format. This texture will start out with i
-    // t's data set to all zeroes (which with an RGBA8 format essentially corresponds to
-    // "transparent black"). Note that we'll only allocate 1 mipmap level (the "base" level) as we
+    // Create a new 2D texture that uses the RGBA8 storage format. This texture will start out with
+    // its data set to all zeroes (which with an RGBA8 format essentially corresponds to
+    // "transparent black"). Note that we only allocate 1 mipmap level (the "base" level) as we
     // won't make use of mipmapping in this example.
     let texture = context
         .create_texture_2d(&Texture2DDescriptor {
@@ -146,15 +146,26 @@ pub fn start() {
         .dyn_into()
         .unwrap();
 
+    // Create an image source from an HTML image element.
     let image_src = Image2DSource::from_image_element(&image_element);
 
+    // Create a command that will upload our image source to the texture's base level.
     let upload_command = texture.base_level().upload_command(image_src);
+
+    // Create an empty bind group to match the uniform buffer bind group expected by the pipeline.
+    let bind_group_0 = context.create_bind_group(());
+
+    // Create a bind group for our resources.
+    let bind_group_1 = context.create_bind_group(Resources {
+        texture: texture.float_sampled(&sampler).unwrap(),
+    });
 
     let render_pass = context.create_render_pass(render_target, |framebuffer| {
         framebuffer.pipeline_task(&pipeline, |active_pipeline| {
             // Our render pass has thus far been identical to the render pass in
             // `/examples/0_triangle`. However, our pipeline now does use resources, so we add
-            // a `bind_resources_command` that binds an instance of our `Resources` type.
+            // a `bind_resources` command that binds our bind group to the pipeline in bind group
+            // slot `1`.
             //
             // Note that, as with the vertex array, WebGlitz wont have to do any additional runtime
             // safety checks here to ensure that the resources are compatible with the pipeline: we
@@ -163,9 +174,7 @@ pub fn start() {
             active_pipeline
                 .task_builder()
                 .bind_vertex_buffers(&vertex_buffer)
-                .bind_resources(Resources {
-                    texture: texture.float_sampled(&sampler).unwrap(),
-                })
+                .bind_resources((&bind_group_0, &bind_group_1))
                 .draw(3, 1)
                 .finish()
         })
@@ -174,7 +183,8 @@ pub fn start() {
     // `/examples/0_triangle` only had to submit a render pass, but now we must also submit the
     // image upload command. It's important that the upload finished before we begin the render pass
     // so we'll use the `sequence_all!` macro to combine them into a sequenced task, which
-    // guarantees that the tasks are executed in order.
+    // guarantees that the tasks are executed in order: the render pass may only begin after the
+    // upload has completed.
     context.submit(sequence_all![upload_command, render_pass]);
 
     // We should now see our triangle on the canvas again, except this time it should be covered by

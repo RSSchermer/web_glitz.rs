@@ -59,6 +59,49 @@ pub trait RenderingContext {
     /// See [Extensions] for details.
     fn extensions(&self) -> &Extensions;
 
+    /// Creates a new group of bindable resources.
+    ///
+    /// The resulting [BindGroup] may be bound to a pipeline such that all invocations of the
+    /// pipeline have access to its resources when the pipeline is executed. See
+    /// [GraphicsPipelineTaskBuilder::bind_resources] and
+    /// [GraphicsPipelineTaskBuilder::bind_resources_untyped] for details.
+    ///
+    /// The resources specified for the bind group must implement the [BindableResourceGroup] trait.
+    /// See also the [Resources] trait for an automatically derivable implementation of the
+    /// [BindableResourceGroup] and its sub-trait [TypedBindableResourceGroup].
+    ///
+    /// # Example
+    ///
+    /// This example creates a bind group containg a single uniform buffer. We derive the
+    /// [Resources] trait to define a typed bind group layout:
+    ///
+    /// ```
+    /// use web_glitz::buffer::{Buffer, UsageHint};
+    /// use web_glitz::std140;
+    /// use web_glitz::std140::repr_std140;
+    ///
+    /// #[derive(web_glitz::derive::Resources)]
+    /// struct Resources<'a> {
+    ///     #[resource(binding=0, name="SomeUniformBlock")]
+    ///     uniform_buffer: &'a Buffer<UniformBlock>,
+    /// }
+    ///
+    /// #[repr_std140]
+    /// #[derive(web_glitz::derive::InterfaceBlock)]
+    /// struct Uniforms {
+    ///     scale: std140::float,
+    /// }
+    ///
+    /// let uniforms = Uniforms {
+    ///     scale: std140::float(0.5),
+    /// };
+    ///
+    /// let uniform_buffer = context.create_buffer(uniforms, UsageHint::DynamicDraw);
+    ///
+    /// let bind_group = context.create_bind_group(Resources {
+    ///     uniform_buffer: &uniform_buffer,
+    /// });
+    /// ```
     fn create_bind_group<T>(&self, resources: T) -> BindGroup<T>
     where
         T: BindableResourceGroup;

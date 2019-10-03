@@ -48,7 +48,7 @@ struct Uniforms {
 
 #[derive(web_glitz::derive::Resources)]
 struct Resources<'a> {
-    #[buffer_resource(binding = 0, name = "Uniforms")]
+    #[resource(binding = 0, name = "Uniforms")]
     uniforms: &'a Buffer<Uniforms>,
 }
 
@@ -74,7 +74,7 @@ pub fn start() {
         .create_fragment_shader(include_str!("fragment.glsl"))
         .unwrap();
 
-    // Create our pipeline.
+    // Create a pipeline.
     //
     // Our pipeline is very similar to the pipeline we used in `/examples/1_uniform_block`, except
     // this time we specify a typed transform feedback layout. We'll use the same `Vertex` type that
@@ -90,7 +90,7 @@ pub fn start() {
                 .fragment_shader(&fragment_shader)
                 .typed_vertex_attribute_layout::<Vertex>()
                 .typed_transform_feedback_layout::<Vertex>()
-                .typed_resource_bindings_layout::<Resources>()
+                .typed_resource_bindings_layout::<(Resources, ())>()
                 .finish(),
         )
         .unwrap();
@@ -118,8 +118,14 @@ pub fn start() {
 
     let uniform_buffer = context.create_buffer(uniforms, UsageHint::StreamDraw);
 
-    // We'll use this buffer to record the transform feedback. We'll use `UsageHint::StreamCopy` as
-    // the data will be written by the device and then used to draw only once.
+    let bind_group_0 = context.create_bind_group(Resources {
+        uniforms: &uniform_buffer
+    });
+
+    let bind_group_1 = context.create_bind_group(());
+
+    // We'll use this buffer to record the transform feedback. We use `UsageHint::StreamCopy` as the
+    // data will be written by the device and is then used to draw only once.
     let mut transform_feedback_buffer =
         context.create_buffer([Vertex::default(); 3], UsageHint::StreamCopy);
 
@@ -127,16 +133,16 @@ pub fn start() {
         // Our render pass consists of 2 pipeline tasks: the first one will record transform
         // feedback into the `transform_feedback_buffer` and use our original vertex data as stored
         // in `vertex_buffer` as its vertex input; the second one will not record transform feedback
-        // and  use the feedback we recorded into `transform_feedback_buffer` as its vertex input.
-        // Note that to keep this example simple we use the same pipeline for both tasks; for a real
-        // use case you would typically use different pipelines.
+        // and will use the feedback we recorded into `transform_feedback_buffer` as its vertex
+        // input. Note that to keep this example simple we use the same pipeline for both tasks; for
+        // a real use case you would typically use different pipelines.
         //
         // We tell WebGlitz to record the feedback by wrapping our pipeline in a "recording wrapper"
         // by calling `record_transform_feedback` with an exclusive reference to the buffer we wish
-        // to record to (or a tuple of exclusive reference to buffers if we wish to record different
-        // `out` values to separate buffers). Note that the borrow checker statically protects us
-        // against accidentally accessing the same buffer again inside our pipeline task (e.g. as
-        // vertex input), which would be invalid behaviour.
+        // to record to (or a tuple of exclusive references to buffers should we wish to record
+        // different `out` values to separate buffers). Note that the borrow checker statically
+        // protects us against accidentally accessing the same buffer again inside our pipeline task
+        // (e.g. as vertex input), which would cause undefined behaviour.
         sequence(
             framebuffer.pipeline_task(
                 &pipeline.record_transform_feedback(&mut transform_feedback_buffer),
@@ -144,9 +150,7 @@ pub fn start() {
                     active_pipeline
                         .task_builder()
                         .bind_vertex_buffers(&vertex_buffer)
-                        .bind_resources(Resources {
-                            uniforms: &uniform_buffer,
-                        })
+                        .bind_resources((&bind_group_0, &bind_group_1))
                         .draw(3, 1)
                         .finish()
                 },
@@ -155,9 +159,7 @@ pub fn start() {
                 active_pipeline
                     .task_builder()
                     .bind_vertex_buffers(&transform_feedback_buffer)
-                    .bind_resources(Resources {
-                        uniforms: &uniform_buffer,
-                    })
+                    .bind_resources((&bind_group_0, &bind_group_1))
                     .draw(3, 1)
                     .finish()
             }),

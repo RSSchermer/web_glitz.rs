@@ -36,9 +36,7 @@ use crate::pipeline::graphics::{
     VertexBuffersEncodingContext, VertexInputLayoutDescriptor, Viewport,
 };
 use crate::pipeline::resources::resource_bindings_encoding::ResourceBindingDescriptor;
-use crate::pipeline::resources::{
-    BindGroupDescriptor, ResourceBindings, ResourceBindingsEncodingContext, TypedResourceBindings,
-};
+use crate::pipeline::resources::{BindGroupDescriptor, ResourceBindings, ResourceBindingsEncodingContext, TypedResourceBindings, TypedResourceBindingsLayout};
 use crate::render_pass::RenderPassContext;
 use crate::render_target::attachable_image_ref::{AttachableImageData, AttachableImageRef};
 use crate::runtime::state::{BufferRange, ContextUpdate, DynamicState};
@@ -1094,6 +1092,9 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
     /// (implementing [TypedVertexBuffers] is unsafe, but several safe implementations are
     /// provided by this library).
     ///
+    /// See also [bind_vertex_buffers_untyped] for an unsafe alternative with relaxed type
+    /// constraints.
+    ///
     /// # Panics
     ///
     /// Panics if a vertex buffers belongs to different rendering context.
@@ -1113,6 +1114,71 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
         V: TypedVertexInputLayout,
         VbNew: TypedVertexBuffers<Layout = V>,
         T: GpuTask<PipelineTaskContext>,
+    {
+        let vertex_buffers = vertex_buffers
+            .encode(&mut VertexBuffersEncodingContext::new())
+            .into_descriptors();
+
+        for (i, buffer) in vertex_buffers.iter().enumerate() {
+            if buffer.buffer_data.context_id() != self.context_id {
+                panic!("Buffer {} belongs to a different context.", i);
+            }
+        }
+
+        GraphicsPipelineTaskBuilder {
+            context_id: self.context_id,
+            topology: self.topology,
+            pipeline_task_id: self.pipeline_task_id,
+            task: sequence(
+                self.task,
+                BindVertexBuffersCommand {
+                    pipeline_task_id: self.pipeline_task_id,
+                    vertex_buffers: Some(vertex_buffers),
+                },
+            ),
+            _pipeline: marker::PhantomData,
+            _vertex_buffers: marker::PhantomData,
+            _index_buffer: marker::PhantomData,
+            _resource_bindings: marker::PhantomData,
+        }
+    }
+
+    /// Binds a (set of) vertex buffer(s) to the active graphics pipeline.
+    ///
+    /// When the active graphics pipeline is invoked (see [draw] and [draw_indexed]), then the
+    /// `vertex_buffers` define a vertex input array for the pipeline.
+    ///
+    /// # Unsafe
+    ///
+    /// The vertex buffers must contain data compatible with the vertex input layout specified for
+    /// the pipeline.
+    ///
+    /// This function is an unsafe alternative to [bind_vertex_buffers] with relaxed type
+    /// constraints. If your vertex input data has a statically known layout, consider implementing
+    /// [TypedVertexInputBuffers] for your data and specifying a [TypedVertexInputLayout] for your
+    /// pipeline (see [GraphicsPipelineDescriptorBuilder::typed_vertex_input_layout]; this will
+    /// allow you to use [bind_vertex_buffers] instead. Note that [TypedVertexInputBuffers] is
+    /// already implemented for any tuple of buffers (up to 16 buffers) where each buffer contains a
+    /// slice of [Vertex] types.
+    ///
+    /// # Panics
+    ///
+    /// Panics of any of the vertex buffers belong to a different context than the pipeline.
+    pub unsafe fn bind_vertex_buffers_untyped<VbNew>(
+        self,
+        vertex_buffers: VbNew,
+    ) -> GraphicsPipelineTaskBuilder<
+        'a,
+        V,
+        R,
+        VbNew,
+        Ib,
+        Rb,
+        Sequence<T, BindVertexBuffersCommand, PipelineTaskContext>,
+    >
+        where
+            VbNew: VertexBuffers,
+            T: GpuTask<PipelineTaskContext>,
     {
         let vertex_buffers = vertex_buffers
             .encode(&mut VertexBuffersEncodingContext::new())
@@ -1195,20 +1261,37 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
         }
     }
 
-    pub fn bind_resources(
+    /// Binds one or more bind groups containing typed resource groups to the active graphics
+    /// pipeline.
+    ///
+    /// When the pipeline is invoked, each invocation may access the bound resources.
+    ///
+    /// The `resource_bindings` must implement [TypedResourceBindings] and the
+    /// [TypedResourceBindings::Layout] must match the [TypedResourceBindingsLayout] specified for
+    /// the pipeline (see [GraphicsPipelineDescriptorBuilder::typed_resource_bindings_layout]); this
+    /// is statically verified by the type-checker. No further runtime checks are performed to
+    /// ensure compatibility of the resource bindings with the pipeline.
+    ///
+    /// See also [bind_resources_untyped] for an unsafe alternative with relaxed type constraints.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the bind groups belong to a different context than the pipeline.
+    pub fn bind_resources<RbNew>(
         self,
-        resources: R,
+        resource_bindings: RbNew,
     ) -> GraphicsPipelineTaskBuilder<
         'a,
         V,
         R,
         Vb,
         Ib,
-        R,
-        Sequence<T, BindResourcesCommand<R::BindGroups>, PipelineTaskContext>,
+        RbNew,
+        Sequence<T, BindResourcesCommand<RbNew::BindGroups>, PipelineTaskContext>,
     >
     where
-        R: TypedResourceBindings,
+        R: TypedResourceBindingsLayout,
+        RbNew: TypedResourceBindings<Layout=R>,
         T: GpuTask<PipelineTaskContext>,
     {
         GraphicsPipelineTaskBuilder {
@@ -1219,7 +1302,63 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
                 self.task,
                 BindResourcesCommand {
                     pipeline_task_id: self.pipeline_task_id,
-                    resource_bindings: resources
+                    resource_bindings: resource_bindings
+                        .encode(&mut ResourceBindingsEncodingContext::new(self.context_id))
+                        .bind_groups,
+                },
+            ),
+            _pipeline: marker::PhantomData,
+            _vertex_buffers: marker::PhantomData,
+            _index_buffer: marker::PhantomData,
+            _resource_bindings: marker::PhantomData,
+        }
+    }
+
+    /// Binds one or more bind groups to the active graphics pipeline.
+    ///
+    /// When the pipeline is invoked, each invocation may access the bound resources.
+    ///
+    /// # Unsafe
+    ///
+    /// The resource bindings must be compatible with the resource bindings layout specified for the
+    /// pipeline.
+    ///
+    /// This function is an unsafe alternative to `bind_resources` with relaxed type constraints. If
+    /// your resource bindings layout is statically know, consider implementing
+    /// [TypedResourceBindings] for your bind groups and specifying a [TypedResourceBindingsLayout]
+    /// for your pipeline (see [GraphicsPipelineDescriptorBuilder::typed_resource_bindings_layout]);
+    /// this will allow you to use [bind_resources] instead. Note that [TypedResourceBindings] is
+    /// implemented for any tuple of bind groups where the resources in each bind group implement
+    /// [Resources].
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the bind groups belong to a different context than the pipeline.
+    pub unsafe fn bind_resources_untyped<RbNew>(
+        self,
+        resource_bindings: RbNew,
+    ) -> GraphicsPipelineTaskBuilder<
+        'a,
+        V,
+        R,
+        Vb,
+        Ib,
+        RbNew,
+        Sequence<T, BindResourcesCommand<RbNew::BindGroups>, PipelineTaskContext>,
+    >
+        where
+            RbNew: ResourceBindings,
+            T: GpuTask<PipelineTaskContext>,
+    {
+        GraphicsPipelineTaskBuilder {
+            context_id: self.context_id,
+            topology: self.topology,
+            pipeline_task_id: self.pipeline_task_id,
+            task: sequence(
+                self.task,
+                BindResourcesCommand {
+                    pipeline_task_id: self.pipeline_task_id,
+                    resource_bindings: resource_bindings
                         .encode(&mut ResourceBindingsEncodingContext::new(self.context_id))
                         .bind_groups,
                 },

@@ -501,6 +501,15 @@ where
     pub(crate) bind_groups: B,
 }
 
+impl<'a> ResourceBindingsEncoding<'a, [BindGroupDescriptor; 0]> {
+    pub fn empty(context: &'a mut ResourceBindingsEncodingContext) -> Self {
+        ResourceBindingsEncoding {
+            context,
+            bind_groups: []
+        }
+    }
+}
+
 pub struct StaticResourceBindingsEncoder<'a, B> {
     context: &'a mut ResourceBindingsEncodingContext,
     bind_groups: B,

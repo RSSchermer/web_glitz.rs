@@ -47,7 +47,7 @@ pub fn start() {
 
     // We'll disable antialiasing on the default render target for this example, as blit operations
     // require that the number of samples on the source and target images match; by disabling
-    // antialiasing we guarantee a single sample render target.
+    // antialiasing we guarantee a single sample default render target.
     let options = ContextOptions::begin().antialias(false).finish();
 
     let (context, default_render_target) =
@@ -100,16 +100,16 @@ pub fn start() {
     });
 
     // This render pass is largely equivalent to the render pass in `/examples/0_triangle`, except
-    // that here we use a custom render target that uses our renderbuffer, rather than the default
+    // that here we use a custom render target that uses our `renderbuffer`, rather than the default
     // render target.
     let secondary_render_pass = context.create_render_pass(
         RenderTarget {
             color: FloatAttachment {
                 image: &mut renderbuffer,
-                // If you don't really care about the current contents of the renderbuffer, or if you
-                // intend to clear it anyway, it's good practice to use a `Clear` load-op rather than a
-                // `Load` load-op, as clearing may be significantly faster, especially on tiled
-                // framebuffer memory architectures.
+                // If you don't really care about the current contents of the renderbuffer, or if
+                // you intend to clear it anyway, it's good practice to use a `Clear` load-op rather
+                // than a `Load` load-op, as clearing may be significantly faster, especially on
+                // tiled framebuffer memory architectures.
                 load_op: LoadOp::Clear([0.0, 0.0, 0.0, 0.0]),
                 store_op: StoreOp::Store,
             },

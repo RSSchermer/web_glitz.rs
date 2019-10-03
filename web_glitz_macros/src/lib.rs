@@ -34,7 +34,7 @@ pub fn derive_interface_block(input: TokenStream) -> TokenStream {
         .into()
 }
 
-#[proc_macro_derive(Resources, attributes(buffer_resource, texture_resource))]
+#[proc_macro_derive(Resources, attributes(resource))]
 pub fn derive_resources(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 

@@ -52,7 +52,7 @@ struct SecondaryVertex {
 
 #[derive(web_glitz::derive::Resources)]
 struct PrimaryResources<'a> {
-    #[texture_resource(binding = 0, name = "diffuse_texture")]
+    #[resource(binding = 0, name = "diffuse_texture")]
     texture: FloatSampledTexture2D<'a>,
 }
 
@@ -87,7 +87,7 @@ pub fn start() {
                 })
                 .fragment_shader(&primary_fragment_shader)
                 .typed_vertex_attribute_layout::<PrimaryVertex>()
-                .typed_resource_bindings_layout::<PrimaryResources>()
+                .typed_resource_bindings_layout::<((), PrimaryResources)>()
                 .finish(),
         )
         .unwrap();
@@ -198,6 +198,12 @@ pub fn start() {
         ..Default::default()
     });
 
+    let bind_group_0 = context.create_bind_group(());
+
+    let bind_group_1 = context.create_bind_group(PrimaryResources {
+        texture: texture.float_sampled(&sampler).unwrap(),
+    });
+
     // Our primary render pass is essentially identical to the render pass used in the
     // `/examples/3_textured_triangle` example.
     let primary_render_pass = context.create_render_pass(default_render_target, |framebuffer| {
@@ -205,9 +211,7 @@ pub fn start() {
             active_pipeline
                 .task_builder()
                 .bind_vertex_buffers(&primary_vertex_buffer)
-                .bind_resources(PrimaryResources {
-                    texture: texture.float_sampled(&sampler).unwrap(),
-                })
+                .bind_resources((&bind_group_0, &bind_group_1))
                 .draw(3, 1)
                 .finish()
         })
