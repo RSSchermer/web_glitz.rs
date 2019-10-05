@@ -1,12 +1,39 @@
+use std::borrow::Borrow;
+use std::ops::Deref;
+
 use serde::ser::SerializeSeq;
 use serde::{Serialize, Serializer};
 
 use web_sys::{WebGl2RenderingContext as Gl, WebGlProgram};
 
 use crate::runtime::CreateGraphicsPipelineError;
-use std::borrow::Borrow;
-use std::ops::Deref;
 
+/// Trait implemented for types that can be recorded as feedback from the vertex transformation
+/// stage(s) of a graphics pipeline.
+///
+/// Buffers that contain an array of a type that implements that trait can be safely attached to a
+/// graphics pipeline without additional runtime checks, see also
+/// [GraphicsPipeline::record_transform_feedback] and [TypedTransformFeedbackBuffers].
+///
+/// # Unsafe
+///
+/// This trait may only be implemented for a type if each of the [ATTRIBUTE_DESCRIPTORS] are
+/// memory compatible with that type in order.
+///
+/// # Deriving
+///
+/// This type may be safely automatically derived for a struct if each of the struct's fields
+/// implements [TransformFeedbackAttribute].
+///
+/// # Example
+///
+/// ```
+/// #[derive(web_glitz::derive::TransformFeedback)]
+/// struct TransformFeedback {
+///     position: [f32; 3],
+///     normal: [f32; 3]
+/// }
+/// ```
 pub unsafe trait TransformFeedback {
     const ATTRIBUTE_DESCRIPTORS: &'static [TransformFeedbackAttributeDescriptor];
 }
@@ -163,15 +190,6 @@ impl From<&'static str> for TransformFeedbackAttributeIdentifier {
     }
 }
 
-//impl ToString for TransformFeedbackAttributeIdentifier {
-//    fn to_string(&self) -> String {
-//        match self {
-//            TransformFeedbackAttributeIdentifier::Dynamic(ident) => ident.clone(),
-//            TransformFeedbackAttributeIdentifier::Static(ident) => ident.to_string()
-//        }
-//    }
-//}
-
 impl Deref for TransformFeedbackAttributeIdentifier {
     type Target = str;
 
@@ -182,16 +200,7 @@ impl Deref for TransformFeedbackAttributeIdentifier {
         }
     }
 }
-//
-//impl Borrow<str> for TransformFeedbackAttributeIdentifier {
-//    fn borrow(&self) -> &str {
-//        match self {
-//            TransformFeedbackAttributeIdentifier::Dynamic(ident) => ident,
-//            TransformFeedbackAttributeIdentifier::Static(ident) => ident
-//        }
-//    }
-//}
-//
+
 impl Serialize for TransformFeedbackAttributeIdentifier {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

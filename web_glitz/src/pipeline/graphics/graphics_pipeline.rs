@@ -476,14 +476,12 @@ unsafe impl GpuTask<Connection> for GraphicsPipelineDropCommand {
                         .apply(gl)
                         .unwrap();
 
-                    if transform_feedback_data.state != TransformFeedbackState::Inactive {
                         gl.end_transform_feedback();
-                    }
-
-                    state.set_bound_transform_feedback(None).apply(gl).unwrap();
-
-                    gl.delete_transform_feedback(Some(&transform_feedback));
                 }
+
+                state.set_bound_transform_feedback(None).apply(gl).unwrap();
+
+                gl.delete_transform_feedback(Some(&transform_feedback));
             }
         }
 
