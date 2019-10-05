@@ -4,8 +4,6 @@ use syn::spanned::Spanned;
 use syn::{Attribute, Data, DeriveInput, Field, Ident, Lit, Meta, NestedMeta, Type};
 
 use crate::util::ErrorLog;
-use fnv::FnvHasher;
-use std::hash::{Hash, Hasher};
 
 pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, String> {
     if let Data::Struct(ref data) = input.data {
@@ -124,10 +122,7 @@ impl ResourcesField {
             .map(|i| i.to_string())
             .unwrap_or(position.to_string());
 
-        let mut iter = ast
-            .attrs
-            .iter()
-            .filter(|a| is_resource_attribute(a));
+        let mut iter = ast.attrs.iter().filter(|a| is_resource_attribute(a));
 
         if let Some(attr) = iter.next() {
             if iter.next().is_some() {
@@ -191,7 +186,7 @@ impl ResourcesField {
             if binding.is_none() {
                 log.log_error(format!(
                     "Field `{}` is marked with #[resource], but does not declare a `binding` \
-                    index.",
+                     index.",
                     field_name
                 ));
             }

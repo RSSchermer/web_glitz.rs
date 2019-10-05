@@ -3,12 +3,7 @@
 // This example builds on `/examples/1_uniform_block`, the comments in this example will focus on
 // the differences/additions.
 
-#![feature(
-    const_fn,
-    const_raw_ptr_to_usize_cast,
-    const_slice_len,
-    raw_address_of
-)]
+#![feature(const_fn, const_raw_ptr_to_usize_cast, const_slice_len, raw_address_of)]
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -119,7 +114,7 @@ pub fn start() {
     let uniform_buffer = context.create_buffer(uniforms, UsageHint::StreamDraw);
 
     let bind_group_0 = context.create_bind_group(Resources {
-        uniforms: &uniform_buffer
+        uniforms: &uniform_buffer,
     });
 
     let bind_group_1 = context.create_bind_group(());

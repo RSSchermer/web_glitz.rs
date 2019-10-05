@@ -471,6 +471,7 @@ impl<'a> BindGroupEncoder<'a> {
 }
 
 pub struct BindGroupDescriptor {
+    #[allow(dead_code)]
     pub(crate) bind_group_index: u32,
     pub(crate) bindings: Arc<Vec<ResourceBindingDescriptor>>,
 }
@@ -497,6 +498,7 @@ pub struct ResourceBindingsEncoding<'a, B>
 where
     B: Borrow<[BindGroupDescriptor]>,
 {
+    #[allow(dead_code)]
     pub(crate) context: &'a mut ResourceBindingsEncodingContext,
     pub(crate) bind_groups: B,
 }
@@ -505,7 +507,7 @@ impl<'a> ResourceBindingsEncoding<'a, [BindGroupDescriptor; 0]> {
     pub fn empty(context: &'a mut ResourceBindingsEncodingContext) -> Self {
         ResourceBindingsEncoding {
             context,
-            bind_groups: []
+            bind_groups: [],
         }
     }
 }

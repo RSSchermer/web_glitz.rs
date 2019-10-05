@@ -9,12 +9,7 @@
 // This example builds on `/examples/0_triangle`, the comments in this example will focus on the
 // differences/additions.
 
-#![feature(
-    const_fn,
-    const_raw_ptr_to_usize_cast,
-    const_slice_len,
-    raw_address_of
-)]
+#![feature(const_fn, const_raw_ptr_to_usize_cast, const_slice_len, raw_address_of)]
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
@@ -189,7 +184,7 @@ pub fn start() {
 
     // Create a bind group for our `Resources` type.
     let bind_group_0 = context.create_bind_group(Resources {
-        uniforms: &uniform_buffer
+        uniforms: &uniform_buffer,
     });
 
     // Create an empty bind group to match the texture bind group expected by the pipeline.

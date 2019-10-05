@@ -1,6 +1,10 @@
 use std::borrow::Borrow;
 use std::hash::{Hash, Hasher};
-use std::ops::{Deref, Range};
+use std::marker;
+use std::ops::Deref;
+use std::sync::Arc;
+
+use fnv::FnvHasher;
 
 use crate::buffer::{Buffer, BufferView};
 use crate::image::texture_2d::{
@@ -22,14 +26,11 @@ use crate::pipeline::interface_block::{InterfaceBlock, MemoryUnit};
 use crate::pipeline::resources::resource_bindings_encoding::{
     BindGroupEncoding, BindGroupEncodingContext, ResourceBindingDescriptor,
 };
-use crate::pipeline::resources::resource_slot::{IncompatibleInterface, SlotType};
+use crate::pipeline::resources::resource_slot::IncompatibleInterface;
 use crate::pipeline::resources::{
     BindGroupDescriptor, BindGroupEncoder, ResourceBindingsEncoding,
     ResourceBindingsEncodingContext, StaticResourceBindingsEncoder,
 };
-use fnv::FnvHasher;
-use std::marker;
-use std::sync::Arc;
 
 /// Represents a group of bindable resources that may be bound to a pipeline and are shared by all
 /// invocations during the pipeline's execution.
@@ -285,7 +286,19 @@ pub struct LayoutAllocationHint {
 /// See [ResourceBindingsLayoutDescriptorBuilder].
 pub enum ResourceBindingsLayoutBuilderError {
     InvalidBindGroupSequence(InvalidBindGroupSequence),
-    InvalidResourceSlotSequence(InvalidResourceSlotSequence)
+    InvalidResourceSlotSequence(InvalidResourceSlotSequence),
+}
+
+impl From<InvalidBindGroupSequence> for ResourceBindingsLayoutBuilderError {
+    fn from(err: InvalidBindGroupSequence) -> Self {
+        ResourceBindingsLayoutBuilderError::InvalidBindGroupSequence(err)
+    }
+}
+
+impl From<InvalidResourceSlotSequence> for ResourceBindingsLayoutBuilderError {
+    fn from(err: InvalidResourceSlotSequence) -> Self {
+        ResourceBindingsLayoutBuilderError::InvalidResourceSlotSequence(err)
+    }
 }
 
 /// Error returned when adding bind groups to a [ResourceBindingsLayoutDescriptorBuilder] out of
@@ -379,7 +392,7 @@ impl ResourceBindingsLayoutBuilder {
             if bind_group_index <= last_bind_group_index {
                 return Err(InvalidBindGroupSequence {
                     current_index: bind_group_index,
-                    previous_index: last_bind_group_index
+                    previous_index: last_bind_group_index,
                 });
             }
         }
@@ -419,7 +432,7 @@ impl ResourceBindingsLayoutBuilder {
 pub struct InvalidResourceSlotSequence {
     pub bind_group_index: u32,
     pub current_index: u32,
-    pub previous_index: u32
+    pub previous_index: u32,
 }
 
 /// Returned from [ResourceBindingsLayoutDescriptorBuilder::add_bind_group], accumulates the
@@ -441,14 +454,14 @@ impl BindGroupLayoutBuilder {
     pub fn add_resource_slot(
         mut self,
         descriptor: ResourceSlotDescriptor,
-    ) -> Result<Self, InvalidResourceSlotSequence > {
+    ) -> Result<Self, InvalidResourceSlotSequence> {
         if let Some(last_slot_index) = self.last_slot_index {
             if descriptor.slot_index <= last_slot_index {
                 return Err(InvalidResourceSlotSequence {
                     bind_group_index: self.bind_group_index,
                     current_index: descriptor.slot_index,
-                    previous_index: last_slot_index
-                } );
+                    previous_index: last_slot_index,
+                });
             }
         }
 

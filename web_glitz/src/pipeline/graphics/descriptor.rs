@@ -9,11 +9,9 @@ use crate::pipeline::graphics::{
     Untyped, VertexInputLayoutDescriptor, VertexShader, Viewport,
 };
 use crate::pipeline::resources::{
-    ResourceBindingsLayoutDescriptor, ResourceSlotDescriptor, Resources,
-    TypedResourceBindingsLayout, TypedResourceBindingsLayoutDescriptor,
+    ResourceBindingsLayoutDescriptor, TypedResourceBindingsLayout,
+    TypedResourceBindingsLayoutDescriptor,
 };
-use fnv::FnvHasher;
-use std::hash::{Hash, Hasher};
 
 #[derive(Clone, Debug)]
 pub(crate) enum ResourceBindingsLayoutKind {

@@ -476,7 +476,7 @@ unsafe impl GpuTask<Connection> for GraphicsPipelineDropCommand {
                         .apply(gl)
                         .unwrap();
 
-                        gl.end_transform_feedback();
+                    gl.end_transform_feedback();
                 }
 
                 state.set_bound_transform_feedback(None).apply(gl).unwrap();

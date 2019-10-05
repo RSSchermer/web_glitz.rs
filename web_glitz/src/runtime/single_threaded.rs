@@ -129,7 +129,7 @@ use crate::pipeline::graphics::shader::{
 use crate::pipeline::graphics::{
     FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, VertexShader,
 };
-use crate::pipeline::resources::{BindGroup, BindGroupEncodingContext, BindableResourceGroup};
+use crate::pipeline::resources::{BindGroup, BindableResourceGroup};
 use crate::render_pass::{
     DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
     DefaultStencilBuffer, RenderPass, RenderPassContext, RenderPassId,

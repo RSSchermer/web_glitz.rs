@@ -1,7 +1,7 @@
 use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned, ToTokens};
 use syn::spanned::Spanned;
-use syn::{Data, DeriveInput, Field, Ident};
+use syn::{Data, DeriveInput, Ident};
 
 pub fn expand_derive_interface_block(input: &DeriveInput) -> Result<TokenStream, String> {
     if let Data::Struct(data) = &input.data {

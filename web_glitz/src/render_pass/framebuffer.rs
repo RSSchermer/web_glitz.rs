@@ -35,8 +35,10 @@ use crate::pipeline::graphics::{
     PrimitiveAssembly, StencilTest, TypedVertexBuffers, TypedVertexInputLayout, VertexBuffers,
     VertexBuffersEncodingContext, VertexInputLayoutDescriptor, Viewport,
 };
-use crate::pipeline::resources::resource_bindings_encoding::ResourceBindingDescriptor;
-use crate::pipeline::resources::{BindGroupDescriptor, ResourceBindings, ResourceBindingsEncodingContext, TypedResourceBindings, TypedResourceBindingsLayout};
+use crate::pipeline::resources::{
+    BindGroupDescriptor, ResourceBindings, ResourceBindingsEncodingContext, TypedResourceBindings,
+    TypedResourceBindingsLayout,
+};
 use crate::render_pass::RenderPassContext;
 use crate::render_target::attachable_image_ref::{AttachableImageData, AttachableImageRef};
 use crate::runtime::state::{BufferRange, ContextUpdate, DynamicState};
@@ -1176,9 +1178,9 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
         Rb,
         Sequence<T, BindVertexBuffersCommand, PipelineTaskContext>,
     >
-        where
-            VbNew: VertexBuffers,
-            T: GpuTask<PipelineTaskContext>,
+    where
+        VbNew: VertexBuffers,
+        T: GpuTask<PipelineTaskContext>,
     {
         let vertex_buffers = vertex_buffers
             .encode(&mut VertexBuffersEncodingContext::new())
@@ -1291,7 +1293,7 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
     >
     where
         R: TypedResourceBindingsLayout,
-        RbNew: TypedResourceBindings<Layout=R>,
+        RbNew: TypedResourceBindings<Layout = R>,
         T: GpuTask<PipelineTaskContext>,
     {
         GraphicsPipelineTaskBuilder {
@@ -1346,9 +1348,9 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
         RbNew,
         Sequence<T, BindResourcesCommand<RbNew::BindGroups>, PipelineTaskContext>,
     >
-        where
-            RbNew: ResourceBindings,
-            T: GpuTask<PipelineTaskContext>,
+    where
+        RbNew: ResourceBindings,
+        T: GpuTask<PipelineTaskContext>,
     {
         GraphicsPipelineTaskBuilder {
             context_id: self.context_id,
