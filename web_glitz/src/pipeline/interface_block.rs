@@ -11,15 +11,13 @@
 ///
 /// This trait may be automatically derived on a struct when all of its members implement
 /// [InterfaceBlockComponent]. Notably, [InterfaceBlockComponent] is implemented for all basic
-/// `std140` memory units defined in [web_glitz::std140]:
+/// `std140` memory units defined in the [std140] crate:
 ///
 /// ```
 /// # #![feature(const_fn)]
 /// use web_glitz::pipeline::interface_block::InterfaceBlock;
-/// use web_glitz::std140;
-/// use web_glitz::std140::repr_std140;
 ///
-/// #[repr_std140]
+/// #[std140::repr_std140]
 /// #[derive(web_glitz::derive::InterfaceBlock)]
 /// struct MyUniforms {
 ///     transform: std140::mat4x4,
@@ -32,10 +30,8 @@
 ///
 /// ```
 /// use web_glitz::pipeline::interface_block::InterfaceBlock;
-/// use web_glitz::std140;
-/// use web_glitz::std140::repr_std140;
 ///
-/// #[repr_std140]
+/// #[std140::repr_std140]
 /// #[derive(web_glitz::derive::InterfaceBlock)]
 /// struct PointLight {
 ///     position: std140::vec3,
@@ -45,7 +41,7 @@
 ///     quadratic_attenuation: std140::float,
 /// }
 ///
-/// #[repr_std140]
+/// #[std140::repr_std140]
 /// #[derive(web_glitz::derive::InterfaceBlock)]
 /// struct MyUniforms {
 ///     transform: std140::mat4x4,
@@ -55,16 +51,17 @@
 /// ```
 ///
 /// Note that both `MyUniforms` and `PointLight` in the example above are also marked with the
-/// `#[repr_std140]` attribute to ensure that the struct layout matches the std140 specification;
-/// this is not a strict requirement for automatically deriving the [InterfaceBlock] trait. However,
-/// the [InterfaceBlock] (and [InterfaceBlockComponent]) trait(s) do rely on the struct having a
-/// stable representation across builds; the Rust compiler gives no consistency guarantees for
-/// non-primitive type representations between builds (that is: if a type seems compatible with a
-/// memory layout on your current build, it is not guaranteed to remain compatible on any future
-/// builds), unless a specific representation is specified with the `#[repr]` attribute (e.g.
-/// `#[repr(C, align(16))]`). The marker trait [StableRepr] may be unsafely implemented on types to
-/// mark them as having a stable representation. [StableRepr] is automatically implemented for any
-/// struct marked with `#[repr_std140]`.
+/// `#[std140::repr_std140]` attribute to ensure that the struct layout matches the std140
+/// convention; this is not a strict requirement for automatically deriving the [InterfaceBlock]
+/// trait. However, the [InterfaceBlock] (and [InterfaceBlockComponent]) trait(s) do rely on the
+/// struct having a stable representation across builds; the Rust compiler gives no consistency
+/// guarantees for non-primitive type representations between builds (that is: if a type seems
+/// compatible with a memory layout on your current build, it is not guaranteed to remain compatible
+/// on any future builds), unless a specific representation is specified with the `#[repr]`
+/// attribute (e.g. `#[repr(C, align(16))]`). The marker trait [StableRepr] may be unsafely
+/// implemented on types to mark them as having a stable representation. [StableRepr] is already
+/// implemented for all [std140::ReprStd140] types, including any struct marked with
+/// `#[std140::repr_std140]`.
 pub unsafe trait InterfaceBlock: StableRepr {
     const MEMORY_UNITS: &'static [MemoryUnit];
 }
@@ -111,8 +108,8 @@ where
 /// This trait is required to be implemented for any type that wishes to implement [InterfaceBlock]
 /// or [InterfaceBlockComponent].
 ///
-/// This trait is automatically implemented for any type marked with [ReprStd140], including any
-/// user-defined structs marked with the `#[repr_std140]` attribute.
+/// This trait is already implemented for any type marked with [sdt140::ReprStd140], including any
+/// user-defined structs marked with the `#[std140::repr_std140]` attribute.
 ///
 /// # Unsafe
 ///
