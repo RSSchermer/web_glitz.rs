@@ -19,8 +19,6 @@ use web_glitz::pipeline::graphics::{
     CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
-use web_glitz::std140;
-use web_glitz::std140::repr_std140;
 
 use web_sys::{window, HtmlCanvasElement};
 
@@ -37,19 +35,19 @@ struct Vertex {
 // We store an instance of this type in a GPU-accessible buffer to provide the data for our uniform
 // block (as defined in `/src/primary_vertex.glsl`). We've told the driver that we'll be providing
 // the data for the block using the `std140` layout, by annotating it with `layout(std140)` in the
-// shader code. We can make sure that our Rust struct is compatible with the `std140` memory layout
-// rules by adding the `#[repr_std140]` attribute to our struct declaration. `#[repr_std140]` can
-// only be added to structs (not to enums or unions), and only if all fields of the struct implement
-// `web_glitz::std140::ReprStd140` (a marker trait implemented for types that can be used as fields
-// in `#[repr_std140]` structs), otherwise the struct will fail to compile. `ReprStd140` is
-// implemented for all types in `web_glitz::std140` and is automatically implement for any struct
-// that successfully compiles with the `#[repr_std140]` attribute (this means our struct here will
-// implement `ReprStd140`).
+// shader code. We can use the `std140` crate (see Cargo.toml) to make sure that our Rust struct is
+// compatible with the `std140` memory layout rules by adding the `#[std140::repr_std140]` attribute
+// to our struct declaration. `#[std140::repr_std140]` can only be added to structs (not to enums or
+// unions), and only if all fields of the struct implement `std140::ReprStd140` (a marker trait
+// implemented for types that can be used as fields in `#[std::repr_std140]` structs), otherwise the
+// struct will fail to compile. `std140::ReprStd140` is implemented for all types in `std140` and is
+// automatically implement for any struct that successfully compiles with the
+// `#[std140::repr_std140]` attribute.
 //
-// Marking the struct with `#[repr_std140]` is not quite enough for us to use it with a uniform
-// block, we must also derive `web_glitz::derive::InterfaceBlock`. This trait can only be derived on
-// a struct when it implements `web_glitz::pipeline::interface_block::StableRepr` and when every
-// field implements `web_glitz::pipeline::interface_block::InterfaceBlockComponent`:
+// Marking the struct with `#[std140::repr_std140]` is not quite enough for us to use it with a
+// uniform block, we must also derive `web_glitz::derive::InterfaceBlock`. This trait can only be
+// derived on a struct when it implements `web_glitz::pipeline::interface_block::StableRepr` and
+// when every field implements `web_glitz::pipeline::interface_block::InterfaceBlockComponent`:
 //
 // - `StableRepr` is a marker trait for types that will have a stable memory representation across
 //   compilations. By default, the Rust compiler gives only limited guarantees about a struct's
@@ -58,13 +56,12 @@ struct Vertex {
 //   produce a different memory layout for your type: on the old version the type's layout may have
 //   (accidentally) matched the layout the pipeline expected, but on the new version you're suddenly
 //   getting errors! `StableRepr` is meant to ensure that you don't accidentally fall into this
-//   trap. `StableRepr` implemented for all types that implement `ReprStd140`, including types
-//   marked with `#[repr_std140]`.
+//   trap. `StableRepr` implemented for all types that implement `std140::ReprStd140`, including
+//   types marked with `#[std140::repr_std140]`.
 // - `InterfaceBlockComponent` adds memory layout metadata to our struct which will be verified
 //   against our pipeline when the pipeline is created; if our struct's memory layout does not match
 //   the uniform block layout expected by the pipeline, we will receive an error when we attempt to
-//   create the pipeline. `InterfaceBlockComponent` is implemented for all types in
-//   `web_glitz::std140`.
+//   create the pipeline. `InterfaceBlockComponent` is implemented for all types in `std140`.
 //
 // Note that although the field name matches the name of the block member in this example, this is
 // not strictly necessary. Only the following has to match for us to be able to use our struct with
@@ -77,7 +74,7 @@ struct Vertex {
 //
 // In this case our very simple uniform block contains only one `float` member, so we'll match that
 // in our struct.
-#[repr_std140]
+#[std140::repr_std140]
 #[derive(web_glitz::derive::InterfaceBlock, Clone, Copy)]
 struct Uniforms {
     scale: std140::float,

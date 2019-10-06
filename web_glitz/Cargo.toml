@@ -4,8 +4,8 @@ version = "0.1.1"
 description = "Rusty low-level web-graphics library on top of WebGL 2.0."
 authors = ["Roland Schermer <roland0507@gmail.com>"]
 edition = "2018"
-repository = "https://github.com/RSSchermer/weg_glitz.rs"
-homepage = "https://github.com/RSSchermer/weg_glitz.rs"
+repository = "https://github.com/RSSchermer/web_glitz.rs"
+homepage = "https://github.com/RSSchermer/web_glitz.rs"
 license = "MIT"
 readme = "../README.md"
 
@@ -16,6 +16,7 @@ futures-preview = { version = "=0.3.0-alpha.17", features = ["compat"] }
 js-sys = "0.3.24"
 serde = "1.0"
 serde_derive = "1.0"
+std140 = "0.1.0"
 proc-macro-hack = "0.5"
 web-glitz-macros = { path = "../web_glitz_macros" }
 

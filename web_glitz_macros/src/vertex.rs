@@ -127,9 +127,9 @@ impl VertexField {
             1 => {
                 let attr = vertex_attributes[0];
 
-                let meta_items: Vec<NestedMeta> = match attr.interpret_meta() {
-                    Some(Meta::List(ref meta)) => meta.nested.iter().cloned().collect(),
-                    Some(Meta::Word(ref i)) if i == "vertex_attribute" => Vec::new(),
+                let meta_items: Vec<NestedMeta> = match attr.parse_meta() {
+                    Ok(Meta::List(meta)) => meta.nested.iter().cloned().collect(),
+                    Ok(Meta::Path(path)) if path.is_ident("vertex_attribute") => Vec::new(),
                     _ => {
                         log.log_error(format!(
                             "Malformed #[vertex_attribute] attribute for field `{}`.",
@@ -145,9 +145,17 @@ impl VertexField {
 
                 for meta_item in meta_items.into_iter() {
                     match meta_item {
-                        NestedMeta::Meta(Meta::NameValue(ref m)) if m.ident == "location" => {
-                            if let Lit::Int(ref i) = m.lit {
-                                location = Some(i.value());
+                        NestedMeta::Meta(Meta::NameValue(m)) if m.path.is_ident("location") => {
+                            if let Lit::Int(i) = &m.lit {
+                                if let Ok(value) = i.base10_parse::<u32>() {
+                                    location = Some(value);
+                                } else {
+                                    log.log_error(format!(
+                                        "Malformed #[vertex_attribute] attribute for field `{}`: \
+                                        expected `location` to be representable as a u32.",
+                                        field_name
+                                    ));
+                                }
                             } else {
                                 log.log_error(format!(
                                     "Malformed #[vertex_attribute] attribute for field `{}`: \
@@ -156,8 +164,8 @@ impl VertexField {
                                 ));
                             };
                         }
-                        NestedMeta::Meta(Meta::NameValue(ref m)) if m.ident == "format" => {
-                            if let Lit::Str(ref f) = m.lit {
+                        NestedMeta::Meta(Meta::NameValue(m)) if m.path.is_ident("format") => {
+                            if let Lit::Str(f) = &m.lit {
                                 format = Some(f.value());
                             } else {
                                 log.log_error(format!(
@@ -223,7 +231,7 @@ struct AttributeField {
     ident: Option<Ident>,
     ty: Type,
     position: usize,
-    location: u64,
+    location: u32,
     format: String,
     span: Span,
 }

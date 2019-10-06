@@ -13,8 +13,6 @@ use web_glitz::pipeline::graphics::{
     CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
-use web_glitz::std140;
-use web_glitz::std140::repr_std140;
 use web_glitz::task::sequence;
 
 use web_sys::{window, HtmlCanvasElement};
@@ -35,7 +33,7 @@ struct Vertex {
     varying_color: [f32; 3],
 }
 
-#[repr_std140]
+#[std140::repr_std140]
 #[derive(web_glitz::derive::InterfaceBlock, Clone, Copy)]
 struct Uniforms {
     scale: std140::float,

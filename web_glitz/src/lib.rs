@@ -47,7 +47,6 @@ pub mod render_pass;
 pub mod render_target;
 pub mod runtime;
 pub mod sampler;
-pub mod std140;
 pub mod task;
 
 mod util;

@@ -134,9 +134,9 @@ impl ResourcesField {
                 return ResourcesField::Excluded;
             }
 
-            let meta_items: Vec<NestedMeta> = match attr.interpret_meta() {
-                Some(Meta::List(ref meta)) => meta.nested.iter().cloned().collect(),
-                Some(Meta::Word(ref i)) if i == "resource" => Vec::new(),
+            let meta_items: Vec<NestedMeta> = match attr.parse_meta() {
+                Ok(Meta::List(list)) => list.nested.iter().cloned().collect(),
+                Ok(Meta::Path(path)) if path.is_ident("resource") => Vec::new(),
                 _ => {
                     log.log_error(format!(
                         "Malformed #[resource] attribute for field `{}`.",
@@ -152,9 +152,17 @@ impl ResourcesField {
 
             for meta_item in meta_items.into_iter() {
                 match meta_item {
-                    NestedMeta::Meta(Meta::NameValue(ref m)) if m.ident == "binding" => {
-                        if let Lit::Int(ref i) = m.lit {
-                            binding = Some(i.value());
+                    NestedMeta::Meta(Meta::NameValue(m)) if m.path.is_ident("binding") => {
+                        if let Lit::Int(i) = &m.lit {
+                            if let Ok(value) = i.base10_parse::<u32>() {
+                                binding = Some(value);
+                            } else {
+                                log.log_error(format!(
+                                    "Malformed #[resource] attribute for field `{}`: \
+                                    expected `binding` to be representable as a u32.",
+                                    field_name
+                                ));
+                            }
                         } else {
                             log.log_error(format!(
                                 "Malformed #[resource] attribute for field `{}`: \
@@ -163,9 +171,9 @@ impl ResourcesField {
                             ));
                         };
                     }
-                    NestedMeta::Meta(Meta::NameValue(ref m)) if m.ident == "name" => {
-                        if let Lit::Str(ref f) = m.lit {
-                            name = Some(f.value());
+                    NestedMeta::Meta(Meta::NameValue(ref m)) if m.path.is_ident("name") => {
+                        if let Lit::Str(n) = &m.lit {
+                            name = Some(n.value());
                         } else {
                             log.log_error(format!(
                                 "Malformed #[resource] attribute for field `{}`: \
@@ -223,7 +231,7 @@ struct ResourceField {
     ident: Option<Ident>,
     ty: Type,
     position: usize,
-    binding: u64,
+    binding: u32,
     name: String,
     span: Span,
 }

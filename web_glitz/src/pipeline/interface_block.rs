@@ -325,8 +325,6 @@ pub enum UnitLayout {
     },
 }
 
-use crate::std140;
-
 unsafe impl<T> StableRepr for T where T: std140::ReprStd140 {}
 
 macro_rules! impl_interface_block_component_std140 {

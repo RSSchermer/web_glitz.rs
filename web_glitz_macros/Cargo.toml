@@ -12,13 +12,11 @@ license = "MIT"
 proc-macro = true
 
 [dependencies]
-fnv = "1.0.3"
-proc-macro2 = "0.4"
-proc-macro-hack = "0.5"
-quote = "0.6"
+proc-macro2 = "1.0.5"
+quote = "1.0.2"
 
 [dependencies.syn]
-version = "0.15.29"
+version = "1.0.5"
 features = [
-    "parsing"
+    "full"
 ]

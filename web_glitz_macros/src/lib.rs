@@ -8,22 +8,10 @@ use quote::quote;
 use syn::{parse_macro_input, DeriveInput};
 
 mod interface_block;
-mod repr_std140;
 mod resources;
 mod transform_feedback;
 mod util;
 mod vertex;
-
-#[proc_macro_attribute]
-pub fn repr_std140(args: TokenStream, input: TokenStream) -> TokenStream {
-    assert!(args.is_empty(), "#[repr_std140] does not take arguments.");
-
-    let input = parse_macro_input!(input as DeriveInput);
-
-    repr_std140::expand_repr_std140(&input)
-        .unwrap_or_else(compile_error)
-        .into()
-}
 
 #[proc_macro_derive(InterfaceBlock)]
 pub fn derive_interface_block(input: TokenStream) -> TokenStream {
