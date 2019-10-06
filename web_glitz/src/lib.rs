@@ -19,12 +19,12 @@
 //! mostly make the task model a zero/low cost abstraction when used with this runtime.
 //!
 //! The task model should also make is possible to implement a thread-safe runtime, where tasks
-//! may also be submitted from other threads/(web-)workers. This is currently not yet implemented
-//! pending further details on WASM threads/workers and their implementation in wasm-bindgen.
-//! Submitting a task to this runtime will always involve dynamic dispatch, which may impose a
-//! (slight) performance cost on a task. However, it may also allow you to spread the work involved
-//! in task construction across multiple threads. How this trade-off affects overall performance
-//! will depend on your application.
+//! may also be submitted from other threads/(web-)workers. This is not yet implemented pending
+//! further details on WASM threads/workers and their implementation in wasm-bindgen. Submitting a
+//! task to this runtime will always involve dynamic dispatch, which may impose a (slight)
+//! performance cost on a task. However, it may also allow you to spread the work involved in task
+//! construction across multiple threads. How this trade-off impacts overall performance will depend
+//! on your application.
 
 #![feature(
     coerce_unsized,
