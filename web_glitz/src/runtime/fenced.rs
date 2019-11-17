@@ -171,21 +171,22 @@ impl FnMut<()> for JsTimeoutFencedTaskLoop {
         // stop the loop (by not scheduling a new callback) and wait for a new job to be scheduled
         // with the task runner (which will kick of a new loop).
         if !is_empty {
+            // This fails if the loop handle is dropped, in which case the loop is already cancelled
+            // and we won't schedule a new timeout.
             if let Some(container) = self.closure.upgrade() {
-                if let Some(closure) = container.deref() {
-                    let handle_id = window()
-                        .unwrap()
-                        .set_timeout_with_callback_and_timeout_and_arguments_0(
-                            closure.as_ref().unchecked_ref(),
-                            1,
-                        )
-                        .unwrap();
+                let closure = container.deref().expect("Uninitialized closure container.");
 
-                    self.handle.set(handle_id);
-                }
+                let handle_id = window()
+                    .unwrap()
+                    .set_timeout_with_callback_and_timeout_and_arguments_0(
+                        closure.as_ref().unchecked_ref(),
+                        1,
+                    )
+                    .unwrap();
+
+                self.handle.set(handle_id);
             }
-        }
-        {
+        } else {
             self.cancelled.set(true);
         }
     }
