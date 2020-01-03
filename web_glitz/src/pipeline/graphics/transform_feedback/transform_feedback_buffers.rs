@@ -123,6 +123,7 @@ where
 
 macro_rules! impl_transform_feedback_buffers {
     ($($T:ident),*) => {
+        #[allow(unused_parens)]
         impl<$($T),*> TransformFeedbackBuffers for ($($T),*)
         where
             $($T: TransformFeedbackBuffer),*
@@ -144,10 +145,12 @@ macro_rules! impl_transform_feedback_buffers {
             }
         }
 
+        #[allow(unused_parens)]
         unsafe impl<$($T),*> TypedTransformFeedbackBuffers for ($($T),*)
         where
             $($T: TypedTransformFeedbackBuffer),*
         {
+            #[allow(unused_parens)]
             type Layout = ($($T::TransformFeedback),*);
         }
     }

@@ -45,7 +45,7 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
                 #mod_path::VertexAttributeDescriptor {
                     location: #location,
                     format: #format_kind,
-                    offset_in_bytes: offset_of!(#struct_name, #field_name) as u8
+                    offset_in_bytes: _web_glitz::offset_of!(#struct_name, #field_name) as u8
                 }
             }
         });
@@ -66,17 +66,6 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
         let suffix = struct_name.to_string().trim_start_matches("r#").to_owned();
         let dummy_const = Ident::new(&format!("_IMPL_VERTEX_FOR_{}", suffix), Span::call_site());
 
-        let offset_of = quote! {
-            macro_rules! offset_of {
-                ($parent:path, $field:ident) => (unsafe {
-                    let base_ptr = std::ptr::null::<$parent>();
-                    let field_ptr = &raw const base_ptr.$field;
-
-                    (field_ptr as usize).wrapping_sub(base_ptr as usize)
-                });
-            }
-        };
-
         let generated = quote! {
             #[allow(non_upper_case_globals, unused_attributes, unused_qualifications)]
             const #dummy_const: () = {
@@ -93,7 +82,6 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
                     F: #mod_path::attribute_format::VertexAttributeFormatIdentifier
                 {}
 
-                #offset_of
                 #impl_block
             };
         };

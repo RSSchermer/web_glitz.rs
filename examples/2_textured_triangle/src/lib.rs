@@ -3,7 +3,7 @@
 // This example builds on `/examples/0_triangle`, the comments in this example will focus on the
 // differences/additions.
 
-#![feature(const_fn, const_raw_ptr_to_usize_cast, raw_address_of)]
+#![feature(const_fn, const_ptr_offset_from, const_transmute, ptr_offset_from)]
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;

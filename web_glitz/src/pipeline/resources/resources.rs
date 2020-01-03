@@ -591,6 +591,7 @@ pub trait TypedResourceBindingsLayout {
 
 macro_rules! implement_typed_resource_bindings_layout {
     ($($T:ident: $i:tt),*) => {
+        #[allow(unused_parens)]
         impl<$($T),*> TypedResourceBindingsLayout for ($($T),*)
         where
             $($T: TypedBindGroupLayout),*
@@ -760,6 +761,7 @@ impl ResourceBindings for () {
 
 macro_rules! implement_resource_bindings {
     ($n:tt, $($T:ident: $i:tt),*) => {
+        #[allow(unused_parens)]
         impl<$($T),*> ResourceBindings for ($(&'_ BindGroup<$T>),*) {
             type BindGroups = [BindGroupDescriptor; $n];
 
@@ -816,10 +818,12 @@ unsafe impl TypedResourceBindings for () {
 
 macro_rules! impl_typed_resource_bindings {
     ($($T:ident),*) => {
+        #[allow(unused_parens)]
         unsafe impl<$($T),*> TypedResourceBindings for ($(&'_ BindGroup<$T>),*)
         where
             $($T: TypedBindableResourceGroup),*
         {
+            #[allow(unused_parens)]
             type Layout = ($($T::Layout),*);
         }
     }

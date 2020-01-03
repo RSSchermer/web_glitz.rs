@@ -53,10 +53,12 @@ where
 
 macro_rules! impl_render_target_description {
     ($C0:ident $(,$C:ident)*) => {
+        #[allow(unused_parens)]
         impl<$C0 $(,$C)*> RenderTargetDescription for RenderTarget<($C0 $(,$C)*), ()>
         where
             $C0: ColorAttachmentDescription $(,$C: ColorAttachmentDescription)*
         {
+            #[allow(unused_parens)]
             type Framebuffer = Framebuffer<($C0::Buffer $(,$C::Buffer)*), ()>;
 
             #[allow(non_snake_case, unused_mut, unused_parens)]
@@ -211,11 +213,13 @@ impl_render_target_description!(
 
 macro_rules! impl_render_target_description_depth_stencil {
     ($($C:ident),*) => {
+        #[allow(unused_parens)]
         impl<$($C,)* Ds> RenderTargetDescription for RenderTarget<($($C),*), Ds>
         where
             $($C: ColorAttachmentDescription,)*
             Ds: DepthStencilAttachmentDescription
         {
+            #[allow(unused_parens)]
             type Framebuffer = Framebuffer<($($C::Buffer),* ), Ds::Buffer>;
 
             #[allow(non_snake_case, unused_parens)]

@@ -50,3 +50,8 @@ pub mod sampler;
 pub mod task;
 
 mod util;
+
+// Re-export `memoffset::offset_of` so we can use in proc macros without users having to include a
+// dependency on `memoffset`.
+#[doc(hidden)]
+pub use memoffset::offset_of;

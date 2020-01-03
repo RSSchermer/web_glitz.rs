@@ -27,16 +27,20 @@ pub fn expand_derive_interface_block(input: &DeriveInput) -> Result<TokenStream,
             let span = field.span();
 
             quote_spanned! {span=>
-                let base_offset = offset_of!(#struct_name, #ident);
+                let base_offset = _web_glitz::offset_of!(#struct_name, #ident);
                 let memory_units = <#ty as #mod_path::InterfaceBlockComponent>::MEMORY_UNITS;
+                let mut j = 0;
 
-                for memory_unit in memory_units {
+                while j < memory_units.len() {
+                    let memory_unit = memory_units[j];
+
                     array[i] = #mod_path::MemoryUnit {
                         offset: base_offset + memory_unit.offset,
                         layout: memory_unit.layout
                     };
 
                     i += 1;
+                    j += 1;
                 }
             }
         });
@@ -47,17 +51,6 @@ pub fn expand_derive_interface_block(input: &DeriveInput) -> Result<TokenStream,
             Span::call_site(),
         );
 
-        let offset_of = quote! {
-            macro_rules! offset_of {
-                ($parent:path, $field:ident) => (unsafe {
-                    let base_ptr = std::ptr::null::<$parent>();
-                    let field_ptr = &raw const base_ptr.$field;
-
-                    (field_ptr as usize).wrapping_sub(base_ptr as usize)
-                });
-            }
-        };
-
         let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
         let impl_block = quote! {
@@ -67,7 +60,7 @@ pub fn expand_derive_interface_block(input: &DeriveInput) -> Result<TokenStream,
                     const LEN: usize = #(#recurse_len)+*;
 
                     // Initialize array with temporary values;
-                    let array = [#mod_path::MemoryUnit {
+                    let mut array = [#mod_path::MemoryUnit {
                         offset: 0,
                         layout: #mod_path::UnitLayout::Float
                     }; LEN];
@@ -88,8 +81,6 @@ pub fn expand_derive_interface_block(input: &DeriveInput) -> Result<TokenStream,
                 #[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
                 #[allow(rust_2018_idioms)]
                 extern crate web_glitz as _web_glitz;
-
-                #offset_of
 
                 #impl_block
             };

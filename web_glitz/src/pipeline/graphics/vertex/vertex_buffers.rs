@@ -127,6 +127,7 @@ where
 
 macro_rules! impl_vertex_buffers {
     ($($T:ident),*) => {
+        #[allow(unused_parens)]
         impl<$($T),*> VertexBuffers for ($($T),*)
         where
             $($T: VertexBuffer),*
@@ -145,10 +146,12 @@ macro_rules! impl_vertex_buffers {
             }
         }
 
+        #[allow(unused_parens)]
         unsafe impl<$($T),*> TypedVertexBuffers for ($($T),*)
         where
             $($T: TypedVertexBuffer),*
         {
+            #[allow(unused_parens)]
             type Layout = ($($T::Vertex),*);
         }
     }

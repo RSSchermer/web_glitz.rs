@@ -61,6 +61,7 @@ pub unsafe trait TypedTransformFeedbackLayout {
 
 macro_rules! impl_typed_transform_feedback_layout {
     ($n:tt, $($T:ident),*) => {
+        #[allow(unused_parens)]
         unsafe impl<$($T),*> TypedTransformFeedbackLayout for ($($T),*)
         where
             $($T: TransformFeedback),*

@@ -20,6 +20,10 @@ std140 = "0.1.0"
 proc-macro-hack = "0.5"
 web-glitz-macros = { path = "../web_glitz_macros" }
 
+[dependencies.memoffset]
+git = "https://github.com/Gilnaa/memoffset"
+features = ["unstable_const"]
+
 [dependencies.wasm-bindgen]
 version = "0.2.48"
 features = ["serde-serialize"]

@@ -35,6 +35,7 @@ impl TypedVertexInputLayout for () {
 
 macro_rules! impl_typed_vertex_input_layout {
     ($n:tt, $($T:ident),*) => {
+        #[allow(unused_parens)]
         impl<$($T),*> TypedVertexInputLayout for ($($T),*) where $($T: Vertex),* {
             type LayoutDescription = [StaticVertexBufferSlotDescriptor; $n];
 
