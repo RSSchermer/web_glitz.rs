@@ -174,7 +174,10 @@ impl FnMut<()> for JsTimeoutFencedTaskLoop {
             // This fails if the loop handle is dropped, in which case the loop is already cancelled
             // and we won't schedule a new timeout.
             if let Some(container) = self.closure.upgrade() {
-                let closure = container.deref().as_ref().expect("Uninitialized closure container.");
+                let closure = container
+                    .deref()
+                    .as_ref()
+                    .expect("Uninitialized closure container.");
 
                 let handle_id = window()
                     .unwrap()

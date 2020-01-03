@@ -9,7 +9,14 @@
 // This example builds on `/examples/0_triangle`, the comments in this example will focus on the
 // differences/additions.
 
-#![feature(const_fn, const_ptr_offset_from, const_transmute, ptr_offset_from, const_loop, const_if_match)]
+#![feature(
+    const_fn,
+    const_ptr_offset_from,
+    const_transmute,
+    ptr_offset_from,
+    const_loop,
+    const_if_match
+)]
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
