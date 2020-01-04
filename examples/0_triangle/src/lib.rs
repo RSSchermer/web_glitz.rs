@@ -14,6 +14,7 @@ use web_glitz::buffer::UsageHint;
 use web_glitz::pipeline::graphics::{
     CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
+use web_glitz::pipeline::resources::BindGroup;
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 
 use web_sys::{window, HtmlCanvasElement};
@@ -189,6 +190,7 @@ pub fn start() {
             active_pipeline
                 .task_builder()
                 .bind_vertex_buffers(&vertex_buffer)
+                .bind_resources((&BindGroup::empty(), &BindGroup::empty()))
                 .draw(3, 1)
                 .finish()
         })

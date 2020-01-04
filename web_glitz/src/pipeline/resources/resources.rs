@@ -41,9 +41,16 @@ use crate::pipeline::resources::{
 /// [GraphicsPipelineTaskBuilder::bind_resources] and
 /// [GraphicsPipelineTaskBuilder::bind_resources_untyped] for details.
 pub struct BindGroup<T> {
-    pub(crate) context_id: usize,
-    pub(crate) encoding: Arc<Vec<ResourceBindingDescriptor>>,
+    pub(crate) internal: BindGroupInternal,
     _marker: marker::PhantomData<T>,
+}
+
+pub(crate) enum BindGroupInternal {
+    Empty,
+    NotEmpty {
+        context_id: usize,
+        encoding: Arc<Vec<ResourceBindingDescriptor>>,
+    }
 }
 
 impl<T> BindGroup<T>
@@ -55,9 +62,20 @@ where
         let encoding = resources.encode_bind_group(&mut encoding_context);
 
         BindGroup {
-            context_id,
-            encoding: Arc::new(encoding.bindings),
+            internal: BindGroupInternal::NotEmpty {
+                context_id,
+                encoding: Arc::new(encoding.bindings),
+            },
             _marker: marker::PhantomData,
+        }
+    }
+}
+
+impl BindGroup<()> {
+    pub const fn empty() -> Self {
+        BindGroup {
+            internal: BindGroupInternal::Empty,
+            _marker: marker::PhantomData
         }
     }
 }

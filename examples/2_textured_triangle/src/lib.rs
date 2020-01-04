@@ -16,6 +16,7 @@ use web_glitz::image::{Image2DSource, MipmapLevels};
 use web_glitz::pipeline::graphics::{
     CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
+use web_glitz::pipeline::resources::BindGroup;
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 use web_glitz::sampler::{MagnificationFilter, MinificationFilter, SamplerDescriptor};
 use web_glitz::task::sequence_all;
@@ -148,9 +149,6 @@ pub fn start() {
     // Create a command that will upload our image source to the texture's base level.
     let upload_command = texture.base_level().upload_command(image_src);
 
-    // Create an empty bind group to match the uniform buffer bind group expected by the pipeline.
-    let bind_group_0 = context.create_bind_group(());
-
     // Create a bind group for our resources.
     let bind_group_1 = context.create_bind_group(Resources {
         texture: texture.float_sampled(&sampler).unwrap(),
@@ -161,7 +159,7 @@ pub fn start() {
             // Our render pass has thus far been identical to the render pass in
             // `/examples/0_triangle`. However, our pipeline now does use resources, so we add
             // a `bind_resources` command that binds our bind group to the pipeline in bind group
-            // slot `1`.
+            // slot `1`; we bind an empty bind group to slot `0`.
             //
             // Note that, as with the vertex array, WebGlitz wont have to do any additional runtime
             // safety checks here to ensure that the resources are compatible with the pipeline: we
@@ -170,7 +168,7 @@ pub fn start() {
             active_pipeline
                 .task_builder()
                 .bind_vertex_buffers(&vertex_buffer)
-                .bind_resources((&bind_group_0, &bind_group_1))
+                .bind_resources((&BindGroup::empty(), &bind_group_1))
                 .draw(3, 1)
                 .finish()
         })

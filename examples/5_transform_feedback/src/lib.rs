@@ -19,6 +19,7 @@ use web_glitz::buffer::{Buffer, UsageHint};
 use web_glitz::pipeline::graphics::{
     CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
+use web_glitz::pipeline::resources::BindGroup;
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 use web_glitz::task::sequence;
 
@@ -122,8 +123,6 @@ pub fn start() {
         uniforms: &uniform_buffer,
     });
 
-    let bind_group_1 = context.create_bind_group(());
-
     // We'll use this buffer to record the transform feedback. We use `UsageHint::StreamCopy` as the
     // data will be written by the device and is then used to draw only once.
     let mut transform_feedback_buffer =
@@ -150,7 +149,7 @@ pub fn start() {
                     active_pipeline
                         .task_builder()
                         .bind_vertex_buffers(&vertex_buffer)
-                        .bind_resources((&bind_group_0, &bind_group_1))
+                        .bind_resources((&bind_group_0, &BindGroup::empty()))
                         .draw(3, 1)
                         .finish()
                 },
@@ -159,7 +158,7 @@ pub fn start() {
                 active_pipeline
                     .task_builder()
                     .bind_vertex_buffers(&transform_feedback_buffer)
-                    .bind_resources((&bind_group_0, &bind_group_1))
+                    .bind_resources((&bind_group_0, &BindGroup::empty()))
                     .draw(3, 1)
                     .finish()
             }),

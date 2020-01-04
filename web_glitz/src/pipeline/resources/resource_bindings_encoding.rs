@@ -17,7 +17,7 @@ use crate::image::texture_cube::{
     FloatSampledTextureCube, IntegerSampledTextureCube, ShadowSampledTextureCube, TextureCubeData,
     UnsignedIntegerSampledTextureCube,
 };
-use crate::pipeline::resources::resources::BindGroup;
+use crate::pipeline::resources::resources::{BindGroup, BindGroupInternal};
 use crate::runtime::state::{BufferRange, ContextUpdate};
 use crate::runtime::Connection;
 use crate::sampler::SamplerData;
@@ -473,13 +473,15 @@ impl<'a> BindGroupEncoder<'a> {
 pub struct BindGroupDescriptor {
     #[allow(dead_code)]
     pub(crate) bind_group_index: u32,
-    pub(crate) bindings: Arc<Vec<ResourceBindingDescriptor>>,
+    pub(crate) bindings: Option<Arc<Vec<ResourceBindingDescriptor>>>,
 }
 
 impl BindGroupDescriptor {
     pub(crate) fn bind(&self, connection: &mut Connection) {
-        for binding in self.bindings.iter() {
-            binding.bind(connection);
+        if let Some(bindings) = &self.bindings {
+            for binding in bindings.iter() {
+                binding.bind(connection);
+            }
         }
     }
 }
@@ -532,16 +534,24 @@ impl<'a, B> StaticResourceBindingsEncoder<'a, B> {
         bind_group_index: u32,
         bind_group: &BindGroup<T>,
     ) -> StaticResourceBindingsEncoder<'a, (BindGroupDescriptor, B)> {
-        if self.context.context_id != bind_group.context_id {
-            panic!("Bind group belongs to a different context than the current pipeline.");
-        }
+        let bindings = match &bind_group.internal {
+            BindGroupInternal::Empty => None,
+            BindGroupInternal::NotEmpty { context_id, encoding } => {
+                if self.context.context_id != *context_id {
+                    panic!("Bind group belongs to a different context than the current pipeline.");
+                }
+
+                Some(encoding.clone())
+            }
+        };
+
 
         StaticResourceBindingsEncoder {
             context: self.context,
             bind_groups: (
                 BindGroupDescriptor {
                     bind_group_index,
-                    bindings: bind_group.encoding.clone(),
+                    bindings,
                 },
                 self.bind_groups,
             ),

@@ -45,6 +45,7 @@ use crate::runtime::state::{BufferRange, ContextUpdate, DynamicState};
 use crate::runtime::Connection;
 use crate::task::{sequence, ContextId, Empty, GpuTask, Progress, Sequence};
 use crate::util::JsId;
+use crate::Unspecified;
 
 /// Helper trait for implementing [Framebuffer::pipeline_task] for both a plain graphics pipeline
 /// and a graphics pipeline that will record transform feedback.
@@ -1050,7 +1051,7 @@ impl<'a, V, R, Tf> ActiveGraphicsPipeline<'a, V, R, Tf> {
     /// });
     /// # }
     /// ```
-    pub fn task_builder(&self) -> GraphicsPipelineTaskBuilder<'a, V, R, (), (), (), Empty> {
+    pub fn task_builder(&self) -> GraphicsPipelineTaskBuilder<'a, V, R, Unspecified, Unspecified, Unspecified, Empty> {
         GraphicsPipelineTaskBuilder {
             context_id: self.pipeline.context_id(),
             topology: self.pipeline.primitive_assembly().topology(),

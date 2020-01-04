@@ -25,6 +25,7 @@ use web_glitz::buffer::{Buffer, UsageHint};
 use web_glitz::pipeline::graphics::{
     CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
+use web_glitz::pipeline::resources::BindGroup;
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 
 use web_sys::{window, HtmlCanvasElement};
@@ -191,15 +192,12 @@ pub fn start() {
         uniforms: &uniform_buffer,
     });
 
-    // Create an empty bind group to match the texture bind group expected by the pipeline.
-    let bind_group_1 = context.create_bind_group(());
-
     let render_pass = context.create_render_pass(render_target, |framebuffer| {
         framebuffer.pipeline_task(&pipeline, |active_pipeline| {
             // Our render pass has thus far been identical to the render pass in
             // `/examples/0_triangle`. However, our pipeline now does use resources, so we add
             // a `bind_resources` command to bind our bind group to the pipeline in bind group slot
-            // `0`.
+            // `0`; we bind an empty bind group to slot `1`.
             //
             // Note that, as with the vertex array, WebGlitz wont have to do any additional runtime
             // safety checks here to ensure that the bind group is compatible with the pipeline: we
@@ -208,7 +206,7 @@ pub fn start() {
             active_pipeline
                 .task_builder()
                 .bind_vertex_buffers(&vertex_buffer)
-                .bind_resources((&bind_group_0, &bind_group_1))
+                .bind_resources((&bind_group_0, &BindGroup::empty()))
                 .draw(3, 1)
                 .finish()
         })

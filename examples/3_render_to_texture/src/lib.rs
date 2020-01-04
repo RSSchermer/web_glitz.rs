@@ -16,6 +16,7 @@ use web_glitz::image::MipmapLevels;
 use web_glitz::pipeline::graphics::{
     CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
+use web_glitz::pipeline::resources::BindGroup;
 use web_glitz::render_target::{FloatAttachment, LoadOp, RenderTarget, StoreOp};
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 use web_glitz::sampler::{MagnificationFilter, MinificationFilter, SamplerDescriptor, Wrap};
@@ -162,6 +163,7 @@ pub fn start() {
                 active_pipeline
                     .task_builder()
                     .bind_vertex_buffers(&secondary_vertex_buffer)
+                    .bind_resources((&BindGroup::empty(), &BindGroup::empty()))
                     .draw(3, 1)
                     .finish()
             })
@@ -195,8 +197,6 @@ pub fn start() {
         ..Default::default()
     });
 
-    let bind_group_0 = context.create_bind_group(());
-
     let bind_group_1 = context.create_bind_group(PrimaryResources {
         texture: texture.float_sampled(&sampler).unwrap(),
     });
@@ -208,7 +208,7 @@ pub fn start() {
             active_pipeline
                 .task_builder()
                 .bind_vertex_buffers(&primary_vertex_buffer)
-                .bind_resources((&bind_group_0, &bind_group_1))
+                .bind_resources((&BindGroup::empty(), &bind_group_1))
                 .draw(3, 1)
                 .finish()
         })

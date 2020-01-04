@@ -17,6 +17,7 @@ use web_glitz::image::Region2D;
 use web_glitz::pipeline::graphics::{
     CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
+use web_glitz::pipeline::resources::BindGroup;
 use web_glitz::render_target::{FloatAttachment, LoadOp, RenderTarget, StoreOp};
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 use web_glitz::task::sequence_all;
@@ -117,6 +118,7 @@ pub fn start() {
                 active_pipeline
                     .task_builder()
                     .bind_vertex_buffers(&vertex_buffer)
+                    .bind_resources((&BindGroup::empty(), &BindGroup::empty()))
                     .draw(3, 1)
                     .finish()
             })

@@ -55,3 +55,6 @@ mod util;
 // dependency on `memoffset`.
 #[doc(hidden)]
 pub use memoffset::offset_of;
+
+/// Placeholder type for builders to mark unspecified or not yet specified attributes.
+pub struct Unspecified {}
