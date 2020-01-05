@@ -8,5 +8,6 @@ members = [
     "examples/2_textured_triangle",
     "examples/3_render_to_texture",
     "examples/4_blit",
-    "examples/5_transform_feedback"
+    "examples/5_transform_feedback",
+    "examples/6_cube_3d"
 ]

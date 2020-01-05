@@ -195,29 +195,56 @@ where
     }
 }
 
-impl<'a, T> Into<BufferView<'a, T>> for &'a Buffer<T>
+impl<'a, T> From<&'a Buffer<T>> for BufferView<'a, T>
 where
     T: ?Sized,
 {
-    fn into(self) -> BufferView<'a, T> {
+    fn from(buffer: &'a Buffer<T>) -> BufferView<'a, T> {
         BufferView {
-            buffer: self,
+            buffer,
             offset_in_bytes: 0,
-            len: self.data.len,
+            len: buffer.data.len,
         }
     }
 }
 
-impl<'a, T> Into<BufferViewMut<'a, T>> for &'a mut Buffer<T>
+// TODO: this should not be necessary if CoerceUnsized or an equivalent can be implemented for
+// Buffer.
+impl<'a, T, const LEN: usize> From<&'a Buffer<[T; LEN]>> for BufferView<'a, [T]> {
+    fn from(buffer: &'a Buffer<[T; LEN]>) -> BufferView<'a, [T]> {
+        BufferView {
+            buffer: unsafe { mem::transmute(buffer) },
+            offset_in_bytes: 0,
+            len: buffer.data.len,
+        }
+    }
+}
+
+impl<'a, T> From<&'a mut Buffer<T>> for BufferViewMut<'a, T>
 where
     T: ?Sized,
 {
-    fn into(self) -> BufferViewMut<'a, T> {
+    fn from(buffer: &'a mut Buffer<T>) -> BufferViewMut<'a, T> {
         BufferViewMut {
             inner: BufferView {
-                buffer: self,
+                buffer,
                 offset_in_bytes: 0,
-                len: self.data.len,
+                len: buffer.data.len,
+            },
+            _marker: marker::PhantomData,
+        }
+    }
+}
+
+// TODO: this should not be necessary if CoerceUnsized or an equivalent can be implemented for
+// Buffer.
+impl<'a, T, const LEN: usize> From<&'a mut Buffer<[T; LEN]>> for BufferViewMut<'a, [T]> {
+    fn from(buffer: &'a mut Buffer<[T; LEN]>) -> BufferViewMut<'a, [T]> {
+        BufferViewMut {
+            inner: BufferView {
+                len: buffer.data.len,
+                buffer: unsafe { mem::transmute(buffer) },
+                offset_in_bytes: 0,
             },
             _marker: marker::PhantomData,
         }

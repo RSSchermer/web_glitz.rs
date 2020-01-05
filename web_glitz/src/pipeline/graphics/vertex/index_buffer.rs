@@ -132,6 +132,17 @@ where
     }
 }
 
+// TODO: this should not be necessary if CoerceUnsized or an equivalent can be implemented for
+// Buffer.
+unsafe impl<'a, F, const LEN: usize> IndexBuffer for &'a Buffer<[F; LEN]>
+    where
+        F: IndexFormat,
+{
+    fn encode<'b>(&self, context: &'b mut IndexBufferEncodingContext) -> IndexBufferEncoding<'b> {
+        IndexBufferEncoding::from_typed_index_buffer(context, *self)
+    }
+}
+
 unsafe impl<'a, F> IndexBuffer for BufferView<'a, [F]>
 where
     F: IndexFormat,
