@@ -15,7 +15,7 @@ use web_sys::{
 
 use crate::pipeline::graphics::transform_feedback::layout_descriptor::TransformFeedbackVaryings;
 use crate::pipeline::graphics::util::BufferDescriptors;
-use crate::pipeline::graphics::vertex::index_buffer::IndexBufferDescriptor;
+use crate::pipeline::graphics::vertex::index_buffer::IndexDataDescriptor;
 use crate::pipeline::graphics::vertex::layout_descriptor::VertexAttributeSlotDescriptor;
 use crate::pipeline::graphics::{
     BlendEquation, BlendFactor, CullingMode, DepthRange, PolygonOffset, StencilOperation,
@@ -29,6 +29,8 @@ use crate::pipeline::resources::{ResourceSlotIdentifier, SampledTextureType};
 use crate::render_target::attachable_image_ref::AttachableImageData;
 use crate::runtime::index_lru::IndexLRU;
 use crate::util::{identical, JsId};
+use std::ops::Deref;
+use wasm_bindgen::convert::{IntoWasmAbi, RefFromWasmAbi};
 
 pub struct DynamicState {
     framebuffer_cache: FnvHashMap<u64, (Framebuffer, [Option<JsId>; 17])>,
@@ -36,29 +38,29 @@ pub struct DynamicState {
     program_cache: FnvHashMap<ProgramKey, Program>,
     read_framebuffer: WebGlFramebuffer,
     max_draw_buffers: usize,
-    active_program: Option<WebGlProgram>,
-    bound_array_buffer: Option<WebGlBuffer>,
-    bound_element_array_buffer: Option<WebGlBuffer>,
-    bound_copy_read_buffer: Option<WebGlBuffer>,
-    bound_copy_write_buffer: Option<WebGlBuffer>,
-    bound_pixel_pack_buffer: Option<WebGlBuffer>,
-    bound_pixel_unpack_buffer: Option<WebGlBuffer>,
-    bound_transform_feedback_buffers: Vec<BufferRange<WebGlBuffer>>,
+    active_program: Option<u32>,
+    bound_array_buffer: Option<u32>,
+    bound_element_array_buffer: Option<u32>,
+    bound_copy_read_buffer: Option<u32>,
+    bound_copy_write_buffer: Option<u32>,
+    bound_pixel_pack_buffer: Option<u32>,
+    bound_pixel_unpack_buffer: Option<u32>,
+    bound_transform_feedback_buffers: Vec<BufferRange<u32>>,
     active_uniform_buffer_index: u32,
-    bound_uniform_buffers: Vec<BufferRange<WebGlBuffer>>,
+    bound_uniform_buffers: Vec<BufferRange<u32>>,
     uniform_buffer_index_lru: IndexLRU,
-    bound_draw_framebuffer: Option<WebGlFramebuffer>,
-    bound_read_framebuffer: Option<WebGlFramebuffer>,
-    bound_renderbuffer: Option<WebGlRenderbuffer>,
-    bound_texture_2d: Option<WebGlTexture>,
-    bound_texture_cube_map: Option<WebGlTexture>,
-    bound_texture_3d: Option<WebGlTexture>,
-    bound_texture_2d_array: Option<WebGlTexture>,
-    bound_samplers: Vec<Option<WebGlSampler>>,
+    bound_draw_framebuffer: Option<u32>,
+    bound_read_framebuffer: Option<u32>,
+    bound_renderbuffer: Option<u32>,
+    bound_texture_2d: Option<u32>,
+    bound_texture_cube_map: Option<u32>,
+    bound_texture_3d: Option<u32>,
+    bound_texture_2d_array: Option<u32>,
+    bound_samplers: Vec<Option<u32>>,
     texture_units_lru: IndexLRU,
-    texture_units_textures: Vec<Option<WebGlTexture>>,
-    bound_vertex_array: Option<WebGlVertexArrayObject>,
-    bound_transform_feedback: Option<WebGlTransformFeedback>,
+    texture_units_textures: Vec<Option<u32>>,
+    bound_vertex_array: Option<u32>,
+    bound_transform_feedback: Option<u32>,
     active_texture: u32,
     clear_color: [f32; 4],
     clear_depth: f32,
@@ -135,14 +137,19 @@ impl DynamicState {
         ProgramCache { state: self }
     }
 
-    pub(crate) fn bind_read_framebuffer(&mut self, gl: &Gl) {
+    pub(crate) fn bind_default_read_framebuffer(&mut self, gl: &Gl) {
+        let current = unsafe {
+            self.bound_read_framebuffer
+                .map(|abi| JsValue::ref_from_abi(abi))
+        };
+
         if !identical(
-            self.bound_read_framebuffer.as_ref(),
+            current.as_ref().map(|v| v.deref()),
             Some(&self.read_framebuffer),
         ) {
             gl.bind_framebuffer(Gl::READ_FRAMEBUFFER, Some(&self.read_framebuffer));
 
-            self.bound_read_framebuffer = Some(self.read_framebuffer.clone());
+            self.bound_read_framebuffer = Some((&self.read_framebuffer).into_abi());
         }
     }
 
@@ -150,16 +157,14 @@ impl DynamicState {
         self.max_draw_buffers
     }
 
-    pub fn active_program(&self) -> Option<&WebGlProgram> {
-        self.active_program.as_ref()
-    }
-
-    pub fn set_active_program<'a>(
+    pub fn use_program<'a>(
         &mut self,
         program: Option<&'a WebGlProgram>,
     ) -> impl ContextUpdate<'a, ()> {
-        if !identical(program, self.active_program.as_ref()) {
-            self.active_program = program.map(|p| p.clone());
+        let current = unsafe { self.active_program.map(|abi| JsValue::ref_from_abi(abi)) };
+
+        if !identical(program, current.as_ref().map(|v| v.deref())) {
+            self.active_program = program.map(|p| p.into_abi());
 
             Some(move |context: &Gl| {
                 context.use_program(program);
@@ -171,16 +176,17 @@ impl DynamicState {
         }
     }
 
-    pub fn bound_array_buffer(&self) -> Option<&WebGlBuffer> {
-        self.bound_array_buffer.as_ref()
-    }
-
-    pub fn set_bound_array_buffer<'a>(
+    pub fn bind_array_buffer<'a>(
         &mut self,
         buffer: Option<&'a WebGlBuffer>,
     ) -> impl ContextUpdate<'a, ()> {
-        if !identical(buffer, self.bound_array_buffer.as_ref()) {
-            self.bound_array_buffer = buffer.map(|b| b.clone());
+        let current = unsafe {
+            self.bound_array_buffer
+                .map(|abi| JsValue::ref_from_abi(abi))
+        };
+
+        if !identical(buffer, current.as_ref().map(|v| v.deref())) {
+            self.bound_array_buffer = buffer.map(|b| b.into_abi());
 
             Some(move |context: &Gl| {
                 context.bind_buffer(Gl::ARRAY_BUFFER, buffer);
@@ -192,16 +198,17 @@ impl DynamicState {
         }
     }
 
-    pub fn bound_element_array_buffer(&self) -> Option<&WebGlBuffer> {
-        self.bound_element_array_buffer.as_ref()
-    }
-
-    pub fn set_bound_element_array_buffer<'a>(
+    pub fn bind_element_array_buffer<'a>(
         &mut self,
         buffer: Option<&'a WebGlBuffer>,
     ) -> impl ContextUpdate<'a, ()> {
-        if !identical(buffer, self.bound_element_array_buffer.as_ref()) {
-            self.bound_element_array_buffer = buffer.map(|b| b.clone());
+        let current = unsafe {
+            self.bound_element_array_buffer
+                .map(|abi| JsValue::ref_from_abi(abi))
+        };
+
+        if !identical(buffer, current.as_ref().map(|v| v.deref())) {
+            self.bound_element_array_buffer = buffer.map(|b| b.into_abi());
 
             Some(move |context: &Gl| {
                 context.bind_buffer(Gl::ELEMENT_ARRAY_BUFFER, buffer);
@@ -213,16 +220,17 @@ impl DynamicState {
         }
     }
 
-    pub fn bound_copy_read_buffer(&self) -> Option<&WebGlBuffer> {
-        self.bound_copy_read_buffer.as_ref()
-    }
-
-    pub fn set_bound_copy_read_buffer<'a>(
+    pub fn bind_copy_read_buffer<'a>(
         &mut self,
         buffer: Option<&'a WebGlBuffer>,
     ) -> impl ContextUpdate<'a, ()> {
-        if !identical(buffer, self.bound_copy_read_buffer.as_ref()) {
-            self.bound_copy_read_buffer = buffer.map(|b| b.clone());
+        let current = unsafe {
+            self.bound_copy_read_buffer
+                .map(|abi| JsValue::ref_from_abi(abi))
+        };
+
+        if !identical(buffer, current.as_ref().map(|v| v.deref())) {
+            self.bound_copy_read_buffer = buffer.map(|b| b.into_abi());
 
             Some(move |context: &Gl| {
                 context.bind_buffer(Gl::COPY_READ_BUFFER, buffer);
@@ -234,16 +242,17 @@ impl DynamicState {
         }
     }
 
-    pub fn bound_copy_write_buffer(&self) -> Option<&WebGlBuffer> {
-        self.bound_copy_write_buffer.as_ref()
-    }
-
-    pub fn set_bound_copy_write_buffer<'a>(
+    pub fn bind_copy_write_buffer<'a>(
         &mut self,
         buffer: Option<&'a WebGlBuffer>,
     ) -> impl ContextUpdate<'a, ()> {
-        if !identical(buffer, self.bound_copy_write_buffer.as_ref()) {
-            self.bound_copy_write_buffer = buffer.map(|b| b.clone());
+        let current = unsafe {
+            self.bound_copy_write_buffer
+                .map(|abi| JsValue::ref_from_abi(abi))
+        };
+
+        if !identical(buffer, current.as_ref().map(|v| v.deref())) {
+            self.bound_copy_write_buffer = buffer.map(|b| b.into_abi());
 
             Some(move |context: &Gl| {
                 context.bind_buffer(Gl::COPY_WRITE_BUFFER, buffer);
@@ -255,16 +264,17 @@ impl DynamicState {
         }
     }
 
-    pub fn bound_pixel_pack_buffer(&self) -> Option<&WebGlBuffer> {
-        self.bound_pixel_pack_buffer.as_ref()
-    }
-
-    pub fn set_bound_pixel_pack_buffer<'a>(
+    pub fn bind_pixel_pack_buffer<'a>(
         &mut self,
         buffer: Option<&'a WebGlBuffer>,
     ) -> impl ContextUpdate<'a, ()> {
-        if !identical(buffer, self.bound_pixel_pack_buffer.as_ref()) {
-            self.bound_pixel_pack_buffer = buffer.map(|b| b.clone());
+        let current = unsafe {
+            self.bound_pixel_pack_buffer
+                .map(|abi| JsValue::ref_from_abi(abi))
+        };
+
+        if !identical(buffer, current.as_ref().map(|v| v.deref())) {
+            self.bound_pixel_pack_buffer = buffer.map(|b| b.into_abi());
 
             Some(move |context: &Gl| {
                 context.bind_buffer(Gl::PIXEL_PACK_BUFFER, buffer);
@@ -276,16 +286,17 @@ impl DynamicState {
         }
     }
 
-    pub fn bound_pixel_unpack_buffer(&self) -> Option<&WebGlBuffer> {
-        self.bound_pixel_unpack_buffer.as_ref()
-    }
-
-    pub fn set_bound_pixel_unpack_buffer<'a>(
+    pub fn bind_pixel_unpack_buffer<'a>(
         &mut self,
         buffer: Option<&'a WebGlBuffer>,
     ) -> impl ContextUpdate<'a, ()> {
-        if !identical(buffer, self.bound_pixel_unpack_buffer.as_ref()) {
-            self.bound_pixel_unpack_buffer = buffer.map(|b| b.clone());
+        let current = unsafe {
+            self.bound_pixel_unpack_buffer
+                .map(|abi| JsValue::ref_from_abi(abi))
+        };
+
+        if !identical(buffer, current.as_ref().map(|v| v.deref())) {
+            self.bound_pixel_unpack_buffer = buffer.map(|b| b.into_abi());
 
             Some(move |context: &Gl| {
                 context.bind_buffer(Gl::PIXEL_UNPACK_BUFFER, buffer);
@@ -297,17 +308,19 @@ impl DynamicState {
         }
     }
 
-    pub fn bound_transform_feedback_buffer_range(&self, index: u32) -> BufferRange<&WebGlBuffer> {
-        self.bound_transform_feedback_buffers[index as usize].as_ref()
-    }
-
-    pub fn set_bound_transform_feedback_buffer_range<'a>(
+    pub fn bind_transform_feedback_buffer_range<'a>(
         &mut self,
         index: u32,
         buffer_range: BufferRange<&'a WebGlBuffer>,
     ) -> impl ContextUpdate<'a, ()> {
-        if buffer_range != self.bound_transform_feedback_buffers[index as usize].as_ref() {
-            self.bound_transform_feedback_buffers[index as usize] = buffer_range.to_owned_buffer();
+        let current = unsafe {
+            self.bound_transform_feedback_buffers[index as usize]
+                .map(|abi| JsValue::ref_from_abi(abi))
+        };
+
+        if !buffer_range.identical(&current.as_ref().map(|b| b.deref())) {
+            self.bound_transform_feedback_buffers[index as usize] =
+                buffer_range.map(|b| b.into_abi());
 
             Some(move |context: &Gl| {
                 match buffer_range {
@@ -347,18 +360,18 @@ impl DynamicState {
         self.active_uniform_buffer_index = self.uniform_buffer_index_lru.use_lru_index() as u32;
     }
 
-    pub fn bound_uniform_buffer_range(&self, index: u32) -> BufferRange<&WebGlBuffer> {
-        self.bound_uniform_buffers[index as usize].as_ref()
-    }
-
-    pub fn set_bound_uniform_buffer_range<'a>(
+    pub fn bind_uniform_buffer_range<'a>(
         &mut self,
         buffer_range: BufferRange<&'a WebGlBuffer>,
     ) -> impl ContextUpdate<'a, ()> {
         let index = self.active_uniform_buffer_index;
 
-        if buffer_range != self.bound_uniform_buffers[index as usize].as_ref() {
-            self.bound_uniform_buffers[index as usize] = buffer_range.to_owned_buffer();
+        let current = unsafe {
+            self.bound_uniform_buffers[index as usize].map(|abi| JsValue::ref_from_abi(abi))
+        };
+
+        if !buffer_range.identical(&current.as_ref().map(|b| b.deref())) {
+            self.bound_uniform_buffers[index as usize] = buffer_range.map(|b| b.into_abi());
 
             Some(move |context: &Gl| {
                 match buffer_range {
@@ -383,16 +396,17 @@ impl DynamicState {
         }
     }
 
-    pub fn bound_draw_framebuffer(&self) -> Option<&WebGlFramebuffer> {
-        self.bound_draw_framebuffer.as_ref()
-    }
-
-    pub fn set_bound_draw_framebuffer<'a>(
+    pub fn bind_draw_framebuffer<'a>(
         &mut self,
         framebuffer: Option<&'a WebGlFramebuffer>,
     ) -> impl ContextUpdate<'a, ()> {
-        if !identical(framebuffer, self.bound_draw_framebuffer.as_ref()) {
-            self.bound_draw_framebuffer = framebuffer.map(|f| f.clone());
+        let current = unsafe {
+            self.bound_draw_framebuffer
+                .map(|abi| JsValue::ref_from_abi(abi))
+        };
+
+        if !identical(framebuffer, current.as_ref().map(|v| v.deref())) {
+            self.bound_draw_framebuffer = framebuffer.map(|f| f.into_abi());
 
             Some(move |context: &Gl| {
                 context.bind_framebuffer(Gl::DRAW_FRAMEBUFFER, framebuffer);
@@ -404,16 +418,17 @@ impl DynamicState {
         }
     }
 
-    pub fn bound_read_framebuffer(&self) -> Option<&WebGlFramebuffer> {
-        self.bound_read_framebuffer.as_ref()
-    }
-
-    pub fn set_bound_read_framebuffer<'a>(
+    pub fn bind_read_framebuffer<'a>(
         &mut self,
         framebuffer: Option<&'a WebGlFramebuffer>,
     ) -> impl ContextUpdate<'a, ()> {
-        if !identical(framebuffer, self.bound_read_framebuffer.as_ref()) {
-            self.bound_read_framebuffer = framebuffer.map(|f| f.clone());
+        let current = unsafe {
+            self.bound_read_framebuffer
+                .map(|abi| JsValue::ref_from_abi(abi))
+        };
+
+        if !identical(framebuffer, current.as_ref().map(|v| v.deref())) {
+            self.bound_read_framebuffer = framebuffer.map(|f| f.into_abi());
 
             Some(move |context: &Gl| {
                 context.bind_framebuffer(Gl::READ_FRAMEBUFFER, framebuffer);
@@ -425,16 +440,17 @@ impl DynamicState {
         }
     }
 
-    pub fn bound_renderbuffer(&self) -> Option<&WebGlRenderbuffer> {
-        self.bound_renderbuffer.as_ref()
-    }
-
-    pub fn set_bound_renderbuffer<'a>(
+    pub fn bind_renderbuffer<'a>(
         &mut self,
         renderbuffer: Option<&'a WebGlRenderbuffer>,
     ) -> impl ContextUpdate<'a, ()> {
-        if !identical(renderbuffer, self.bound_renderbuffer.as_ref()) {
-            self.bound_renderbuffer = renderbuffer.map(|r| r.clone());
+        let current = unsafe {
+            self.bound_renderbuffer
+                .map(|abi| JsValue::ref_from_abi(abi))
+        };
+
+        if !identical(renderbuffer, current.as_ref().map(|v| v.deref())) {
+            self.bound_renderbuffer = renderbuffer.map(|r| r.into_abi());
 
             Some(move |context: &Gl| {
                 context.bind_renderbuffer(Gl::RENDERBUFFER, renderbuffer);
@@ -446,21 +462,21 @@ impl DynamicState {
         }
     }
 
-    pub fn bound_texture_2d(&self) -> Option<&WebGlTexture> {
-        self.bound_texture_2d.as_ref()
-    }
-
-    pub fn set_bound_texture_2d<'a>(
+    pub fn bind_texture_2d<'a>(
         &mut self,
         texture: Option<&'a WebGlTexture>,
     ) -> impl ContextUpdate<'a, ()> {
+        let current = unsafe { self.bound_texture_2d.map(|abi| JsValue::ref_from_abi(abi)) };
+
         let active_unit_texture = &mut self.texture_units_textures[self.active_texture as usize];
 
-        if !identical(texture, self.bound_texture_2d.as_ref())
-            || !identical(texture, active_unit_texture.as_ref())
+        let unit_current = unsafe { active_unit_texture.map(|abi| JsValue::ref_from_abi(abi)) };
+
+        if !identical(texture, current.as_ref().map(|v| v.deref()))
+            || !identical(texture, unit_current.as_ref().map(|v| v.deref()))
         {
-            self.bound_texture_2d = texture.map(|t| t.clone());
-            *active_unit_texture = texture.map(|t| t.clone());
+            self.bound_texture_2d = texture.map(|t| t.into_abi());
+            *active_unit_texture = texture.map(|t| t.into_abi());
 
             Some(move |context: &Gl| {
                 context.bind_texture(Gl::TEXTURE_2D, texture);
@@ -472,21 +488,24 @@ impl DynamicState {
         }
     }
 
-    pub fn bound_texture_2d_array(&self) -> Option<&WebGlTexture> {
-        self.bound_texture_2d_array.as_ref()
-    }
-
-    pub fn set_bound_texture_2d_array<'a>(
+    pub fn bind_texture_2d_array<'a>(
         &mut self,
         texture: Option<&'a WebGlTexture>,
     ) -> impl ContextUpdate<'a, ()> {
+        let current = unsafe {
+            self.bound_texture_2d_array
+                .map(|abi| JsValue::ref_from_abi(abi))
+        };
+
         let active_unit_texture = &mut self.texture_units_textures[self.active_texture as usize];
 
-        if !identical(texture, self.bound_texture_2d_array.as_ref())
-            || !identical(texture, active_unit_texture.as_ref())
+        let unit_current = unsafe { active_unit_texture.map(|abi| JsValue::ref_from_abi(abi)) };
+
+        if !identical(texture, current.as_ref().map(|v| v.deref()))
+            || !identical(texture, unit_current.as_ref().map(|v| v.deref()))
         {
-            self.bound_texture_2d_array = texture.map(|t| t.clone());
-            *active_unit_texture = texture.map(|t| t.clone());
+            self.bound_texture_2d_array = texture.map(|t| t.into_abi());
+            *active_unit_texture = texture.map(|t| t.into_abi());
 
             Some(move |context: &Gl| {
                 context.bind_texture(Gl::TEXTURE_2D_ARRAY, texture);
@@ -498,21 +517,21 @@ impl DynamicState {
         }
     }
 
-    pub fn bound_texture_3d(&self) -> Option<&WebGlTexture> {
-        self.bound_texture_3d.as_ref()
-    }
-
-    pub fn set_bound_texture_3d<'a>(
+    pub fn bind_texture_3d<'a>(
         &mut self,
         texture: Option<&'a WebGlTexture>,
     ) -> impl ContextUpdate<'a, ()> {
+        let current = unsafe { self.bound_texture_3d.map(|abi| JsValue::ref_from_abi(abi)) };
+
         let active_unit_texture = &mut self.texture_units_textures[self.active_texture as usize];
 
-        if !identical(texture, self.bound_texture_3d.as_ref())
-            || !identical(texture, active_unit_texture.as_ref())
+        let unit_current = unsafe { active_unit_texture.map(|abi| JsValue::ref_from_abi(abi)) };
+
+        if !identical(texture, current.as_ref().map(|v| v.deref()))
+            || !identical(texture, unit_current.as_ref().map(|v| v.deref()))
         {
-            self.bound_texture_3d = texture.map(|t| t.clone());
-            *active_unit_texture = texture.map(|t| t.clone());
+            self.bound_texture_3d = texture.map(|t| t.into_abi());
+            *active_unit_texture = texture.map(|t| t.into_abi());
 
             Some(move |context: &Gl| {
                 context.bind_texture(Gl::TEXTURE_3D, texture);
@@ -524,21 +543,24 @@ impl DynamicState {
         }
     }
 
-    pub fn bound_texture_cube_map(&self) -> Option<&WebGlTexture> {
-        self.bound_texture_cube_map.as_ref()
-    }
-
-    pub fn set_bound_texture_cube_map<'a>(
+    pub fn bind_texture_cube_map<'a>(
         &mut self,
         texture: Option<&'a WebGlTexture>,
     ) -> impl ContextUpdate<'a, ()> {
+        let current = unsafe {
+            self.bound_texture_cube_map
+                .map(|abi| JsValue::ref_from_abi(abi))
+        };
+
         let active_unit_texture = &mut self.texture_units_textures[self.active_texture as usize];
 
-        if !identical(texture, self.bound_texture_cube_map.as_ref())
-            || !identical(texture, active_unit_texture.as_ref())
+        let unit_current = unsafe { active_unit_texture.map(|abi| JsValue::ref_from_abi(abi)) };
+
+        if !identical(texture, current.as_ref().map(|v| v.deref()))
+            || !identical(texture, unit_current.as_ref().map(|v| v.deref()))
         {
-            self.bound_texture_cube_map = texture.map(|t| t.clone());
-            *active_unit_texture = texture.map(|t| t.clone());
+            self.bound_texture_cube_map = texture.map(|t| t.into_abi());
+            *active_unit_texture = texture.map(|t| t.into_abi());
 
             Some(move |context: &Gl| {
                 context.bind_texture(Gl::TEXTURE_CUBE_MAP, texture);
@@ -550,25 +572,17 @@ impl DynamicState {
         }
     }
 
-    pub fn texture_units_textures(&self) -> &[Option<WebGlTexture>] {
-        &self.texture_units_textures
-    }
-
-    pub fn texture_units_textures_mut(&mut self) -> &mut [Option<WebGlTexture>] {
-        &mut self.texture_units_textures
-    }
-
-    pub fn bound_sampler(&self, texture_unit: u32) -> Option<&WebGlSampler> {
-        self.bound_samplers[texture_unit as usize].as_ref()
-    }
-
-    pub fn set_bound_sampler<'a>(
+    pub fn bind_sampler<'a>(
         &mut self,
         texture_unit: u32,
         sampler: Option<&'a WebGlSampler>,
     ) -> impl ContextUpdate<'a, ()> {
-        if !identical(sampler, self.bound_samplers[texture_unit as usize].as_ref()) {
-            self.bound_samplers[texture_unit as usize] = sampler.map(|v| v.clone());
+        let current = unsafe {
+            self.bound_samplers[texture_unit as usize].map(|abi| JsValue::ref_from_abi(abi))
+        };
+
+        if !identical(sampler, current.as_ref().map(|v| v.deref())) {
+            self.bound_samplers[texture_unit as usize] = sampler.map(|v| v.into_abi());
 
             Some(move |context: &Gl| {
                 context.bind_sampler(texture_unit, sampler);
@@ -580,16 +594,17 @@ impl DynamicState {
         }
     }
 
-    pub fn bound_vertex_array(&self) -> Option<&WebGlVertexArrayObject> {
-        self.bound_vertex_array.as_ref()
-    }
-
-    pub fn set_bound_vertex_array<'a>(
+    pub fn bind_vertex_array<'a>(
         &mut self,
         vertex_array: Option<&'a WebGlVertexArrayObject>,
     ) -> impl ContextUpdate<'a, ()> {
-        if !identical(vertex_array, self.bound_vertex_array.as_ref()) {
-            self.bound_vertex_array = vertex_array.map(|v| v.clone());
+        let current = unsafe {
+            self.bound_vertex_array
+                .map(|abi| JsValue::ref_from_abi(abi))
+        };
+
+        if !identical(vertex_array, current.as_ref().map(|v| v.deref())) {
+            self.bound_vertex_array = vertex_array.map(|v| v.into_abi());
 
             Some(move |context: &Gl| {
                 context.bind_vertex_array(vertex_array);
@@ -601,16 +616,17 @@ impl DynamicState {
         }
     }
 
-    pub fn bound_transform_feedback(&self) -> Option<&WebGlTransformFeedback> {
-        self.bound_transform_feedback.as_ref()
-    }
-
-    pub fn set_bound_transform_feedback<'a>(
+    pub fn bind_transform_feedback<'a>(
         &mut self,
         transform_feedback: Option<&'a WebGlTransformFeedback>,
     ) -> impl ContextUpdate<'a, ()> {
-        if !identical(transform_feedback, self.bound_transform_feedback.as_ref()) {
-            self.bound_transform_feedback = transform_feedback.map(|tf| tf.clone());
+        let current = unsafe {
+            self.bound_transform_feedback
+                .map(|abi| JsValue::ref_from_abi(abi))
+        };
+
+        if !identical(transform_feedback, current.as_ref().map(|v| v.deref())) {
+            self.bound_transform_feedback = transform_feedback.map(|tf| tf.into_abi());
 
             Some(move |context: &Gl| {
                 context.bind_transform_feedback(Gl::TRANSFORM_FEEDBACK, transform_feedback);
@@ -799,7 +815,11 @@ impl DynamicState {
             self.depth_test_enabled = depth_test_enabled;
 
             Some(move |context: &Gl| {
-                context.enable(Gl::DEPTH_TEST);
+                if depth_test_enabled {
+                    context.enable(Gl::DEPTH_TEST);
+                } else {
+                    context.disable(Gl::DEPTH_TEST);
+                }
 
                 Ok(())
             })
@@ -820,7 +840,11 @@ impl DynamicState {
             self.stencil_test_enabled = stencil_test_enabled;
 
             Some(move |context: &Gl| {
-                context.enable(Gl::STENCIL_TEST);
+                if stencil_test_enabled {
+                    context.enable(Gl::STENCIL_TEST);
+                } else {
+                    context.disable(Gl::STENCIL_TEST);
+                }
 
                 Ok(())
             })
@@ -841,7 +865,11 @@ impl DynamicState {
             self.scissor_test_enabled = scissor_test_enabled;
 
             Some(move |context: &Gl| {
-                context.enable(Gl::SCISSOR_TEST);
+                if scissor_test_enabled {
+                    context.enable(Gl::SCISSOR_TEST);
+                } else {
+                    context.disable(Gl::SCISSOR_TEST);
+                }
 
                 Ok(())
             })
@@ -859,7 +887,11 @@ impl DynamicState {
             self.blend_enabled = blend_enabled;
 
             Some(move |context: &Gl| {
-                context.enable(Gl::BLEND);
+                if blend_enabled {
+                    context.enable(Gl::BLEND);
+                } else {
+                    context.disable(Gl::BLEND);
+                }
 
                 Ok(())
             })
@@ -877,7 +909,11 @@ impl DynamicState {
             self.dither_enabled = dither_enabled;
 
             Some(move |context: &Gl| {
-                context.enable(Gl::DITHER);
+                if dither_enabled {
+                    context.enable(Gl::DITHER);
+                } else {
+                    context.disable(Gl::DITHER);
+                }
 
                 Ok(())
             })
@@ -898,7 +934,11 @@ impl DynamicState {
             self.polygon_offset_fill_enabled = polygon_offset_fill_enabled;
 
             Some(move |context: &Gl| {
-                context.enable(Gl::POLYGON_OFFSET_FILL);
+                if polygon_offset_fill_enabled {
+                    context.enable(Gl::POLYGON_OFFSET_FILL);
+                } else {
+                    context.disable(Gl::POLYGON_OFFSET_FILL);
+                }
 
                 Ok(())
             })
@@ -919,7 +959,11 @@ impl DynamicState {
             self.sample_alpha_to_coverage_enabled = sample_aplha_to_coverage_enabled;
 
             Some(move |context: &Gl| {
-                context.enable(Gl::SAMPLE_ALPHA_TO_COVERAGE);
+                if sample_aplha_to_coverage_enabled {
+                    context.enable(Gl::SAMPLE_ALPHA_TO_COVERAGE);
+                } else {
+                    context.disable(Gl::SAMPLE_ALPHA_TO_COVERAGE);
+                }
 
                 Ok(())
             })
@@ -940,7 +984,11 @@ impl DynamicState {
             self.sample_coverage_enabled = sample_coverage_enabled;
 
             Some(move |context: &Gl| {
-                context.enable(Gl::SAMPLE_COVERAGE);
+                if sample_coverage_enabled {
+                    context.enable(Gl::SAMPLE_COVERAGE);
+                } else {
+                    context.disable(Gl::SAMPLE_COVERAGE);
+                }
 
                 Ok(())
             })
@@ -961,7 +1009,11 @@ impl DynamicState {
             self.rasterizer_discard_enabled = rasterizer_discard_enabled;
 
             Some(move |context: &Gl| {
-                context.enable(Gl::RASTERIZER_DISCARD);
+                if rasterizer_discard_enabled {
+                    context.enable(Gl::RASTERIZER_DISCARD);
+                } else {
+                    context.disable(Gl::RASTERIZER_DISCARD);
+                }
 
                 Ok(())
             })
@@ -1563,7 +1615,7 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub enum BufferRange<T> {
     None,
     Full(T),
@@ -1580,38 +1632,32 @@ impl<T> BufferRange<T> {
             }
         }
     }
-}
 
-impl<'a> BufferRange<&'a WebGlBuffer> {
-    pub fn to_owned_buffer(&self) -> BufferRange<WebGlBuffer> {
-        match *self {
+    fn map<U, F>(self, f: F) -> BufferRange<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        match self {
             BufferRange::None => BufferRange::None,
-            BufferRange::Full(buffer) => BufferRange::Full(buffer.clone()),
+            BufferRange::Full(buffer) => BufferRange::Full(f(buffer)),
             BufferRange::OffsetSize(buffer, offset, size) => {
-                BufferRange::OffsetSize(buffer.clone(), offset, size)
+                BufferRange::OffsetSize(f(buffer), offset, size)
             }
         }
     }
-}
 
-impl<T> PartialEq for BufferRange<T>
-where
-    T: Borrow<WebGlBuffer>,
-{
-    fn eq(&self, other: &Self) -> bool {
+    fn identical<U>(&self, other: &BufferRange<U>) -> bool
+    where
+        T: AsRef<JsValue>,
+        U: AsRef<JsValue>,
+    {
         match (self, other) {
             (BufferRange::None, BufferRange::None) => true,
-            (BufferRange::Full(a), BufferRange::Full(b)) => {
-                AsRef::<JsValue>::as_ref(a.borrow()) == AsRef::<JsValue>::as_ref(b.borrow())
-            }
+            (BufferRange::Full(a), BufferRange::Full(b)) => a.as_ref() == b.as_ref(),
             (
                 BufferRange::OffsetSize(a, offset_a, size_a),
                 BufferRange::OffsetSize(b, offset_b, size_b),
-            ) => {
-                offset_a == offset_b
-                    && size_a == size_b
-                    && AsRef::<JsValue>::as_ref(a.borrow()) == AsRef::<JsValue>::as_ref(b.borrow())
-            }
+            ) => offset_a == offset_b && size_a == size_b && a.as_ref() == b.as_ref(),
             _ => false,
         }
     }
@@ -1742,10 +1788,16 @@ impl<'a> FramebufferCache<'a> {
         let (framebuffer, _) = framebuffer_cache
             .entry(key)
             .and_modify(|(framebuffer, _)| {
-                if !identical(Some(&framebuffer.fbo), bound_draw_framebuffer.as_ref()) {
+                let current =
+                    unsafe { bound_draw_framebuffer.map(|abi| JsValue::ref_from_abi(abi)) };
+
+                if !identical(
+                    Some(&framebuffer.fbo),
+                    current.as_ref().map(|fb| fb.deref()),
+                ) {
                     gl.bind_framebuffer(target, Some(&framebuffer.fbo));
 
-                    *bound_draw_framebuffer = Some(framebuffer.fbo.clone());
+                    *bound_draw_framebuffer = Some((&framebuffer.fbo).into_abi());
                 }
             })
             .or_insert_with(|| {
@@ -1753,7 +1805,7 @@ impl<'a> FramebufferCache<'a> {
 
                 gl.bind_framebuffer(target, Some(&fbo));
 
-                *bound_draw_framebuffer = Some(fbo.clone());
+                *bound_draw_framebuffer = Some((&fbo).into_abi());
 
                 let mut attachment_ids = [None; 17];
 
@@ -1835,7 +1887,7 @@ pub(crate) trait AttachmentSet: Hash {
     fn depth_stencil_attachment(&self) -> &DepthStencilAttachmentDescriptor;
 }
 
-#[derive(PartialEq, Hash)]
+#[derive(Clone, PartialEq, Hash)]
 pub(crate) enum DepthStencilAttachmentDescriptor {
     Depth(AttachableImageData),
     Stencil(AttachableImageData),
@@ -1870,10 +1922,12 @@ impl<'a> VertexArrayCache<'a> {
         let (vao, _) = vertex_array_cache
             .entry(key)
             .and_modify(|(vertex_array, _)| {
-                if !identical(Some(vertex_array), bound_vertex_array.as_ref()) {
+                let current = unsafe { bound_vertex_array.map(|abi| JsValue::ref_from_abi(abi)) };
+
+                if !identical(Some(vertex_array), current.as_ref().map(|v| v.deref())) {
                     gl.bind_vertex_array(Some(vertex_array));
 
-                    *bound_vertex_array = Some(vertex_array.clone());
+                    *bound_vertex_array = Some((&*vertex_array).into_abi());
                 }
             })
             .or_insert_with(|| {
@@ -1881,7 +1935,7 @@ impl<'a> VertexArrayCache<'a> {
 
                 gl.bind_vertex_array(Some(&vao));
 
-                *bound_vertex_array = Some(vao.clone());
+                *bound_vertex_array = Some((&vao).into_abi());
 
                 let mut buffer_ids = [None; 17];
 
@@ -1894,7 +1948,7 @@ impl<'a> VertexArrayCache<'a> {
                         buffer_id
                             .unwrap()
                             .with_value_unchecked(|buffer: &WebGlBuffer| {
-                                *bound_array_buffer = Some(buffer.clone());
+                                *bound_array_buffer = Some(buffer.into_abi());
 
                                 gl.bind_buffer(Gl::ARRAY_BUFFER, Some(buffer));
                             });
@@ -1922,7 +1976,7 @@ impl<'a> VertexArrayCache<'a> {
         &mut self,
         layout: &VertexInputLayoutDescriptor,
         vertex_buffers: &BufferDescriptors,
-        index_buffer: &IndexBufferDescriptor,
+        index_buffer: &IndexDataDescriptor,
         gl: &Gl,
     ) -> &WebGlVertexArrayObject {
         let mut hasher = FnvHasher::default();
@@ -1943,10 +1997,12 @@ impl<'a> VertexArrayCache<'a> {
         let (vao, _) = vertex_array_cache
             .entry(key)
             .and_modify(|(vertex_array, _)| {
-                if !identical(Some(vertex_array), bound_vertex_array.as_ref()) {
+                let current = unsafe { bound_vertex_array.map(|abi| JsValue::ref_from_abi(abi)) };
+
+                if !identical(Some(vertex_array), current.as_ref().map(|v| v.deref())) {
                     gl.bind_vertex_array(Some(vertex_array));
 
-                    *bound_vertex_array = Some(vertex_array.clone());
+                    *bound_vertex_array = Some((&*vertex_array).into_abi());
                 }
             })
             .or_insert_with(|| {
@@ -1954,7 +2010,7 @@ impl<'a> VertexArrayCache<'a> {
 
                 gl.bind_vertex_array(Some(&vao));
 
-                *bound_vertex_array = Some(vao.clone());
+                *bound_vertex_array = Some((&vao).into_abi());
 
                 let mut buffer_ids = [None; 17];
 
@@ -1967,7 +2023,7 @@ impl<'a> VertexArrayCache<'a> {
                         buffer_id
                             .unwrap()
                             .with_value_unchecked(|buffer: &WebGlBuffer| {
-                                *bound_array_buffer = Some(buffer.clone());
+                                *bound_array_buffer = Some(buffer.into_abi());
 
                                 gl.bind_buffer(Gl::ARRAY_BUFFER, Some(buffer));
                             });
@@ -1991,7 +2047,7 @@ impl<'a> VertexArrayCache<'a> {
                     index_buffer_id
                         .unwrap()
                         .with_value_unchecked(|buffer: &WebGlBuffer| {
-                            *bound_element_array_buffer = Some(buffer.clone());
+                            *bound_element_array_buffer = Some(buffer.into_abi());
 
                             gl.bind_buffer(Gl::ELEMENT_ARRAY_BUFFER, Some(buffer));
                         });
@@ -2615,6 +2671,8 @@ pub(crate) struct Program {
     attribute_slot_descriptors: Vec<VertexAttributeSlotDescriptor>,
     resource_slot_descriptors: Vec<ShaderResourceSlotDescriptor>,
 }
+
+impl !Send for Program {}
 
 impl Program {
     pub fn gl_object(&self) -> &WebGlProgram {

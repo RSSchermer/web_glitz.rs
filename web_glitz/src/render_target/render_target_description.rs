@@ -581,11 +581,13 @@ pub struct RenderTarget<C, Ds> {
     pub depth_stencil: Ds,
 }
 
+#[derive(Clone)]
 pub(crate) enum RenderTargetData {
     Default,
     Custom(CustomRenderTargetData),
 }
 
+#[derive(Clone)]
 pub(crate) struct CustomRenderTargetData {
     pub(crate) load_ops: [LoadAction; 17],
     pub(crate) store_ops: [StoreOp; 17],

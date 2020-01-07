@@ -33,7 +33,8 @@
     fn_traits,
     slice_index_methods,
     unboxed_closures,
-    unsize
+    unsize,
+    optin_builtin_traits
 )]
 
 pub mod derive {

@@ -57,6 +57,24 @@ macro_rules! generate_sequence {
                 Progress::Finished((self.a.take(), $(self.$B.take()),*))
             }
         }
+
+        impl<A, $($B),*, Ec> Clone for $Sequence<A, $($B),*, Ec>
+        where
+            A: GpuTask<Ec> + Clone,
+            A::Output: Clone,
+            $(
+                $B: GpuTask<Ec> + Clone,
+                $B::Output: Clone,
+            )*
+        {
+            fn clone(&self) -> Self {
+                $Sequence {
+                    id: self.id.clone(),
+                    a: self.a.clone(),
+                    $($B: self.$B.clone()),*
+                }
+            }
+        }
     )*)
 }
 

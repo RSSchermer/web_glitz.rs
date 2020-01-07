@@ -57,6 +57,24 @@ macro_rules! generate_join {
                 }
             }
         }
+
+        impl<A, $($B),*, Ec> Clone for $Join<A, $($B),*, Ec>
+        where
+            A: GpuTask<Ec> + Clone,
+            A::Output: Clone,
+            $(
+                $B: GpuTask<Ec> + Clone,
+                $B::Output: Clone,
+            )*
+        {
+            fn clone(&self) -> Self {
+                $Join {
+                    id: self.id.clone(),
+                    a: self.a.clone(),
+                    $($B: self.$B.clone()),*
+                }
+            }
+        }
     )*)
 }
 

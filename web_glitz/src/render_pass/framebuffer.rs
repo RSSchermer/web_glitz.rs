@@ -28,10 +28,10 @@ use crate::pipeline::graphics::graphics_pipeline::{
     RecordTransformFeedback, TransformFeedbackData, TransformFeedbackState,
 };
 use crate::pipeline::graphics::primitive_assembly::Topology;
+use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
 use crate::pipeline::graphics::util::BufferDescriptors;
-use crate::pipeline::graphics::vertex::index_buffer::IndexBufferDescriptor;
 use crate::pipeline::graphics::{
-    Blending, DepthTest, GraphicsPipeline, IndexBuffer, IndexBufferEncodingContext,
+    Blending, DepthTest, GraphicsPipeline, IndexBuffer, IndexData, IndexDataDescriptor,
     PrimitiveAssembly, StencilTest, TypedVertexBuffers, TypedVertexInputLayout, VertexBuffers,
     VertexBuffersEncodingContext, VertexInputLayoutDescriptor, Viewport,
 };
@@ -660,7 +660,7 @@ pub struct PipelineTaskContext {
     connection: *mut Connection,
     attribute_layout: *const VertexInputLayoutDescriptor,
     vertex_buffers: BufferDescriptors,
-    index_buffer: Option<IndexBufferDescriptor>,
+    index_buffer: Option<IndexDataDescriptor>,
 }
 
 impl PipelineTaskContext {
@@ -700,11 +700,16 @@ impl PipelineTaskContext {
 /// specific [GraphicsPipeline] is bound as the [ActiveGraphicsPipeline].
 ///
 /// See [Framebuffer::pipeline_task].
+#[derive(Clone)]
 pub struct PipelineTask<T> {
     id: usize,
     render_pass_id: usize,
     task: T,
     program_id: JsId,
+    #[allow(dead_code)] // Just holding on to this so it won't get dropped prematurely
+    vertex_shader_data: Arc<VertexShaderData>,
+    #[allow(dead_code)] // Just holding on to this so it won't get dropped prematurely
+    fragment_shader_data: Arc<FragmentShaderData>,
     transform_feedback_data: Arc<UnsafeCell<Option<TransformFeedbackData>>>,
     transform_feedback_buffers: Option<BufferDescriptors>,
     attribute_layout: VertexInputLayoutDescriptor,
@@ -760,6 +765,8 @@ where
             transform_feedback_data: pipeline.transform_feedback_data.clone(),
             transform_feedback_buffers,
             program_id: pipeline.program_id(),
+            vertex_shader_data: pipeline.vertex_shader_data.clone(),
+            fragment_shader_data: pipeline.fragment_shader_data.clone(),
             attribute_layout: pipeline.vertex_attribute_layout().clone(),
             primitive_assembly: pipeline.primitive_assembly().clone(),
             depth_test: pipeline.depth_test().cloned(),
@@ -787,11 +794,8 @@ where
 
         unsafe {
             self.program_id.with_value_unchecked(|program_object| {
-                state
-                    .set_active_program(Some(program_object))
-                    .apply(gl)
-                    .unwrap();
-            })
+                state.use_program(Some(program_object)).apply(gl).unwrap();
+            });
         };
 
         let framebuffer_dimensions = self.framebuffer_dimensions.unwrap_or_else(|| {
@@ -810,7 +814,7 @@ where
                         .id
                         .with_value_unchecked(|transform_feedback| {
                             state
-                                .set_bound_transform_feedback(Some(transform_feedback))
+                                .bind_transform_feedback(Some(transform_feedback))
                                 .apply(gl)
                                 .unwrap();
                         });
@@ -828,7 +832,7 @@ where
                                 .unwrap()
                                 .with_value_unchecked(|buffer| {
                                     state
-                                        .set_bound_transform_feedback_buffer_range(
+                                        .bind_transform_feedback_buffer_range(
                                             i as u32,
                                             BufferRange::OffsetSize(buffer, offset, size),
                                         )
@@ -841,7 +845,7 @@ where
                     for i in transform_feedback_buffers.len()..transform_feedback_data.buffers.len()
                     {
                         state
-                            .set_bound_transform_feedback_buffer_range(i as u32, BufferRange::None)
+                            .bind_transform_feedback_buffer_range(i as u32, BufferRange::None)
                             .apply(gl)
                             .unwrap();
                     }
@@ -866,7 +870,7 @@ where
                 let transform_feedback = gl.create_transform_feedback().unwrap();
 
                 state
-                    .set_bound_transform_feedback(Some(&transform_feedback))
+                    .bind_transform_feedback(Some(&transform_feedback))
                     .apply(gl)
                     .unwrap();
 
@@ -881,7 +885,7 @@ where
                             .unwrap()
                             .with_value_unchecked(|buffer| {
                                 state
-                                    .set_bound_transform_feedback_buffer_range(
+                                    .bind_transform_feedback_buffer_range(
                                         i as u32,
                                         BufferRange::OffsetSize(buffer, offset, size),
                                     )
@@ -902,15 +906,12 @@ where
 
             // Make sure none of the transform feedback buffers are bound to any other bind slots as
             // this will cause the browser to error in the next draw command.
-            state.set_bound_array_buffer(None).apply(gl).unwrap();
-            state.set_bound_copy_read_buffer(None).apply(gl).unwrap();
-            state.set_bound_copy_write_buffer(None).apply(gl).unwrap();
-            state
-                .set_bound_element_array_buffer(None)
-                .apply(gl)
-                .unwrap();
-            state.set_bound_pixel_pack_buffer(None).apply(gl).unwrap();
-            state.set_bound_pixel_unpack_buffer(None).apply(gl).unwrap();
+            state.bind_array_buffer(None).apply(gl).unwrap();
+            state.bind_copy_read_buffer(None).apply(gl).unwrap();
+            state.bind_copy_write_buffer(None).apply(gl).unwrap();
+            state.bind_element_array_buffer(None).apply(gl).unwrap();
+            state.bind_pixel_pack_buffer(None).apply(gl).unwrap();
+            state.bind_pixel_unpack_buffer(None).apply(gl).unwrap();
         } else {
             if let Some(transform_feedback_data) = transform_feedback_data.as_mut() {
                 if transform_feedback_data.state != TransformFeedbackState::Inactive {
@@ -919,7 +920,7 @@ where
                             .id
                             .with_value_unchecked(|transform_feedback| {
                                 state
-                                    .set_bound_transform_feedback(Some(transform_feedback))
+                                    .bind_transform_feedback(Some(transform_feedback))
                                     .apply(gl)
                                     .unwrap();
                             });
@@ -930,10 +931,7 @@ where
                         // the next time they are used in a draw command.
                         for i in 0..transform_feedback_data.buffers.len() {
                             state
-                                .set_bound_transform_feedback_buffer_range(
-                                    i as u32,
-                                    BufferRange::None,
-                                )
+                                .bind_transform_feedback_buffer_range(i as u32, BufferRange::None)
                                 .apply(gl)
                                 .unwrap();
                         }
@@ -1051,7 +1049,9 @@ impl<'a, V, R, Tf> ActiveGraphicsPipeline<'a, V, R, Tf> {
     /// });
     /// # }
     /// ```
-    pub fn task_builder(&self) -> GraphicsPipelineTaskBuilder<'a, V, R, Unspecified, Unspecified, Unspecified, Empty> {
+    pub fn task_builder(
+        &self,
+    ) -> GraphicsPipelineTaskBuilder<'a, V, R, Unspecified, Unspecified, Unspecified, Empty> {
         GraphicsPipelineTaskBuilder {
             context_id: self.pipeline.context_id(),
             topology: self.pipeline.primitive_assembly().topology(),
@@ -1235,15 +1235,13 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
         Sequence<T, BindIndexBufferCommand, PipelineTaskContext>,
     >
     where
-        IbNew: IndexBuffer,
+        IbNew: IndexData,
         T: GpuTask<PipelineTaskContext>,
     {
-        let index_buffer = index_buffer
-            .encode(&mut IndexBufferEncodingContext::new())
-            .into_descriptor();
+        let index_data_descriptor = index_buffer.descriptor();
 
-        if index_buffer.buffer_data.context_id() != self.context_id {
-            panic!("Buffer belongs to a different context.");
+        if index_data_descriptor.buffer_data.context_id() != self.context_id {
+            panic!("Index buffer belongs to a different context.");
         }
 
         GraphicsPipelineTaskBuilder {
@@ -1254,7 +1252,7 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
                 self.task,
                 BindIndexBufferCommand {
                     pipeline_task_id: self.pipeline_task_id,
-                    index_buffer,
+                    index_buffer: index_data_descriptor,
                 },
             ),
             _pipeline: marker::PhantomData,
@@ -1498,7 +1496,7 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
     /// # use web_glitz::render_target::DefaultRenderTarget;
     /// # use web_glitz::runtime::RenderingContext;
     /// # use web_glitz::buffer::UsageHint;
-    /// # use web_glitz::pipeline::graphics::{GraphicsPipeline, VertexBuffers, IndexBuffer};
+    /// # use web_glitz::pipeline::graphics::{GraphicsPipeline, VertexBuffers, IndexData};
     /// # use web_glitz::pipeline::resources::Resources;
     /// # fn wrapper<Rc, V, I>(
     /// #     context: &Rc,
@@ -1510,7 +1508,7 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
     /// # where
     /// #     Rc: RenderingContext,
     /// #     V: VertexBuffers,
-    /// #     I: IndexBuffer
+    /// #     I: IndexData
     /// # {
     /// # let resources = ();
     /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
@@ -1545,7 +1543,7 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
     >
     where
         Vb: VertexBuffers,
-        Ib: IndexBuffer,
+        Ib: IndexData,
         Rb: ResourceBindings,
         T: GpuTask<PipelineTaskContext>,
     {
@@ -1578,6 +1576,7 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
 /// Command that binds a (set of) vertex buffer(s) to the currently bound graphics pipeline.
 ///
 /// See [GraphicsPipelineTaskBuilder::bind_vertex_buffers].
+#[derive(Clone)]
 pub struct BindVertexBuffersCommand {
     pipeline_task_id: usize,
     vertex_buffers: Option<BufferDescriptors>,
@@ -1601,9 +1600,10 @@ unsafe impl GpuTask<PipelineTaskContext> for BindVertexBuffersCommand {
 /// Command that binds an index buffer to the currently bound graphics pipeline.
 ///
 /// See [GraphicsPipelineTaskBuilder::bind_index_buffer].
+#[derive(Clone)]
 pub struct BindIndexBufferCommand {
     pipeline_task_id: usize,
-    index_buffer: IndexBufferDescriptor,
+    index_buffer: IndexDataDescriptor,
 }
 
 unsafe impl GpuTask<PipelineTaskContext> for BindIndexBufferCommand {
@@ -1623,6 +1623,7 @@ unsafe impl GpuTask<PipelineTaskContext> for BindIndexBufferCommand {
 /// Command that binds a set of resources to the resource slots of the currently bound pipeline.
 ///
 /// See [GraphicsPipelineTaskBuilder::bind_resources].
+#[derive(Clone)]
 pub struct BindResourcesCommand<Rb> {
     pipeline_task_id: usize,
     resource_bindings: Rb,
@@ -1650,6 +1651,7 @@ where
 /// Command that runs the currently bound graphics pipeline.
 ///
 /// See [GraphicsPipelineTaskBuilder::draw].
+#[derive(Clone)]
 pub struct DrawCommand {
     pipeline_task_id: usize,
     topology: Topology,
@@ -1693,6 +1695,7 @@ unsafe impl GpuTask<PipelineTaskContext> for DrawCommand {
 /// Command that runs the currently bound graphics pipeline in indexed mode.
 ///
 /// See [GraphicsPipelineTaskBuilder::draw_indexed].
+#[derive(Clone)]
 pub struct DrawIndexedCommand {
     pipeline_task_id: usize,
     topology: Topology,
@@ -1838,10 +1841,12 @@ impl_blit_color_target!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C
 
 /// Returned from [BlitColorTarget::descriptor], encapsulates the information about the target
 /// buffer needed by the [BlitCommand].
+#[derive(Clone)]
 pub struct BlitTargetDescriptor {
     internal: BlitTargetDescriptorInternal,
 }
 
+#[derive(Clone)]
 enum BlitTargetDescriptorInternal {
     Default,
     FBO { width: u32, height: u32 },
@@ -1861,6 +1866,7 @@ pub trait BlitSource {
 
 /// Returned from [BlitSource::descriptor], encapsulates the information about the blit source
 /// required by the [BlitCommand].
+#[derive(Clone)]
 pub struct BlitSourceDescriptor {
     attachment: AttachableImageData,
     region: ((u32, u32), u32, u32),
@@ -2085,6 +2091,7 @@ impl_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C1
 /// See [Framebuffer::blit_color_nearest_command], [Framebuffer::blit_color_linear_command],
 /// [Framebuffer::blit_depth_stencil_command], [Framebuffer::blit_depth_command] and
 /// [Framebuffer::blit_stencil_command]
+#[derive(Clone)]
 pub struct BlitCommand {
     render_pass_id: usize,
     read_slot: u32,
@@ -2105,7 +2112,7 @@ unsafe impl GpuTask<RenderPassContext> for BlitCommand {
     fn progress(&mut self, context: &mut RenderPassContext) -> Progress<Self::Output> {
         let (gl, state) = unsafe { context.unpack_mut() };
 
-        state.bind_read_framebuffer(gl);
+        state.bind_default_read_framebuffer(gl);
 
         self.source
             .attachment
@@ -3061,6 +3068,7 @@ where
 ///
 /// See [FloatBuffer::clear_command], [DefaultRGBBuffer::clear_command] and
 /// [DefaultRGBABuffer::clear_command].
+#[derive(Clone)]
 pub struct ClearFloatCommand {
     render_pass_id: usize,
     buffer_index: i32,
@@ -3098,6 +3106,7 @@ unsafe impl GpuTask<RenderPassContext> for ClearFloatCommand {
 /// Command that will clear a region of a color buffer that stores integer values.
 ///
 /// See [IntegerBuffer::clear_command].
+#[derive(Clone)]
 pub struct ClearIntegerCommand {
     render_pass_id: usize,
     buffer_index: i32,
@@ -3135,6 +3144,7 @@ unsafe impl GpuTask<RenderPassContext> for ClearIntegerCommand {
 /// Command that will clear a region of a color buffer that stores unsigned integer values.
 ///
 /// See [UnsignedIntegerBuffer::clear_command].
+#[derive(Clone)]
 pub struct ClearUnsignedIntegerCommand {
     render_pass_id: usize,
     buffer_index: i32,
@@ -3172,6 +3182,7 @@ unsafe impl GpuTask<RenderPassContext> for ClearUnsignedIntegerCommand {
 /// Command that will clear the depth and stencil values in a region of a depth-stencil buffer.
 ///
 /// See [DepthStencilBuffer::clear_command] and [DefaultDepthStencilBuffer::clear_command].
+#[derive(Clone)]
 pub struct ClearDepthStencilCommand {
     render_pass_id: usize,
     depth: f32,
@@ -3210,6 +3221,7 @@ unsafe impl GpuTask<RenderPassContext> for ClearDepthStencilCommand {
 ///
 /// See [DepthStencilBuffer::clear_depth_command], [DepthBuffer::clear_command],
 /// [DefaultDepthStencilBuffer::clear_depth_command] and [DefaultDepthBuffer::clear_command].
+#[derive(Clone)]
 pub struct ClearDepthCommand {
     render_pass_id: usize,
     depth: f32,
@@ -3247,6 +3259,7 @@ unsafe impl GpuTask<RenderPassContext> for ClearDepthCommand {
 ///
 /// See [DepthStencilBuffer::clear_stencil_command], [StencilBuffer::clear_command],
 /// [DefaultDepthStencilBuffer::clear_stencil_command] and [DefaultStencilBuffer::clear_command].
+#[derive(Clone)]
 pub struct ClearStencilCommand {
     render_pass_id: usize,
     stencil: i32,

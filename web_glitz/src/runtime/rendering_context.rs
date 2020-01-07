@@ -18,7 +18,7 @@ use crate::image::texture_cube::{TextureCube, TextureCubeDescriptor};
 use crate::image::MaxMipmapLevelsExceeded;
 use crate::pipeline::graphics::{
     FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, IncompatibleVertexInputLayout,
-    ShaderLinkingError, VertexShader,
+    IndexBuffer, IndexFormat, ShaderLinkingError, VertexShader,
 };
 use crate::pipeline::resources::{
     BindGroup, BindableResourceGroup, IncompatibleResources, ResourceSlotIdentifier,
@@ -186,6 +186,36 @@ pub trait RenderingContext {
     where
         D: IntoBuffer<T>,
         T: ?Sized;
+
+    /// Creates a new GPU-accessible memory [IndexBuffer].
+    ///
+    /// # Examples
+    ///
+    /// An [IndexBuffer] can store a slice of indices that implement [IndexFormat]:
+    ///
+    /// ```
+    /// # #![feature(const_fn)]
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # use web_glitz::pipeline::graphics::IndexBuffer;
+    /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
+    /// use web_glitz::buffer::UsageHint;
+    ///
+    /// let index_data: [u16; 4] = [1, 2, 3, 4];
+    /// let index_buffer: IndexBuffer<u16> = context.create_index_buffer(index_data, UsageHint::StaticDraw);
+    /// # }
+    /// ```
+    ///
+    /// Here `context` is a [RenderingContext]. We use [UsageHint::StaticDraw] to indicate that we
+    /// intend to read this buffer on the GPU and we intend to modify the contents of the buffer
+    /// only rarely (see [UsageHint] for details).
+    ///
+    /// Note that [create_buffer] takes ownership of the data source (`index_data` in the example)
+    /// and that the data source must be `'static`. It is however possible to use shared ownership
+    /// constructs like [Rc](std::rc::Rc) or [Arc](std::sync::Arc).
+    fn create_index_buffer<D, T>(&self, data: D, usage_hint: UsageHint) -> IndexBuffer<T>
+    where
+        D: Borrow<[T]> + 'static,
+        T: IndexFormat + 'static;
 
     /// Creates a new [Renderbuffer].
     ///

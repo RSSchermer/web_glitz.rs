@@ -16,6 +16,7 @@ use crate::task::{ContextId, GpuTask, Progress};
 /// the images attached to the render target.
 ///
 /// For details on how a [RenderPass] is created, see [RenderingContext::create_render_pass].
+#[derive(Clone)]
 pub struct RenderPass<T> {
     pub(crate) id: usize,
     pub(crate) context_id: usize,
@@ -84,7 +85,7 @@ where
 
         match &self.render_target {
             RenderTargetData::Default => {
-                state.set_bound_draw_framebuffer(None).apply(gl).unwrap();
+                state.bind_draw_framebuffer(None).apply(gl).unwrap();
 
                 self.task.progress(&mut RenderPassContext {
                     connection,

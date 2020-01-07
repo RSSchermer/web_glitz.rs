@@ -1,5 +1,5 @@
 [package]
-name = "6_cube_3d"
+name = "7_cube_3d_animated"
 version = "0.1.0"
 authors = ["Roland Schermer <roland0507@gmail.com>"]
 edition = "2018"
@@ -9,10 +9,13 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
+arwa = "0.1.0"
 cgmath = "0.17.0"
 cgmath-std140 = "0.2.0"
+futures = "0.3.1"
 std140 = "0.1.2"
 wasm-bindgen = "0.2.48"
+wasm-bindgen-futures = "0.4.5"
 web-glitz = { version = "0.1.1", path = "../../web_glitz" }
 
 [dependencies.web-sys]

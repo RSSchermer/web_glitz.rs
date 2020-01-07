@@ -205,7 +205,7 @@ impl<'a, F> AttachableImageRef<'a, F> {
     }
 }
 
-#[derive(Hash, PartialEq)]
+#[derive(Clone, Hash, PartialEq)]
 pub(crate) struct AttachableImageData {
     pub(crate) context_id: usize,
     pub(crate) kind: AttachableImageRefKind,
@@ -288,7 +288,7 @@ impl AttachableImageData {
     }
 }
 
-#[derive(Hash, PartialEq)]
+#[derive(Clone, Hash, PartialEq)]
 pub(crate) enum AttachableImageRefKind {
     Texture2DLevel {
         data: Arc<Texture2DData>,

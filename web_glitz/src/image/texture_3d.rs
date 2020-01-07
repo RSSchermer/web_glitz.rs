@@ -2843,7 +2843,7 @@ where
 
         state.set_active_texture_lru().apply(gl).unwrap();
         state
-            .set_bound_texture_3d(Some(&texture_object))
+            .bind_texture_3d(Some(&texture_object))
             .apply(gl)
             .unwrap();
 
@@ -2919,7 +2919,7 @@ where
                         .unwrap()
                         .with_value_unchecked(|texture_object| {
                             state
-                                .set_bound_texture_3d(Some(texture_object))
+                                .bind_texture_3d(Some(texture_object))
                                 .apply(gl)
                                 .unwrap();
                         });
@@ -3042,7 +3042,7 @@ where
                         .unwrap()
                         .with_value_unchecked(|texture_object| {
                             state
-                                .set_bound_texture_3d(Some(texture_object))
+                                .bind_texture_3d(Some(texture_object))
                                 .apply(gl)
                                 .unwrap();
                         });
@@ -3127,7 +3127,7 @@ unsafe impl GpuTask<Connection> for GenerateMipmapCommand {
                 .id()
                 .unwrap()
                 .with_value_unchecked(|texture_object| {
-                    state.set_bound_texture_3d(Some(texture_object));
+                    state.bind_texture_3d(Some(texture_object));
                 });
         }
 

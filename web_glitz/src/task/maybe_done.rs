@@ -38,6 +38,20 @@ where
     }
 }
 
+impl<T, O, Ec> Clone for MaybeDone<T, O, Ec>
+where
+    T: Clone,
+    O: Clone,
+{
+    fn clone(&self) -> Self {
+        match self {
+            MaybeDone::NotYet(task, _) => MaybeDone::NotYet(task.clone(), PhantomData),
+            MaybeDone::Done(output) => MaybeDone::Done(output.clone()),
+            MaybeDone::Gone => MaybeDone::Gone,
+        }
+    }
+}
+
 pub(crate) fn maybe_done<T, O, Ec>(task: T) -> MaybeDone<T, O, Ec>
 where
     T: GpuTask<Ec, Output = O>,

@@ -1,5 +1,6 @@
 use std::mem;
 
+use wasm_bindgen::convert::{FromWasmAbi, IntoWasmAbi};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
 
@@ -14,18 +15,19 @@ pub(crate) struct JsId {
 
 impl JsId {
     pub(crate) fn from_value(value: JsValue) -> JsId {
-        unsafe {
-            JsId {
-                id: mem::transmute(value),
-            }
-        }
+        JsId::from_abi(value.into_abi())
+    }
+
+    pub(crate) fn from_abi(abi: u32) -> JsId {
+        JsId { id: abi }
     }
 
     /// Only safe to call in the same thread that originally created the `id`.
     pub(crate) unsafe fn into_value(id: JsId) -> JsValue {
-        mem::transmute(id.id)
+        JsValue::from_abi(id.id)
     }
 
+    /// Only safe to call in the same thread that originally created the [JsId].
     pub(crate) unsafe fn with_value_unchecked<F, T, R>(&self, f: F) -> R
     where
         F: FnOnce(&T) -> R,
@@ -41,9 +43,10 @@ impl JsId {
     }
 }
 
-pub(crate) fn identical<T>(a: Option<&T>, b: Option<&T>) -> bool
+pub(crate) fn identical<A, B>(a: Option<&A>, b: Option<&B>) -> bool
 where
-    T: AsRef<JsValue>,
+    A: AsRef<JsValue>,
+    B: AsRef<JsValue>,
 {
     a.map(|t| t.as_ref()) == b.map(|t| t.as_ref())
 }

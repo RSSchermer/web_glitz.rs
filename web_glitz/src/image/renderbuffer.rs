@@ -194,10 +194,7 @@ where
         let data = &self.data;
         let object = gl.create_renderbuffer().unwrap();
 
-        state
-            .set_bound_renderbuffer(Some(&object))
-            .apply(gl)
-            .unwrap();
+        state.bind_renderbuffer(Some(&object)).apply(gl).unwrap();
 
         gl.renderbuffer_storage(
             Gl::RENDERBUFFER,

@@ -32,12 +32,12 @@ pub use self::transform_feedback::{
 
 pub(crate) mod vertex;
 pub use self::vertex::{
-    attribute_format, IncompatibleVertexInputLayout, IndexBuffer, IndexBufferEncoding,
-    IndexBufferEncodingContext, IndexFormat, IndexType, InputRate, TypedVertexBuffer,
-    TypedVertexBuffers, TypedVertexInputLayout, Vertex, VertexAttributeDescriptor,
-    VertexAttributeType, VertexBuffer, VertexBufferSlotAttributeAttacher, VertexBufferSlotRef,
-    VertexBuffers, VertexBuffersEncoding, VertexBuffersEncodingContext,
-    VertexInputLayoutAllocationHint, VertexInputLayoutDescriptor,
+    attribute_format, IncompatibleVertexInputLayout, IndexBuffer, IndexBufferSliceRange,
+    IndexBufferView, IndexBufferViewSliceIndex, IndexData, IndexDataDescriptor, IndexFormat,
+    IndexType, InputRate, TypedVertexBuffer, TypedVertexBuffers, TypedVertexInputLayout, Vertex,
+    VertexAttributeDescriptor, VertexAttributeType, VertexBuffer,
+    VertexBufferSlotAttributeAttacher, VertexBufferSlotRef, VertexBuffers, VertexBuffersEncoding,
+    VertexBuffersEncodingContext, VertexInputLayoutAllocationHint, VertexInputLayoutDescriptor,
     VertexInputLayoutDescriptorBuilder,
 };
 

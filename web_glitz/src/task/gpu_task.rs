@@ -314,6 +314,7 @@ impl ContextId {
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct IncompatibleContextIds(ContextId, ContextId);
 
+#[derive(Clone)]
 pub struct Empty;
 
 unsafe impl<Ec> GpuTask<Ec> for Empty {

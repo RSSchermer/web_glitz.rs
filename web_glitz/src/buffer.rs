@@ -684,7 +684,7 @@ pub enum UsageHint {
 }
 
 impl UsageHint {
-    fn gl_id(&self) -> u32 {
+    pub(crate) fn gl_id(&self) -> u32 {
         match self {
             UsageHint::StaticDraw => GL::STATIC_DRAW,
             UsageHint::DynamicDraw => GL::DYNAMIC_DRAW,
@@ -1044,7 +1044,7 @@ where
                 .unwrap()
                 .with_value_unchecked(|buffer_object| {
                     state
-                        .set_bound_copy_write_buffer(Some(&buffer_object))
+                        .bind_copy_write_buffer(Some(&buffer_object))
                         .apply(gl)
                         .unwrap();
                 });
@@ -1086,7 +1086,7 @@ where
                 .unwrap()
                 .with_value_unchecked(|buffer_object| {
                     state
-                        .set_bound_copy_write_buffer(Some(&buffer_object))
+                        .bind_copy_write_buffer(Some(&buffer_object))
                         .apply(gl)
                         .unwrap();
                 });
@@ -1149,7 +1149,7 @@ unsafe impl<T> GpuTask<Connection> for DownloadCommand<T> {
                 let size_in_bytes = mem::size_of::<T>();
 
                 state
-                    .set_bound_copy_write_buffer(Some(&read_buffer))
+                    .bind_copy_write_buffer(Some(&read_buffer))
                     .apply(gl)
                     .unwrap();
 
@@ -1165,7 +1165,7 @@ unsafe impl<T> GpuTask<Connection> for DownloadCommand<T> {
                         .unwrap()
                         .with_value_unchecked(|buffer_object| {
                             state
-                                .set_bound_copy_read_buffer(Some(&buffer_object))
+                                .bind_copy_read_buffer(Some(&buffer_object))
                                 .apply(gl)
                                 .unwrap();
                         });
@@ -1190,7 +1190,7 @@ unsafe impl<T> GpuTask<Connection> for DownloadCommand<T> {
                 let (gl, state) = unsafe { connection.unpack_mut() };
 
                 state
-                    .set_bound_copy_read_buffer(Some(&read_buffer))
+                    .bind_copy_read_buffer(Some(&read_buffer))
                     .apply(gl)
                     .unwrap();
 
@@ -1226,7 +1226,7 @@ unsafe impl<T> GpuTask<Connection> for DownloadCommand<[T]> {
                 let size_in_bytes = self.len * mem::size_of::<T>();
 
                 state
-                    .set_bound_copy_write_buffer(Some(&read_buffer))
+                    .bind_copy_write_buffer(Some(&read_buffer))
                     .apply(gl)
                     .unwrap();
 
@@ -1242,7 +1242,7 @@ unsafe impl<T> GpuTask<Connection> for DownloadCommand<[T]> {
                         .unwrap()
                         .with_value_unchecked(|buffer_object| {
                             state
-                                .set_bound_copy_read_buffer(Some(&buffer_object))
+                                .bind_copy_read_buffer(Some(&buffer_object))
                                 .apply(gl)
                                 .unwrap();
                         });
@@ -1267,7 +1267,7 @@ unsafe impl<T> GpuTask<Connection> for DownloadCommand<[T]> {
                 let (gl, state) = unsafe { connection.unpack_mut() };
 
                 state
-                    .set_bound_copy_read_buffer(Some(&read_buffer))
+                    .bind_copy_read_buffer(Some(&read_buffer))
                     .apply(gl)
                     .unwrap();
 
@@ -1357,7 +1357,7 @@ where
         let buffer_object = GL::create_buffer(&gl).unwrap();
 
         state
-            .set_bound_copy_write_buffer(Some(&buffer_object))
+            .bind_copy_write_buffer(Some(&buffer_object))
             .apply(gl)
             .unwrap();
 
@@ -1395,7 +1395,7 @@ where
         let buffer_object = GL::create_buffer(&gl).unwrap();
 
         state
-            .set_bound_copy_write_buffer(Some(&buffer_object))
+            .bind_copy_write_buffer(Some(&buffer_object))
             .apply(gl)
             .unwrap();
 

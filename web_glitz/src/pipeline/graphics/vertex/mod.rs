@@ -6,7 +6,8 @@ pub use self::vertex_buffers::{
 
 pub(crate) mod index_buffer;
 pub use self::index_buffer::{
-    IndexBuffer, IndexBufferEncoding, IndexBufferEncodingContext, IndexFormat, IndexType,
+    IndexBuffer, IndexBufferSliceRange, IndexBufferView, IndexBufferViewSliceIndex, IndexData,
+    IndexDataDescriptor, IndexFormat, IndexType,
 };
 
 pub(crate) mod layout_descriptor;

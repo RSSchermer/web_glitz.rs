@@ -50,7 +50,7 @@ pub(crate) enum BindGroupInternal {
     NotEmpty {
         context_id: usize,
         encoding: Arc<Vec<ResourceBindingDescriptor>>,
-    }
+    },
 }
 
 impl<T> BindGroup<T>
@@ -75,7 +75,7 @@ impl BindGroup<()> {
     pub const fn empty() -> Self {
         BindGroup {
             internal: BindGroupInternal::Empty,
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 }

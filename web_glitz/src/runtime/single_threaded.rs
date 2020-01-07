@@ -127,7 +127,8 @@ use crate::pipeline::graphics::shader::{
     FragmentShaderAllocateCommand, VertexShaderAllocateCommand,
 };
 use crate::pipeline::graphics::{
-    FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, VertexShader,
+    FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, IndexBuffer, IndexFormat,
+    VertexShader,
 };
 use crate::pipeline::resources::{BindGroup, BindableResourceGroup};
 use crate::render_pass::{
@@ -199,6 +200,14 @@ impl RenderingContext for SingleThreadedContext {
         T: ?Sized,
     {
         data.into_buffer(self, usage_hint)
+    }
+
+    fn create_index_buffer<D, T>(&self, data: D, usage_hint: UsageHint) -> IndexBuffer<T>
+    where
+        D: Borrow<[T]> + 'static,
+        T: IndexFormat + 'static,
+    {
+        IndexBuffer::new(self, data, usage_hint)
     }
 
     fn create_renderbuffer<F>(&self, descriptor: &RenderbufferDescriptor<F>) -> Renderbuffer<F>

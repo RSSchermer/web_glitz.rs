@@ -4,7 +4,9 @@ use std::marker;
 use std::sync::Arc;
 
 use fnv::FnvHasher;
+use wasm_bindgen::convert::IntoWasmAbi;
 use wasm_bindgen::JsCast;
+use web_sys::WebGlProgram;
 
 use crate::image::Region2D;
 use crate::pipeline::graphics::descriptor::ResourceBindingsLayoutKind;
@@ -38,9 +40,9 @@ pub struct GraphicsPipeline<V, R, Tf> {
     context_id: usize,
     dropper: Box<dyn GraphicsPipelineDropper>,
     #[allow(dead_code)] // Just holding on to this so it won't get dropped prematurely
-    vertex_shader_data: Arc<VertexShaderData>,
+    pub(crate) vertex_shader_data: Arc<VertexShaderData>,
     #[allow(dead_code)] // Just holding on to this so it won't get dropped prematurely
-    fragment_shader_data: Arc<FragmentShaderData>,
+    pub(crate) fragment_shader_data: Arc<FragmentShaderData>,
     vertex_attribute_layout: VertexInputLayoutDescriptor,
     transform_feedback_layout: Option<TransformFeedbackLayoutDescriptor>,
     resource_bindings_layout: ResourceBindingsLayoutKind,
@@ -215,20 +217,17 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
             gl,
         )?;
 
+        let program_object = program.gl_object();
+
         if let Some(layout) = &descriptor.transform_feedback_layout {
-            layout.check_compatibility(program.gl_object(), gl)?;
+            layout.check_compatibility(program_object, gl)?;
         }
 
         descriptor
             .vertex_attribute_layout
             .check_compatibility(program.attribute_slot_descriptors())?;
 
-        let program_object = program.gl_object();
-
-        state
-            .set_active_program(Some(program_object))
-            .apply(gl)
-            .unwrap();
+        state.use_program(Some(program_object)).apply(gl).unwrap();
 
         let updater = SlotBindingUpdater::new(gl, program_object);
 
@@ -377,7 +376,7 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
             transform_feedback_layout: descriptor.transform_feedback_layout.clone(),
             resource_bindings_layout: descriptor.resource_bindings_layout.clone(),
             primitive_assembly: descriptor.primitive_assembly.clone(),
-            program_id: JsId::from_value(program.gl_object().into()),
+            program_id: JsId::from_abi(program_object.into_abi()),
             depth_test: descriptor.depth_test.clone(),
             stencil_test: descriptor.stencil_test.clone(),
             scissor_region: descriptor.scissor_region.clone(),
@@ -472,14 +471,14 @@ unsafe impl GpuTask<Connection> for GraphicsPipelineDropCommand {
 
                 if transform_feedback_data.state != TransformFeedbackState::Inactive {
                     state
-                        .set_bound_transform_feedback(Some(&transform_feedback))
+                        .bind_transform_feedback(Some(&transform_feedback))
                         .apply(gl)
                         .unwrap();
 
                     gl.end_transform_feedback();
                 }
 
-                state.set_bound_transform_feedback(None).apply(gl).unwrap();
+                state.bind_transform_feedback(None).apply(gl).unwrap();
 
                 gl.delete_transform_feedback(Some(&transform_feedback));
             }

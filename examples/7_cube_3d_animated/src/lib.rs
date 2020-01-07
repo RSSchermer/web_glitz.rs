@@ -1,8 +1,13 @@
 // This example uses the `cgmath` crate to render a 3D cube.
 //
-// This example on the `1_uniform_block` example. It introduces the concept of indexed drawing.
-// We'll also use the `cgmath` crate to help us do the math to get our 3D cube projected onto
-// screen space.
+// This example on the `6_cube_3d` example. It is very similar, except this time we'll be drawing
+// many times, on every animation frame the browser can provide. On each frame we'll update the
+// contents of our uniform buffer to make the cube spin.
+//
+// So far we`ve been using plain `web_sys` to interact with the browser, but now we'll use the
+// `arwa` crate to help us request animation frames. We'll also need the `futures` and
+// `wasm_bindgen_futures` crates. Finally, we need the `fn_traits`, `unboxed_closures` to create a
+// stateful self-referential function that we can call in a "loop" on each animation frame.
 
 #![feature(
     const_fn,
@@ -10,25 +15,33 @@
     const_transmute,
     ptr_offset_from,
     const_loop,
-    const_if_match
+    const_if_match,
+    fn_traits,
+    unboxed_closures
 )]
 
+use std::convert::TryInto;
 use std::f32::consts::PI;
+
+use arwa::html::HtmlCanvasElement;
+use arwa::{window, AnimationFrameCancelled, Document, Window};
 
 use cgmath::{Matrix4, PerspectiveFov, Rad, SquareMatrix, Vector3};
 use cgmath_std140::AsStd140;
 
+use futures::FutureExt;
+
 use wasm_bindgen::prelude::*;
-use wasm_bindgen::JsCast;
+use wasm_bindgen_futures::spawn_local;
 
 use web_glitz::buffer::{Buffer, UsageHint};
 use web_glitz::pipeline::graphics::{
     CullingMode, DepthTest, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
 use web_glitz::pipeline::resources::BindGroup;
-use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
-
-use web_sys::{window, HtmlCanvasElement};
+use web_glitz::runtime::single_threaded::SingleThreadedContext;
+use web_glitz::runtime::{single_threaded, Connection, ContextOptions, RenderingContext};
+use web_glitz::task::{sequence, GpuTask};
 
 #[derive(web_glitz::derive::Vertex, Clone, Copy)]
 struct Vertex {
@@ -38,15 +51,6 @@ struct Vertex {
     color: [u8; 3],
 }
 
-// We'll use 3 separate 4x4 matrices to represent the "model", "view" and "projection"
-// transformations:
-//
-// - The "model" transformation transforms model space coordinates to world space coordinates; our
-//   vertex positions will start as model space coordinates.
-// - The "view" transformation transforms world space coordinates into view (camera) space
-//   coordinates.
-// - The "projection" transformation transforms view space coordinates into screen space
-//   coordinates; we'll be using a "perspective" projection.
 #[std140::repr_std140]
 #[derive(web_glitz::derive::InterfaceBlock, Clone, Copy)]
 struct Uniforms {
@@ -61,22 +65,77 @@ struct Resources<'a> {
     uniforms: &'a Buffer<Uniforms>,
 }
 
+// Our animation frame loop. We implement the `FnOnce` trait for this type so that we can use it as
+// a callback for an animation frame, while we hold onto (and can update, if necessary) the state
+// that's relevant to our rendering code inside this struct.
+struct AnimationLoop<T> {
+    rendering_context: SingleThreadedContext,
+    uniform_buffer: Buffer<Uniforms>,
+    render_pass: T,
+    view: std140::mat4x4,
+    projection: std140::mat4x4,
+    frame_provider: Window,
+}
+
+impl<T> FnOnce<(Result<f64, AnimationFrameCancelled>,)> for AnimationLoop<T>
+where
+    T: GpuTask<Connection> + Clone + 'static,
+{
+    type Output = ();
+
+    extern "rust-call" fn call_once(
+        self,
+        args: (Result<f64, AnimationFrameCancelled>,),
+    ) -> Self::Output {
+        // Only render if the frame has not been cancelled.
+        if let Ok(time) = args.0 {
+            let time = time as f32;
+
+            // Compute the new values for our uniforms
+            let rotate_x = Matrix4::from_angle_x(Rad(time / 1000.0));
+            let rotate_y = Matrix4::from_angle_y(Rad(time / 1000.0));
+            let model = rotate_y * rotate_x;
+            let uniforms = Uniforms {
+                model: model.as_std140(),
+                view: self.view,
+                projection: self.projection,
+            };
+
+            // Create a command that updates the uniform buffer.
+            let update_command = self.uniform_buffer.upload_command(uniforms);
+
+            // Submit a task that sequences the update command with our render pass. Note that we've
+            // preconstructed our render pass task and that for each frame we submit a clone,
+            // without having to reconstruct our render pass task every time.
+            self.rendering_context
+                .submit(sequence(update_command, self.render_pass.clone()));
+
+            // Create a request for the next frame.
+            let next = self.frame_provider.request_animation_frame();
+
+            // Dispatch the request with another call to this function chained onto it.
+            spawn_local(next.map(self));
+        }
+    }
+}
+
 #[wasm_bindgen(start)]
 pub fn start() {
-    let canvas: HtmlCanvasElement = window()
-        .unwrap()
-        .document()
-        .unwrap()
-        .get_element_by_id("canvas")
-        .unwrap()
-        .dyn_into()
-        .unwrap();
+    let window = window().unwrap();
+    let document = window.document().unwrap();
 
-    // We won't use use the default context options this time. Instead we build our own options for
-    // which we enable the depth buffer: without a depth buffer a depth test can't be performed (see
-    // below).
+    let canvas: HtmlCanvasElement = document
+        .query_id("canvas")
+        .expect("No element with id `canvas`.")
+        .try_into()
+        .expect("Element is not a canvas element.");
+
     let (context, render_target) = unsafe {
-        single_threaded::init(&canvas, &ContextOptions::begin().enable_depth().finish()).unwrap()
+        single_threaded::init(
+            canvas.as_ref(),
+            &ContextOptions::begin().enable_depth().finish(),
+        )
+        .unwrap()
     };
 
     let vertex_shader = context
@@ -87,8 +146,6 @@ pub fn start() {
         .create_fragment_shader(include_str!("fragment.glsl"))
         .unwrap();
 
-    // Pipeline construction very similar to `2_uniform_buffer`, except this time we also enable the
-    // depth test (with default depth test settings).
     let pipeline = context
         .create_graphics_pipeline(
             &GraphicsPipelineDescriptor::begin()
@@ -142,13 +199,6 @@ pub fn start() {
 
     let vertex_buffer = context.create_buffer(vertex_data, UsageHint::StreamDraw);
 
-    // We'll use an index list to reuse our vertices multiple times. We've only defined 8 vertices
-    // but we want to draw 12 triangles, which each require 3 vertices. We'll use `u16` indices to
-    // reference each of our vertices 4 times.
-    //
-    // TODO: we have to use a `Vec` for now, as Borrow<[u16]> is only implemented for arrays up to
-    // length 32 for the time being. I expect this will change as const generics get stabilized,
-    // switch to an array when that happens.
     let index_data: Vec<u16> = vec![
         0, 2, 1, // Back
         1, 2, 3, 0, 6, 2, // Left
@@ -159,31 +209,23 @@ pub fn start() {
         6, 4, 7,
     ];
 
-    // Create an index buffer. An index buffer is slightly different from a normal buffer in that it
-    // may only ever be used for index data for reasons of web security (see the documentation for
-    // `web_glitz::pipeline::graphics::IndexBuffer` for details).
     let index_buffer = context.create_index_buffer(index_data, UsageHint::StreamDraw);
 
-    // Specify values for our model, view and projection matrices. We'll slightly rotate the cube
-    // along the Y axis and along the X axis to show it off better. We'll move the camera 30 units
-    // back along the Z axis. Finally, we use a perspective projection to project our 3D cube onto
-    // our flat screen.
-    let rotate_x = Matrix4::from_angle_x(Rad(0.25 * PI));
-    let rotate_y = Matrix4::from_angle_y(Rad(0.25 * PI));
-    let model = rotate_y * rotate_x;
     let view = Matrix4::from_translation(Vector3::new(0.0, 0.0, 30.0))
         .invert()
-        .unwrap();
+        .unwrap()
+        .as_std140();
     let projection = Matrix4::from(PerspectiveFov {
         fovy: Rad(0.3 * PI),
         aspect: 1.0,
         near: 1.0,
         far: 100.0,
-    });
+    })
+    .as_std140();
     let uniforms = Uniforms {
-        model: model.as_std140(),
-        view: view.as_std140(),
-        projection: projection.as_std140(),
+        model: Matrix4::identity().as_std140(),
+        view,
+        projection,
     };
 
     let uniform_buffer = context.create_buffer(uniforms, UsageHint::StreamDraw);
@@ -193,9 +235,6 @@ pub fn start() {
     });
 
     let render_pass = context.create_render_pass(render_target, |framebuffer| {
-        // This time we'll also bind our index buffer with `bind_index_buffer`. Then, instead of
-        // drawing with `draw`, we draw with `draw_indexed` where we specify the number of indices
-        // to use (36) and the number of instances to render (1).
         framebuffer.pipeline_task(&pipeline, |active_pipeline| {
             active_pipeline
                 .task_builder()
@@ -207,7 +246,21 @@ pub fn start() {
         })
     });
 
-    context.submit(render_pass);
+    // Instantiate our animation loop.
+    let animation_loop = AnimationLoop {
+        rendering_context: context,
+        uniform_buffer,
+        render_pass,
+        view,
+        projection,
+        frame_provider: window.clone(),
+    };
 
-    // We should now see a rotated cube on the canvas!
+    // Create the initial animation frame request.
+    let request = window.request_animation_frame();
+
+    // Dispatch our request with the initial call to our animation loop chained onto it.
+    spawn_local(request.map(animation_loop));
+
+    // We should now see a spinning cube on the canvas!
 }

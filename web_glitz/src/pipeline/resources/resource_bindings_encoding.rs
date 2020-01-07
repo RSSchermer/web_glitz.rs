@@ -59,7 +59,7 @@ impl ResourceBindingDescriptor {
                         state.set_active_uniform_buffer_index(*index);
 
                         state
-                            .set_bound_uniform_buffer_range(BufferRange::OffsetSize(
+                            .bind_uniform_buffer_range(BufferRange::OffsetSize(
                                 buffer_object,
                                 *offset as u32,
                                 *size as u32,
@@ -79,7 +79,7 @@ impl ResourceBindingDescriptor {
                     TextureData::Texture2D(data) => unsafe {
                         data.id().unwrap().with_value_unchecked(|texture_object| {
                             state
-                                .set_bound_texture_2d(Some(texture_object))
+                                .bind_texture_2d(Some(texture_object))
                                 .apply(gl)
                                 .unwrap();
                         });
@@ -87,7 +87,7 @@ impl ResourceBindingDescriptor {
                     TextureData::Texture2DArray(data) => unsafe {
                         data.id().unwrap().with_value_unchecked(|texture_object| {
                             state
-                                .set_bound_texture_2d_array(Some(texture_object))
+                                .bind_texture_2d_array(Some(texture_object))
                                 .apply(gl)
                                 .unwrap();
                         });
@@ -95,7 +95,7 @@ impl ResourceBindingDescriptor {
                     TextureData::Texture3D(data) => unsafe {
                         data.id().unwrap().with_value_unchecked(|texture_object| {
                             state
-                                .set_bound_texture_3d(Some(texture_object))
+                                .bind_texture_3d(Some(texture_object))
                                 .apply(gl)
                                 .unwrap();
                         });
@@ -103,7 +103,7 @@ impl ResourceBindingDescriptor {
                     TextureData::TextureCube(data) => unsafe {
                         data.id().unwrap().with_value_unchecked(|texture_object| {
                             state
-                                .set_bound_texture_cube_map(Some(texture_object))
+                                .bind_texture_cube_map(Some(texture_object))
                                 .apply(gl)
                                 .unwrap();
                         });
@@ -116,7 +116,7 @@ impl ResourceBindingDescriptor {
                         .unwrap()
                         .with_value_unchecked(|sampler_object| {
                             state
-                                .set_bound_sampler(*unit, Some(sampler_object))
+                                .bind_sampler(*unit, Some(sampler_object))
                                 .apply(gl)
                                 .unwrap();
                         });
@@ -470,6 +470,7 @@ impl<'a> BindGroupEncoder<'a> {
     }
 }
 
+#[derive(Clone)]
 pub struct BindGroupDescriptor {
     #[allow(dead_code)]
     pub(crate) bind_group_index: u32,
@@ -536,7 +537,10 @@ impl<'a, B> StaticResourceBindingsEncoder<'a, B> {
     ) -> StaticResourceBindingsEncoder<'a, (BindGroupDescriptor, B)> {
         let bindings = match &bind_group.internal {
             BindGroupInternal::Empty => None,
-            BindGroupInternal::NotEmpty { context_id, encoding } => {
+            BindGroupInternal::NotEmpty {
+                context_id,
+                encoding,
+            } => {
                 if self.context.context_id != *context_id {
                     panic!("Bind group belongs to a different context than the current pipeline.");
                 }
@@ -544,7 +548,6 @@ impl<'a, B> StaticResourceBindingsEncoder<'a, B> {
                 Some(encoding.clone())
             }
         };
-
 
         StaticResourceBindingsEncoder {
             context: self.context,
