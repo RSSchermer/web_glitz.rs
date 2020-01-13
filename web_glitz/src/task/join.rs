@@ -288,6 +288,79 @@ macro_rules! join_all {
     }
 }
 
+/// Task for the [join_iter] combinator, waiting for all tasks in the iterator to complete in no
+/// particular order, outputting `()`.
+///
+/// See [join_iter].
+pub struct JoinIter<T, Ec> {
+    id: ContextId,
+    vec: Vec<MaybeDone<T, (), Ec>>,
+}
+
+impl<T, Ec> JoinIter<T, Ec>
+where
+    T: GpuTask<Ec, Output = ()>,
+{
+    fn new<I>(tasks: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+    {
+        let mut id = ContextId::Any;
+
+        let vec: Vec<MaybeDone<T, (), Ec>> = tasks
+            .into_iter()
+            .map(|t| {
+                id = id.combine(t.context_id()).unwrap();
+
+                maybe_done(t)
+            })
+            .collect();
+
+        JoinIter { id, vec }
+    }
+}
+
+unsafe impl<T, Ec> GpuTask<Ec> for JoinIter<T, Ec>
+where
+    T: GpuTask<Ec, Output = ()>,
+{
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        self.id
+    }
+
+    fn progress(&mut self, execution_context: &mut Ec) -> Progress<Self::Output> {
+        if self.vec.is_empty() {
+            return Progress::Finished(());
+        }
+
+        let mut all_done = false;
+
+        for task in &mut self.vec {
+            all_done = all_done && task.progress(execution_context);
+        }
+
+        if all_done {
+            Progress::Finished(())
+        } else {
+            Progress::ContinueFenced
+        }
+    }
+}
+
+impl<T, Ec> Clone for JoinIter<T, Ec>
+where
+    T: Clone,
+{
+    fn clone(&self) -> Self {
+        JoinIter {
+            id: self.id.clone(),
+            vec: self.vec.clone(),
+        }
+    }
+}
+
 /// Combines task `a` with another task `b`, waiting for both tasks to complete in no particular
 /// order.
 ///
@@ -529,4 +602,24 @@ where
     E: GpuTask<Ec>,
 {
     Join5Right::new(a, b, c, d, e)
+}
+
+/// Combines all tasks in an iterator, waiting for all tasks to complete in no particular order.
+///
+/// This returns a new "joined" task. This joined task may progress the its sub-tasks in any order.
+/// The joined task will finish when both sub-tasks have finished. When it finishes, it will output
+/// `()`. All tasks in the iterator must also output `()`.
+///
+/// This combinator allocates. See also the [join_all] macro for an alternative that does not
+/// allocate if the set of tasks that are to be sequenced is statically known.
+///
+/// # Panics
+///
+/// Panics if the [ContextId]s of any of the tasks in the iterator are not compatible.
+pub fn join_iter<I, Ec>(iterator: I) -> JoinIter<I::Item, Ec>
+where
+    I: IntoIterator,
+    I::Item: GpuTask<Ec, Output = ()>,
+{
+    JoinIter::new(iterator)
 }

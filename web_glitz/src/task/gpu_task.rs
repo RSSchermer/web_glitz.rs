@@ -38,6 +38,21 @@ pub unsafe trait GpuTask<Ec> {
     fn progress(&mut self, execution_context: &mut Ec) -> Progress<Self::Output>;
 }
 
+unsafe impl<T, Ec> GpuTask<Ec> for Box<T>
+where
+    T: GpuTask<Ec> + ?Sized,
+{
+    type Output = T::Output;
+
+    fn context_id(&self) -> ContextId {
+        self.as_ref().context_id()
+    }
+
+    fn progress(&mut self, execution_context: &mut Ec) -> Progress<Self::Output> {
+        self.as_mut().progress(execution_context)
+    }
+}
+
 pub trait GpuTaskExt<Ec>: GpuTask<Ec> {
     /// Combines this task with another task `b`, waiting for both tasks to complete in no
     /// particular order.

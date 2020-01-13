@@ -41,13 +41,14 @@
 //! sequencing and joining involve combining 2 or more sub-tasks into 1 new combined task, but they
 //! have different guarantees about the order in which these sub-tasks are executed.
 //!
-//! A sequence may be created with functions such as [sequence], [sequence3], [sequence4] or
-//! [sequence5] or the with [sequence_all] macro, which sequences any number of sub-tasks. In all
-//! cases, the sub-tasks are considered to have an order that corresponds to the order in which they
-//! were passed to these functions/the macro. A sub-task in a sequence only begins executing after
-//! the previous sub-task in this ordering has finished executing completely. The sequence is
-//! considered to be finished when the last sub-task has finished executing. The following example
-//! expands on the previous example by adding a command that generates mipmap data for the texture:
+//! A sequence may be created with functions such as [sequence], [sequence3], [sequence4],
+//! [sequence5] or [sequence_iter], or the with [sequence_all] macro, which sequences any number of
+//! sub-tasks. In all cases, the sub-tasks are considered to have an order that corresponds to the
+//! order in which they were passed to these functions/the macro. A sub-task in a sequence only
+//! begins executing after the previous sub-task in this ordering has finished executing completely.
+//! The sequence is considered to be finished when the last sub-task has finished executing. The
+//! following example expands on the previous example by adding a command that generates mipmap data
+//! for the texture:
 //!
 //! ```rust
 //! # use web_glitz::runtime::RenderingContext;
@@ -80,8 +81,8 @@
 //! mipmap" command. For details on mipmapping and mipmap levels, see the documentation for the
 //! [image] module.
 //!
-//! A join may be created with functions such as [join], [join3], [join4] or [join5] functions or
-//! the with [join_all] macro, which joins any number of sub-tasks. Joining is similar to
+//! A join may be created with functions such as [join], [join3], [join4], [join5] or [join_iter],
+//! or the with [join_all] macro, which joins any number of sub-tasks. Joining is similar to
 //! sequencing, except for that joining does not give any guarantees about the order in which the
 //! sub-tasks begin executing. The join is considered to have finished when all sub-tasks have
 //! finished executing. A join may be faster than a sequence.
@@ -185,16 +186,17 @@ pub use self::gpu_task::{ContextId, Empty, GpuTask, GpuTaskExt, Progress};
 mod join;
 pub use self::join::{
     join, join3, join3_left, join3_right, join4, join4_left, join4_right, join5, join5_left,
-    join5_right, join_left, join_right, Join, Join3, Join3Left, Join3Right, Join4, Join4Left,
-    Join4Right, Join5, Join5Left, Join5Right, JoinLeft, JoinRight,
+    join5_right, join_iter, join_left, join_right, Join, Join3, Join3Left, Join3Right, Join4,
+    Join4Left, Join4Right, Join5, Join5Left, Join5Right, JoinIter, JoinLeft, JoinRight,
 };
 
 mod sequence;
 pub use self::sequence::{
     sequence, sequence3, sequence3_left, sequence3_right, sequence4, sequence4_left,
-    sequence4_right, sequence5, sequence5_left, sequence5_right, sequence_left, sequence_right,
-    Sequence, Sequence3, Sequence3Left, Sequence3Right, Sequence4, Sequence4Left, Sequence4Right,
-    Sequence5, Sequence5Left, Sequence5Right, SequenceLeft, SequenceRight,
+    sequence4_right, sequence5, sequence5_left, sequence5_right, sequence_iter, sequence_left,
+    sequence_right, Sequence, Sequence3, Sequence3Left, Sequence3Right, Sequence4, Sequence4Left,
+    Sequence4Right, Sequence5, Sequence5Left, Sequence5Right, SequenceIter, SequenceLeft,
+    SequenceRight,
 };
 
 mod maybe_done;

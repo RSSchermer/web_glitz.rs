@@ -286,6 +286,71 @@ macro_rules! sequence_all {
     }
 }
 
+/// Task for the [sequence_iter] combinator, waiting for all tasks in the iterator to complete in no
+/// particular order, outputting `()`.
+///
+/// See [sequence_iter].
+pub struct SequenceIter<T, Ec> {
+    id: ContextId,
+    vec: Vec<MaybeDone<T, (), Ec>>,
+}
+
+impl<T, Ec> SequenceIter<T, Ec>
+where
+    T: GpuTask<Ec, Output = ()>,
+{
+    fn new<I>(tasks: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+    {
+        let mut id = ContextId::Any;
+
+        let vec: Vec<MaybeDone<T, (), Ec>> = tasks
+            .into_iter()
+            .map(|t| {
+                id = id.combine(t.context_id()).unwrap();
+
+                maybe_done(t)
+            })
+            .collect();
+
+        SequenceIter { id, vec }
+    }
+}
+
+unsafe impl<T, Ec> GpuTask<Ec> for SequenceIter<T, Ec>
+where
+    T: GpuTask<Ec, Output = ()>,
+{
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        self.id
+    }
+
+    fn progress(&mut self, execution_context: &mut Ec) -> Progress<Self::Output> {
+        for task in &mut self.vec {
+            if !task.progress(execution_context) {
+                return Progress::ContinueFenced;
+            }
+        }
+
+        Progress::Finished(())
+    }
+}
+
+impl<T, Ec> Clone for SequenceIter<T, Ec>
+where
+    T: Clone,
+{
+    fn clone(&self) -> Self {
+        SequenceIter {
+            id: self.id.clone(),
+            vec: self.vec.clone(),
+        }
+    }
+}
+
 /// Combines task `a` with another task `b`, waiting for both tasks to complete in order.
 ///
 /// This returns a new "sequenced" task. This sequenced task must progress its sub-tasks in order.
@@ -537,4 +602,24 @@ where
     E: GpuTask<Ec>,
 {
     Sequence5Right::new(a, b, c, d, e)
+}
+
+/// Combines all tasks in an iterator, waiting for all tasks to complete in order.
+///
+/// This returns a new "sequenced" task. This sequenced task must progress its sub-tasks in order.
+/// The sequenced task will finish when all sub-tasks have finished. When it finishes, it will
+/// output `()`. All tasks in the iterator must also output `()`.
+///
+/// This combinator allocates. See also the [sequence_all] macro for an alternative that does not
+/// allocate if the set of tasks that are to be joined is statically known.
+///
+/// # Panics
+///
+/// Panics if the [ContextId]s of any of the tasks in the iterator are not compatible.
+pub fn sequence_iter<I, Ec>(iterator: I) -> SequenceIter<I::Item, Ec>
+where
+    I: IntoIterator,
+    I::Item: GpuTask<Ec, Output = ()>,
+{
+    SequenceIter::new(iterator)
 }
