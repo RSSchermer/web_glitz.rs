@@ -93,33 +93,27 @@ impl<'a> VertexBuffersEncoding<'a> {
     }
 }
 
-impl<T> VertexBuffer for Buffer<[T]>
-
-{
+impl<T> VertexBuffer for Buffer<[T]> {
     fn encode(self, encoding: &mut VertexBuffersEncoding) {
         encoding.add_vertex_buffer(&self);
     }
 }
 
-impl<'a, T> VertexBuffer for &'a Buffer<[T]>
-
-{
+impl<'a, T> VertexBuffer for &'a Buffer<[T]> {
     fn encode(self, encoding: &mut VertexBuffersEncoding) {
         encoding.add_vertex_buffer(self);
     }
 }
 
-impl<'a, T> VertexBuffer for &'a mut Buffer<[T]>
-
-{
+impl<'a, T> VertexBuffer for &'a mut Buffer<[T]> {
     fn encode(self, encoding: &mut VertexBuffersEncoding) {
         encoding.add_vertex_buffer(self);
     }
 }
 
 unsafe impl<T> TypedVertexBuffer for Buffer<[T]>
-    where
-        T: Vertex,
+where
+    T: Vertex,
 {
     type Vertex = T;
 }
@@ -132,49 +126,43 @@ where
 }
 
 unsafe impl<'a, T> TypedVertexBuffer for &'a mut Buffer<[T]>
-    where
-        T: Vertex,
+where
+    T: Vertex,
 {
     type Vertex = T;
 }
 
-impl<'a, T> VertexBuffer for BufferView<'a, [T]>
-{
+impl<'a, T> VertexBuffer for BufferView<'a, [T]> {
     fn encode(self, encoding: &mut VertexBuffersEncoding) {
         encoding.add_vertex_buffer(self);
     }
 }
 
-impl<'a, 'b, T> VertexBuffer for &'a BufferView<'b, [T]>
-{
+impl<'a, 'b, T> VertexBuffer for &'a BufferView<'b, [T]> {
     fn encode(self, encoding: &mut VertexBuffersEncoding) {
         encoding.add_vertex_buffer(*self);
     }
 }
 
-impl<'a, 'b, T> VertexBuffer for &'a mut BufferView<'b, [T]>
-{
+impl<'a, 'b, T> VertexBuffer for &'a mut BufferView<'b, [T]> {
     fn encode(self, encoding: &mut VertexBuffersEncoding) {
         encoding.add_vertex_buffer(*self);
     }
 }
 
-impl<'a, T> VertexBuffer for BufferViewMut<'a, [T]>
-{
+impl<'a, T> VertexBuffer for BufferViewMut<'a, [T]> {
     fn encode(self, encoding: &mut VertexBuffersEncoding) {
         encoding.add_vertex_buffer(*self);
     }
 }
 
-impl<'a, 'b, T> VertexBuffer for &'a BufferViewMut<'b, [T]>
-{
+impl<'a, 'b, T> VertexBuffer for &'a BufferViewMut<'b, [T]> {
     fn encode(self, encoding: &mut VertexBuffersEncoding) {
         encoding.add_vertex_buffer(**self);
     }
 }
 
-impl<'a, 'b, T> VertexBuffer for &'a mut BufferViewMut<'b, [T]>
-{
+impl<'a, 'b, T> VertexBuffer for &'a mut BufferViewMut<'b, [T]> {
     fn encode(self, encoding: &mut VertexBuffersEncoding) {
         encoding.add_vertex_buffer(**self);
     }
@@ -188,36 +176,36 @@ where
 }
 
 unsafe impl<'a, 'b, T> TypedVertexBuffer for &'a BufferView<'b, [T]>
-    where
-        T: Vertex,
+where
+    T: Vertex,
 {
     type Vertex = T;
 }
 
 unsafe impl<'a, 'b, T> TypedVertexBuffer for &'a mut BufferView<'b, [T]>
-    where
-        T: Vertex,
+where
+    T: Vertex,
 {
     type Vertex = T;
 }
 
 unsafe impl<'a, T> TypedVertexBuffer for BufferViewMut<'a, [T]>
-    where
-        T: Vertex,
+where
+    T: Vertex,
 {
     type Vertex = T;
 }
 
 unsafe impl<'a, 'b, T> TypedVertexBuffer for &'a BufferViewMut<'b, [T]>
-    where
-        T: Vertex,
+where
+    T: Vertex,
 {
     type Vertex = T;
 }
 
 unsafe impl<'a, 'b, T> TypedVertexBuffer for &'a mut BufferViewMut<'b, [T]>
-    where
-        T: Vertex,
+where
+    T: Vertex,
 {
     type Vertex = T;
 }

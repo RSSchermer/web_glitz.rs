@@ -209,8 +209,8 @@ where
 }
 
 impl<'a, T> From<&'a mut Buffer<T>> for BufferView<'a, T>
-    where
-        T: ?Sized,
+where
+    T: ?Sized,
 {
     fn from(buffer: &'a mut Buffer<T>) -> BufferView<'a, T> {
         BufferView {
