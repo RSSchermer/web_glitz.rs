@@ -208,6 +208,19 @@ where
     }
 }
 
+impl<'a, T> From<&'a mut Buffer<T>> for BufferView<'a, T>
+    where
+        T: ?Sized,
+{
+    fn from(buffer: &'a mut Buffer<T>) -> BufferView<'a, T> {
+        BufferView {
+            buffer,
+            offset_in_bytes: 0,
+            len: buffer.data.len,
+        }
+    }
+}
+
 // TODO: this should not be necessary if CoerceUnsized or an equivalent can be implemented for
 // Buffer.
 impl<'a, T, const LEN: usize> From<&'a Buffer<[T; LEN]>> for BufferView<'a, [T]> {
@@ -216,6 +229,16 @@ impl<'a, T, const LEN: usize> From<&'a Buffer<[T; LEN]>> for BufferView<'a, [T]>
             buffer: unsafe { mem::transmute(buffer) },
             offset_in_bytes: 0,
             len: buffer.data.len,
+        }
+    }
+}
+
+impl<'a, T, const LEN: usize> From<&'a mut Buffer<[T; LEN]>> for BufferView<'a, [T]> {
+    fn from(buffer: &'a mut Buffer<[T; LEN]>) -> BufferView<'a, [T]> {
+        BufferView {
+            len: buffer.data.len,
+            buffer: unsafe { mem::transmute(buffer) },
+            offset_in_bytes: 0,
         }
     }
 }

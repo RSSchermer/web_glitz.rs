@@ -8,7 +8,7 @@ use crate::util::ErrorLog;
 pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, String> {
     if let Data::Struct(ref data) = input.data {
         let struct_name = &input.ident;
-        let mod_path = quote!(_web_glitz::pipeline::resources);
+        let mod_path = quote!(web_glitz::pipeline::resources);
         let mut log = ErrorLog::new();
 
         let mut resource_fields: Vec<ResourceField> = Vec::new();
@@ -95,7 +95,6 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
                 #[allow(unknown_lints)]
                 #[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
                 #[allow(rust_2018_idioms)]
-                extern crate web_glitz as _web_glitz;
 
                 use #mod_path::Resource;
 

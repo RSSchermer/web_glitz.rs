@@ -106,6 +106,17 @@ unsafe impl FloatRenderable for RGB565 {}
 unsafe impl FloatRenderable for RGB5_A1 {}
 unsafe impl FloatRenderable for RGB10_A2 {}
 
+// TODO: these require an extension, needs a check, probably at render pass creation.
+unsafe impl FloatRenderable for R16F {}
+unsafe impl FloatRenderable for R32F {}
+unsafe impl FloatRenderable for RG16F {}
+unsafe impl FloatRenderable for RG32F {}
+unsafe impl FloatRenderable for RGB16F {}
+unsafe impl FloatRenderable for RGB32F {}
+unsafe impl FloatRenderable for RGBA16F {}
+unsafe impl FloatRenderable for RGBA32F {}
+unsafe impl FloatRenderable for R11F_G11F_B10F {}
+
 /// Marker trait for formats that can be used as a color attachment for a [RenderTarget] for a
 /// color out that outputs integer values.
 pub unsafe trait IntegerRenderable: InternalFormat {}
@@ -313,6 +324,121 @@ unsafe impl TextureFormat for R8UI {
     }
 }
 
+unsafe impl TextureFormat for R8I {
+    fn validate_magnification_filter(
+        _extensions: &Extensions,
+        filter: MagnificationFilter,
+    ) -> Result<(), InvalidMagnificationFilter> {
+        match filter {
+            MagnificationFilter::Nearest => Ok(()),
+            MagnificationFilter::Linear => Err(InvalidMagnificationFilter::Always(filter)),
+        }
+    }
+
+    fn validate_minification_filter(
+        _extensions: &Extensions,
+        filter: MinificationFilter,
+    ) -> Result<(), InvalidMinificationFilter> {
+        match filter {
+            MinificationFilter::Nearest => Ok(()),
+            MinificationFilter::NearestMipmapNearest => Ok(()),
+            _ => Err(InvalidMinificationFilter::Always(filter)),
+        }
+    }
+}
+
+unsafe impl TextureFormat for R16UI {
+    fn validate_magnification_filter(
+        _extensions: &Extensions,
+        filter: MagnificationFilter,
+    ) -> Result<(), InvalidMagnificationFilter> {
+        match filter {
+            MagnificationFilter::Nearest => Ok(()),
+            MagnificationFilter::Linear => Err(InvalidMagnificationFilter::Always(filter)),
+        }
+    }
+
+    fn validate_minification_filter(
+        _extensions: &Extensions,
+        filter: MinificationFilter,
+    ) -> Result<(), InvalidMinificationFilter> {
+        match filter {
+            MinificationFilter::Nearest => Ok(()),
+            MinificationFilter::NearestMipmapNearest => Ok(()),
+            _ => Err(InvalidMinificationFilter::Always(filter)),
+        }
+    }
+}
+
+unsafe impl TextureFormat for R16I {
+    fn validate_magnification_filter(
+        _extensions: &Extensions,
+        filter: MagnificationFilter,
+    ) -> Result<(), InvalidMagnificationFilter> {
+        match filter {
+            MagnificationFilter::Nearest => Ok(()),
+            MagnificationFilter::Linear => Err(InvalidMagnificationFilter::Always(filter)),
+        }
+    }
+
+    fn validate_minification_filter(
+        _extensions: &Extensions,
+        filter: MinificationFilter,
+    ) -> Result<(), InvalidMinificationFilter> {
+        match filter {
+            MinificationFilter::Nearest => Ok(()),
+            MinificationFilter::NearestMipmapNearest => Ok(()),
+            _ => Err(InvalidMinificationFilter::Always(filter)),
+        }
+    }
+}
+
+unsafe impl TextureFormat for R32UI {
+    fn validate_magnification_filter(
+        _extensions: &Extensions,
+        filter: MagnificationFilter,
+    ) -> Result<(), InvalidMagnificationFilter> {
+        match filter {
+            MagnificationFilter::Nearest => Ok(()),
+            MagnificationFilter::Linear => Err(InvalidMagnificationFilter::Always(filter)),
+        }
+    }
+
+    fn validate_minification_filter(
+        _extensions: &Extensions,
+        filter: MinificationFilter,
+    ) -> Result<(), InvalidMinificationFilter> {
+        match filter {
+            MinificationFilter::Nearest => Ok(()),
+            MinificationFilter::NearestMipmapNearest => Ok(()),
+            _ => Err(InvalidMinificationFilter::Always(filter)),
+        }
+    }
+}
+
+unsafe impl TextureFormat for R32I {
+    fn validate_magnification_filter(
+        _extensions: &Extensions,
+        filter: MagnificationFilter,
+    ) -> Result<(), InvalidMagnificationFilter> {
+        match filter {
+            MagnificationFilter::Nearest => Ok(()),
+            MagnificationFilter::Linear => Err(InvalidMagnificationFilter::Always(filter)),
+        }
+    }
+
+    fn validate_minification_filter(
+        _extensions: &Extensions,
+        filter: MinificationFilter,
+    ) -> Result<(), InvalidMinificationFilter> {
+        match filter {
+            MinificationFilter::Nearest => Ok(()),
+            MinificationFilter::NearestMipmapNearest => Ok(()),
+            _ => Err(InvalidMinificationFilter::Always(filter)),
+        }
+    }
+}
+
 unsafe impl TextureFormat for RG8 {
     fn validate_magnification_filter(
         _extensions: &Extensions,
@@ -381,6 +507,121 @@ unsafe impl TextureFormat for RG32F {
 }
 
 unsafe impl TextureFormat for RG8UI {
+    fn validate_magnification_filter(
+        _extensions: &Extensions,
+        filter: MagnificationFilter,
+    ) -> Result<(), InvalidMagnificationFilter> {
+        match filter {
+            MagnificationFilter::Nearest => Ok(()),
+            MagnificationFilter::Linear => Err(InvalidMagnificationFilter::Always(filter)),
+        }
+    }
+
+    fn validate_minification_filter(
+        _extensions: &Extensions,
+        filter: MinificationFilter,
+    ) -> Result<(), InvalidMinificationFilter> {
+        match filter {
+            MinificationFilter::Nearest => Ok(()),
+            MinificationFilter::NearestMipmapNearest => Ok(()),
+            _ => Err(InvalidMinificationFilter::Always(filter)),
+        }
+    }
+}
+
+unsafe impl TextureFormat for RG8I {
+    fn validate_magnification_filter(
+        _extensions: &Extensions,
+        filter: MagnificationFilter,
+    ) -> Result<(), InvalidMagnificationFilter> {
+        match filter {
+            MagnificationFilter::Nearest => Ok(()),
+            MagnificationFilter::Linear => Err(InvalidMagnificationFilter::Always(filter)),
+        }
+    }
+
+    fn validate_minification_filter(
+        _extensions: &Extensions,
+        filter: MinificationFilter,
+    ) -> Result<(), InvalidMinificationFilter> {
+        match filter {
+            MinificationFilter::Nearest => Ok(()),
+            MinificationFilter::NearestMipmapNearest => Ok(()),
+            _ => Err(InvalidMinificationFilter::Always(filter)),
+        }
+    }
+}
+
+unsafe impl TextureFormat for RG16UI {
+    fn validate_magnification_filter(
+        _extensions: &Extensions,
+        filter: MagnificationFilter,
+    ) -> Result<(), InvalidMagnificationFilter> {
+        match filter {
+            MagnificationFilter::Nearest => Ok(()),
+            MagnificationFilter::Linear => Err(InvalidMagnificationFilter::Always(filter)),
+        }
+    }
+
+    fn validate_minification_filter(
+        _extensions: &Extensions,
+        filter: MinificationFilter,
+    ) -> Result<(), InvalidMinificationFilter> {
+        match filter {
+            MinificationFilter::Nearest => Ok(()),
+            MinificationFilter::NearestMipmapNearest => Ok(()),
+            _ => Err(InvalidMinificationFilter::Always(filter)),
+        }
+    }
+}
+
+unsafe impl TextureFormat for RG16I {
+    fn validate_magnification_filter(
+        _extensions: &Extensions,
+        filter: MagnificationFilter,
+    ) -> Result<(), InvalidMagnificationFilter> {
+        match filter {
+            MagnificationFilter::Nearest => Ok(()),
+            MagnificationFilter::Linear => Err(InvalidMagnificationFilter::Always(filter)),
+        }
+    }
+
+    fn validate_minification_filter(
+        _extensions: &Extensions,
+        filter: MinificationFilter,
+    ) -> Result<(), InvalidMinificationFilter> {
+        match filter {
+            MinificationFilter::Nearest => Ok(()),
+            MinificationFilter::NearestMipmapNearest => Ok(()),
+            _ => Err(InvalidMinificationFilter::Always(filter)),
+        }
+    }
+}
+
+unsafe impl TextureFormat for RG32UI {
+    fn validate_magnification_filter(
+        _extensions: &Extensions,
+        filter: MagnificationFilter,
+    ) -> Result<(), InvalidMagnificationFilter> {
+        match filter {
+            MagnificationFilter::Nearest => Ok(()),
+            MagnificationFilter::Linear => Err(InvalidMagnificationFilter::Always(filter)),
+        }
+    }
+
+    fn validate_minification_filter(
+        _extensions: &Extensions,
+        filter: MinificationFilter,
+    ) -> Result<(), InvalidMinificationFilter> {
+        match filter {
+            MinificationFilter::Nearest => Ok(()),
+            MinificationFilter::NearestMipmapNearest => Ok(()),
+            _ => Err(InvalidMinificationFilter::Always(filter)),
+        }
+    }
+}
+
+unsafe impl TextureFormat for RG32I {
     fn validate_magnification_filter(
         _extensions: &Extensions,
         filter: MagnificationFilter,
@@ -557,6 +798,121 @@ unsafe impl TextureFormat for RGB8UI {
     }
 }
 
+unsafe impl TextureFormat for RGB8I {
+    fn validate_magnification_filter(
+        _extensions: &Extensions,
+        filter: MagnificationFilter,
+    ) -> Result<(), InvalidMagnificationFilter> {
+        match filter {
+            MagnificationFilter::Nearest => Ok(()),
+            MagnificationFilter::Linear => Err(InvalidMagnificationFilter::Always(filter)),
+        }
+    }
+
+    fn validate_minification_filter(
+        _extensions: &Extensions,
+        filter: MinificationFilter,
+    ) -> Result<(), InvalidMinificationFilter> {
+        match filter {
+            MinificationFilter::Nearest => Ok(()),
+            MinificationFilter::NearestMipmapNearest => Ok(()),
+            _ => Err(InvalidMinificationFilter::Always(filter)),
+        }
+    }
+}
+
+unsafe impl TextureFormat for RGB16UI {
+    fn validate_magnification_filter(
+        _extensions: &Extensions,
+        filter: MagnificationFilter,
+    ) -> Result<(), InvalidMagnificationFilter> {
+        match filter {
+            MagnificationFilter::Nearest => Ok(()),
+            MagnificationFilter::Linear => Err(InvalidMagnificationFilter::Always(filter)),
+        }
+    }
+
+    fn validate_minification_filter(
+        _extensions: &Extensions,
+        filter: MinificationFilter,
+    ) -> Result<(), InvalidMinificationFilter> {
+        match filter {
+            MinificationFilter::Nearest => Ok(()),
+            MinificationFilter::NearestMipmapNearest => Ok(()),
+            _ => Err(InvalidMinificationFilter::Always(filter)),
+        }
+    }
+}
+
+unsafe impl TextureFormat for RGB16I {
+    fn validate_magnification_filter(
+        _extensions: &Extensions,
+        filter: MagnificationFilter,
+    ) -> Result<(), InvalidMagnificationFilter> {
+        match filter {
+            MagnificationFilter::Nearest => Ok(()),
+            MagnificationFilter::Linear => Err(InvalidMagnificationFilter::Always(filter)),
+        }
+    }
+
+    fn validate_minification_filter(
+        _extensions: &Extensions,
+        filter: MinificationFilter,
+    ) -> Result<(), InvalidMinificationFilter> {
+        match filter {
+            MinificationFilter::Nearest => Ok(()),
+            MinificationFilter::NearestMipmapNearest => Ok(()),
+            _ => Err(InvalidMinificationFilter::Always(filter)),
+        }
+    }
+}
+
+unsafe impl TextureFormat for RGB32UI {
+    fn validate_magnification_filter(
+        _extensions: &Extensions,
+        filter: MagnificationFilter,
+    ) -> Result<(), InvalidMagnificationFilter> {
+        match filter {
+            MagnificationFilter::Nearest => Ok(()),
+            MagnificationFilter::Linear => Err(InvalidMagnificationFilter::Always(filter)),
+        }
+    }
+
+    fn validate_minification_filter(
+        _extensions: &Extensions,
+        filter: MinificationFilter,
+    ) -> Result<(), InvalidMinificationFilter> {
+        match filter {
+            MinificationFilter::Nearest => Ok(()),
+            MinificationFilter::NearestMipmapNearest => Ok(()),
+            _ => Err(InvalidMinificationFilter::Always(filter)),
+        }
+    }
+}
+
+unsafe impl TextureFormat for RGB32I {
+    fn validate_magnification_filter(
+        _extensions: &Extensions,
+        filter: MagnificationFilter,
+    ) -> Result<(), InvalidMagnificationFilter> {
+        match filter {
+            MagnificationFilter::Nearest => Ok(()),
+            MagnificationFilter::Linear => Err(InvalidMagnificationFilter::Always(filter)),
+        }
+    }
+
+    fn validate_minification_filter(
+        _extensions: &Extensions,
+        filter: MinificationFilter,
+    ) -> Result<(), InvalidMinificationFilter> {
+        match filter {
+            MinificationFilter::Nearest => Ok(()),
+            MinificationFilter::NearestMipmapNearest => Ok(()),
+            _ => Err(InvalidMinificationFilter::Always(filter)),
+        }
+    }
+}
+
 unsafe impl TextureFormat for RGBA8 {
     fn validate_magnification_filter(
         _extensions: &Extensions,
@@ -689,6 +1045,121 @@ unsafe impl TextureFormat for RGBA32F {
 }
 
 unsafe impl TextureFormat for RGBA8UI {
+    fn validate_magnification_filter(
+        _extensions: &Extensions,
+        filter: MagnificationFilter,
+    ) -> Result<(), InvalidMagnificationFilter> {
+        match filter {
+            MagnificationFilter::Nearest => Ok(()),
+            MagnificationFilter::Linear => Err(InvalidMagnificationFilter::Always(filter)),
+        }
+    }
+
+    fn validate_minification_filter(
+        _extensions: &Extensions,
+        filter: MinificationFilter,
+    ) -> Result<(), InvalidMinificationFilter> {
+        match filter {
+            MinificationFilter::Nearest => Ok(()),
+            MinificationFilter::NearestMipmapNearest => Ok(()),
+            _ => Err(InvalidMinificationFilter::Always(filter)),
+        }
+    }
+}
+
+unsafe impl TextureFormat for RGBA8I {
+    fn validate_magnification_filter(
+        _extensions: &Extensions,
+        filter: MagnificationFilter,
+    ) -> Result<(), InvalidMagnificationFilter> {
+        match filter {
+            MagnificationFilter::Nearest => Ok(()),
+            MagnificationFilter::Linear => Err(InvalidMagnificationFilter::Always(filter)),
+        }
+    }
+
+    fn validate_minification_filter(
+        _extensions: &Extensions,
+        filter: MinificationFilter,
+    ) -> Result<(), InvalidMinificationFilter> {
+        match filter {
+            MinificationFilter::Nearest => Ok(()),
+            MinificationFilter::NearestMipmapNearest => Ok(()),
+            _ => Err(InvalidMinificationFilter::Always(filter)),
+        }
+    }
+}
+
+unsafe impl TextureFormat for RGBA16UI {
+    fn validate_magnification_filter(
+        _extensions: &Extensions,
+        filter: MagnificationFilter,
+    ) -> Result<(), InvalidMagnificationFilter> {
+        match filter {
+            MagnificationFilter::Nearest => Ok(()),
+            MagnificationFilter::Linear => Err(InvalidMagnificationFilter::Always(filter)),
+        }
+    }
+
+    fn validate_minification_filter(
+        _extensions: &Extensions,
+        filter: MinificationFilter,
+    ) -> Result<(), InvalidMinificationFilter> {
+        match filter {
+            MinificationFilter::Nearest => Ok(()),
+            MinificationFilter::NearestMipmapNearest => Ok(()),
+            _ => Err(InvalidMinificationFilter::Always(filter)),
+        }
+    }
+}
+
+unsafe impl TextureFormat for RGBA16I {
+    fn validate_magnification_filter(
+        _extensions: &Extensions,
+        filter: MagnificationFilter,
+    ) -> Result<(), InvalidMagnificationFilter> {
+        match filter {
+            MagnificationFilter::Nearest => Ok(()),
+            MagnificationFilter::Linear => Err(InvalidMagnificationFilter::Always(filter)),
+        }
+    }
+
+    fn validate_minification_filter(
+        _extensions: &Extensions,
+        filter: MinificationFilter,
+    ) -> Result<(), InvalidMinificationFilter> {
+        match filter {
+            MinificationFilter::Nearest => Ok(()),
+            MinificationFilter::NearestMipmapNearest => Ok(()),
+            _ => Err(InvalidMinificationFilter::Always(filter)),
+        }
+    }
+}
+
+unsafe impl TextureFormat for RGBA32UI {
+    fn validate_magnification_filter(
+        _extensions: &Extensions,
+        filter: MagnificationFilter,
+    ) -> Result<(), InvalidMagnificationFilter> {
+        match filter {
+            MagnificationFilter::Nearest => Ok(()),
+            MagnificationFilter::Linear => Err(InvalidMagnificationFilter::Always(filter)),
+        }
+    }
+
+    fn validate_minification_filter(
+        _extensions: &Extensions,
+        filter: MinificationFilter,
+    ) -> Result<(), InvalidMinificationFilter> {
+        match filter {
+            MinificationFilter::Nearest => Ok(()),
+            MinificationFilter::NearestMipmapNearest => Ok(()),
+            _ => Err(InvalidMinificationFilter::Always(filter)),
+        }
+    }
+}
+
+unsafe impl TextureFormat for RGBA32I {
     fn validate_magnification_filter(
         _extensions: &Extensions,
         filter: MagnificationFilter,
@@ -1312,13 +1783,103 @@ unsafe impl InternalFormat for RGB8UI {
 unsafe impl ClientFormat<RGB8UI> for [u8; 3] {
     const FORMAT_ID: u32 = Gl::RGB_INTEGER;
 
-    const TYPE_ID: u32 = Gl::FLOAT;
+    const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
 unsafe impl ClientFormat<RGB8UI> for (u8, u8, u8) {
     const FORMAT_ID: u32 = Gl::RGB_INTEGER;
 
-    const TYPE_ID: u32 = Gl::FLOAT;
+    const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
+}
+
+pub struct RGB8I;
+
+unsafe impl InternalFormat for RGB8I {
+    const ID: u32 = Gl::RGB8I;
+}
+
+unsafe impl ClientFormat<RGB8I> for [i8; 3] {
+    const FORMAT_ID: u32 = Gl::RGB_INTEGER;
+
+    const TYPE_ID: u32 = Gl::BYTE;
+}
+
+unsafe impl ClientFormat<RGB8I> for (i8, i8, i8) {
+    const FORMAT_ID: u32 = Gl::RGB_INTEGER;
+
+    const TYPE_ID: u32 = Gl::BYTE;
+}
+
+pub struct RGB16UI;
+
+unsafe impl InternalFormat for RGB16UI {
+    const ID: u32 = Gl::RGB16UI;
+}
+
+unsafe impl ClientFormat<RGB16UI> for [u16; 3] {
+    const FORMAT_ID: u32 = Gl::RGB_INTEGER;
+
+    const TYPE_ID: u32 = Gl::UNSIGNED_SHORT;
+}
+
+unsafe impl ClientFormat<RGB16UI> for (u16, u16, u16) {
+    const FORMAT_ID: u32 = Gl::RGB_INTEGER;
+
+    const TYPE_ID: u32 = Gl::UNSIGNED_SHORT;
+}
+
+pub struct RGB16I;
+
+unsafe impl InternalFormat for RGB16I {
+    const ID: u32 = Gl::RGB16I;
+}
+
+unsafe impl ClientFormat<RGB16I> for [i16; 3] {
+    const FORMAT_ID: u32 = Gl::RGB_INTEGER;
+
+    const TYPE_ID: u32 = Gl::SHORT;
+}
+
+unsafe impl ClientFormat<RGB16I> for (i16, i16, i16) {
+    const FORMAT_ID: u32 = Gl::RGB_INTEGER;
+
+    const TYPE_ID: u32 = Gl::SHORT;
+}
+
+pub struct RGB32UI;
+
+unsafe impl InternalFormat for RGB32UI {
+    const ID: u32 = Gl::RGB32UI;
+}
+
+unsafe impl ClientFormat<RGB32UI> for [u32; 3] {
+    const FORMAT_ID: u32 = Gl::RGB_INTEGER;
+
+    const TYPE_ID: u32 = Gl::UNSIGNED_INT;
+}
+
+unsafe impl ClientFormat<RGB32UI> for (u32, u32, u32) {
+    const FORMAT_ID: u32 = Gl::RGB_INTEGER;
+
+    const TYPE_ID: u32 = Gl::UNSIGNED_INT;
+}
+
+pub struct RGB32I;
+
+unsafe impl InternalFormat for RGB32I {
+    const ID: u32 = Gl::RGB32I;
+}
+
+unsafe impl ClientFormat<RGB32I> for [i32; 3] {
+    const FORMAT_ID: u32 = Gl::RGB_INTEGER;
+
+    const TYPE_ID: u32 = Gl::INT;
+}
+
+unsafe impl ClientFormat<RGB32I> for (i32, i32, i32) {
+    const FORMAT_ID: u32 = Gl::RGB_INTEGER;
+
+    const TYPE_ID: u32 = Gl::INT;
 }
 
 pub struct RGBA8;

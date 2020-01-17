@@ -5,7 +5,7 @@ use syn::{Data, DeriveInput, Ident};
 
 pub fn expand_derive_interface_block(input: &DeriveInput) -> Result<TokenStream, String> {
     if let Data::Struct(data) = &input.data {
-        let mod_path = quote!(_web_glitz::pipeline::interface_block);
+        let mod_path = quote!(web_glitz::pipeline::interface_block);
         let struct_name = &input.ident;
 
         let recurse_len = data.fields.iter().map(|field| {
@@ -27,7 +27,7 @@ pub fn expand_derive_interface_block(input: &DeriveInput) -> Result<TokenStream,
             let span = field.span();
 
             quote_spanned! {span=>
-                let base_offset = _web_glitz::offset_of!(#struct_name, #ident);
+                let base_offset = web_glitz::offset_of!(#struct_name, #ident);
                 let memory_units = <#ty as #mod_path::InterfaceBlockComponent>::MEMORY_UNITS;
                 let mut j = 0;
 
@@ -80,7 +80,6 @@ pub fn expand_derive_interface_block(input: &DeriveInput) -> Result<TokenStream,
                 #[allow(unknown_lints)]
                 #[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
                 #[allow(rust_2018_idioms)]
-                extern crate web_glitz as _web_glitz;
 
                 #impl_block
             };

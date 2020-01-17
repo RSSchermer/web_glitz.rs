@@ -8,7 +8,7 @@ use crate::util::ErrorLog;
 pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> {
     if let Data::Struct(ref data) = input.data {
         let struct_name = &input.ident;
-        let mod_path = quote!(_web_glitz::pipeline::graphics);
+        let mod_path = quote!(web_glitz::pipeline::graphics);
         let mut log = ErrorLog::new();
 
         let mut position = 0;
@@ -45,7 +45,7 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
                 #mod_path::VertexAttributeDescriptor {
                     location: #location,
                     format: #format_kind,
-                    offset_in_bytes: _web_glitz::offset_of!(#struct_name, #field_name) as u8
+                    offset_in_bytes: web_glitz::offset_of!(#struct_name, #field_name) as u8
                 }
             }
         });
@@ -72,8 +72,6 @@ pub fn expand_derive_vertex(input: &DeriveInput) -> Result<TokenStream, String> 
                 #[allow(unknown_lints)]
                 #[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
                 #[allow(rust_2018_idioms)]
-                extern crate web_glitz as _web_glitz;
-
                 use #mod_path::attribute_format::*;
 
                 const fn assert_format_compatible<T, F>()

@@ -10,7 +10,7 @@ use syn::{Data, DeriveInput, Ident};
 pub fn expand_derive_transform_feedback(input: &DeriveInput) -> TokenStream {
     if let Data::Struct(data) = &input.data {
         let struct_name = &input.ident;
-        let mod_path = quote!(_web_glitz::pipeline::graphics);
+        let mod_path = quote!(web_glitz::pipeline::graphics);
 
         let recurse = data.fields.iter().map(|field| {
             let name = field
@@ -54,7 +54,6 @@ pub fn expand_derive_transform_feedback(input: &DeriveInput) -> TokenStream {
                 #[allow(unknown_lints)]
                 #[cfg_attr(feature = "cargo-clippy", allow(useless_attribute))]
                 #[allow(rust_2018_idioms)]
-                extern crate web_glitz as _web_glitz;
 
                 #impl_block
             };
