@@ -201,12 +201,17 @@ pub fn start() {
 
     let index_data: Vec<u16> = vec![
         0, 2, 1, // Back
-        1, 2, 3, 0, 6, 2, // Left
-        0, 4, 6, 1, 3, 7, // Right
-        1, 7, 5, 2, 7, 3, // Top
-        2, 6, 7, 0, 1, 5, // Bottom
-        0, 5, 4, 4, 5, 7, // Front
-        6, 4, 7,
+        1, 2, 3, //
+        0, 6, 2, // Left
+        0, 4, 6, //
+        1, 3, 7, // Right
+        1, 7, 5, //
+        2, 7, 3, // Top
+        2, 6, 7, //
+        0, 1, 5, // Bottom
+        0, 5, 4, //
+        4, 5, 7, // Front
+        6, 4, 7, //
     ];
 
     let index_buffer = context.create_index_buffer(index_data, UsageHint::StreamDraw);
