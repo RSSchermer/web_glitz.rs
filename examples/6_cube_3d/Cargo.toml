@@ -11,7 +11,7 @@ crate-type = ["cdylib"]
 [dependencies]
 cgmath = "0.17.0"
 cgmath-std140 = "0.2.0"
-std140 = "0.1.2"
+std140 = "0.2.0"
 wasm-bindgen = "0.2.48"
 web-glitz = { version = "0.1.1", path = "../../web_glitz" }
 
