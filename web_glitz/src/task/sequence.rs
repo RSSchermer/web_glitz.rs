@@ -154,6 +154,24 @@ macro_rules! generate_sequence_left {
                 Progress::Finished(self.a.take())
             }
         }
+
+        impl<A, $($B),*, Ec> Clone for $Sequence<A, $($B),*, Ec>
+        where
+            A: GpuTask<Ec> + Clone,
+            A::Output: Clone,
+            $(
+                $B: GpuTask<Ec> + Clone,
+                $B::Output: Clone,
+            )*
+        {
+            fn clone(&self) -> Self {
+                $Sequence {
+                    id: self.id.clone(),
+                    a: self.a.clone(),
+                    $($B: self.$B.clone()),*
+                }
+            }
+        }
     )*)
 }
 
@@ -239,6 +257,24 @@ macro_rules! generate_sequence_right {
                 Progress::Finished(self.$B.take())
             }
         }
+
+        impl<$($A,)* $B, Ec> Clone for $Sequence<$($A,)* $B, Ec>
+        where
+            $(
+                $A: GpuTask<Ec> + Clone,
+                $A::Output: Clone,
+            )*
+            $B: GpuTask<Ec> + Clone,
+            $B::Output: Clone,
+        {
+            fn clone(&self) -> Self {
+                $Sequence {
+                    id: self.id.clone(),
+                    $($A: self.$A.clone(),)*
+                    $B: self.$B.clone(),
+                }
+            }
+        }
     )*)
 }
 
@@ -279,6 +315,42 @@ macro_rules! sequence_all {
 
             $(
                 let sequenced = $crate::task::sequence(sequenced, $e);
+            )*
+
+            sequenced
+        }
+    }
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! sequence_all_left {
+    ($e0:expr, $e1:expr) => (sequence_all_left!($e0, $e1,));
+    ($e0:expr, $e1:expr, $($e:expr,)+) => (sequence_all_left!($e0, $e1, $($e),*));
+    ($e0:expr, $e1:expr, $($e:expr),*) => {
+        {
+            let sequenced = $crate::task::sequence_left($e0, $e1);
+
+            $(
+                let sequenced = $crate::task::sequence_left(sequenced, $e);
+            )*
+
+            sequenced
+        }
+    }
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! sequence_all_right {
+    ($e0:expr, $e1:expr) => (sequence_all_right!($e0, $e1,));
+    ($e0:expr, $e1:expr, $($e:expr,)+) => (sequence_all_right!($e0, $e1, $($e),*));
+    ($e0:expr, $e1:expr, $($e:expr),*) => {
+        {
+            let sequenced = $crate::task::sequence_right($e0, $e1);
+
+            $(
+                let sequenced = $crate::task::sequence_right(sequenced, $e);
             )*
 
             sequenced

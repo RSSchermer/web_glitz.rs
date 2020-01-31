@@ -31,8 +31,8 @@ use crate::pipeline::graphics::primitive_assembly::Topology;
 use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
 use crate::pipeline::graphics::util::BufferDescriptors;
 use crate::pipeline::graphics::{
-    Blending, DepthTest, GraphicsPipeline, IndexBuffer, IndexData, IndexDataDescriptor,
-    PrimitiveAssembly, StencilTest, TypedVertexBuffers, TypedVertexInputLayout, VertexBuffers,
+    Blending, DepthTest, GraphicsPipeline, IndexData, IndexDataDescriptor, PrimitiveAssembly,
+    StencilTest, TypedVertexBuffers, TypedVertexInputLayout, VertexBuffers,
     VertexBuffersEncodingContext, VertexInputLayoutDescriptor, Viewport,
 };
 use crate::pipeline::resources::{
@@ -754,7 +754,7 @@ where
             pipeline,
         });
 
-        if task.context_id() != ContextId::Id(pipeline_task_id) {
+        if task.context_id() != ContextId::Any && task.context_id() != ContextId::Id(pipeline_task_id) {
             panic!("Task does not belong to the pipeline task context.")
         }
 

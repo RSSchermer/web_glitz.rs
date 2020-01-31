@@ -14,6 +14,7 @@
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use wasm_bindgen_futures::spawn_local;
 
 use web_glitz::buffer::{Buffer, UsageHint};
 use web_glitz::pipeline::graphics::{
@@ -24,6 +25,7 @@ use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 use web_glitz::task::sequence;
 
 use web_sys::{window, HtmlCanvasElement};
+use futures::FutureExt;
 
 // In this example we'll use the same type both as our "Vertex" type and as our "TransformFeedback"
 // type. To facilitate this in a safe way we derive `web_glitz::derive::TransformFeedback` in
@@ -33,7 +35,7 @@ use web_sys::{window, HtmlCanvasElement};
 // shader (see `./vertex.glsl`). We must also ensure that the field types we use are compatible with
 // the GLSL types used for these `out` values. This will be verified by reflecting on the shader
 // code when we create our pipeline.
-#[derive(web_glitz::derive::Vertex, web_glitz::derive::TransformFeedback, Clone, Copy, Default)]
+#[derive(web_glitz::derive::Vertex, web_glitz::derive::TransformFeedback, Clone, Copy, Default, Debug)]
 struct Vertex {
     #[vertex_attribute(location = 0, format = "Float2_f32")]
     varying_position: [f32; 2],
@@ -55,6 +57,8 @@ struct Resources<'a> {
 
 #[wasm_bindgen(start)]
 pub fn start() {
+    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
+
     let canvas: HtmlCanvasElement = window()
         .unwrap()
         .document()
@@ -166,4 +170,21 @@ pub fn start() {
     });
 
     context.submit(render_pass);
+
+    // Finally, let's read back the transform feedback and output it to the console.
+    let download_command = transform_feedback_buffer.download_command();
+    // GPU tasks produce output when submitted to a context. Most task's (like the `rend_pass` task
+    // submitted above) simply output `()`, which isn't very interesting, but our download task does
+    // produce an output value that we're interested it in using. However, the output may not be
+    // ready immediately and therefor `submit` returns a future for the output, rather than
+    // returning the output directly.
+    let future_output = context.submit(download_command);
+
+    // We'll have to spawn the future before it can begin executing. We'll use the
+    // `wasm-bindgen-futures` crate to run our future on the browser's event loop.
+    spawn_local(future_output.map(|feedback| {
+        // The output of our download command is a boxed slice of our vertices. We'll use debug
+        // formatting to turn it into a string and log it to the console with `web_sys`.
+        web_sys::console::log_1(&format!("Transform feedback data: {:#?}", feedback).into());
+    }));
 }

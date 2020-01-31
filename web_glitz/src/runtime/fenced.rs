@@ -12,32 +12,39 @@ use crate::runtime::Connection;
 
 pub(crate) struct FencedTaskQueue {
     queue: VecDeque<(WebGlSync, Box<dyn ExecutorJob>)>,
+    connection: Rc<RefCell<Connection>>
 }
 
 impl FencedTaskQueue {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(connection: Rc<RefCell<Connection>>) -> Self {
         FencedTaskQueue {
             queue: VecDeque::new(),
+            connection
         }
     }
 
-    pub(crate) fn push<T>(&mut self, job: T, connection: &mut Connection)
+    pub(crate) fn push<T>(&mut self, job: T)
     where
         T: ExecutorJob + 'static,
     {
+        let connection = self.connection.borrow_mut();
         let (gl, _) = unsafe { connection.unpack() };
         let fence = gl.fence_sync(Gl::SYNC_GPU_COMMANDS_COMPLETE, 0).unwrap();
 
         self.queue.push_back((fence, Box::new(job)));
     }
 
-    pub(crate) fn run(&mut self, connection: &mut Connection) -> bool {
-        let (gl, _) = unsafe { connection.unpack() };
-        let gl = gl.clone();
+    pub(crate) fn run(&mut self) -> bool {
+        // Make sure the connection reference goes out of scope, before we borrow it again below.
+        let gl = {
+            let connection = self.connection.borrow_mut();
+            let (gl, _) = unsafe { connection.unpack() };
+
+            gl.clone()
+        };
 
         while let Some((fence, _)) = self.queue.front() {
             let sync_status = gl
-                .clone()
                 .get_sync_parameter(fence, Gl::SYNC_STATUS)
                 .as_f64()
                 .unwrap() as u32;
@@ -45,7 +52,7 @@ impl FencedTaskQueue {
             if sync_status == Gl::SIGNALED {
                 let (_, mut job) = self.queue.pop_front().unwrap();
 
-                if JobState::ContinueFenced == job.progress(connection) {
+                if JobState::ContinueFenced == job.progress(&mut self.connection.borrow_mut()) {
                     let new_fence = gl.fence_sync(Gl::SYNC_GPU_COMMANDS_COMPLETE, 0).unwrap();
 
                     self.queue.push_back((new_fence, job));
@@ -65,7 +72,6 @@ impl FencedTaskQueue {
 }
 
 pub(crate) struct JsTimeoutFencedTaskRunner {
-    connection: Rc<RefCell<Connection>>,
     queue: Rc<RefCell<FencedTaskQueue>>,
     loop_handle: Option<JsTimeoutFencedTaskLoopHandle>,
 }
@@ -73,8 +79,7 @@ pub(crate) struct JsTimeoutFencedTaskRunner {
 impl JsTimeoutFencedTaskRunner {
     pub(crate) fn new(connection: Rc<RefCell<Connection>>) -> Self {
         JsTimeoutFencedTaskRunner {
-            connection,
-            queue: Rc::new(RefCell::new(FencedTaskQueue::new())),
+            queue: Rc::new(RefCell::new(FencedTaskQueue::new(connection))),
             loop_handle: None,
         }
     }
@@ -85,7 +90,7 @@ impl JsTimeoutFencedTaskRunner {
     {
         self.queue
             .borrow_mut()
-            .push(job, &mut self.connection.borrow_mut());
+            .push(job);
 
         let loop_running = if let Some(handle) = &self.loop_handle {
             !handle.cancelled()
@@ -96,7 +101,6 @@ impl JsTimeoutFencedTaskRunner {
         if !loop_running {
             self.loop_handle = Some(JsTimeoutFencedTaskLoop::init(
                 self.queue.clone(),
-                self.connection.clone(),
             ));
         }
     }
@@ -105,7 +109,6 @@ impl JsTimeoutFencedTaskRunner {
 #[derive(Clone)]
 struct JsTimeoutFencedTaskLoop {
     queue: Rc<RefCell<FencedTaskQueue>>,
-    connection: Rc<RefCell<Connection>>,
     closure: Weak<Option<Closure<dyn FnMut()>>>,
     handle: Rc<Cell<i32>>,
     cancelled: Rc<Cell<bool>>,
@@ -114,7 +117,6 @@ struct JsTimeoutFencedTaskLoop {
 impl JsTimeoutFencedTaskLoop {
     fn init(
         queue: Rc<RefCell<FencedTaskQueue>>,
-        connection: Rc<RefCell<Connection>>,
     ) -> JsTimeoutFencedTaskLoopHandle {
         let handle = Rc::new(Cell::new(0));
         let cancelled = Rc::new(Cell::new(false));
@@ -127,7 +129,6 @@ impl JsTimeoutFencedTaskLoop {
 
         let closure = Closure::wrap(Box::new(JsTimeoutFencedTaskLoop {
             queue,
-            connection,
             closure: Rc::downgrade(&closure_container),
             handle: handle.clone(),
             cancelled: cancelled.clone(),
@@ -141,7 +142,13 @@ impl JsTimeoutFencedTaskLoop {
             )
             .unwrap();
 
-        *Rc::get_mut(&mut closure_container).unwrap() = Some(closure);
+        unsafe {
+            // There's one alive weak pointer that we passed to the JsTimeoutFencedTaskLoop above,
+            // but it's not currently dereferenced (the soonest it could be dereferenced is in the
+            // next macro-task) so this should be safe.
+            *Rc::get_mut_unchecked(&mut closure_container) = Some(closure);
+        }
+
         handle.set(handle_id);
 
         JsTimeoutFencedTaskLoopHandle {
@@ -165,7 +172,7 @@ impl FnMut<()> for JsTimeoutFencedTaskLoop {
         let is_empty = self
             .queue
             .borrow_mut()
-            .run(&mut self.connection.borrow_mut());
+            .run();
 
         // If there are still unfinished jobs in the queue, schedule another callback; otherwise,
         // stop the loop (by not scheduling a new callback) and wait for a new job to be scheduled
@@ -190,6 +197,7 @@ impl FnMut<()> for JsTimeoutFencedTaskLoop {
                 self.handle.set(handle_id);
             }
         } else {
+
             self.cancelled.set(true);
         }
     }

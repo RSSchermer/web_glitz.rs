@@ -518,7 +518,7 @@ unsafe impl GpuTask<Connection> for SamplerAllocateCommand {
         if descriptor.minification_filter != MinificationFilter::NearestMipmapLinear {
             gl.sampler_parameteri(
                 &object,
-                Gl::TEXTURE_MAG_FILTER,
+                Gl::TEXTURE_MIN_FILTER,
                 descriptor.minification_filter as i32,
             );
         }

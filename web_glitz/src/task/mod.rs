@@ -204,5 +204,17 @@ mod maybe_done;
 /// Macro that joins all tasks.
 pub use crate::join_all;
 
-/// Macro that sequences all tasks.
+/// Macro that joins all tasks and returns only the output of the left-most task.
+pub use crate::join_all_left;
+
+/// Macro that joins all tasks and returns only the output of the right-most task.
+pub use crate::join_all_right;
+
+/// Macro that sequences all tasks and returns a tuple of all outputs.
 pub use crate::sequence_all;
+
+/// Macro that sequences all tasks and returns only the output of the left-most task.
+pub use crate::sequence_all_left;
+
+/// Macro that sequences all tasks and returns only the output of the right-most task.
+pub use crate::sequence_all_right;

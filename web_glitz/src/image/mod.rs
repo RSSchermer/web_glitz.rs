@@ -83,7 +83,7 @@
 //! [TextureCube::generate_mipmap]).
 
 pub(crate) mod image_source;
-pub use self::image_source::{FromPixelsError, Image2DSource, LayeredImageSource};
+pub use self::image_source::{Image2DSource, LayeredImageSource, FromPixelsError};
 
 pub mod format;
 pub mod renderbuffer;

@@ -11,16 +11,12 @@ use std::sync::Arc;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::image::format::{
-    ClientFormat, Filterable, FloatSamplable, IntegerSamplable, ShadowSamplable, TextureFormat,
+    PixelUnpack, Filterable, FloatSamplable, IntegerSamplable, ShadowSamplable, TextureFormat,
     UnsignedIntegerSamplable,
 };
 use crate::image::image_source::{Image2DSourceInternal, LayeredImageSourceInternal};
 use crate::image::texture_object_dropper::TextureObjectDropper;
-use crate::image::util::{
-    max_mipmap_levels, mipmap_size, region_2d_overlap_height, region_2d_overlap_width,
-    region_2d_sub_image, region_3d_overlap_depth, region_3d_overlap_height,
-    region_3d_overlap_width, region_3d_sub_image,
-};
+use crate::image::util::{max_mipmap_levels, mipmap_size, region_2d_overlap_height, region_2d_overlap_width, region_2d_sub_image, region_3d_overlap_depth, region_3d_overlap_height, region_3d_overlap_width, region_3d_sub_image, texture_data_as_js_buffer};
 use crate::image::{
     Image2DSource, IncompatibleSampler, LayeredImageSource, MaxMipmapLevelsExceeded, MipmapLevels,
     Region2D, Region3D,
@@ -1021,7 +1017,7 @@ where
     /// Returns a command which, when executed, replaces the image data in this [Level]'s image
     /// with the image data provided in `data`.
     ///
-    /// The image data must be stored in a [ClientFormat] that is suitable for the texture's
+    /// The image data must be stored as a [PixelUnpack] type that is suitable for the texture's
     /// [TextureFormat].
     ///
     /// If the dimensions of the image provided in `data` are not sufficient to cover the [Level]'s
@@ -1067,7 +1063,7 @@ where
         data: LayeredImageSource<D, T>,
     ) -> LevelUploadCommand<D, T, F>
     where
-        T: ClientFormat<F>,
+        T: PixelUnpack<F>,
     {
         LevelUploadCommand {
             data,
@@ -1517,7 +1513,7 @@ where
     /// Returns a command which, when executed, replaces the image data in this [LevelLayer]'s image
     /// with the image data provided in `data`.
     ///
-    /// The image data must be stored in a [ClientFormat] that is suitable for the texture's
+    /// The image data must be stored as a [PixelUnpack] type that is suitable for the texture's
     /// [TextureFormat].
     ///
     /// If the dimensions of the image provided in `data` are not sufficient to cover the
@@ -1565,7 +1561,7 @@ where
         data: Image2DSource<D, T>,
     ) -> LevelLayerUploadCommand<D, T, F>
     where
-        T: ClientFormat<F>,
+        T: PixelUnpack<F>,
     {
         LevelLayerUploadCommand {
             data,
@@ -1662,7 +1658,7 @@ where
         data: LayeredImageSource<D, T>,
     ) -> LevelUploadCommand<D, T, F>
     where
-        T: ClientFormat<F>,
+        T: PixelUnpack<F>,
     {
         LevelUploadCommand {
             data,
@@ -2109,7 +2105,7 @@ where
     /// Returns a command which, when executed, replaces the image data in this
     /// [LevelLayerSubImage]'s image region with the image data provided in `data`.
     ///
-    /// The image data must be stored in a [ClientFormat] that is suitable for the texture's
+    /// The image data must be stored as a [PixelUnpack] type that is suitable for the texture's
     /// [TextureFormat].
     ///
     /// If the dimensions of the image provided in `data` are not sufficient to cover the
@@ -2159,7 +2155,7 @@ where
         data: Image2DSource<D, T>,
     ) -> LevelLayerUploadCommand<D, T, F>
     where
-        T: ClientFormat<F>,
+        T: PixelUnpack<F>,
     {
         LevelLayerUploadCommand {
             data,
@@ -2938,7 +2934,7 @@ pub struct LevelUploadCommand<D, T, F> {
 unsafe impl<D, T, F> GpuTask<Connection> for LevelUploadCommand<D, T, F>
 where
     D: Borrow<[T]>,
-    T: ClientFormat<F>,
+    T: PixelUnpack<F>,
     F: TextureFormat,
 {
     type Output = ();
@@ -2964,8 +2960,8 @@ where
                 data,
                 row_length,
                 image_height,
-                image_count,
                 alignment,
+                ..
             } => {
                 state.set_active_texture_lru().apply(gl).unwrap();
 
@@ -3013,35 +3009,25 @@ where
                     Region3D::Area(offset, ..) => offset,
                 };
 
-                let element_size = mem::size_of::<T>() as u32;
+                let elements = *row_length as usize
+                    * *image_height as usize
+                    * depth as usize;
+                let data_buffer = texture_data_as_js_buffer(data.borrow(), elements);
 
-                unsafe {
-                    let len = row_length * image_height * image_count * element_size;
-                    let mut data = slice::from_raw_parts(
-                        data.borrow() as *const _ as *const u8,
-                        (element_size * len) as usize,
-                    );
-                    let max_len = element_size * row_length * image_height * depth;
-
-                    if max_len > len {
-                        data = &data[0..max_len as usize];
-                    }
-
-                    gl.tex_sub_image_3d_with_opt_u8_array(
-                        Gl::TEXTURE_2D_ARRAY,
-                        self.level as i32,
-                        offset_x as i32,
-                        offset_y as i32,
-                        offset_z as i32,
-                        width as i32,
-                        height as i32,
-                        depth as i32,
-                        T::FORMAT_ID,
-                        T::TYPE_ID,
-                        Some(&mut *(data as *const _ as *mut _)),
-                    )
+                gl.tex_sub_image_3d_with_opt_array_buffer_view(
+                    Gl::TEXTURE_2D_ARRAY,
+                    self.level as i32,
+                    offset_x as i32,
+                    offset_y as i32,
+                    offset_z as i32,
+                    width as i32,
+                    height as i32,
+                    depth as i32,
+                    T::FORMAT_ID,
+                    T::TYPE_ID,
+                    Some(&data_buffer),
+                )
                     .unwrap();
-                }
             }
         }
 
@@ -3064,7 +3050,7 @@ pub struct LevelLayerUploadCommand<D, T, F> {
 unsafe impl<D, T, F> GpuTask<Connection> for LevelLayerUploadCommand<D, T, F>
 where
     D: Borrow<[T]>,
-    T: ClientFormat<F>,
+    T: PixelUnpack<F>,
     F: TextureFormat,
 {
     type Output = ();
@@ -3087,8 +3073,8 @@ where
             Image2DSourceInternal::PixelData {
                 data,
                 row_length,
-                image_height,
                 alignment,
+                ..
             } => {
                 state.set_active_texture_lru().apply(gl).unwrap();
 
@@ -3124,35 +3110,24 @@ where
                     Region2D::Fill => (0, 0),
                     Region2D::Area(offset, ..) => offset,
                 };
-                let element_size = mem::size_of::<T>() as u32;
 
-                unsafe {
-                    let len = row_length * image_height * element_size;
-                    let mut data = slice::from_raw_parts(
-                        data.borrow() as *const _ as *const u8,
-                        (element_size * len) as usize,
-                    );
-                    let max_len = element_size * row_length * height;
+                let elements = *row_length as usize * height as usize;
+                let data_buffer = texture_data_as_js_buffer(data.borrow(), elements);
 
-                    if max_len > len {
-                        data = &data[0..max_len as usize];
-                    }
-
-                    gl.tex_sub_image_3d_with_opt_u8_array(
-                        Gl::TEXTURE_2D_ARRAY,
-                        self.level as i32,
-                        offset_x as i32,
-                        offset_y as i32,
-                        self.layer as i32,
-                        width as i32,
-                        height as i32,
-                        1,
-                        T::FORMAT_ID,
-                        T::TYPE_ID,
-                        Some(&mut *(data as *const _ as *mut _)),
-                    )
+                gl.tex_sub_image_3d_with_opt_array_buffer_view(
+                    Gl::TEXTURE_2D_ARRAY,
+                    self.level as i32,
+                    offset_x as i32,
+                    offset_y as i32,
+                    self.layer as i32,
+                    width as i32,
+                    height as i32,
+                    1,
+                    T::FORMAT_ID,
+                    T::TYPE_ID,
+                    Some(&data_buffer),
+                )
                     .unwrap();
-                }
             }
         }
 

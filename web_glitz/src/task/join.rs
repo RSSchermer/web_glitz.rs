@@ -154,6 +154,24 @@ macro_rules! generate_join_left {
                 }
             }
         }
+
+        impl<A, $($B),*, Ec> Clone for $Join<A, $($B),*, Ec>
+        where
+            A: GpuTask<Ec> + Clone,
+            A::Output: Clone,
+            $(
+                $B: GpuTask<Ec> + Clone,
+                $B::Output: Clone,
+            )*
+        {
+            fn clone(&self) -> Self {
+                $Join {
+                    id: self.id.clone(),
+                    a: self.a.clone(),
+                    $($B: self.$B.clone()),*
+                }
+            }
+        }
     )*)
 }
 
@@ -241,6 +259,24 @@ macro_rules! generate_join_right {
                 }
             }
         }
+
+        impl<$($A,)* $B, Ec> Clone for $Join<$($A,)* $B, Ec>
+        where
+            $(
+                $A: GpuTask<Ec> + Clone,
+                $A::Output: Clone,
+            )*
+            $B: GpuTask<Ec> + Clone,
+            $B::Output: Clone,
+        {
+            fn clone(&self) -> Self {
+                $Join {
+                    id: self.id.clone(),
+                    $($A: self.$A.clone(),)*
+                    $B: self.$B.clone(),
+                }
+            }
+        }
     )*)
 }
 
@@ -288,6 +324,42 @@ macro_rules! join_all {
     }
 }
 
+#[doc(hidden)]
+#[macro_export]
+macro_rules! join_all_left {
+    ($e0:expr, $e1:expr) => (join_all_left!($e0, $e1,));
+    ($e0:expr, $e1:expr, $($e:expr,)+) => (join_all_left!($e0, $e1, $($e),*));
+    ($e0:expr, $e1:expr, $($e:expr),*) => {
+        {
+            let joined = $crate::task::join_all_left($e0, $e1);
+
+            $(
+                let joined = $crate::task::join_all_left(joined, $e);
+            )*
+
+            joined
+        }
+    }
+}
+
+#[doc(hidden)]
+#[macro_export]
+macro_rules! join_all_right {
+    ($e0:expr, $e1:expr) => (join_all_right!($e0, $e1,));
+    ($e0:expr, $e1:expr, $($e:expr,)+) => (join_all_right!($e0, $e1, $($e),*));
+    ($e0:expr, $e1:expr, $($e:expr),*) => {
+        {
+            let joined = $crate::task::join_all_right($e0, $e1);
+
+            $(
+                let joined = $crate::task::join_all_right(joined, $e);
+            )*
+
+            joined
+        }
+    }
+}
+
 /// Task for the [join_iter] combinator, waiting for all tasks in the iterator to complete in no
 /// particular order, outputting `()`.
 ///
@@ -309,9 +381,10 @@ where
 
         let vec: Vec<MaybeDone<T, (), Ec>> = tasks
             .into_iter()
-            .map(|t| {
+            .inspect(|t| {
                 id = id.combine(t.context_id()).unwrap();
-
+            })
+            .map(|t| {
                 maybe_done(t)
             })
             .collect();
@@ -335,7 +408,7 @@ where
             return Progress::Finished(());
         }
 
-        let mut all_done = false;
+        let mut all_done = true;
 
         for task in &mut self.vec {
             all_done = all_done && task.progress(execution_context);

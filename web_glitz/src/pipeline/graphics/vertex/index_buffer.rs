@@ -3,12 +3,12 @@ use std::cell::UnsafeCell;
 use std::hash::{Hash, Hasher};
 use std::marker;
 use std::mem;
-use std::ops::{Deref, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
+use std::ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 use std::slice;
 use std::sync::Arc;
 
 use wasm_bindgen::JsCast;
-use web_sys::{WebGl2RenderingContext as Gl, WebGlBuffer};
+use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::buffer::UsageHint;
 use crate::runtime::state::ContextUpdate;
@@ -155,7 +155,7 @@ where
             context_id: context.id(),
             dropper: Box::new(context.clone()),
             usage_hint,
-            len: 1,
+            len: data.borrow().len(),
         });
 
         context.submit(AllocateCommand {

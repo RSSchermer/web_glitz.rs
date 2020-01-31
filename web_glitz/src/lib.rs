@@ -31,6 +31,7 @@
     const_fn,
     const_generics,
     fn_traits,
+    get_mut_unchecked,
     slice_index_methods,
     unboxed_closures,
     unsize,

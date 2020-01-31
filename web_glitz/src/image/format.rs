@@ -2,6 +2,7 @@ use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::runtime::Extensions;
 use crate::sampler::{MagnificationFilter, MinificationFilter};
+use std::ops::Deref;
 
 /// Trait implemented for types that represent image formats for storing image data in
 /// GPU-accessible memory.
@@ -10,9 +11,15 @@ pub unsafe trait InternalFormat {
     const ID: u32;
 }
 
-/// Trait implemented for types that represent data for a single pixel that can be used with a
-/// certain [InternalFormat].
-pub unsafe trait ClientFormat<T>
+/// Trait implemented for types that represent data for a single pixel that can be unpacked into an
+/// image with a certain [InternalFormat].
+///
+/// # Unsafe
+///
+/// Must only be implemented for types that are binary compatible with the specified [TYPE_ID].
+/// Additionally, the [InternalFormat::ID] of `T`, the [FORMAT_ID], and the [TYPE_ID] must be one of
+/// the valid combinations enumerated in [table 2](https://www.khronos.org/registry/OpenGL-Refpages/es3.0/html/glTexImage2D.xhtml).
+pub unsafe trait PixelUnpack<T>
 where
     T: InternalFormat,
 {
@@ -20,6 +27,32 @@ where
     const FORMAT_ID: u32;
 
     /// Identifier for associated OpenGl type value.
+    const TYPE_ID: u32;
+}
+
+pub unsafe trait PackFormat<T> where T: InternalFormat {
+    const FORMAT_ID: u32;
+}
+
+pub struct PackRed;
+
+pub struct PackRedInteger;
+
+pub struct PackRG;
+
+pub struct PackRGInteger;
+
+pub struct PackRGB;
+
+pub struct PackRGBInteger;
+
+pub struct PackRGBA;
+
+pub struct PackRGBAInteger;
+
+pub struct PackAlpha;
+
+pub unsafe trait PixelPack<F, T> where F: PackFormat<T>, T: InternalFormat {
     const TYPE_ID: u32;
 }
 
@@ -106,13 +139,11 @@ unsafe impl FloatRenderable for RGB565 {}
 unsafe impl FloatRenderable for RGB5_A1 {}
 unsafe impl FloatRenderable for RGB10_A2 {}
 
-// TODO: these require an extension, needs a check, probably at render pass creation.
+// TODO: these require EXT_color_buffer_float, needs a check, probably at render pass creation.
 unsafe impl FloatRenderable for R16F {}
 unsafe impl FloatRenderable for R32F {}
 unsafe impl FloatRenderable for RG16F {}
 unsafe impl FloatRenderable for RG32F {}
-unsafe impl FloatRenderable for RGB16F {}
-unsafe impl FloatRenderable for RGB32F {}
 unsafe impl FloatRenderable for RGBA16F {}
 unsafe impl FloatRenderable for RGBA32F {}
 unsafe impl FloatRenderable for R11F_G11F_B10F {}
@@ -1370,7 +1401,7 @@ unsafe impl InternalFormat for R8 {
     const ID: u32 = Gl::R8;
 }
 
-unsafe impl ClientFormat<R8> for u8 {
+unsafe impl PixelUnpack<R8> for u8 {
     const FORMAT_ID: u32 = Gl::RED;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
@@ -1382,7 +1413,7 @@ unsafe impl InternalFormat for R16F {
     const ID: u32 = Gl::R16F;
 }
 
-unsafe impl ClientFormat<R16F> for f32 {
+unsafe impl PixelUnpack<R16F> for f32 {
     const FORMAT_ID: u32 = Gl::RED;
 
     const TYPE_ID: u32 = Gl::FLOAT;
@@ -1394,7 +1425,7 @@ unsafe impl InternalFormat for R32F {
     const ID: u32 = Gl::R32F;
 }
 
-unsafe impl ClientFormat<R32F> for f32 {
+unsafe impl PixelUnpack<R32F> for f32 {
     const FORMAT_ID: u32 = Gl::RED;
 
     const TYPE_ID: u32 = Gl::FLOAT;
@@ -1406,7 +1437,7 @@ unsafe impl InternalFormat for R8UI {
     const ID: u32 = Gl::R8UI;
 }
 
-unsafe impl ClientFormat<R8UI> for u8 {
+unsafe impl PixelUnpack<R8UI> for u8 {
     const FORMAT_ID: u32 = Gl::RED_INTEGER;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
@@ -1418,7 +1449,7 @@ unsafe impl InternalFormat for R8I {
     const ID: u32 = Gl::R8I;
 }
 
-unsafe impl ClientFormat<R8I> for u8 {
+unsafe impl PixelUnpack<R8I> for u8 {
     const FORMAT_ID: u32 = Gl::RED_INTEGER;
 
     const TYPE_ID: u32 = Gl::BYTE;
@@ -1430,7 +1461,7 @@ unsafe impl InternalFormat for R16UI {
     const ID: u32 = Gl::R16UI;
 }
 
-unsafe impl ClientFormat<R16UI> for u16 {
+unsafe impl PixelUnpack<R16UI> for u16 {
     const FORMAT_ID: u32 = Gl::RED_INTEGER;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_SHORT;
@@ -1442,7 +1473,7 @@ unsafe impl InternalFormat for R16I {
     const ID: u32 = Gl::R16I;
 }
 
-unsafe impl ClientFormat<R16I> for i16 {
+unsafe impl PixelUnpack<R16I> for i16 {
     const FORMAT_ID: u32 = Gl::RED_INTEGER;
 
     const TYPE_ID: u32 = Gl::SHORT;
@@ -1454,7 +1485,7 @@ unsafe impl InternalFormat for R32UI {
     const ID: u32 = Gl::R32UI;
 }
 
-unsafe impl ClientFormat<R32UI> for u32 {
+unsafe impl PixelUnpack<R32UI> for u32 {
     const FORMAT_ID: u32 = Gl::RED_INTEGER;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_INT;
@@ -1466,7 +1497,7 @@ unsafe impl InternalFormat for R32I {
     const ID: u32 = Gl::R32I;
 }
 
-unsafe impl ClientFormat<R32I> for i32 {
+unsafe impl PixelUnpack<R32I> for i32 {
     const FORMAT_ID: u32 = Gl::RED_INTEGER;
 
     const TYPE_ID: u32 = Gl::INT;
@@ -1478,13 +1509,13 @@ unsafe impl InternalFormat for RG8 {
     const ID: u32 = Gl::RG8;
 }
 
-unsafe impl ClientFormat<RG8> for [u8; 2] {
+unsafe impl PixelUnpack<RG8> for [u8; 2] {
     const FORMAT_ID: u32 = Gl::RG;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
-unsafe impl ClientFormat<RG8> for (u8, u8) {
+unsafe impl PixelUnpack<RG8> for (u8, u8) {
     const FORMAT_ID: u32 = Gl::RG;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
@@ -1496,13 +1527,13 @@ unsafe impl InternalFormat for RG16F {
     const ID: u32 = Gl::RG16F;
 }
 
-unsafe impl ClientFormat<RG16F> for [f32; 2] {
+unsafe impl PixelUnpack<RG16F> for [f32; 2] {
     const FORMAT_ID: u32 = Gl::RG;
 
     const TYPE_ID: u32 = Gl::FLOAT;
 }
 
-unsafe impl ClientFormat<RG16F> for (f32, f32) {
+unsafe impl PixelUnpack<RG16F> for (f32, f32) {
     const FORMAT_ID: u32 = Gl::RG;
 
     const TYPE_ID: u32 = Gl::FLOAT;
@@ -1514,13 +1545,13 @@ unsafe impl InternalFormat for RG32F {
     const ID: u32 = Gl::RG32F;
 }
 
-unsafe impl ClientFormat<RG32F> for [f32; 2] {
+unsafe impl PixelUnpack<RG32F> for [f32; 2] {
     const FORMAT_ID: u32 = Gl::RG;
 
     const TYPE_ID: u32 = Gl::FLOAT;
 }
 
-unsafe impl ClientFormat<RG32F> for (f32, f32) {
+unsafe impl PixelUnpack<RG32F> for (f32, f32) {
     const FORMAT_ID: u32 = Gl::RG;
 
     const TYPE_ID: u32 = Gl::FLOAT;
@@ -1532,13 +1563,13 @@ unsafe impl InternalFormat for RG8UI {
     const ID: u32 = Gl::RG8UI;
 }
 
-unsafe impl ClientFormat<RG8UI> for [u8; 2] {
+unsafe impl PixelUnpack<RG8UI> for [u8; 2] {
     const FORMAT_ID: u32 = Gl::RG_INTEGER;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
-unsafe impl ClientFormat<RG8UI> for (u8, u8) {
+unsafe impl PixelUnpack<RG8UI> for (u8, u8) {
     const FORMAT_ID: u32 = Gl::RG_INTEGER;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
@@ -1550,13 +1581,13 @@ unsafe impl InternalFormat for RG8I {
     const ID: u32 = Gl::RG8I;
 }
 
-unsafe impl ClientFormat<RG8I> for [i8; 2] {
+unsafe impl PixelUnpack<RG8I> for [i8; 2] {
     const FORMAT_ID: u32 = Gl::RG_INTEGER;
 
     const TYPE_ID: u32 = Gl::BYTE;
 }
 
-unsafe impl ClientFormat<RG8I> for (i8, i8) {
+unsafe impl PixelUnpack<RG8I> for (i8, i8) {
     const FORMAT_ID: u32 = Gl::RG_INTEGER;
 
     const TYPE_ID: u32 = Gl::BYTE;
@@ -1568,13 +1599,13 @@ unsafe impl InternalFormat for RG16UI {
     const ID: u32 = Gl::RG16UI;
 }
 
-unsafe impl ClientFormat<RG16UI> for [u16; 2] {
+unsafe impl PixelUnpack<RG16UI> for [u16; 2] {
     const FORMAT_ID: u32 = Gl::RG_INTEGER;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_SHORT;
 }
 
-unsafe impl ClientFormat<RG16UI> for (u16, u16) {
+unsafe impl PixelUnpack<RG16UI> for (u16, u16) {
     const FORMAT_ID: u32 = Gl::RG_INTEGER;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_SHORT;
@@ -1586,13 +1617,13 @@ unsafe impl InternalFormat for RG16I {
     const ID: u32 = Gl::RG16I;
 }
 
-unsafe impl ClientFormat<RG16I> for [i16; 2] {
+unsafe impl PixelUnpack<RG16I> for [i16; 2] {
     const FORMAT_ID: u32 = Gl::RG_INTEGER;
 
     const TYPE_ID: u32 = Gl::SHORT;
 }
 
-unsafe impl ClientFormat<RG16I> for (i16, i16) {
+unsafe impl PixelUnpack<RG16I> for (i16, i16) {
     const FORMAT_ID: u32 = Gl::RG_INTEGER;
 
     const TYPE_ID: u32 = Gl::SHORT;
@@ -1604,13 +1635,13 @@ unsafe impl InternalFormat for RG32UI {
     const ID: u32 = Gl::RG32UI;
 }
 
-unsafe impl ClientFormat<RG32UI> for [u32; 2] {
+unsafe impl PixelUnpack<RG32UI> for [u32; 2] {
     const FORMAT_ID: u32 = Gl::RG_INTEGER;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_INT;
 }
 
-unsafe impl ClientFormat<RG32UI> for (u32, u32) {
+unsafe impl PixelUnpack<RG32UI> for (u32, u32) {
     const FORMAT_ID: u32 = Gl::RG_INTEGER;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_INT;
@@ -1622,13 +1653,13 @@ unsafe impl InternalFormat for RG32I {
     const ID: u32 = Gl::RG32I;
 }
 
-unsafe impl ClientFormat<RG32I> for [i32; 2] {
+unsafe impl PixelUnpack<RG32I> for [i32; 2] {
     const FORMAT_ID: u32 = Gl::RG_INTEGER;
 
     const TYPE_ID: u32 = Gl::INT;
 }
 
-unsafe impl ClientFormat<RG32I> for (i32, i32) {
+unsafe impl PixelUnpack<RG32I> for (i32, i32) {
     const FORMAT_ID: u32 = Gl::RG_INTEGER;
 
     const TYPE_ID: u32 = Gl::INT;
@@ -1640,13 +1671,13 @@ unsafe impl InternalFormat for RGB8 {
     const ID: u32 = Gl::RGB8;
 }
 
-unsafe impl ClientFormat<RGB8> for [u8; 3] {
+unsafe impl PixelUnpack<RGB8> for [u8; 3] {
     const FORMAT_ID: u32 = Gl::RGB;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
-unsafe impl ClientFormat<RGB8> for (u8, u8, u8) {
+unsafe impl PixelUnpack<RGB8> for (u8, u8, u8) {
     const FORMAT_ID: u32 = Gl::RGB;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
@@ -1658,13 +1689,13 @@ unsafe impl InternalFormat for SRGB8 {
     const ID: u32 = Gl::SRGB8;
 }
 
-unsafe impl ClientFormat<SRGB8> for [u8; 3] {
+unsafe impl PixelUnpack<SRGB8> for [u8; 3] {
     const FORMAT_ID: u32 = Gl::RGB;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
-unsafe impl ClientFormat<SRGB8> for (u8, u8, u8) {
+unsafe impl PixelUnpack<SRGB8> for (u8, u8, u8) {
     const FORMAT_ID: u32 = Gl::RGB;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
@@ -1676,19 +1707,19 @@ unsafe impl InternalFormat for RGB565 {
     const ID: u32 = Gl::RGB565;
 }
 
-unsafe impl ClientFormat<RGB565> for [u8; 3] {
+unsafe impl PixelUnpack<RGB565> for [u8; 3] {
     const FORMAT_ID: u32 = Gl::RGB;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
-unsafe impl ClientFormat<RGB565> for (u8, u8, u8) {
+unsafe impl PixelUnpack<RGB565> for (u8, u8, u8) {
     const FORMAT_ID: u32 = Gl::RGB;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
-unsafe impl ClientFormat<RGB565> for u16 {
+unsafe impl PixelUnpack<RGB565> for u16 {
     const FORMAT_ID: u32 = Gl::RGB;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_SHORT_5_6_5;
@@ -1701,19 +1732,19 @@ unsafe impl InternalFormat for R11F_G11F_B10F {
     const ID: u32 = Gl::R11F_G11F_B10F;
 }
 
-unsafe impl ClientFormat<R11F_G11F_B10F> for u32 {
+unsafe impl PixelUnpack<R11F_G11F_B10F> for u32 {
     const FORMAT_ID: u32 = Gl::RGB;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_INT_10F_11F_11F_REV;
 }
 
-unsafe impl ClientFormat<R11F_G11F_B10F> for [f32; 3] {
+unsafe impl PixelUnpack<R11F_G11F_B10F> for [f32; 3] {
     const FORMAT_ID: u32 = Gl::RGB;
 
     const TYPE_ID: u32 = Gl::FLOAT;
 }
 
-unsafe impl ClientFormat<R11F_G11F_B10F> for (f32, f32, f32) {
+unsafe impl PixelUnpack<R11F_G11F_B10F> for (f32, f32, f32) {
     const FORMAT_ID: u32 = Gl::RGB;
 
     const TYPE_ID: u32 = Gl::FLOAT;
@@ -1726,13 +1757,13 @@ unsafe impl InternalFormat for RGB9_E5 {
     const ID: u32 = Gl::RGB9_E5;
 }
 
-unsafe impl ClientFormat<RGB9_E5> for u32 {
+unsafe impl PixelUnpack<RGB9_E5> for u32 {
     const FORMAT_ID: u32 = Gl::RGB;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_INT_5_9_9_9_REV;
 }
 
-unsafe impl ClientFormat<RGB9_E5> for f32 {
+unsafe impl PixelUnpack<RGB9_E5> for f32 {
     const FORMAT_ID: u32 = Gl::RGB;
 
     const TYPE_ID: u32 = Gl::FLOAT;
@@ -1744,13 +1775,13 @@ unsafe impl InternalFormat for RGB16F {
     const ID: u32 = Gl::RGB16F;
 }
 
-unsafe impl ClientFormat<RGB16F> for [f32; 3] {
+unsafe impl PixelUnpack<RGB16F> for [f32; 3] {
     const FORMAT_ID: u32 = Gl::RGB;
 
     const TYPE_ID: u32 = Gl::FLOAT;
 }
 
-unsafe impl ClientFormat<RGB16F> for (f32, f32, f32) {
+unsafe impl PixelUnpack<RGB16F> for (f32, f32, f32) {
     const FORMAT_ID: u32 = Gl::RGB;
 
     const TYPE_ID: u32 = Gl::FLOAT;
@@ -1762,13 +1793,13 @@ unsafe impl InternalFormat for RGB32F {
     const ID: u32 = Gl::RGB32F;
 }
 
-unsafe impl ClientFormat<RGB32F> for [f32; 3] {
+unsafe impl PixelUnpack<RGB32F> for [f32; 3] {
     const FORMAT_ID: u32 = Gl::RGB;
 
     const TYPE_ID: u32 = Gl::FLOAT;
 }
 
-unsafe impl ClientFormat<RGB32F> for (f32, f32, f32) {
+unsafe impl PixelUnpack<RGB32F> for (f32, f32, f32) {
     const FORMAT_ID: u32 = Gl::RGB;
 
     const TYPE_ID: u32 = Gl::FLOAT;
@@ -1780,13 +1811,13 @@ unsafe impl InternalFormat for RGB8UI {
     const ID: u32 = Gl::RGB8UI;
 }
 
-unsafe impl ClientFormat<RGB8UI> for [u8; 3] {
+unsafe impl PixelUnpack<RGB8UI> for [u8; 3] {
     const FORMAT_ID: u32 = Gl::RGB_INTEGER;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
-unsafe impl ClientFormat<RGB8UI> for (u8, u8, u8) {
+unsafe impl PixelUnpack<RGB8UI> for (u8, u8, u8) {
     const FORMAT_ID: u32 = Gl::RGB_INTEGER;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
@@ -1798,13 +1829,13 @@ unsafe impl InternalFormat for RGB8I {
     const ID: u32 = Gl::RGB8I;
 }
 
-unsafe impl ClientFormat<RGB8I> for [i8; 3] {
+unsafe impl PixelUnpack<RGB8I> for [i8; 3] {
     const FORMAT_ID: u32 = Gl::RGB_INTEGER;
 
     const TYPE_ID: u32 = Gl::BYTE;
 }
 
-unsafe impl ClientFormat<RGB8I> for (i8, i8, i8) {
+unsafe impl PixelUnpack<RGB8I> for (i8, i8, i8) {
     const FORMAT_ID: u32 = Gl::RGB_INTEGER;
 
     const TYPE_ID: u32 = Gl::BYTE;
@@ -1816,13 +1847,13 @@ unsafe impl InternalFormat for RGB16UI {
     const ID: u32 = Gl::RGB16UI;
 }
 
-unsafe impl ClientFormat<RGB16UI> for [u16; 3] {
+unsafe impl PixelUnpack<RGB16UI> for [u16; 3] {
     const FORMAT_ID: u32 = Gl::RGB_INTEGER;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_SHORT;
 }
 
-unsafe impl ClientFormat<RGB16UI> for (u16, u16, u16) {
+unsafe impl PixelUnpack<RGB16UI> for (u16, u16, u16) {
     const FORMAT_ID: u32 = Gl::RGB_INTEGER;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_SHORT;
@@ -1834,13 +1865,13 @@ unsafe impl InternalFormat for RGB16I {
     const ID: u32 = Gl::RGB16I;
 }
 
-unsafe impl ClientFormat<RGB16I> for [i16; 3] {
+unsafe impl PixelUnpack<RGB16I> for [i16; 3] {
     const FORMAT_ID: u32 = Gl::RGB_INTEGER;
 
     const TYPE_ID: u32 = Gl::SHORT;
 }
 
-unsafe impl ClientFormat<RGB16I> for (i16, i16, i16) {
+unsafe impl PixelUnpack<RGB16I> for (i16, i16, i16) {
     const FORMAT_ID: u32 = Gl::RGB_INTEGER;
 
     const TYPE_ID: u32 = Gl::SHORT;
@@ -1852,13 +1883,13 @@ unsafe impl InternalFormat for RGB32UI {
     const ID: u32 = Gl::RGB32UI;
 }
 
-unsafe impl ClientFormat<RGB32UI> for [u32; 3] {
+unsafe impl PixelUnpack<RGB32UI> for [u32; 3] {
     const FORMAT_ID: u32 = Gl::RGB_INTEGER;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_INT;
 }
 
-unsafe impl ClientFormat<RGB32UI> for (u32, u32, u32) {
+unsafe impl PixelUnpack<RGB32UI> for (u32, u32, u32) {
     const FORMAT_ID: u32 = Gl::RGB_INTEGER;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_INT;
@@ -1870,13 +1901,13 @@ unsafe impl InternalFormat for RGB32I {
     const ID: u32 = Gl::RGB32I;
 }
 
-unsafe impl ClientFormat<RGB32I> for [i32; 3] {
+unsafe impl PixelUnpack<RGB32I> for [i32; 3] {
     const FORMAT_ID: u32 = Gl::RGB_INTEGER;
 
     const TYPE_ID: u32 = Gl::INT;
 }
 
-unsafe impl ClientFormat<RGB32I> for (i32, i32, i32) {
+unsafe impl PixelUnpack<RGB32I> for (i32, i32, i32) {
     const FORMAT_ID: u32 = Gl::RGB_INTEGER;
 
     const TYPE_ID: u32 = Gl::INT;
@@ -1888,13 +1919,13 @@ unsafe impl InternalFormat for RGBA8 {
     const ID: u32 = Gl::RGBA8;
 }
 
-unsafe impl ClientFormat<RGBA8> for [u8; 4] {
+unsafe impl PixelUnpack<RGBA8> for [u8; 4] {
     const FORMAT_ID: u32 = Gl::RGBA;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
-unsafe impl ClientFormat<RGBA8> for (u8, u8, u8, u8) {
+unsafe impl PixelUnpack<RGBA8> for (u8, u8, u8, u8) {
     const FORMAT_ID: u32 = Gl::RGBA;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
@@ -1907,13 +1938,13 @@ unsafe impl InternalFormat for SRGB8_ALPHA8 {
     const ID: u32 = Gl::SRGB8_ALPHA8;
 }
 
-unsafe impl ClientFormat<SRGB8_ALPHA8> for [u8; 4] {
+unsafe impl PixelUnpack<SRGB8_ALPHA8> for [u8; 4] {
     const FORMAT_ID: u32 = Gl::RGBA;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
-unsafe impl ClientFormat<SRGB8_ALPHA8> for (u8, u8, u8, u8) {
+unsafe impl PixelUnpack<SRGB8_ALPHA8> for (u8, u8, u8, u8) {
     const FORMAT_ID: u32 = Gl::RGBA;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
@@ -1926,25 +1957,25 @@ unsafe impl InternalFormat for RGB5_A1 {
     const ID: u32 = Gl::RGB5_A1;
 }
 
-unsafe impl ClientFormat<RGB5_A1> for [u8; 4] {
+unsafe impl PixelUnpack<RGB5_A1> for [u8; 4] {
     const FORMAT_ID: u32 = Gl::RGBA;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
-unsafe impl ClientFormat<RGB5_A1> for (u8, u8, u8, u8) {
+unsafe impl PixelUnpack<RGB5_A1> for (u8, u8, u8, u8) {
     const FORMAT_ID: u32 = Gl::RGBA;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
-unsafe impl ClientFormat<RGB5_A1> for u16 {
+unsafe impl PixelUnpack<RGB5_A1> for u16 {
     const FORMAT_ID: u32 = Gl::RGBA;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_SHORT_5_5_5_1;
 }
 
-unsafe impl ClientFormat<RGB5_A1> for u32 {
+unsafe impl PixelUnpack<RGB5_A1> for u32 {
     const FORMAT_ID: u32 = Gl::RGBA;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_INT_2_10_10_10_REV;
@@ -1956,19 +1987,19 @@ unsafe impl InternalFormat for RGBA4 {
     const ID: u32 = Gl::RGBA4;
 }
 
-unsafe impl ClientFormat<RGBA4> for [u8; 4] {
+unsafe impl PixelUnpack<RGBA4> for [u8; 4] {
     const FORMAT_ID: u32 = Gl::RGBA;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
-unsafe impl ClientFormat<RGBA4> for (u8, u8, u8, u8) {
+unsafe impl PixelUnpack<RGBA4> for (u8, u8, u8, u8) {
     const FORMAT_ID: u32 = Gl::RGBA;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
-unsafe impl ClientFormat<RGBA4> for u16 {
+unsafe impl PixelUnpack<RGBA4> for u16 {
     const FORMAT_ID: u32 = Gl::RGBA;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_SHORT_4_4_4_4;
@@ -1981,7 +2012,7 @@ unsafe impl InternalFormat for RGB10_A2 {
     const ID: u32 = Gl::RGB10_A2;
 }
 
-unsafe impl ClientFormat<RGB10_A2> for u32 {
+unsafe impl PixelUnpack<RGB10_A2> for u32 {
     const FORMAT_ID: u32 = Gl::RGBA;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_INT_2_10_10_10_REV;
@@ -1994,7 +2025,7 @@ unsafe impl InternalFormat for RGB10_A2UI {
     const ID: u32 = Gl::RGB10_A2UI;
 }
 
-unsafe impl ClientFormat<RGB10_A2UI> for u32 {
+unsafe impl PixelUnpack<RGB10_A2UI> for u32 {
     const FORMAT_ID: u32 = Gl::RGBA;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_INT_2_10_10_10_REV;
@@ -2006,13 +2037,13 @@ unsafe impl InternalFormat for RGBA16F {
     const ID: u32 = Gl::RGBA16F;
 }
 
-unsafe impl ClientFormat<RGBA16F> for [f32; 4] {
+unsafe impl PixelUnpack<RGBA16F> for [f32; 4] {
     const FORMAT_ID: u32 = Gl::RGBA;
 
     const TYPE_ID: u32 = Gl::FLOAT;
 }
 
-unsafe impl ClientFormat<RGBA16F> for (f32, f32, f32, f32) {
+unsafe impl PixelUnpack<RGBA16F> for (f32, f32, f32, f32) {
     const FORMAT_ID: u32 = Gl::RGBA;
 
     const TYPE_ID: u32 = Gl::FLOAT;
@@ -2024,13 +2055,13 @@ unsafe impl InternalFormat for RGBA32F {
     const ID: u32 = Gl::RGBA32F;
 }
 
-unsafe impl ClientFormat<RGBA32F> for [f32; 4] {
+unsafe impl PixelUnpack<RGBA32F> for [f32; 4] {
     const FORMAT_ID: u32 = Gl::RGBA;
 
     const TYPE_ID: u32 = Gl::FLOAT;
 }
 
-unsafe impl ClientFormat<RGBA32F> for (f32, f32, f32, f32) {
+unsafe impl PixelUnpack<RGBA32F> for (f32, f32, f32, f32) {
     const FORMAT_ID: u32 = Gl::RGBA;
 
     const TYPE_ID: u32 = Gl::FLOAT;
@@ -2042,13 +2073,13 @@ unsafe impl InternalFormat for RGBA8UI {
     const ID: u32 = Gl::RGBA8UI;
 }
 
-unsafe impl ClientFormat<RGBA8UI> for [u8; 4] {
+unsafe impl PixelUnpack<RGBA8UI> for [u8; 4] {
     const FORMAT_ID: u32 = Gl::RGBA_INTEGER;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
-unsafe impl ClientFormat<RGBA8UI> for (u8, u8, u8, u8) {
+unsafe impl PixelUnpack<RGBA8UI> for (u8, u8, u8, u8) {
     const FORMAT_ID: u32 = Gl::RGBA_INTEGER;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
@@ -2060,13 +2091,13 @@ unsafe impl InternalFormat for RGBA8I {
     const ID: u32 = Gl::RGBA8I;
 }
 
-unsafe impl ClientFormat<RGBA8I> for [i8; 4] {
+unsafe impl PixelUnpack<RGBA8I> for [i8; 4] {
     const FORMAT_ID: u32 = Gl::RGBA_INTEGER;
 
     const TYPE_ID: u32 = Gl::BYTE;
 }
 
-unsafe impl ClientFormat<RGBA8I> for (i8, i8, i8, i8) {
+unsafe impl PixelUnpack<RGBA8I> for (i8, i8, i8, i8) {
     const FORMAT_ID: u32 = Gl::RGBA_INTEGER;
 
     const TYPE_ID: u32 = Gl::BYTE;
@@ -2078,13 +2109,13 @@ unsafe impl InternalFormat for RGBA16UI {
     const ID: u32 = Gl::RGBA16UI;
 }
 
-unsafe impl ClientFormat<RGBA16UI> for [u16; 4] {
+unsafe impl PixelUnpack<RGBA16UI> for [u16; 4] {
     const FORMAT_ID: u32 = Gl::RGBA_INTEGER;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_SHORT;
 }
 
-unsafe impl ClientFormat<RGBA16UI> for (u16, u16, u16, u16) {
+unsafe impl PixelUnpack<RGBA16UI> for (u16, u16, u16, u16) {
     const FORMAT_ID: u32 = Gl::RGBA_INTEGER;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_SHORT;
@@ -2096,13 +2127,13 @@ unsafe impl InternalFormat for RGBA16I {
     const ID: u32 = Gl::RGBA16I;
 }
 
-unsafe impl ClientFormat<RGBA16I> for [i16; 4] {
+unsafe impl PixelUnpack<RGBA16I> for [i16; 4] {
     const FORMAT_ID: u32 = Gl::RGBA_INTEGER;
 
     const TYPE_ID: u32 = Gl::SHORT;
 }
 
-unsafe impl ClientFormat<RGBA16I> for (i16, i16, i16, i16) {
+unsafe impl PixelUnpack<RGBA16I> for (i16, i16, i16, i16) {
     const FORMAT_ID: u32 = Gl::RGBA_INTEGER;
 
     const TYPE_ID: u32 = Gl::SHORT;
@@ -2114,13 +2145,13 @@ unsafe impl InternalFormat for RGBA32UI {
     const ID: u32 = Gl::RGBA32UI;
 }
 
-unsafe impl ClientFormat<RGBA32UI> for [u32; 4] {
+unsafe impl PixelUnpack<RGBA32UI> for [u32; 4] {
     const FORMAT_ID: u32 = Gl::RGBA_INTEGER;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_INT;
 }
 
-unsafe impl ClientFormat<RGBA32UI> for (u32, u32, u32, u32) {
+unsafe impl PixelUnpack<RGBA32UI> for (u32, u32, u32, u32) {
     const FORMAT_ID: u32 = Gl::RGBA_INTEGER;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_INT;
@@ -2132,13 +2163,13 @@ unsafe impl InternalFormat for RGBA32I {
     const ID: u32 = Gl::RGBA32I;
 }
 
-unsafe impl ClientFormat<RGBA32I> for [i32; 4] {
+unsafe impl PixelUnpack<RGBA32I> for [i32; 4] {
     const FORMAT_ID: u32 = Gl::RGBA_INTEGER;
 
     const TYPE_ID: u32 = Gl::INT;
 }
 
-unsafe impl ClientFormat<RGBA32I> for (i32, i32, i32, i32) {
+unsafe impl PixelUnpack<RGBA32I> for (i32, i32, i32, i32) {
     const FORMAT_ID: u32 = Gl::RGBA_INTEGER;
 
     const TYPE_ID: u32 = Gl::INT;
@@ -2150,13 +2181,13 @@ unsafe impl InternalFormat for DepthComponent16 {
     const ID: u32 = Gl::DEPTH_COMPONENT16;
 }
 
-unsafe impl ClientFormat<DepthComponent16> for u16 {
+unsafe impl PixelUnpack<DepthComponent16> for u16 {
     const FORMAT_ID: u32 = Gl::DEPTH_COMPONENT;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_SHORT;
 }
 
-unsafe impl ClientFormat<DepthComponent16> for u32 {
+unsafe impl PixelUnpack<DepthComponent16> for u32 {
     const FORMAT_ID: u32 = Gl::DEPTH_COMPONENT;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_INT;
@@ -2168,7 +2199,7 @@ unsafe impl InternalFormat for DepthComponent24 {
     const ID: u32 = Gl::DEPTH_COMPONENT24;
 }
 
-unsafe impl ClientFormat<DepthComponent24> for u32 {
+unsafe impl PixelUnpack<DepthComponent24> for u32 {
     const FORMAT_ID: u32 = Gl::DEPTH_COMPONENT;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_INT;
@@ -2180,7 +2211,7 @@ unsafe impl InternalFormat for DepthComponent32F {
     const ID: u32 = Gl::DEPTH_COMPONENT32F;
 }
 
-unsafe impl ClientFormat<DepthComponent32F> for f32 {
+unsafe impl PixelUnpack<DepthComponent32F> for f32 {
     const FORMAT_ID: u32 = Gl::DEPTH_COMPONENT;
 
     const TYPE_ID: u32 = Gl::FLOAT;
@@ -2198,7 +2229,7 @@ unsafe impl InternalFormat for Depth24Stencil8 {
     const ID: u32 = Gl::DEPTH24_STENCIL8;
 }
 
-unsafe impl ClientFormat<Depth24Stencil8> for u32 {
+unsafe impl PixelUnpack<Depth24Stencil8> for u32 {
     const FORMAT_ID: u32 = Gl::DEPTH_STENCIL;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_INT_24_8;
@@ -2216,7 +2247,7 @@ unsafe impl InternalFormat for Luminance {
     const ID: u32 = Gl::LUMINANCE;
 }
 
-unsafe impl ClientFormat<Luminance> for u8 {
+unsafe impl PixelUnpack<Luminance> for u8 {
     const FORMAT_ID: u32 = Gl::LUMINANCE;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
@@ -2228,13 +2259,13 @@ unsafe impl InternalFormat for LuminanceAlpha {
     const ID: u32 = Gl::LUMINANCE_ALPHA;
 }
 
-unsafe impl ClientFormat<LuminanceAlpha> for [u8; 2] {
+unsafe impl PixelUnpack<LuminanceAlpha> for [u8; 2] {
     const FORMAT_ID: u32 = Gl::LUMINANCE_ALPHA;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
-unsafe impl ClientFormat<LuminanceAlpha> for (u8, u8) {
+unsafe impl PixelUnpack<LuminanceAlpha> for (u8, u8) {
     const FORMAT_ID: u32 = Gl::LUMINANCE_ALPHA;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
@@ -2246,7 +2277,7 @@ unsafe impl InternalFormat for Alpha {
     const ID: u32 = Gl::ALPHA;
 }
 
-unsafe impl ClientFormat<Alpha> for u8 {
+unsafe impl PixelUnpack<Alpha> for u8 {
     const FORMAT_ID: u32 = Gl::ALPHA;
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;

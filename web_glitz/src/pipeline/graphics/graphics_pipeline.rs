@@ -6,7 +6,6 @@ use std::sync::Arc;
 use fnv::FnvHasher;
 use wasm_bindgen::convert::IntoWasmAbi;
 use wasm_bindgen::JsCast;
-use web_sys::WebGlProgram;
 
 use crate::image::Region2D;
 use crate::pipeline::graphics::descriptor::ResourceBindingsLayoutKind;

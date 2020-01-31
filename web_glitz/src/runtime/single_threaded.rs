@@ -146,6 +146,7 @@ use crate::runtime::{
 };
 use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
 use crate::task::{GpuTask, Progress};
+use std::mem;
 
 thread_local!(static ID_GEN: IdGen = IdGen::new());
 
@@ -372,7 +373,13 @@ impl SingleThreadedExecutor {
     where
         T: GpuTask<Connection> + 'static,
     {
-        match task.progress(&mut self.connection.borrow_mut()) {
+        // Note: cant match on the statement directly, that will keep the borrow_mut alive for the
+        // match body which would result in a panic if the fenced task queue also tries to borrow
+        // the connection; binding it to a variable in a separate statement ensures the borrow
+        // ends in time.
+        let output = task.progress(&mut self.connection.borrow_mut());
+
+        match output {
             Progress::Finished(res) => res.into(),
             Progress::ContinueFenced => {
                 let (job, execution) = job(task);
@@ -495,11 +502,14 @@ impl Options for ContextOptions<DefaultRGBABuffer, DefaultDepthBuffer> {
         })
         .unwrap();
 
-        let gl = canvas
+        let gl: web_sys::WebGl2RenderingContext = canvas
             .get_context_with_context_options("webgl2", &options)
             .map_err(|e| e.as_string().unwrap())?
             .unwrap()
             .unchecked_into();
+        // TODO: temp experimation; remove.
+        gl.get_extension("EXT_color_buffer_float").unwrap().unwrap();
+
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
         let default_framebuffer_ref = DefaultRenderTarget::new(context.id());
