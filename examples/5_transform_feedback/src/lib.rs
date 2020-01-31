@@ -173,11 +173,12 @@ pub fn start() {
 
     // Finally, let's read back the transform feedback and output it to the console.
     let download_command = transform_feedback_buffer.download_command();
+
     // GPU tasks produce output when submitted to a context. Most task's (like the `rend_pass` task
     // submitted above) simply output `()`, which isn't very interesting, but our download task does
-    // produce an output value that we're interested it in using. However, the output may not be
-    // ready immediately and therefor `submit` returns a future for the output, rather than
-    // returning the output directly.
+    // produce an output value that we're interested in. However, the output may not be ready
+    // immediately and therefore `submit` returns a future for the output, rather than returning the
+    // output directly.
     let future_output = context.submit(download_command);
 
     // We'll have to spawn the future before it can begin executing. We'll use the
