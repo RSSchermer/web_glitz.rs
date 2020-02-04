@@ -111,7 +111,9 @@ use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 use fnv::FnvHasher;
+use js_sys::Promise;
 use serde_derive::Serialize;
+use wasm_bindgen::closure::Closure;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext as Gl};
 
@@ -136,7 +138,7 @@ use crate::render_pass::{
     DefaultStencilBuffer, RenderPass, RenderPassContext, RenderPassId,
 };
 use crate::render_target::{DefaultRenderTarget, RenderTargetDescription};
-use crate::runtime::executor_job::job;
+use crate::runtime::executor_job::{job, ExecutorJob, JobState};
 use crate::runtime::fenced::JsTimeoutFencedTaskRunner;
 use crate::runtime::rendering_context::{CreateGraphicsPipelineError, Extensions};
 use crate::runtime::state::DynamicState;
@@ -146,7 +148,9 @@ use crate::runtime::{
 };
 use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
 use crate::task::{GpuTask, Progress};
+use std::collections::VecDeque;
 use std::mem;
+use std::ops::Deref;
 
 thread_local!(static ID_GEN: IdGen = IdGen::new());
 
@@ -355,17 +359,58 @@ impl SingleThreadedContext {
 
 struct SingleThreadedExecutor {
     connection: Rc<RefCell<Connection>>,
-    fenced_task_queue_runner: JsTimeoutFencedTaskRunner,
+    fenced_task_queue_runner: Rc<RefCell<JsTimeoutFencedTaskRunner>>,
+    buffer: Rc<RefCell<VecDeque<Box<dyn ExecutorJob>>>>,
+    process_buffer_closure: Rc<RefCell<Option<Closure<dyn FnMut(JsValue)>>>>,
+    process_buffer_promise: Promise,
 }
 
 impl SingleThreadedExecutor {
     fn new(connection: Connection) -> Self {
         let connection = Rc::new(RefCell::new(connection));
-        let fenced_task_queue_runner = JsTimeoutFencedTaskRunner::new(connection.clone());
+        let fenced_task_queue_runner = Rc::new(RefCell::new(JsTimeoutFencedTaskRunner::new(
+            connection.clone(),
+        )));
+        let buffer: Rc<RefCell<VecDeque<Box<dyn ExecutorJob>>>> =
+            Rc::new(RefCell::new(VecDeque::new()));
+
+        // Initialize a closure that will process any buffered tasks in a micro-task. We'll have to
+        // make sure the closure lives long enough for the JS callback to succeed. This is
+        // potentially longer than the lifetime of the executor itself (the executor may already
+        // have been dropped while a micro-task is still queued). We create 2 copies of an Rc, one
+        // we give to the executor and one to the closure itself. Whenever the closure runs, check
+        // the reference count. If the count has dropped to 1, then drop the closure. We add a Drop
+        // implementation to the executor that schedules the closure callback one last time to
+        // ensure that this check occurs.
+        let rc = Rc::new(RefCell::new(None));
+        let rc_clone = rc.clone();
+        let connection_clone = connection.clone();
+        let fenced_task_queue_runner_clone = fenced_task_queue_runner.clone();
+        let buffer_clone = buffer.clone();
+
+        let callback = Closure::wrap(Box::new(move |_| {
+            while let Some(mut job) = buffer_clone.borrow_mut().pop_front() {
+                if let JobState::ContinueFenced = job.progress(&mut connection_clone.borrow_mut()) {
+                    fenced_task_queue_runner_clone.borrow_mut().schedule(job);
+                }
+            }
+
+            if Rc::strong_count(&rc_clone) == 1 {
+                // The executor was dropped, clean up after ourselves
+                let callback = rc_clone.borrow_mut().take();
+
+                mem::drop(callback);
+            }
+        }) as Box<dyn FnMut(JsValue)>);
+
+        *rc.borrow_mut() = Some(callback);
 
         SingleThreadedExecutor {
             connection,
             fenced_task_queue_runner,
+            buffer,
+            process_buffer_closure: rc,
+            process_buffer_promise: Promise::resolve(&JsValue::null()),
         }
     }
 
@@ -373,21 +418,61 @@ impl SingleThreadedExecutor {
     where
         T: GpuTask<Connection> + 'static,
     {
-        // Note: cant match on the statement directly, that will keep the borrow_mut alive for the
-        // match body which would result in a panic if the fenced task queue also tries to borrow
-        // the connection; binding it to a variable in a separate statement ensures the borrow
-        // ends in time.
-        let output = task.progress(&mut self.connection.borrow_mut());
+        if let Ok(mut connection) = self.connection.try_borrow_mut() {
+            let output = task.progress(&mut connection);
 
-        match output {
-            Progress::Finished(res) => res.into(),
-            Progress::ContinueFenced => {
-                let (job, execution) = job(task);
+            // Explicitly drop the connection reference, otherwise it lives until the end of the
+            // scope while the task queue runner may want to use it below, causing a panic.
+            mem::drop(connection);
 
-                self.fenced_task_queue_runner.schedule(job);
+            match output {
+                Progress::Finished(res) => res.into(),
+                Progress::ContinueFenced => {
+                    let (job, execution) = job(task);
 
-                execution
+                    self.fenced_task_queue_runner
+                        .borrow_mut()
+                        .schedule(Box::new(job));
+
+                    execution
+                }
             }
+        } else {
+            // We're already executing a task, probably means that this new task was submitted
+            // during task progression. Jobify and buffer it in a queue so we can handle this task
+            // after the current task is done.
+
+            let (job, execution) = job(task);
+
+            let mut buffer = self.buffer.borrow_mut();
+
+            buffer.push_back(Box::new(job));
+
+            // Only queue a new micro task if this if the first job to be buffered, otherwise a
+            // task will have already been queued.
+            if buffer.len() == 1 {
+                let ref_cell: &RefCell<_> = self.process_buffer_closure.borrow();
+                let callback_ref = ref_cell.borrow();
+
+                self.process_buffer_promise
+                    .then(callback_ref.as_ref().unwrap());
+            }
+
+            execution
+        }
+    }
+}
+
+impl Drop for SingleThreadedExecutor {
+    fn drop(&mut self) {
+        // Only schedule the callback if the buffer is empty, otherwise a callback is already
+        // queued.
+        if self.buffer.deref().borrow().len() == 0 {
+            let ref_cell: &RefCell<_> = self.process_buffer_closure.borrow();
+            let callback_ref = ref_cell.borrow();
+
+            self.process_buffer_promise
+                .then(callback_ref.as_ref().unwrap());
         }
     }
 }

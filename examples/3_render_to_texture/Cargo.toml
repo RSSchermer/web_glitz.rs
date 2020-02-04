@@ -9,7 +9,9 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
+futures-preview = { version = "=0.3.0-alpha.17", features = ["compat"] }
 wasm-bindgen = "0.2.48"
+wasm-bindgen-futures = "0.4.8"
 web-glitz = { version = "0.1.0", path = "../../web_glitz" }
 
 [dependencies.web-sys]

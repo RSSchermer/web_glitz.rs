@@ -384,9 +384,7 @@ where
             .inspect(|t| {
                 id = id.combine(t.context_id()).unwrap();
             })
-            .map(|t| {
-                maybe_done(t)
-            })
+            .map(|t| maybe_done(t))
             .collect();
 
         JoinIter { id, vec }

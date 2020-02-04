@@ -11,12 +11,16 @@ use std::sync::Arc;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::image::format::{
-    PixelUnpack, Filterable, FloatSamplable, IntegerSamplable, ShadowSamplable, TextureFormat,
+    Filterable, FloatSamplable, IntegerSamplable, PixelUnpack, ShadowSamplable, TextureFormat,
     UnsignedIntegerSamplable,
 };
 use crate::image::image_source::{Image2DSourceInternal, LayeredImageSourceInternal};
 use crate::image::texture_object_dropper::TextureObjectDropper;
-use crate::image::util::{max_mipmap_levels, mipmap_size, region_2d_overlap_height, region_2d_overlap_width, region_2d_sub_image, region_3d_overlap_depth, region_3d_overlap_height, region_3d_overlap_width, region_3d_sub_image, texture_data_as_js_buffer};
+use crate::image::util::{
+    max_mipmap_levels, mipmap_size, region_2d_overlap_height, region_2d_overlap_width,
+    region_2d_sub_image, region_3d_overlap_depth, region_3d_overlap_height,
+    region_3d_overlap_width, region_3d_sub_image, texture_data_as_js_buffer,
+};
 use crate::image::{
     Image2DSource, IncompatibleSampler, LayeredImageSource, MaxMipmapLevelsExceeded, MipmapLevels,
     Region2D, Region3D,
@@ -3009,9 +3013,7 @@ where
                     Region3D::Area(offset, ..) => offset,
                 };
 
-                let elements = *row_length as usize
-                    * *image_height as usize
-                    * depth as usize;
+                let elements = *row_length as usize * *image_height as usize * depth as usize;
                 let data_buffer = texture_data_as_js_buffer(data.borrow(), elements);
 
                 gl.tex_sub_image_3d_with_opt_array_buffer_view(
@@ -3027,7 +3029,7 @@ where
                     T::TYPE_ID,
                     Some(&data_buffer),
                 )
-                    .unwrap();
+                .unwrap();
             }
         }
 
@@ -3127,7 +3129,7 @@ where
                     T::TYPE_ID,
                     Some(&data_buffer),
                 )
-                    .unwrap();
+                .unwrap();
             }
         }
 

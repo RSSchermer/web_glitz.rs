@@ -5,11 +5,16 @@
 
 #![feature(const_fn, const_ptr_offset_from, const_transmute, ptr_offset_from)]
 
+use std::ops::Deref;
+
+use futures::FutureExt;
+
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
+use wasm_bindgen_futures::spawn_local;
 use web_sys::{window, HtmlCanvasElement};
 
-use web_glitz::buffer::UsageHint;
+use web_glitz::buffer::{Buffer, UsageHint};
 use web_glitz::image::format::RGBA8;
 use web_glitz::image::texture_2d::{FloatSampledTexture2D, Texture2DDescriptor};
 use web_glitz::image::MipmapLevels;
@@ -20,7 +25,7 @@ use web_glitz::pipeline::resources::BindGroup;
 use web_glitz::render_target::{FloatAttachment, LoadOp, RenderTarget, StoreOp};
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 use web_glitz::sampler::{MagnificationFilter, MinificationFilter, SamplerDescriptor, Wrap};
-use web_glitz::task::sequence_all;
+use web_glitz::task::{sequence_all, sequence_right};
 
 // This example will use 2 render passes:
 // - One to render the texture on a custom render target; the example refers to this pass as the
@@ -217,4 +222,30 @@ pub fn start() {
     // We use the `sequence_all!` macro again to make sure our secondary render pass finishes before
     // the primary render pass begins.
     context.submit(sequence_all![secondary_render_pass, primary_render_pass]);
+
+    // Let's also retrieve the texture data we generated and output it to the console. We'll first
+    // pixel-pack the data into a new buffer and then download the buffer's contents.
+    // TODO: introduce way to zero-initialize buffers of "zeroable" types (e.g.
+    // `bytemuck::Zeroable`).
+    let buffer: Buffer<[[u8; 4]]> =
+        context.create_buffer(vec![[0, 0, 0, 0]; 256 * 256], UsageHint::StreamRead);
+    let pack_command = texture
+        .base_level()
+        .pack_to_buffer_command((&buffer).into());
+    let download_command = buffer.download_command();
+
+    // GPU tasks produce output when submitted to a context. We're only interested in the output
+    // of the download command, so we use `sequence_right` to select just its output and disregard
+    // the pack command's output (which is just `()`). The output may not be ready immediately and
+    // therefore `submit` returns a future for the output, rather than returning the output
+    // directly.
+    let future_output = context.submit(sequence_right(pack_command, download_command));
+
+    // We'll have to spawn the future before it can begin executing. We'll use the
+    // `wasm-bindgen-futures` crate to run our future on the browser's event loop.
+    spawn_local(future_output.map(|pixels| {
+        // The output of our download command is a boxed slice of pixel values. We'll use debug
+        // formatting to turn it into a string and log it to the console with `web_sys`.
+        web_sys::console::log_1(&format!("Pixel data: {:?}", pixels).into());
+    }));
 }

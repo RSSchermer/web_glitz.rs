@@ -10,12 +10,15 @@ use std::sync::Arc;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::image::format::{
-    PixelUnpack, Filterable, FloatSamplable, IntegerSamplable, ShadowSamplable, TextureFormat,
+    Filterable, FloatSamplable, IntegerSamplable, PixelUnpack, ShadowSamplable, TextureFormat,
     UnsignedIntegerSamplable,
 };
 use crate::image::image_source::Image2DSourceInternal;
 use crate::image::texture_object_dropper::TextureObjectDropper;
-use crate::image::util::{max_mipmap_levels, mipmap_size, region_2d_overlap_height, region_2d_overlap_width, region_2d_sub_image, texture_data_as_js_buffer};
+use crate::image::util::{
+    max_mipmap_levels, mipmap_size, region_2d_overlap_height, region_2d_overlap_width,
+    region_2d_sub_image, texture_data_as_js_buffer,
+};
 use crate::image::{
     Image2DSource, IncompatibleSampler, MaxMipmapLevelsExceeded, MipmapLevels, Region2D,
 };
@@ -1846,7 +1849,8 @@ where
                     T::FORMAT_ID,
                     T::TYPE_ID,
                     Some(&data_buffer),
-                ).unwrap();
+                )
+                .unwrap();
             }
         }
 

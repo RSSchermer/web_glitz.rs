@@ -12,26 +12,23 @@ use crate::runtime::Connection;
 
 pub(crate) struct FencedTaskQueue {
     queue: VecDeque<(WebGlSync, Box<dyn ExecutorJob>)>,
-    connection: Rc<RefCell<Connection>>
+    connection: Rc<RefCell<Connection>>,
 }
 
 impl FencedTaskQueue {
     pub(crate) fn new(connection: Rc<RefCell<Connection>>) -> Self {
         FencedTaskQueue {
             queue: VecDeque::new(),
-            connection
+            connection,
         }
     }
 
-    pub(crate) fn push<T>(&mut self, job: T)
-    where
-        T: ExecutorJob + 'static,
-    {
+    pub(crate) fn push(&mut self, job: Box<dyn ExecutorJob>) {
         let connection = self.connection.borrow_mut();
         let (gl, _) = unsafe { connection.unpack() };
         let fence = gl.fence_sync(Gl::SYNC_GPU_COMMANDS_COMPLETE, 0).unwrap();
 
-        self.queue.push_back((fence, Box::new(job)));
+        self.queue.push_back((fence, job));
     }
 
     pub(crate) fn run(&mut self) -> bool {
@@ -84,13 +81,8 @@ impl JsTimeoutFencedTaskRunner {
         }
     }
 
-    pub(crate) fn schedule<T>(&mut self, job: T)
-    where
-        T: ExecutorJob + 'static,
-    {
-        self.queue
-            .borrow_mut()
-            .push(job);
+    pub(crate) fn schedule(&mut self, job: Box<dyn ExecutorJob>) {
+        self.queue.borrow_mut().push(job);
 
         let loop_running = if let Some(handle) = &self.loop_handle {
             !handle.cancelled()
@@ -99,9 +91,7 @@ impl JsTimeoutFencedTaskRunner {
         };
 
         if !loop_running {
-            self.loop_handle = Some(JsTimeoutFencedTaskLoop::init(
-                self.queue.clone(),
-            ));
+            self.loop_handle = Some(JsTimeoutFencedTaskLoop::init(self.queue.clone()));
         }
     }
 }
@@ -115,9 +105,7 @@ struct JsTimeoutFencedTaskLoop {
 }
 
 impl JsTimeoutFencedTaskLoop {
-    fn init(
-        queue: Rc<RefCell<FencedTaskQueue>>,
-    ) -> JsTimeoutFencedTaskLoopHandle {
+    fn init(queue: Rc<RefCell<FencedTaskQueue>>) -> JsTimeoutFencedTaskLoopHandle {
         let handle = Rc::new(Cell::new(0));
         let cancelled = Rc::new(Cell::new(false));
 
@@ -169,10 +157,7 @@ impl FnOnce<()> for JsTimeoutFencedTaskLoop {
 
 impl FnMut<()> for JsTimeoutFencedTaskLoop {
     extern "rust-call" fn call_mut(&mut self, _: ()) -> () {
-        let is_empty = self
-            .queue
-            .borrow_mut()
-            .run();
+        let is_empty = self.queue.borrow_mut().run();
 
         // If there are still unfinished jobs in the queue, schedule another callback; otherwise,
         // stop the loop (by not scheduling a new callback) and wait for a new job to be scheduled
@@ -197,7 +182,6 @@ impl FnMut<()> for JsTimeoutFencedTaskLoop {
                 self.handle.set(handle_id);
             }
         } else {
-
             self.cancelled.set(true);
         }
     }

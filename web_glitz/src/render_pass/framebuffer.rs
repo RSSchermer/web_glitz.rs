@@ -754,7 +754,9 @@ where
             pipeline,
         });
 
-        if task.context_id() != ContextId::Any && task.context_id() != ContextId::Id(pipeline_task_id) {
+        if task.context_id() != ContextId::Any
+            && task.context_id() != ContextId::Id(pipeline_task_id)
+        {
             panic!("Task does not belong to the pipeline task context.")
         }
 
@@ -1631,6 +1633,7 @@ pub struct BindResourcesCommand<Rb> {
 
 unsafe impl<Rb> GpuTask<PipelineTaskContext> for BindResourcesCommand<Rb>
 where
+    Rb: Borrow<[BindGroupDescriptor]>,
     Rb: Borrow<[BindGroupDescriptor]>,
 {
     type Output = ();

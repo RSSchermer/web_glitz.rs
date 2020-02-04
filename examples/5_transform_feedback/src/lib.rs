@@ -24,8 +24,8 @@ use web_glitz::pipeline::resources::BindGroup;
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 use web_glitz::task::sequence;
 
-use web_sys::{window, HtmlCanvasElement};
 use futures::FutureExt;
+use web_sys::{window, HtmlCanvasElement};
 
 // In this example we'll use the same type both as our "Vertex" type and as our "TransformFeedback"
 // type. To facilitate this in a safe way we derive `web_glitz::derive::TransformFeedback` in
@@ -35,7 +35,9 @@ use futures::FutureExt;
 // shader (see `./vertex.glsl`). We must also ensure that the field types we use are compatible with
 // the GLSL types used for these `out` values. This will be verified by reflecting on the shader
 // code when we create our pipeline.
-#[derive(web_glitz::derive::Vertex, web_glitz::derive::TransformFeedback, Clone, Copy, Default, Debug)]
+#[derive(
+    web_glitz::derive::Vertex, web_glitz::derive::TransformFeedback, Clone, Copy, Default, Debug,
+)]
 struct Vertex {
     #[vertex_attribute(location = 0, format = "Float2_f32")]
     varying_position: [f32; 2],
@@ -57,8 +59,6 @@ struct Resources<'a> {
 
 #[wasm_bindgen(start)]
 pub fn start() {
-    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
-
     let canvas: HtmlCanvasElement = window()
         .unwrap()
         .document()

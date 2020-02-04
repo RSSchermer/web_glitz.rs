@@ -9,10 +9,17 @@ use std::sync::Arc;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::image::format::{PixelUnpack, Filterable, FloatSamplable, IntegerSamplable, ShadowSamplable, TextureFormat, UnsignedIntegerSamplable, PackFormat, PixelPack};
+use crate::buffer::{BufferData, BufferView};
+use crate::image::format::{
+    Filterable, FloatSamplable, IntegerSamplable, PixelPack, PixelUnpack, ShadowSamplable,
+    TextureFormat, UnsignedIntegerSamplable,
+};
 use crate::image::image_source::Image2DSourceInternal;
 use crate::image::texture_object_dropper::TextureObjectDropper;
-use crate::image::util::{max_mipmap_levels, mipmap_size, region_2d_overlap_height, region_2d_overlap_width, region_2d_sub_image, texture_data_as_js_buffer};
+use crate::image::util::{
+    max_mipmap_levels, mipmap_size, region_2d_overlap_height, region_2d_overlap_width,
+    region_2d_sub_image, texture_data_as_js_buffer,
+};
 use crate::image::{
     Image2DSource, IncompatibleSampler, MaxMipmapLevelsExceeded, MipmapLevels, Region2D,
 };
@@ -21,7 +28,6 @@ use crate::runtime::{Connection, RenderingContext};
 use crate::sampler::{Sampler, SamplerData, ShadowSampler};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
-use crate::buffer::BufferView;
 
 /// Provides the information necessary for the creation of a [Texture2D].
 ///
@@ -992,6 +998,28 @@ where
             _marker: marker::PhantomData,
         }
     }
+
+    pub fn pack_to_buffer_command<P>(&self, buffer: BufferView<[P]>) -> PackToBufferCommand<F, P>
+    where
+        P: PixelPack<F>,
+    {
+        let offset = buffer.offset_in_bytes();
+        let buffer_data = buffer.buffer_data();
+        let texture_data = self.texture_data();
+
+        if buffer_data.context_id() != texture_data.context_id() {
+            panic!("Buffer belongs to a different context");
+        }
+
+        PackToBufferCommand {
+            texture_data: texture_data.clone(),
+            buffer_data: buffer_data.clone(),
+            offset,
+            level: self.level,
+            region: Region2D::Fill,
+            _marker: marker::PhantomData,
+        }
+    }
 }
 
 /// Returned from [Level::sub_image], a reference to a sub-region of a [Level]'s image.
@@ -1107,8 +1135,26 @@ where
         }
     }
 
-    pub fn copy_to_buffer_command<Pf, P>(&self, pack_format: F, buffer: BufferView<[P]>) where Pf: PackFormat<F>, P: PixelPack<Pf, F> {
-        unimplemented!()
+    pub fn pack_to_buffer_command<P>(&self, buffer: BufferView<[P]>) -> PackToBufferCommand<F, P>
+    where
+        P: PixelPack<F>,
+    {
+        let offset = buffer.offset_in_bytes();
+        let buffer_data = buffer.buffer_data();
+        let texture_data = self.texture_data();
+
+        if buffer_data.context_id() != texture_data.context_id() {
+            panic!("Buffer belongs to a different context");
+        }
+
+        PackToBufferCommand {
+            texture_data: texture_data.clone(),
+            buffer_data: buffer_data.clone(),
+            offset,
+            level: self.level,
+            region: self.region,
+            _marker: marker::PhantomData,
+        }
     }
 }
 
@@ -1617,6 +1663,82 @@ where
                 .unwrap();
             }
         }
+
+        Progress::Finished(())
+    }
+}
+
+/// Copies the image data of a [Level] or [LevelSubImage] into a [Buffer].
+///
+/// See [Level::pack_to_buffer_command] and [LevelSubImage::pack_to_buffer_command] for details.
+pub struct PackToBufferCommand<F, P> {
+    texture_data: Arc<Texture2DData>,
+    buffer_data: Arc<BufferData>,
+    offset: usize,
+    level: usize,
+    region: Region2D,
+    _marker: marker::PhantomData<(Box<[F]>, Box<[P]>)>,
+}
+
+unsafe impl<F, P> GpuTask<Connection> for PackToBufferCommand<F, P>
+where
+    F: TextureFormat,
+    P: PixelPack<F>,
+{
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Id(self.texture_data.context_id)
+    }
+
+    fn progress(&mut self, context: &mut Connection) -> Progress<Self::Output> {
+        let mut width = region_2d_overlap_width(self.texture_data.width, self.level, &self.region);
+        let height = region_2d_overlap_height(self.texture_data.height, self.level, &self.region);
+
+        if width == 0 || height == 0 {
+            return Progress::Finished(());
+        }
+
+        let (offset_x, offset_y) = match self.region {
+            Region2D::Fill => (0, 0),
+            Region2D::Area((offset_x, offset_y), ..) => (offset_x, offset_y),
+        };
+
+        let (gl, state) = unsafe { context.unpack_mut() };
+
+        state.bind_default_read_framebuffer(gl);
+
+        unsafe {
+            self.texture_data
+                .id()
+                .unwrap()
+                .with_value_unchecked(|texture_object| {
+                    gl.framebuffer_texture_2d(
+                        Gl::READ_FRAMEBUFFER,
+                        Gl::COLOR_ATTACHMENT0,
+                        Gl::TEXTURE_2D,
+                        Some(&texture_object),
+                        self.level as i32,
+                    );
+                });
+
+            self.buffer_data
+                .id()
+                .unwrap()
+                .with_value_unchecked(|buffer_object| {
+                    state.bind_pixel_pack_buffer(Some(buffer_object)).apply(gl);
+                })
+        }
+
+        gl.read_pixels_with_i32(
+            offset_x as i32,
+            offset_y as i32,
+            width as i32,
+            height as i32,
+            P::FORMAT_ID,
+            P::TYPE_ID,
+            self.offset as i32,
+        );
 
         Progress::Finished(())
     }
