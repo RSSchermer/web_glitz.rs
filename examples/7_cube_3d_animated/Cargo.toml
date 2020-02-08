@@ -9,7 +9,7 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-arwa = "0.1.0"
+arwa = "0.1.1"
 cgmath = "0.17.0"
 cgmath-std140 = "0.2.1"
 futures = "0.3.1"

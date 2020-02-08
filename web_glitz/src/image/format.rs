@@ -2,7 +2,6 @@ use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::runtime::Extensions;
 use crate::sampler::{MagnificationFilter, MinificationFilter};
-use std::ops::Deref;
 
 /// Trait implemented for types that represent image formats for storing image data in
 /// GPU-accessible memory.

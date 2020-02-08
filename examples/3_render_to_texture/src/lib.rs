@@ -5,8 +5,6 @@
 
 #![feature(const_fn, const_ptr_offset_from, const_transmute, ptr_offset_from)]
 
-use std::ops::Deref;
-
 use futures::FutureExt;
 
 use wasm_bindgen::prelude::*;

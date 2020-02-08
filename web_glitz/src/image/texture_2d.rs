@@ -2,9 +2,7 @@ use std::borrow::Borrow;
 use std::cell::UnsafeCell;
 use std::hash::{Hash, Hasher};
 use std::marker;
-use std::mem;
 use std::ops::{Deref, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
-use std::slice;
 use std::sync::Arc;
 
 use web_sys::WebGl2RenderingContext as Gl;
@@ -1692,7 +1690,7 @@ where
     }
 
     fn progress(&mut self, context: &mut Connection) -> Progress<Self::Output> {
-        let mut width = region_2d_overlap_width(self.texture_data.width, self.level, &self.region);
+        let width = region_2d_overlap_width(self.texture_data.width, self.level, &self.region);
         let height = region_2d_overlap_height(self.texture_data.height, self.level, &self.region);
 
         if width == 0 || height == 0 {
@@ -1726,7 +1724,10 @@ where
                 .id()
                 .unwrap()
                 .with_value_unchecked(|buffer_object| {
-                    state.bind_pixel_pack_buffer(Some(buffer_object)).apply(gl);
+                    state
+                        .bind_pixel_pack_buffer(Some(buffer_object))
+                        .apply(gl)
+                        .unwrap();
                 })
         }
 

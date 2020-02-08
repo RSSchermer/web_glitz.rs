@@ -3,9 +3,7 @@ use std::cell::UnsafeCell;
 use std::cmp;
 use std::hash::{Hash, Hasher};
 use std::marker;
-use std::mem;
 use std::ops::{Deref, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
-use std::slice;
 use std::sync::Arc;
 
 use web_sys::WebGl2RenderingContext as Gl;
