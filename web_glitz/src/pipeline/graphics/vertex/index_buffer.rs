@@ -670,6 +670,8 @@ where
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, state) = unsafe { connection.unpack_mut() };
 
+        state.bind_vertex_array(None).apply(gl).unwrap();
+
         unsafe {
             self.buffer_data
                 .id()
@@ -767,6 +769,8 @@ where
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
         let (gl, state) = unsafe { connection.unpack_mut() };
         let data = &self.data;
+
+        state.bind_vertex_array(None).apply(gl).unwrap();
 
         let buffer_object = Gl::create_buffer(&gl).unwrap();
 
