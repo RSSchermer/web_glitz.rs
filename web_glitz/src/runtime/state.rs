@@ -1113,7 +1113,7 @@ impl DynamicState {
             self.polygon_offset = polygon_offset;
 
             Some(move |context: &Gl| {
-                context.depth_range(factor, units);
+                context.polygon_offset(factor, units);
 
                 Ok(())
             })
