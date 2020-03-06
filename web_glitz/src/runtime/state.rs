@@ -202,14 +202,27 @@ impl DynamicState {
         &mut self,
         buffer: Option<&'a WebGlBuffer>,
     ) -> impl ContextUpdate<'a, ()> {
-        let current = unsafe {
-            self.bound_element_array_buffer
-                .map(|abi| JsValue::ref_from_abi(abi))
+        let do_update = if self.bound_vertex_array.is_some() {
+            // If a vertex array is currently bound, then we don't really know what element array
+            // buffer is currently active, so always update.
+
+            true
+        } else {
+            let current = unsafe {
+                self.bound_element_array_buffer
+                    .map(|abi| JsValue::ref_from_abi(abi))
+            };
+
+            if !identical(buffer, current.as_ref().map(|v| v.deref())) {
+                self.bound_element_array_buffer = buffer.map(|b| b.into_abi());
+
+                true
+            } else {
+                false
+            }
         };
 
-        if !identical(buffer, current.as_ref().map(|v| v.deref())) {
-            self.bound_element_array_buffer = buffer.map(|b| b.into_abi());
-
+        if do_update {
             Some(move |context: &Gl| {
                 context.bind_buffer(Gl::ELEMENT_ARRAY_BUFFER, buffer);
 
@@ -1990,7 +2003,6 @@ impl<'a> VertexArrayCache<'a> {
             vertex_array_cache,
             bound_vertex_array,
             bound_array_buffer,
-            bound_element_array_buffer,
             ..
         } = &mut self.state;
 
@@ -2047,8 +2059,6 @@ impl<'a> VertexArrayCache<'a> {
                     index_buffer_id
                         .unwrap()
                         .with_value_unchecked(|buffer: &WebGlBuffer| {
-                            *bound_element_array_buffer = Some(buffer.into_abi());
-
                             gl.bind_buffer(Gl::ELEMENT_ARRAY_BUFFER, Some(buffer));
                         });
                 }
