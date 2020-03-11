@@ -1,10 +1,10 @@
 use std::borrow::Borrow;
 use std::pin::Pin;
+use std::task::Poll;
 
 use futures::channel::oneshot::Receiver;
 use futures::future::Future;
 use futures::task::Context;
-use futures::Poll;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
