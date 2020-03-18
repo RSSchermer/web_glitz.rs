@@ -118,8 +118,10 @@ use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext as Gl};
 
 use crate::buffer::{Buffer, IntoBuffer, UsageHint};
-use crate::image::format::{RenderbufferFormat, TextureFormat};
-use crate::image::renderbuffer::{Renderbuffer, RenderbufferDescriptor};
+use crate::image::format::{RenderbufferFormat, TextureFormat, InternalFormat, Multisamplable, Multisample};
+use crate::image::renderbuffer::{
+    MultisampleRenderbufferDescriptor, Renderbuffer, RenderbufferDescriptor,
+};
 use crate::image::texture_2d::{Texture2D, Texture2DDescriptor};
 use crate::image::texture_2d_array::{Texture2DArray, Texture2DArrayDescriptor};
 use crate::image::texture_3d::{Texture3D, Texture3DDescriptor};
@@ -140,7 +142,9 @@ use crate::render_pass::{
 use crate::render_target::{DefaultRenderTarget, RenderTargetDescription};
 use crate::runtime::executor_job::{job, ExecutorJob, JobState};
 use crate::runtime::fenced::JsTimeoutFencedTaskRunner;
-use crate::runtime::rendering_context::{CreateGraphicsPipelineError, Extensions};
+use crate::runtime::rendering_context::{
+    CreateGraphicsPipelineError, Extensions, UnsupportedSampleCount,
+};
 use crate::runtime::state::DynamicState;
 use crate::runtime::{
     Connection, ContextOptions, Execution, PowerPreference, RenderingContext,
@@ -192,6 +196,16 @@ impl RenderingContext for SingleThreadedContext {
         &self.extensions
     }
 
+    fn max_supported_samples<F>(&self, format: F) -> usize where F: InternalFormat + Multisamplable {
+        let executor = self.executor.deref().borrow();
+        let connection = executor.connection.deref().borrow();
+
+        let (gl, _) = unsafe { connection.unpack() };
+
+        // TODO: cache results?
+        gl.get_internalformat_parameter(Gl::RENDERBUFFER, F::ID, Gl::SAMPLES).unwrap().as_f64().unwrap() as usize
+    }
+
     fn create_bind_group<T>(&self, resources: T) -> BindGroup<T>
     where
         T: BindableResourceGroup,
@@ -220,6 +234,16 @@ impl RenderingContext for SingleThreadedContext {
         F: RenderbufferFormat + 'static,
     {
         Renderbuffer::new(self, descriptor)
+    }
+
+    fn create_multisample_renderbuffer<F>(
+        &self,
+        descriptor: &MultisampleRenderbufferDescriptor<F>,
+    ) -> Result<Renderbuffer<Multisample<F>>, UnsupportedSampleCount>
+        where
+            F: RenderbufferFormat + Multisamplable + Copy + 'static,
+    {
+        Renderbuffer::new_multisample(self, descriptor)
     }
 
     fn create_vertex_shader<S>(&self, source: S) -> Result<VertexShader, ShaderCompilationError>
@@ -730,11 +754,14 @@ impl Options for ContextOptions<DefaultRGBBuffer, DefaultDepthBuffer> {
         })
         .unwrap();
 
-        let gl = canvas
+        let gl: web_sys::WebGl2RenderingContext = canvas
             .get_context_with_context_options("webgl2", &options)
             .map_err(|e| e.as_string().unwrap())?
             .unwrap()
             .unchecked_into();
+        // TODO: temp experimation; remove.
+        gl.get_extension("EXT_color_buffer_float").unwrap().unwrap();
+
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
         let default_framebuffer_ref = DefaultRenderTarget::new(context.id());

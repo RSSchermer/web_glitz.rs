@@ -9,8 +9,10 @@ use futures::task::Context;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::buffer::{Buffer, IntoBuffer, UsageHint};
-use crate::image::format::{RenderbufferFormat, TextureFormat};
-use crate::image::renderbuffer::{Renderbuffer, RenderbufferDescriptor};
+use crate::image::format::{RenderbufferFormat, TextureFormat, Multisamplable, InternalFormat, Multisample};
+use crate::image::renderbuffer::{
+    MultisampleRenderbufferDescriptor, Renderbuffer, RenderbufferDescriptor,
+};
 use crate::image::texture_2d::{Texture2D, Texture2DDescriptor};
 use crate::image::texture_2d_array::{Texture2DArray, Texture2DArrayDescriptor};
 use crate::image::texture_3d::{Texture3D, Texture3DDescriptor};
@@ -58,6 +60,8 @@ pub trait RenderingContext {
     ///
     /// See [Extensions] for details.
     fn extensions(&self) -> &Extensions;
+
+    fn max_supported_samples<F>(&self, format: F) -> usize where F: InternalFormat + Multisamplable;
 
     /// Creates a new group of bindable resources.
     ///
@@ -241,6 +245,13 @@ pub trait RenderingContext {
     fn create_renderbuffer<F>(&self, descriptor: &RenderbufferDescriptor<F>) -> Renderbuffer<F>
     where
         F: RenderbufferFormat + 'static;
+
+    fn create_multisample_renderbuffer<F>(
+        &self,
+        descriptor: &MultisampleRenderbufferDescriptor<F>,
+    ) -> Result<Renderbuffer<Multisample<F>>, UnsupportedSampleCount>
+    where
+        F: RenderbufferFormat + Multisamplable + Copy + 'static;
 
     /// Creates a new [VertexShader] from source code or returns an error if the source code fails
     /// to compile into a valid vertex shader.
@@ -780,6 +791,12 @@ impl From<IncompatibleResources> for CreateGraphicsPipelineError {
     fn from(error: IncompatibleResources) -> Self {
         CreateGraphicsPipelineError::IncompatibleResources(error)
     }
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct UnsupportedSampleCount {
+    pub(crate) max_supported_samples: usize,
+    pub(crate) requested_samples: usize,
 }
 
 /// Returned from [RenderingContext::submit], future result of the [GpuTask] that was submitted

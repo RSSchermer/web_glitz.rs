@@ -7,7 +7,7 @@ pub use self::context_options::{ContextOptions, ContextOptionsBuilder, PowerPref
 mod rendering_context;
 pub use self::rendering_context::{
     Connection, CreateGraphicsPipelineError, Execution, ExtensionState, Extensions,
-    RenderingContext, ShaderCompilationError,
+    RenderingContext, ShaderCompilationError, UnsupportedSampleCount
 };
 
 pub mod single_threaded;

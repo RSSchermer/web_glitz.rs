@@ -6,9 +6,9 @@ use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::image::format::RenderbufferFormat;
+use crate::image::format::{RenderbufferFormat, Multisamplable, Multisample};
 use crate::runtime::state::ContextUpdate;
-use crate::runtime::{Connection, RenderingContext};
+use crate::runtime::{Connection, RenderingContext, UnsupportedSampleCount};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
 
@@ -23,6 +23,25 @@ where
     ///
     /// Must implement [RenderbufferFormat].
     pub format: F,
+
+    /// The width of the [Renderbuffer].
+    pub width: u32,
+
+    /// The height of the [Renderbuffer].
+    pub height: u32,
+}
+
+/// Provides the information necessary for the creation of a [Renderbuffer].
+///
+/// See [RenderingContext::create_renderbuffer] for details.
+pub struct MultisampleRenderbufferDescriptor<F>
+where
+    F: RenderbufferFormat + Multisamplable + Copy,
+{
+    /// The format type the [Renderbuffer] will use to store its image data.
+    ///
+    /// Must implement [MultisampleFormat] in addition to [RenderbufferFormat].
+    pub format: Multisample<F>,
 
     /// The width of the [Renderbuffer].
     pub width: u32,
@@ -78,6 +97,22 @@ pub struct Renderbuffer<F> {
     _marker: marker::PhantomData<[F]>,
 }
 
+impl<F> Renderbuffer<F> {
+    pub(crate) fn data(&self) -> &Arc<RenderbufferData> {
+        &self.data
+    }
+
+    /// The width of this [Renderbuffer].
+    pub fn width(&self) -> u32 {
+        self.data.width
+    }
+
+    /// The height of this [Renderbuffer].
+    pub fn height(&self) -> u32 {
+        self.data.height
+    }
+}
+
 impl<F> Renderbuffer<F>
 where
     F: RenderbufferFormat + 'static,
@@ -104,19 +139,43 @@ where
             _marker: marker::PhantomData,
         }
     }
+}
 
-    pub(crate) fn data(&self) -> &Arc<RenderbufferData> {
-        &self.data
-    }
+impl<F> Renderbuffer<Multisample<F>>
+    where
+        F: RenderbufferFormat + Multisamplable + Copy + 'static,
+{
+    pub(crate) fn new_multisample<Rc>(context: &Rc, descriptor: &MultisampleRenderbufferDescriptor<F>) -> Result<Self, UnsupportedSampleCount>
+        where
+            Rc: RenderingContext + Clone + 'static,
+    {
+        let max_supported_samples = context.max_supported_samples(descriptor.format.sample_format());
 
-    /// The width of this [Renderbuffer].
-    pub fn width(&self) -> u32 {
-        self.data.width
-    }
+        if max_supported_samples > descriptor.format.samples() {
+            return Err(UnsupportedSampleCount {
+                max_supported_samples,
+                requested_samples: descriptor.format.samples()
+            });
+        }
 
-    /// The height of this [Renderbuffer].
-    pub fn height(&self) -> u32 {
-        self.data.height
+        let data = Arc::new(RenderbufferData {
+            id: UnsafeCell::new(None),
+            context_id: context.id(),
+            dropper: Box::new(context.clone()),
+            width: descriptor.width,
+            height: descriptor.height,
+        });
+
+        context.submit(MultisampleRenderbufferAllocateCommand::<F> {
+            data: data.clone(),
+            samples: descriptor.format.samples(),
+            _marker: marker::PhantomData,
+        });
+
+        Ok(Renderbuffer {
+            data,
+            _marker: marker::PhantomData,
+        })
     }
 }
 
@@ -198,6 +257,45 @@ where
 
         gl.renderbuffer_storage(
             Gl::RENDERBUFFER,
+            F::ID,
+            data.width as i32,
+            data.height as i32,
+        );
+
+        unsafe {
+            *data.id.get() = Some(JsId::from_value(object.into()));
+        }
+
+        Progress::Finished(())
+    }
+}
+
+struct MultisampleRenderbufferAllocateCommand<F> {
+    data: Arc<RenderbufferData>,
+    samples: usize,
+    _marker: marker::PhantomData<[F]>,
+}
+
+unsafe impl<F> GpuTask<Connection> for MultisampleRenderbufferAllocateCommand<F>
+    where
+        F: RenderbufferFormat,
+{
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Any
+    }
+
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
+        let (gl, state) = unsafe { connection.unpack_mut() };
+        let data = &self.data;
+        let object = gl.create_renderbuffer().unwrap();
+
+        state.bind_renderbuffer(Some(&object)).apply(gl).unwrap();
+
+        gl.renderbuffer_storage_multisample(
+            Gl::RENDERBUFFER,
+            self.samples as i32,
             F::ID,
             data.width as i32,
             data.height as i32,

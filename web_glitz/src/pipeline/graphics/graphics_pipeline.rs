@@ -338,7 +338,7 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
                             return Err(IncompatibleResources::MissingResource(
                                 slot.identifier().clone(),
                             )
-                                .into());
+                            .into());
                         }
                         SlotType::TextureSampler(texture_sampler_slot) => {
                             'inner: for descriptor in bind_group_1.slots() {
@@ -366,7 +366,7 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
                             return Err(IncompatibleResources::MissingResource(
                                 slot.identifier().clone(),
                             )
-                                .into());
+                            .into());
                         }
                     }
                 }

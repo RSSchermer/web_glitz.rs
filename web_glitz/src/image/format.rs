@@ -1,3 +1,5 @@
+use std::marker;
+
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::runtime::Extensions;
@@ -82,15 +84,15 @@ unsafe impl FloatSamplable for LuminanceAlpha {}
 /// Marker trait for formats from which a [Sampler] can sample integer values.
 pub unsafe trait IntegerSamplable: InternalFormat {}
 
-unsafe impl UnsignedIntegerSamplable for R8I {}
-unsafe impl UnsignedIntegerSamplable for R16I {}
-unsafe impl UnsignedIntegerSamplable for R32I {}
-unsafe impl UnsignedIntegerSamplable for RG8I {}
-unsafe impl UnsignedIntegerSamplable for RG16I {}
-unsafe impl UnsignedIntegerSamplable for RG32I {}
-unsafe impl UnsignedIntegerSamplable for RGBA8I {}
-unsafe impl UnsignedIntegerSamplable for RGBA16I {}
-unsafe impl UnsignedIntegerSamplable for RGBA32I {}
+unsafe impl IntegerSamplable for R8I {}
+unsafe impl IntegerSamplable for R16I {}
+unsafe impl IntegerSamplable for R32I {}
+unsafe impl IntegerSamplable for RG8I {}
+unsafe impl IntegerSamplable for RG16I {}
+unsafe impl IntegerSamplable for RG32I {}
+unsafe impl IntegerSamplable for RGBA8I {}
+unsafe impl IntegerSamplable for RGBA16I {}
+unsafe impl IntegerSamplable for RGBA32I {}
 
 /// Marker trait for formats from which a [Sampler] can sample unsigned integer values.
 pub unsafe trait UnsignedIntegerSamplable: InternalFormat {}
@@ -1387,6 +1389,7 @@ unsafe impl RenderbufferFormat for Depth24Stencil8 {}
 unsafe impl RenderbufferFormat for Depth32FStencil8 {}
 unsafe impl RenderbufferFormat for StencilIndex8 {}
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct R8;
 
 unsafe impl InternalFormat for R8 {
@@ -1405,6 +1408,7 @@ unsafe impl PixelPack<R8> for u8 {
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct R16F;
 
 unsafe impl InternalFormat for R16F {
@@ -1417,6 +1421,7 @@ unsafe impl PixelUnpack<R16F> for f32 {
     const TYPE_ID: u32 = Gl::FLOAT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct R32F;
 
 unsafe impl InternalFormat for R32F {
@@ -1435,6 +1440,7 @@ unsafe impl PixelPack<R32F> for f32 {
     const TYPE_ID: u32 = Gl::FLOAT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct R8UI;
 
 unsafe impl InternalFormat for R8UI {
@@ -1453,6 +1459,7 @@ unsafe impl PixelPack<R8UI> for u8 {
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct R8I;
 
 unsafe impl InternalFormat for R8I {
@@ -1471,6 +1478,7 @@ unsafe impl PixelPack<R8I> for u8 {
     const TYPE_ID: u32 = Gl::BYTE;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct R16UI;
 
 unsafe impl InternalFormat for R16UI {
@@ -1489,6 +1497,7 @@ unsafe impl PixelPack<R16UI> for u16 {
     const TYPE_ID: u32 = Gl::UNSIGNED_SHORT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct R16I;
 
 unsafe impl InternalFormat for R16I {
@@ -1507,6 +1516,7 @@ unsafe impl PixelPack<R16I> for i16 {
     const TYPE_ID: u32 = Gl::SHORT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct R32UI;
 
 unsafe impl InternalFormat for R32UI {
@@ -1525,6 +1535,7 @@ unsafe impl PixelPack<R32UI> for u32 {
     const TYPE_ID: u32 = Gl::UNSIGNED_INT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct R32I;
 
 unsafe impl InternalFormat for R32I {
@@ -1543,6 +1554,7 @@ unsafe impl PixelPack<R32I> for i32 {
     const TYPE_ID: u32 = Gl::INT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RG8;
 
 unsafe impl InternalFormat for RG8 {
@@ -1573,6 +1585,7 @@ unsafe impl PixelPack<RG8> for (u8, u8) {
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RG16F;
 
 unsafe impl InternalFormat for RG16F {
@@ -1591,6 +1604,7 @@ unsafe impl PixelUnpack<RG16F> for (f32, f32) {
     const TYPE_ID: u32 = Gl::FLOAT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RG32F;
 
 unsafe impl InternalFormat for RG32F {
@@ -1621,6 +1635,7 @@ unsafe impl PixelPack<RG32F> for (f32, f32) {
     const TYPE_ID: u32 = Gl::FLOAT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RG8UI;
 
 unsafe impl InternalFormat for RG8UI {
@@ -1651,6 +1666,7 @@ unsafe impl PixelPack<RG8UI> for (u8, u8) {
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RG8I;
 
 unsafe impl InternalFormat for RG8I {
@@ -1681,6 +1697,7 @@ unsafe impl PixelPack<RG8I> for (i8, i8) {
     const TYPE_ID: u32 = Gl::BYTE;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RG16UI;
 
 unsafe impl InternalFormat for RG16UI {
@@ -1711,6 +1728,7 @@ unsafe impl PixelPack<RG16UI> for (u16, u16) {
     const TYPE_ID: u32 = Gl::UNSIGNED_SHORT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RG16I;
 
 unsafe impl InternalFormat for RG16I {
@@ -1741,6 +1759,7 @@ unsafe impl PixelPack<RG16I> for (i16, i16) {
     const TYPE_ID: u32 = Gl::SHORT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RG32UI;
 
 unsafe impl InternalFormat for RG32UI {
@@ -1771,6 +1790,7 @@ unsafe impl PixelPack<RG32UI> for (u32, u32) {
     const TYPE_ID: u32 = Gl::UNSIGNED_INT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RG32I;
 
 unsafe impl InternalFormat for RG32I {
@@ -1801,6 +1821,7 @@ unsafe impl PixelPack<RG32I> for (i32, i32) {
     const TYPE_ID: u32 = Gl::INT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RGB8;
 
 unsafe impl InternalFormat for RGB8 {
@@ -1831,6 +1852,7 @@ unsafe impl PixelPack<RGB8> for (u8, u8, u8) {
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct SRGB8;
 
 unsafe impl InternalFormat for SRGB8 {
@@ -1861,6 +1883,7 @@ unsafe impl PixelPack<SRGB8> for (u8, u8, u8) {
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RGB565;
 
 unsafe impl InternalFormat for RGB565 {
@@ -1885,6 +1908,7 @@ unsafe impl PixelUnpack<RGB565> for u16 {
     const TYPE_ID: u32 = Gl::UNSIGNED_SHORT_5_6_5;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 #[allow(non_camel_case_types)]
 pub struct R11F_G11F_B10F;
 
@@ -1910,6 +1934,7 @@ unsafe impl PixelUnpack<R11F_G11F_B10F> for (f32, f32, f32) {
     const TYPE_ID: u32 = Gl::FLOAT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 #[allow(non_camel_case_types)]
 pub struct RGB9_E5;
 
@@ -1929,6 +1954,7 @@ unsafe impl PixelUnpack<RGB9_E5> for f32 {
     const TYPE_ID: u32 = Gl::FLOAT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RGB16F;
 
 unsafe impl InternalFormat for RGB16F {
@@ -1947,6 +1973,7 @@ unsafe impl PixelUnpack<RGB16F> for (f32, f32, f32) {
     const TYPE_ID: u32 = Gl::FLOAT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RGB32F;
 
 unsafe impl InternalFormat for RGB32F {
@@ -1977,6 +2004,7 @@ unsafe impl PixelPack<RGB32F> for (f32, f32, f32) {
     const TYPE_ID: u32 = Gl::FLOAT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RGB8UI;
 
 unsafe impl InternalFormat for RGB8UI {
@@ -2007,6 +2035,7 @@ unsafe impl PixelPack<RGB8UI> for (u8, u8, u8) {
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RGB8I;
 
 unsafe impl InternalFormat for RGB8I {
@@ -2037,6 +2066,7 @@ unsafe impl PixelPack<RGB8I> for (i8, i8, i8) {
     const TYPE_ID: u32 = Gl::BYTE;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RGB16UI;
 
 unsafe impl InternalFormat for RGB16UI {
@@ -2067,6 +2097,7 @@ unsafe impl PixelPack<RGB16UI> for (u16, u16, u16) {
     const TYPE_ID: u32 = Gl::UNSIGNED_SHORT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RGB16I;
 
 unsafe impl InternalFormat for RGB16I {
@@ -2097,6 +2128,7 @@ unsafe impl PixelPack<RGB16I> for (i16, i16, i16) {
     const TYPE_ID: u32 = Gl::SHORT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RGB32UI;
 
 unsafe impl InternalFormat for RGB32UI {
@@ -2127,6 +2159,7 @@ unsafe impl PixelPack<RGB32UI> for (u32, u32, u32) {
     const TYPE_ID: u32 = Gl::UNSIGNED_INT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RGB32I;
 
 unsafe impl InternalFormat for RGB32I {
@@ -2157,6 +2190,7 @@ unsafe impl PixelPack<RGB32I> for (i32, i32, i32) {
     const TYPE_ID: u32 = Gl::INT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RGBA8;
 
 unsafe impl InternalFormat for RGBA8 {
@@ -2187,6 +2221,7 @@ unsafe impl PixelPack<RGBA8> for (u8, u8, u8, u8) {
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 #[allow(non_camel_case_types)]
 pub struct SRGB8_ALPHA8;
 
@@ -2218,6 +2253,7 @@ unsafe impl PixelPack<SRGB8_ALPHA8> for (u8, u8, u8, u8) {
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 #[allow(non_camel_case_types)]
 pub struct RGB5_A1;
 
@@ -2249,6 +2285,7 @@ unsafe impl PixelUnpack<RGB5_A1> for u32 {
     const TYPE_ID: u32 = Gl::UNSIGNED_INT_2_10_10_10_REV;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RGBA4;
 
 unsafe impl InternalFormat for RGBA4 {
@@ -2273,6 +2310,7 @@ unsafe impl PixelUnpack<RGBA4> for u16 {
     const TYPE_ID: u32 = Gl::UNSIGNED_SHORT_4_4_4_4;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 #[allow(non_camel_case_types)]
 pub struct RGB10_A2;
 
@@ -2286,6 +2324,7 @@ unsafe impl PixelUnpack<RGB10_A2> for u32 {
     const TYPE_ID: u32 = Gl::UNSIGNED_INT_2_10_10_10_REV;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 #[allow(non_camel_case_types)]
 pub struct RGB10_A2UI;
 
@@ -2299,6 +2338,7 @@ unsafe impl PixelUnpack<RGB10_A2UI> for u32 {
     const TYPE_ID: u32 = Gl::UNSIGNED_INT_2_10_10_10_REV;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RGBA16F;
 
 unsafe impl InternalFormat for RGBA16F {
@@ -2317,6 +2357,7 @@ unsafe impl PixelUnpack<RGBA16F> for (f32, f32, f32, f32) {
     const TYPE_ID: u32 = Gl::FLOAT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RGBA32F;
 
 unsafe impl InternalFormat for RGBA32F {
@@ -2347,6 +2388,7 @@ unsafe impl PixelPack<RGBA32F> for (f32, f32, f32, f32) {
     const TYPE_ID: u32 = Gl::FLOAT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RGBA8UI;
 
 unsafe impl InternalFormat for RGBA8UI {
@@ -2377,6 +2419,7 @@ unsafe impl PixelPack<RGBA8UI> for (u8, u8, u8, u8) {
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RGBA8I;
 
 unsafe impl InternalFormat for RGBA8I {
@@ -2407,6 +2450,7 @@ unsafe impl PixelPack<RGBA8I> for (i8, i8, i8, i8) {
     const TYPE_ID: u32 = Gl::BYTE;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RGBA16UI;
 
 unsafe impl InternalFormat for RGBA16UI {
@@ -2437,6 +2481,7 @@ unsafe impl PixelPack<RGBA16UI> for (u16, u16, u16, u16) {
     const TYPE_ID: u32 = Gl::UNSIGNED_SHORT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RGBA16I;
 
 unsafe impl InternalFormat for RGBA16I {
@@ -2467,6 +2512,7 @@ unsafe impl PixelPack<RGBA16I> for (i16, i16, i16, i16) {
     const TYPE_ID: u32 = Gl::SHORT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RGBA32UI;
 
 unsafe impl InternalFormat for RGBA32UI {
@@ -2497,6 +2543,7 @@ unsafe impl PixelPack<RGBA32UI> for (u32, u32, u32, u32) {
     const TYPE_ID: u32 = Gl::UNSIGNED_INT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct RGBA32I;
 
 unsafe impl InternalFormat for RGBA32I {
@@ -2527,6 +2574,7 @@ unsafe impl PixelPack<RGBA32I> for (i32, i32, i32, i32) {
     const TYPE_ID: u32 = Gl::INT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct DepthComponent16;
 
 unsafe impl InternalFormat for DepthComponent16 {
@@ -2545,6 +2593,7 @@ unsafe impl PixelUnpack<DepthComponent16> for u32 {
     const TYPE_ID: u32 = Gl::UNSIGNED_INT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct DepthComponent24;
 
 unsafe impl InternalFormat for DepthComponent24 {
@@ -2557,6 +2606,7 @@ unsafe impl PixelUnpack<DepthComponent24> for u32 {
     const TYPE_ID: u32 = Gl::UNSIGNED_INT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct DepthComponent32F;
 
 unsafe impl InternalFormat for DepthComponent32F {
@@ -2569,12 +2619,14 @@ unsafe impl PixelUnpack<DepthComponent32F> for f32 {
     const TYPE_ID: u32 = Gl::FLOAT;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct StencilIndex8;
 
 unsafe impl InternalFormat for StencilIndex8 {
     const ID: u32 = Gl::STENCIL_INDEX8;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Depth24Stencil8;
 
 unsafe impl InternalFormat for Depth24Stencil8 {
@@ -2587,12 +2639,14 @@ unsafe impl PixelUnpack<Depth24Stencil8> for u32 {
     const TYPE_ID: u32 = Gl::UNSIGNED_INT_24_8;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Depth32FStencil8;
 
 unsafe impl InternalFormat for Depth32FStencil8 {
     const ID: u32 = Gl::DEPTH32F_STENCIL8;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Luminance;
 
 unsafe impl InternalFormat for Luminance {
@@ -2605,6 +2659,7 @@ unsafe impl PixelUnpack<Luminance> for u8 {
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct LuminanceAlpha;
 
 unsafe impl InternalFormat for LuminanceAlpha {
@@ -2623,6 +2678,7 @@ unsafe impl PixelUnpack<LuminanceAlpha> for (u8, u8) {
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Alpha;
 
 unsafe impl InternalFormat for Alpha {
@@ -2634,3 +2690,49 @@ unsafe impl PixelUnpack<Alpha> for u8 {
 
     const TYPE_ID: u32 = Gl::UNSIGNED_BYTE;
 }
+
+// Note: copying the casing convention of Multisample (as opposed to MultiSample) from OpenGL.
+
+pub struct Multisample<F>(F, usize) where F: Multisamplable;
+
+impl<F> Multisample<F> where F: Multisamplable + Copy {
+    pub fn sample_format(&self) -> F {
+        self.0
+    }
+}
+
+impl<F> Multisample<F>  where F: Multisamplable {
+    pub fn samples(&self) -> usize {
+        self.1
+    }
+}
+
+pub unsafe trait Multisamplable: InternalFormat {}
+
+unsafe impl Multisamplable for R8 {}
+unsafe impl Multisamplable for R16F {}
+unsafe impl Multisamplable for R32F {}
+unsafe impl Multisamplable for RG8 {}
+unsafe impl Multisamplable for RG16F {}
+unsafe impl Multisamplable for RG32F {}
+unsafe impl Multisamplable for RGB8 {}
+unsafe impl Multisamplable for SRGB8 {}
+unsafe impl Multisamplable for RGB565 {}
+unsafe impl Multisamplable for RGB16F {}
+unsafe impl Multisamplable for RGB32F {}
+unsafe impl Multisamplable for R11F_G11F_B10F {}
+unsafe impl Multisamplable for RGB9_E5 {}
+unsafe impl Multisamplable for RGBA8 {}
+unsafe impl Multisamplable for SRGB8_ALPHA8 {}
+unsafe impl Multisamplable for RGBA4 {}
+unsafe impl Multisamplable for RGB5_A1 {}
+unsafe impl Multisamplable for RGB10_A2 {}
+unsafe impl Multisamplable for RGBA16F {}
+unsafe impl Multisamplable for RGBA32F {}
+unsafe impl Multisamplable for DepthComponent16 {}
+unsafe impl Multisamplable for DepthComponent24 {}
+unsafe impl Multisamplable for DepthComponent32F {}
+unsafe impl Multisamplable for Depth24Stencil8 {}
+unsafe impl Multisamplable for Depth32FStencil8 {}
+unsafe impl Multisamplable for Luminance {}
+unsafe impl Multisamplable for LuminanceAlpha {}
