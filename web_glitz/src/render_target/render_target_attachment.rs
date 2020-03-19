@@ -47,8 +47,8 @@ pub struct ColorAttachmentEncoding<'a, 'b, B> {
     pub(crate) load_action: LoadAction,
     pub(crate) store_op: StoreOp,
     pub(crate) image: AttachableImageData,
-    _context: &'a mut ColorAttachmentEncodingContext,
-    _image_ref: marker::PhantomData<&'b ()>,
+    pub(crate) _context: &'a mut ColorAttachmentEncodingContext,
+    pub(crate) _image_ref: marker::PhantomData<&'b ()>,
 }
 
 impl<'a, 'b, F> ColorAttachmentEncoding<'a, 'b, FloatBuffer<F>>
@@ -373,9 +373,6 @@ pub enum StoreOp {
 }
 
 pub struct FloatAttachment<I>
-where
-    I: AsAttachableImageRef,
-    I::Format: FloatRenderable,
 {
     pub image: I,
     pub load_op: LoadOp<[f32; 4]>,
@@ -403,9 +400,6 @@ where
 }
 
 pub struct IntegerAttachment<I>
-where
-    I: AsAttachableImageRef,
-    I::Format: IntegerRenderable,
 {
     pub image: I,
     pub load_op: LoadOp<[i32; 4]>,
@@ -433,9 +427,6 @@ where
 }
 
 pub struct UnsignedIntegerAttachment<I>
-where
-    I: AsAttachableImageRef,
-    I::Format: UnsignedIntegerRenderable,
 {
     pub image: I,
     pub load_op: LoadOp<[u32; 4]>,
@@ -463,9 +454,6 @@ where
 }
 
 pub struct DepthStencilAttachment<I>
-where
-    I: AsAttachableImageRef,
-    I::Format: DepthStencilRenderable,
 {
     pub image: I,
     pub load_op: LoadOp<(f32, i32)>,
@@ -493,9 +481,7 @@ where
 }
 
 pub struct DepthAttachment<I>
-where
-    I: AsAttachableImageRef,
-    I::Format: DepthRenderable,
+
 {
     pub image: I,
     pub load_op: LoadOp<f32>,
@@ -523,9 +509,6 @@ where
 }
 
 pub struct StencilAttachment<I>
-where
-    I: AsAttachableImageRef,
-    I::Format: StencilRenderable,
 {
     pub image: I,
     pub load_op: LoadOp<i32>,

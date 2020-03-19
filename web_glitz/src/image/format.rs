@@ -133,15 +133,6 @@ unsafe impl FloatRenderable for RGB565 {}
 unsafe impl FloatRenderable for RGB5_A1 {}
 unsafe impl FloatRenderable for RGB10_A2 {}
 
-// TODO: these require EXT_color_buffer_float, needs a check, probably at render pass creation.
-unsafe impl FloatRenderable for R16F {}
-unsafe impl FloatRenderable for R32F {}
-unsafe impl FloatRenderable for RG16F {}
-unsafe impl FloatRenderable for RG32F {}
-unsafe impl FloatRenderable for RGBA16F {}
-unsafe impl FloatRenderable for RGBA32F {}
-unsafe impl FloatRenderable for R11F_G11F_B10F {}
-
 /// Marker trait for formats that can be used as a color attachment for a [RenderTarget] for a
 /// color out that outputs integer values.
 pub unsafe trait IntegerRenderable: InternalFormat {}

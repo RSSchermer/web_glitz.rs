@@ -2500,8 +2500,6 @@ pub trait RenderingOutputBuffer {
 /// Represents a color buffer that stores floating point values in a framebuffer for a custom render
 /// target.
 pub struct FloatBuffer<F>
-where
-    F: FloatRenderable,
 {
     render_pass_id: usize,
     index: i32,
@@ -2511,8 +2509,6 @@ where
 }
 
 impl<F> FloatBuffer<F>
-where
-    F: FloatRenderable,
 {
     pub(crate) fn new(render_pass_id: usize, index: i32, width: u32, height: u32) -> Self {
         FloatBuffer {
@@ -2563,9 +2559,7 @@ where
     }
 }
 
-impl<F> RenderingOutputBuffer for FloatBuffer<F>
-where
-    F: FloatRenderable,
+impl<F> RenderingOutputBuffer for FloatBuffer<F> where F: InternalFormat
 {
     type Format = F;
 
@@ -2581,8 +2575,6 @@ where
 /// Represents a color buffer that stores integer values in a framebuffer for a custom render
 /// target.
 pub struct IntegerBuffer<F>
-where
-    F: IntegerRenderable,
 {
     render_pass_id: usize,
     index: i32,
@@ -2592,8 +2584,6 @@ where
 }
 
 impl<F> IntegerBuffer<F>
-where
-    F: IntegerRenderable,
 {
     pub(crate) fn new(render_pass_id: usize, index: i32, width: u32, height: u32) -> Self {
         IntegerBuffer {
@@ -2645,7 +2635,7 @@ where
 }
 impl<F> RenderingOutputBuffer for IntegerBuffer<F>
 where
-    F: IntegerRenderable,
+    F: InternalFormat,
 {
     type Format = F;
 
@@ -2661,8 +2651,6 @@ where
 /// Represents a color buffer that stores unsigned integer values in a framebuffer for a custom
 /// render target.
 pub struct UnsignedIntegerBuffer<F>
-where
-    F: UnsignedIntegerRenderable,
 {
     render_pass_id: usize,
     index: i32,
@@ -2672,8 +2660,6 @@ where
 }
 
 impl<F> UnsignedIntegerBuffer<F>
-where
-    F: UnsignedIntegerRenderable,
 {
     pub(crate) fn new(render_pass_id: usize, index: i32, width: u32, height: u32) -> Self {
         UnsignedIntegerBuffer {
@@ -2730,7 +2716,7 @@ where
 
 impl<F> RenderingOutputBuffer for UnsignedIntegerBuffer<F>
 where
-    F: UnsignedIntegerRenderable,
+    F: InternalFormat,
 {
     type Format = F;
 
@@ -2746,8 +2732,6 @@ where
 /// Represents a depth-stencil buffer that stores both depth and stencil values in a framebuffer for
 /// a custom render target.
 pub struct DepthStencilBuffer<F>
-where
-    F: DepthStencilRenderable,
 {
     render_pass_id: usize,
     width: u32,
@@ -2756,8 +2740,6 @@ where
 }
 
 impl<F> DepthStencilBuffer<F>
-where
-    F: DepthStencilRenderable,
 {
     pub(crate) fn new(render_pass_id: usize, width: u32, height: u32) -> Self {
         DepthStencilBuffer {
@@ -2900,7 +2882,7 @@ where
 
 impl<F> RenderingOutputBuffer for DepthStencilBuffer<F>
 where
-    F: DepthStencilRenderable,
+    F: InternalFormat,
 {
     type Format = F;
 
@@ -2916,8 +2898,6 @@ where
 /// Represents a depth-stencil buffer that stores only depth values in a framebuffer for a custom
 /// render target.
 pub struct DepthBuffer<F>
-where
-    F: DepthRenderable,
 {
     render_pass_id: usize,
     width: u32,
@@ -2926,8 +2906,6 @@ where
 }
 
 impl<F> DepthBuffer<F>
-where
-    F: DepthRenderable,
 {
     pub(crate) fn new(render_pass_id: usize, width: u32, height: u32) -> Self {
         DepthBuffer {
@@ -2978,7 +2956,7 @@ where
 
 impl<F> RenderingOutputBuffer for DepthBuffer<F>
 where
-    F: DepthRenderable,
+    F: InternalFormat,
 {
     type Format = F;
 
@@ -2992,8 +2970,6 @@ where
 }
 
 pub struct StencilBuffer<F>
-where
-    F: StencilRenderable,
 {
     render_pass_id: usize,
     width: u32,
@@ -3002,8 +2978,6 @@ where
 }
 
 impl<F> StencilBuffer<F>
-where
-    F: StencilRenderable,
 {
     pub(crate) fn new(render_pass_id: usize, width: u32, height: u32) -> Self {
         StencilBuffer {
@@ -3054,7 +3028,7 @@ where
 
 impl<F> RenderingOutputBuffer for StencilBuffer<F>
 where
-    F: StencilRenderable,
+    F: InternalFormat,
 {
     type Format = F;
 

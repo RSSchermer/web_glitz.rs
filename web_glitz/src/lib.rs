@@ -43,6 +43,7 @@ pub mod derive {
 }
 
 pub mod buffer;
+pub mod extensions;
 pub mod image;
 pub mod pipeline;
 pub mod render_pass;
