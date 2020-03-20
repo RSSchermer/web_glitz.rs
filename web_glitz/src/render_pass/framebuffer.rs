@@ -2499,8 +2499,7 @@ pub trait RenderingOutputBuffer {
 
 /// Represents a color buffer that stores floating point values in a framebuffer for a custom render
 /// target.
-pub struct FloatBuffer<F>
-{
+pub struct FloatBuffer<F> {
     render_pass_id: usize,
     index: i32,
     width: u32,
@@ -2508,8 +2507,7 @@ pub struct FloatBuffer<F>
     _marker: marker::PhantomData<Box<F>>,
 }
 
-impl<F> FloatBuffer<F>
-{
+impl<F> FloatBuffer<F> {
     pub(crate) fn new(render_pass_id: usize, index: i32, width: u32, height: u32) -> Self {
         FloatBuffer {
             render_pass_id,
@@ -2559,7 +2557,9 @@ impl<F> FloatBuffer<F>
     }
 }
 
-impl<F> RenderingOutputBuffer for FloatBuffer<F> where F: InternalFormat
+impl<F> RenderingOutputBuffer for FloatBuffer<F>
+where
+    F: InternalFormat,
 {
     type Format = F;
 
@@ -2574,8 +2574,7 @@ impl<F> RenderingOutputBuffer for FloatBuffer<F> where F: InternalFormat
 
 /// Represents a color buffer that stores integer values in a framebuffer for a custom render
 /// target.
-pub struct IntegerBuffer<F>
-{
+pub struct IntegerBuffer<F> {
     render_pass_id: usize,
     index: i32,
     width: u32,
@@ -2583,8 +2582,7 @@ pub struct IntegerBuffer<F>
     _marker: marker::PhantomData<Box<F>>,
 }
 
-impl<F> IntegerBuffer<F>
-{
+impl<F> IntegerBuffer<F> {
     pub(crate) fn new(render_pass_id: usize, index: i32, width: u32, height: u32) -> Self {
         IntegerBuffer {
             render_pass_id,
@@ -2650,8 +2648,7 @@ where
 
 /// Represents a color buffer that stores unsigned integer values in a framebuffer for a custom
 /// render target.
-pub struct UnsignedIntegerBuffer<F>
-{
+pub struct UnsignedIntegerBuffer<F> {
     render_pass_id: usize,
     index: i32,
     width: u32,
@@ -2659,8 +2656,7 @@ pub struct UnsignedIntegerBuffer<F>
     _marker: marker::PhantomData<Box<F>>,
 }
 
-impl<F> UnsignedIntegerBuffer<F>
-{
+impl<F> UnsignedIntegerBuffer<F> {
     pub(crate) fn new(render_pass_id: usize, index: i32, width: u32, height: u32) -> Self {
         UnsignedIntegerBuffer {
             render_pass_id,
@@ -2731,16 +2727,14 @@ where
 
 /// Represents a depth-stencil buffer that stores both depth and stencil values in a framebuffer for
 /// a custom render target.
-pub struct DepthStencilBuffer<F>
-{
+pub struct DepthStencilBuffer<F> {
     render_pass_id: usize,
     width: u32,
     height: u32,
     _marker: marker::PhantomData<Box<F>>,
 }
 
-impl<F> DepthStencilBuffer<F>
-{
+impl<F> DepthStencilBuffer<F> {
     pub(crate) fn new(render_pass_id: usize, width: u32, height: u32) -> Self {
         DepthStencilBuffer {
             render_pass_id,
@@ -2897,16 +2891,14 @@ where
 
 /// Represents a depth-stencil buffer that stores only depth values in a framebuffer for a custom
 /// render target.
-pub struct DepthBuffer<F>
-{
+pub struct DepthBuffer<F> {
     render_pass_id: usize,
     width: u32,
     height: u32,
     _marker: marker::PhantomData<Box<F>>,
 }
 
-impl<F> DepthBuffer<F>
-{
+impl<F> DepthBuffer<F> {
     pub(crate) fn new(render_pass_id: usize, width: u32, height: u32) -> Self {
         DepthBuffer {
             render_pass_id,
@@ -2969,16 +2961,14 @@ where
     }
 }
 
-pub struct StencilBuffer<F>
-{
+pub struct StencilBuffer<F> {
     render_pass_id: usize,
     width: u32,
     height: u32,
     _marker: marker::PhantomData<Box<F>>,
 }
 
-impl<F> StencilBuffer<F>
-{
+impl<F> StencilBuffer<F> {
     pub(crate) fn new(render_pass_id: usize, width: u32, height: u32) -> Self {
         StencilBuffer {
             render_pass_id,

@@ -372,8 +372,7 @@ pub enum StoreOp {
     DontCare,
 }
 
-pub struct FloatAttachment<I>
-{
+pub struct FloatAttachment<I> {
     pub image: I,
     pub load_op: LoadOp<[f32; 4]>,
     pub store_op: StoreOp,
@@ -399,8 +398,7 @@ where
     }
 }
 
-pub struct IntegerAttachment<I>
-{
+pub struct IntegerAttachment<I> {
     pub image: I,
     pub load_op: LoadOp<[i32; 4]>,
     pub store_op: StoreOp,
@@ -426,8 +424,7 @@ where
     }
 }
 
-pub struct UnsignedIntegerAttachment<I>
-{
+pub struct UnsignedIntegerAttachment<I> {
     pub image: I,
     pub load_op: LoadOp<[u32; 4]>,
     pub store_op: StoreOp,
@@ -453,8 +450,7 @@ where
     }
 }
 
-pub struct DepthStencilAttachment<I>
-{
+pub struct DepthStencilAttachment<I> {
     pub image: I,
     pub load_op: LoadOp<(f32, i32)>,
     pub store_op: StoreOp,
@@ -480,9 +476,7 @@ where
     }
 }
 
-pub struct DepthAttachment<I>
-
-{
+pub struct DepthAttachment<I> {
     pub image: I,
     pub load_op: LoadOp<f32>,
     pub store_op: StoreOp,
@@ -508,8 +502,7 @@ where
     }
 }
 
-pub struct StencilAttachment<I>
-{
+pub struct StencilAttachment<I> {
     pub image: I,
     pub load_op: LoadOp<i32>,
     pub store_op: StoreOp,

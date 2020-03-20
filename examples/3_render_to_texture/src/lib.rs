@@ -22,7 +22,7 @@ use web_glitz::pipeline::graphics::{
 use web_glitz::pipeline::resources::BindGroup;
 use web_glitz::render_target::{FloatAttachment, LoadOp, RenderTarget, StoreOp};
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
-use web_glitz::sampler::{MagnificationFilter, MinificationFilter, SamplerDescriptor, Wrap};
+use web_glitz::sampler::{Linear, SamplerDescriptor, Wrap};
 use web_glitz::task::{sequence_all, sequence_right};
 
 // This example will use 2 render passes:
@@ -193,15 +193,15 @@ pub fn start() {
     // We'll use a sampler that repeats our texture for texture coordinates outside of the
     // `0.0..=1.0` range.
     let sampler = context.create_sampler(&SamplerDescriptor {
-        minification_filter: MinificationFilter::Linear,
-        magnification_filter: MagnificationFilter::Linear,
+        minification_filter: Linear,
+        magnification_filter: Linear,
         wrap_s: Wrap::Repeat,
         wrap_t: Wrap::Repeat,
         ..Default::default()
     });
 
     let bind_group_1 = context.create_bind_group(PrimaryResources {
-        texture: texture.float_sampled(&sampler).unwrap(),
+        texture: texture.float_sampled(&sampler),
     });
 
     // Our primary render pass is essentially identical to the render pass used in the

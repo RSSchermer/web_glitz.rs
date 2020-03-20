@@ -18,7 +18,7 @@ use web_glitz::pipeline::graphics::{
 };
 use web_glitz::pipeline::resources::BindGroup;
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
-use web_glitz::sampler::{MagnificationFilter, MinificationFilter, SamplerDescriptor};
+use web_glitz::sampler::{Linear, SamplerDescriptor};
 use web_glitz::task::sequence_all;
 
 #[derive(web_glitz::derive::Vertex, Clone, Copy)]
@@ -132,8 +132,8 @@ pub fn start() {
 
     // Create a new sampler.
     let sampler = context.create_sampler(&SamplerDescriptor {
-        minification_filter: MinificationFilter::Linear,
-        magnification_filter: MagnificationFilter::Linear,
+        minification_filter: Linear,
+        magnification_filter: Linear,
         ..Default::default()
     });
 
@@ -151,7 +151,7 @@ pub fn start() {
 
     // Create a bind group for our resources.
     let bind_group_1 = context.create_bind_group(Resources {
-        texture: texture.float_sampled(&sampler).unwrap(),
+        texture: texture.float_sampled(&sampler),
     });
 
     let render_pass = context.create_render_pass(render_target, |framebuffer| {

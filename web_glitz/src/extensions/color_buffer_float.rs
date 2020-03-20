@@ -1,21 +1,42 @@
-use crate::runtime::RenderingContext;
-use crate::image::format::{FloatRenderable as BaseFloatRenderable, R16F, R32F, RG16F, RG32F, RGBA16F, RGBA32F, R11F_G11F_B10F};
-use crate::render_target::{ColorAttachmentDescription, ColorAttachmentEncoding, ColorAttachmentEncodingContext, AsAttachableImageRef, FloatAttachment, AttachableImageRef};
-use crate::render_pass::FloatBuffer;
 use std::marker;
 use std::ops::{Deref, DerefMut};
 
-pub struct Extension {}
+use crate::image::format::{R11F_G11F_B10F, R16F, R32F, RG16F, RG32F, RGBA16F, RGBA32F};
+use crate::render_pass::FloatBuffer;
+use crate::render_target::{
+    AsAttachableImageRef, ColorAttachmentDescription, ColorAttachmentEncoding,
+    ColorAttachmentEncodingContext, FloatAttachment,
+};
+use crate::runtime::RenderingContext;
+
+pub struct Extension {
+    context_id: usize,
+}
 
 impl Extension {
-    pub fn request<Rc>(context: &Rc) -> Option<Self> where Rc: RenderingContext {
+    pub fn request<Rc>(context: &Rc) -> Option<Self>
+    where
+        Rc: RenderingContext,
+    {
         unimplemented!()
     }
 
-    pub fn extend<I>(&self, float_attachment: FloatAttachment<I>) -> Extended<I> where I: AsAttachableImageRef, I::Format: FloatRenderable {
-        Extended {
-            float_attachment
+    pub fn extend<I>(&self, mut float_attachment: FloatAttachment<I>) -> Extended<I>
+    where
+        I: AsAttachableImageRef,
+        I::Format: FloatRenderable,
+    {
+        if float_attachment
+            .image
+            .as_attachable_image_ref()
+            .into_data()
+            .context_id
+            != self.context_id
+        {
+            panic!("Attachment image belongs to a different context than this extension.");
         }
+
+        Extended { float_attachment }
     }
 }
 
@@ -30,7 +51,7 @@ unsafe impl FloatRenderable for RGBA32F {}
 unsafe impl FloatRenderable for R11F_G11F_B10F {}
 
 pub struct Extended<I> {
-    float_attachment: FloatAttachment<I>
+    float_attachment: FloatAttachment<I>,
 }
 
 impl<I> Deref for Extended<I> {
@@ -48,9 +69,9 @@ impl<I> DerefMut for Extended<I> {
 }
 
 impl<I> ColorAttachmentDescription for Extended<I>
-    where
-        I: AsAttachableImageRef,
-        I::Format: FloatRenderable,
+where
+    I: AsAttachableImageRef,
+    I::Format: FloatRenderable,
 {
     type Buffer = FloatBuffer<I::Format>;
 

@@ -118,7 +118,9 @@ use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext as Gl};
 
 use crate::buffer::{Buffer, IntoBuffer, UsageHint};
-use crate::image::format::{RenderbufferFormat, TextureFormat, InternalFormat, Multisamplable, Multisample};
+use crate::image::format::{
+    InternalFormat, Multisamplable, Multisample, RenderbufferFormat, TextureFormat,
+};
 use crate::image::renderbuffer::{
     MultisampleRenderbufferDescriptor, Renderbuffer, RenderbufferDescriptor,
 };
@@ -150,7 +152,10 @@ use crate::runtime::{
     Connection, ContextOptions, Execution, PowerPreference, RenderingContext,
     ShaderCompilationError,
 };
-use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
+use crate::sampler::{
+    MagnificationFilter, MinificationFilter, Sampler, SamplerDescriptor, ShadowSampler,
+    ShadowSamplerDescriptor,
+};
 use crate::task::{GpuTask, Progress};
 use std::collections::VecDeque;
 use std::mem;
@@ -196,14 +201,20 @@ impl RenderingContext for SingleThreadedContext {
         &self.extensions
     }
 
-    fn max_supported_samples<F>(&self, format: F) -> usize where F: InternalFormat + Multisamplable {
+    fn max_supported_samples<F>(&self, _format: F) -> usize
+    where
+        F: InternalFormat + Multisamplable,
+    {
         let executor = self.executor.deref().borrow();
         let connection = executor.connection.deref().borrow();
 
         let (gl, _) = unsafe { connection.unpack() };
 
         // TODO: cache results?
-        gl.get_internalformat_parameter(Gl::RENDERBUFFER, F::ID, Gl::SAMPLES).unwrap().as_f64().unwrap() as usize
+        gl.get_internalformat_parameter(Gl::RENDERBUFFER, F::ID, Gl::SAMPLES)
+            .unwrap()
+            .as_f64()
+            .unwrap() as usize
     }
 
     fn create_bind_group<T>(&self, resources: T) -> BindGroup<T>
@@ -240,8 +251,8 @@ impl RenderingContext for SingleThreadedContext {
         &self,
         descriptor: &MultisampleRenderbufferDescriptor<F>,
     ) -> Result<Renderbuffer<Multisample<F>>, UnsupportedSampleCount>
-        where
-            F: RenderbufferFormat + Multisamplable + Copy + 'static,
+    where
+        F: RenderbufferFormat + Multisamplable + Copy + 'static,
     {
         Renderbuffer::new_multisample(self, descriptor)
     }
@@ -345,7 +356,14 @@ impl RenderingContext for SingleThreadedContext {
         TextureCube::new(self, descriptor)
     }
 
-    fn create_sampler(&self, descriptor: &SamplerDescriptor) -> Sampler {
+    fn create_sampler<Min, Mag>(
+        &self,
+        descriptor: &SamplerDescriptor<Min, Mag>,
+    ) -> Sampler<Min, Mag>
+    where
+        Min: MinificationFilter + Copy + 'static,
+        Mag: MagnificationFilter + Copy + 'static,
+    {
         Sampler::new(self, descriptor)
     }
 

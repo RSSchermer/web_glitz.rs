@@ -6,7 +6,7 @@ use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::image::format::{RenderbufferFormat, Multisamplable, Multisample};
+use crate::image::format::{Multisamplable, Multisample, RenderbufferFormat};
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext, UnsupportedSampleCount};
 use crate::task::{ContextId, GpuTask, Progress};
@@ -142,19 +142,23 @@ where
 }
 
 impl<F> Renderbuffer<Multisample<F>>
-    where
-        F: RenderbufferFormat + Multisamplable + Copy + 'static,
+where
+    F: RenderbufferFormat + Multisamplable + Copy + 'static,
 {
-    pub(crate) fn new_multisample<Rc>(context: &Rc, descriptor: &MultisampleRenderbufferDescriptor<F>) -> Result<Self, UnsupportedSampleCount>
-        where
-            Rc: RenderingContext + Clone + 'static,
+    pub(crate) fn new_multisample<Rc>(
+        context: &Rc,
+        descriptor: &MultisampleRenderbufferDescriptor<F>,
+    ) -> Result<Self, UnsupportedSampleCount>
+    where
+        Rc: RenderingContext + Clone + 'static,
     {
-        let max_supported_samples = context.max_supported_samples(descriptor.format.sample_format());
+        let max_supported_samples =
+            context.max_supported_samples(descriptor.format.sample_format());
 
         if max_supported_samples > descriptor.format.samples() {
             return Err(UnsupportedSampleCount {
                 max_supported_samples,
-                requested_samples: descriptor.format.samples()
+                requested_samples: descriptor.format.samples(),
             });
         }
 
@@ -277,8 +281,8 @@ struct MultisampleRenderbufferAllocateCommand<F> {
 }
 
 unsafe impl<F> GpuTask<Connection> for MultisampleRenderbufferAllocateCommand<F>
-    where
-        F: RenderbufferFormat,
+where
+    F: RenderbufferFormat,
 {
     type Output = ();
 

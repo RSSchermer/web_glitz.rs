@@ -4,27 +4,40 @@ use std::sync::Arc;
 use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
 
+use crate::image::format::{Filterable, TextureFormat};
 use crate::runtime::{Connection, Extensions, RenderingContext};
 use crate::task::Progress;
 use crate::task::{ContextId, GpuTask};
 use crate::util::JsId;
 
-/// Enumerates the filters available to a [Sampler] for magnification filtering.
-///
-/// Magnification filtering is used when a sampling a texture value for a fragment that is smaller
-/// than the candidate texels.
-#[derive(PartialEq, Clone, Copy, Debug)]
-pub enum MagnificationFilter {
-    /// The sampled value is chosen to be the value of the texel whose coordinates are closest to
-    /// the sampling coordinates.
-    Nearest = Gl::NEAREST as isize,
+mod filter_seal {
+    use crate::sampler::{
+        Linear, LinearMipmapLinear, LinearMipmapNearest, Nearest, NearestMipmapLinear,
+        NearestMipmapNearest,
+    };
 
-    /// The sampled value is calculated by linearly interpolating between the 4 texels that are
-    /// closest to the sampling coordinates.
-    Linear = Gl::LINEAR as isize,
+    pub trait Seal {}
+
+    impl Seal for Nearest {}
+    impl Seal for Linear {}
+    impl Seal for NearestMipmapNearest {}
+    impl Seal for NearestMipmapLinear {}
+    impl Seal for LinearMipmapNearest {}
+    impl Seal for LinearMipmapLinear {}
 }
 
-/// Enumerates the methods available to a [Sampler] for minification filtering.
+/// Sealed trait implemented for marker types that define the methods available to a [Sampler] for
+/// magnification filtering.
+///
+/// Magnification filtering is used when a sampling a texture value for a fragment that is smaller
+/// than the candidate texels. See [Nearest] and [Linear] for details on how these filtering
+/// operations resolve to sampling values.
+pub trait MagnificationFilter: filter_seal::Seal {
+    const ID: u32;
+}
+
+/// Sealed trait implemented for marker types that define the methods available to a [Sampler] for
+/// minification filtering.
 ///
 /// Minification filtering is used when a sampling a texture value for a fragment that is larger
 /// than the candidate texels.
@@ -47,41 +60,99 @@ pub enum MagnificationFilter {
 ///
 /// See the documentation for [NearestMipmapNearest], [NearestMipmapLinear], [LinearMipmapNearest]
 /// and [LinearMipmapLinear] for details on how these filtering operations will make use of a
-/// mipmap.
-#[derive(PartialEq, Clone, Copy, Debug)]
-pub enum MinificationFilter {
-    /// The sampled value is chosen to be the value of the texel whose coordinates are closest to
-    /// the sampling coordinates.
-    Nearest = Gl::NEAREST as isize,
-
-    /// The sampled value is calculated by linearly interpolating between the 4 texels that are
-    /// closest to the sampling coordinates.
-    Linear = Gl::LINEAR as isize,
-
-    /// First selects the mipmap level for which the texel size is closest to the fragment size,
-    /// then the sampled value is chose to be the value of the texel whose coordinates are closest
-    /// to the sampling coordinates.
-    NearestMipmapNearest = Gl::NEAREST_MIPMAP_NEAREST as isize,
-
-    /// First selects the mipmap level for which the texel size is closest to the fragment size,
-    /// then the sampled value is calculated by linearly interpolating between the 4 texels that are
-    /// closest to the sampling coordinates.
-    NearestMipmapLinear = Gl::NEAREST_MIPMAP_LINEAR as isize,
-
-    /// First selects both the nearest mipmap level for which the texel size is smaller than the
-    /// fragment, as well as the nearest mipmap level for which the texel size is larger than the
-    /// fragment; then samples a value from both mipmap levels by choosing the texel whose
-    /// coordinates are closest to the sampling coordinates; finally, the sample value is calculated
-    /// by linearly interpolating between these two values.
-    LinearMipmapNearest = Gl::LINEAR_MIPMAP_NEAREST as isize,
-
-    /// First selects both the nearest mipmap level for which the texel size is smaller than the
-    /// fragment, as well as the nearest mipmap level for which the texel size is larger than the
-    /// fragment; then samples a value from both mipmap levels by linearly interpolating between the
-    /// 4 texels that are closest to the sampling coordinates; finally, the sample value is
-    /// calculated by linearly interpolating between these two values.
-    LinearMipmapLinear = Gl::LINEAR_MIPMAP_LINEAR as isize,
+/// mipmap. See [Nearest] and [Linear] for details on filtering operations that don't use a mipmap.
+pub trait MinificationFilter: filter_seal::Seal {
+    const ID: u32;
 }
+
+/// Marker trait for valid filter and texture format combinations
+pub unsafe trait CompatibleFilter<F>
+where
+    F: TextureFormat,
+{
+}
+
+/// The sampled value is chosen to be the value of the texel whose coordinates are closest to
+/// the sampling coordinates.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct Nearest;
+
+impl MinificationFilter for Nearest {
+    const ID: u32 = Gl::NEAREST;
+}
+
+impl MagnificationFilter for Nearest {
+    const ID: u32 = Gl::NEAREST;
+}
+
+unsafe impl<F> CompatibleFilter<F> for Nearest where F: TextureFormat {}
+
+/// The sampled value is chosen to be the value of the texel whose coordinates are closest to
+/// the sampling coordinates.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct Linear;
+
+impl MinificationFilter for Linear {
+    const ID: u32 = Gl::LINEAR;
+}
+
+impl MagnificationFilter for Linear {
+    const ID: u32 = Gl::LINEAR;
+}
+
+unsafe impl<F> CompatibleFilter<F> for Linear where F: TextureFormat + Filterable {}
+
+/// First selects the mipmap level for which the texel size is closest to the fragment size,
+/// then the sampled value is chose to be the value of the texel whose coordinates are closest
+/// to the sampling coordinates.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct NearestMipmapNearest;
+
+impl MinificationFilter for NearestMipmapNearest {
+    const ID: u32 = Gl::NEAREST_MIPMAP_NEAREST;
+}
+
+unsafe impl<F> CompatibleFilter<F> for NearestMipmapNearest where F: TextureFormat {}
+
+/// First selects the mipmap level for which the texel size is closest to the fragment size,
+/// then the sampled value is calculated by linearly interpolating between the 4 texels that are
+/// closest to the sampling coordinates.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct NearestMipmapLinear;
+
+impl MinificationFilter for NearestMipmapLinear {
+    const ID: u32 = Gl::NEAREST_MIPMAP_LINEAR;
+}
+
+unsafe impl<F> CompatibleFilter<F> for NearestMipmapLinear where F: TextureFormat + Filterable {}
+
+/// First selects both the nearest mipmap level for which the texel size is smaller than the
+/// fragment, as well as the nearest mipmap level for which the texel size is larger than the
+/// fragment; then samples a value from both mipmap levels by choosing the texel whose
+/// coordinates are closest to the sampling coordinates; finally, the sample value is calculated
+/// by linearly interpolating between these two values.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct LinearMipmapNearest;
+
+impl MinificationFilter for LinearMipmapNearest {
+    const ID: u32 = Gl::LINEAR_MIPMAP_NEAREST;
+}
+
+unsafe impl<F> CompatibleFilter<F> for LinearMipmapNearest where F: TextureFormat + Filterable {}
+
+/// First selects both the nearest mipmap level for which the texel size is smaller than the
+/// fragment, as well as the nearest mipmap level for which the texel size is larger than the
+/// fragment; then samples a value from both mipmap levels by linearly interpolating between the
+/// 4 texels that are closest to the sampling coordinates; finally, the sample value is
+/// calculated by linearly interpolating between these two values.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct LinearMipmapLinear;
+
+impl MinificationFilter for LinearMipmapLinear {
+    const ID: u32 = Gl::LINEAR_MIPMAP_LINEAR;
+}
+
+unsafe impl<F> CompatibleFilter<F> for LinearMipmapLinear where F: TextureFormat + Filterable {}
 
 /// Enumerates the methods available to a [Sampler] for texture coordinate wrapping.
 ///
@@ -148,16 +219,16 @@ impl Default for LODRange {
 /// });
 /// ```
 #[derive(Clone, PartialEq, Debug)]
-pub struct SamplerDescriptor {
+pub struct SamplerDescriptor<Min, Mag> {
     /// The [MinificationFilter] that a sampler created from this descriptor will use.
     ///
     /// See [MinificationFilter] for details.
-    pub minification_filter: MinificationFilter,
+    pub minification_filter: Min,
 
     /// The [MagnificationFilter] that a sampler created from this descriptor will use.
     ///
     /// See [MagnificationFilter] for details.
-    pub magnification_filter: MagnificationFilter,
+    pub magnification_filter: Mag,
 
     /// The [LODRange] that a sampler created from this descriptor will use.
     ///
@@ -186,11 +257,11 @@ pub struct SamplerDescriptor {
     pub wrap_r: Wrap,
 }
 
-impl Default for SamplerDescriptor {
+default impl Default for SamplerDescriptor<Linear, NearestMipmapLinear> {
     fn default() -> Self {
         SamplerDescriptor {
-            minification_filter: MinificationFilter::NearestMipmapLinear,
-            magnification_filter: MagnificationFilter::Linear,
+            minification_filter: Linear,
+            magnification_filter: NearestMipmapLinear,
             lod_range: LODRange::default(),
             wrap_s: Wrap::Repeat,
             wrap_t: Wrap::Repeat,
@@ -198,6 +269,35 @@ impl Default for SamplerDescriptor {
         }
     }
 }
+
+macro_rules! impl_default_for_sampler_descriptor {
+    ($min:ident, $mag:ident) => {
+        impl Default for SamplerDescriptor<$min, $mag> {
+            fn default() -> Self {
+                SamplerDescriptor {
+                    minification_filter: $min,
+                    magnification_filter: $mag,
+                    lod_range: LODRange::default(),
+                    wrap_s: Wrap::Repeat,
+                    wrap_t: Wrap::Repeat,
+                    wrap_r: Wrap::Repeat,
+                }
+            }
+        }
+    };
+}
+
+impl_default_for_sampler_descriptor!(Nearest, Nearest);
+impl_default_for_sampler_descriptor!(Nearest, Linear);
+impl_default_for_sampler_descriptor!(Nearest, NearestMipmapNearest);
+impl_default_for_sampler_descriptor!(Nearest, NearestMipmapLinear);
+impl_default_for_sampler_descriptor!(Nearest, LinearMipmapNearest);
+impl_default_for_sampler_descriptor!(Nearest, LinearMipmapLinear);
+impl_default_for_sampler_descriptor!(Linear, Nearest);
+impl_default_for_sampler_descriptor!(Linear, Linear);
+impl_default_for_sampler_descriptor!(Linear, NearestMipmapNearest);
+impl_default_for_sampler_descriptor!(Linear, LinearMipmapNearest);
+impl_default_for_sampler_descriptor!(Linear, LinearMipmapLinear);
 
 /// Samples texture values given texture coordinates texture coordinates.
 ///
@@ -208,13 +308,23 @@ impl Default for SamplerDescriptor {
 ///
 /// See the documentation for [RenderingContext::create_sampler] for details on how to create a
 /// [Sampler].
-pub struct Sampler {
+pub struct Sampler<Min, Mag> {
     data: Arc<SamplerData>,
-    descriptor: SamplerDescriptor,
+    descriptor: SamplerDescriptor<Min, Mag>,
 }
 
-impl Sampler {
-    pub(crate) fn new<Rc>(context: &Rc, descriptor: &SamplerDescriptor) -> Sampler
+impl<Min, Mag> Sampler<Min, Mag> {
+    pub(crate) fn data(&self) -> &Arc<SamplerData> {
+        &self.data
+    }
+}
+
+impl<Min, Mag> Sampler<Min, Mag>
+where
+    Min: MinificationFilter + Copy + 'static,
+    Mag: MagnificationFilter + Copy + 'static,
+{
+    pub(crate) fn new<Rc>(context: &Rc, descriptor: &SamplerDescriptor<Min, Mag>) -> Self
     where
         Rc: RenderingContext + Clone + 'static,
     {
@@ -236,21 +346,17 @@ impl Sampler {
         }
     }
 
-    pub(crate) fn data(&self) -> &Arc<SamplerData> {
-        &self.data
-    }
-
     /// The [MinificationFilter] used by this [Sampler].
     ///
     /// See [MinificationFilter] for details.
-    pub fn minification_filter(&self) -> MinificationFilter {
+    pub fn minification_filter(&self) -> Min {
         self.descriptor.minification_filter
     }
 
     /// The [MagnificationFilter] used by this [Sampler].
     ///
     /// See [MagnificationFilter] for details.
-    pub fn magnification_filter(&self) -> MagnificationFilter {
+    pub fn magnification_filter(&self) -> Mag {
         self.descriptor.magnification_filter
     }
 
@@ -284,6 +390,27 @@ impl Sampler {
     pub fn wrap_r(&self) -> Wrap {
         self.descriptor.wrap_r
     }
+}
+
+// Current AsRef blanket implementation does not seem to cover this.
+impl<Min, Mag> AsRef<Sampler<Min, Mag>> for Sampler<Min, Mag> {
+    fn as_ref(&self) -> &Sampler<Min, Mag> {
+        self
+    }
+}
+
+pub unsafe trait CompatibleSampler<F>
+where
+    F: TextureFormat,
+{
+}
+
+unsafe impl<F, Min, Mag> CompatibleSampler<F> for Sampler<Min, Mag>
+where
+    Min: CompatibleFilter<F>,
+    Mag: CompatibleFilter<F>,
+    F: TextureFormat,
+{
 }
 
 /// Enumerates the compare functions available for a [ShadowSampler].
@@ -497,12 +624,16 @@ impl Drop for SamplerData {
     }
 }
 
-struct SamplerAllocateCommand {
+struct SamplerAllocateCommand<Min, Mag> {
     data: Arc<SamplerData>,
-    descriptor: SamplerDescriptor,
+    descriptor: SamplerDescriptor<Min, Mag>,
 }
 
-unsafe impl GpuTask<Connection> for SamplerAllocateCommand {
+unsafe impl<Min, Mag> GpuTask<Connection> for SamplerAllocateCommand<Min, Mag>
+where
+    Min: MinificationFilter,
+    Mag: MagnificationFilter,
+{
     type Output = ();
 
     fn context_id(&self) -> ContextId {
@@ -515,20 +646,12 @@ unsafe impl GpuTask<Connection> for SamplerAllocateCommand {
         let object = gl.create_sampler().unwrap();
         let descriptor = &self.descriptor;
 
-        if descriptor.minification_filter != MinificationFilter::NearestMipmapLinear {
-            gl.sampler_parameteri(
-                &object,
-                Gl::TEXTURE_MIN_FILTER,
-                descriptor.minification_filter as i32,
-            );
+        if Min::ID != Gl::NEAREST_MIPMAP_LINEAR {
+            gl.sampler_parameteri(&object, Gl::TEXTURE_MIN_FILTER, Min::ID as i32);
         }
 
-        if descriptor.magnification_filter != MagnificationFilter::Linear {
-            gl.sampler_parameteri(
-                &object,
-                Gl::TEXTURE_MAG_FILTER,
-                descriptor.magnification_filter as i32,
-            );
+        if Mag::ID != Gl::LINEAR {
+            gl.sampler_parameteri(&object, Gl::TEXTURE_MAG_FILTER, Mag::ID as i32);
         }
 
         if descriptor.lod_range.min != -1000.0 {

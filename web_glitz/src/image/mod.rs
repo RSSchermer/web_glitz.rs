@@ -95,8 +95,6 @@ pub mod texture_cube;
 mod texture_object_dropper;
 mod util;
 
-use crate::image::format::{InvalidMagnificationFilter, InvalidMinificationFilter};
-
 /// Represents a region of a 2-dimensional image.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Region2D {
@@ -159,28 +157,4 @@ pub struct MaxMipmapLevelsExceeded {
     /// The maximum number of levels possible in a mipmap chain for an image of the relevant
     /// dimensions.
     pub max: usize,
-}
-
-/// Error returned when trying to combine a texture with a sampler that is incompatible.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum IncompatibleSampler {
-    /// Variant returned if the sampler's magnification filter cannot be used with the texture's
-    /// [TextureFormat].
-    InvalidMagnificationFilter(InvalidMagnificationFilter),
-
-    /// Variant returned if the sampler's minification filter cannot be used with the texture's
-    /// [TextureFormat].
-    InvalidMinificationFilter(InvalidMinificationFilter),
-}
-
-impl From<InvalidMagnificationFilter> for IncompatibleSampler {
-    fn from(err: InvalidMagnificationFilter) -> Self {
-        IncompatibleSampler::InvalidMagnificationFilter(err)
-    }
-}
-
-impl From<InvalidMinificationFilter> for IncompatibleSampler {
-    fn from(err: InvalidMinificationFilter) -> Self {
-        IncompatibleSampler::InvalidMinificationFilter(err)
-    }
 }

@@ -9,7 +9,9 @@ use futures::task::Context;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::buffer::{Buffer, IntoBuffer, UsageHint};
-use crate::image::format::{RenderbufferFormat, TextureFormat, Multisamplable, InternalFormat, Multisample};
+use crate::image::format::{
+    InternalFormat, Multisamplable, Multisample, RenderbufferFormat, TextureFormat,
+};
 use crate::image::renderbuffer::{
     MultisampleRenderbufferDescriptor, Renderbuffer, RenderbufferDescriptor,
 };
@@ -28,7 +30,10 @@ use crate::pipeline::resources::{
 use crate::render_pass::{RenderPass, RenderPassContext};
 use crate::render_target::RenderTargetDescription;
 use crate::runtime::state::{CreateProgramError, DynamicState};
-use crate::sampler::{Sampler, SamplerDescriptor, ShadowSampler, ShadowSamplerDescriptor};
+use crate::sampler::{
+    MagnificationFilter, MinificationFilter, Sampler, SamplerDescriptor, ShadowSampler,
+    ShadowSamplerDescriptor,
+};
 use crate::task::GpuTask;
 
 /// Trait implemented by types that can serve as a WebGlitz rendering context.
@@ -61,7 +66,9 @@ pub trait RenderingContext {
     /// See [Extensions] for details.
     fn extensions(&self) -> &Extensions;
 
-    fn max_supported_samples<F>(&self, format: F) -> usize where F: InternalFormat + Multisamplable;
+    fn max_supported_samples<F>(&self, format: F) -> usize
+    where
+        F: InternalFormat + Multisamplable;
 
     /// Creates a new group of bindable resources.
     ///
@@ -619,7 +626,13 @@ pub trait RenderingContext {
     /// });
     /// # }
     /// ```
-    fn create_sampler(&self, descriptor: &SamplerDescriptor) -> Sampler;
+    fn create_sampler<Min, Mag>(
+        &self,
+        descriptor: &SamplerDescriptor<Min, Mag>,
+    ) -> Sampler<Min, Mag>
+    where
+        Min: MinificationFilter + Copy + 'static,
+        Mag: MagnificationFilter + Copy + 'static;
 
     /// Creates a new [ShadowSampler] from the given `descriptor`.
     ///

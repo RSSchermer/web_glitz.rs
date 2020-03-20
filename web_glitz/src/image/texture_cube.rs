@@ -18,12 +18,10 @@ use crate::image::util::{
     max_mipmap_levels, mipmap_size, region_2d_overlap_height, region_2d_overlap_width,
     region_2d_sub_image, texture_data_as_js_buffer,
 };
-use crate::image::{
-    Image2DSource, IncompatibleSampler, MaxMipmapLevelsExceeded, MipmapLevels, Region2D,
-};
+use crate::image::{Image2DSource, MaxMipmapLevelsExceeded, MipmapLevels, Region2D};
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
-use crate::sampler::{Sampler, SamplerData, ShadowSampler};
+use crate::sampler::{CompatibleSampler, Sampler, SamplerData, ShadowSampler};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
 
@@ -347,28 +345,21 @@ where
     /// # Panics
     ///
     /// Panics if this texture and the `sampler` do not belong to the same [RenderingContext].
-    pub fn float_sampled(
-        &self,
-        sampler: &Sampler,
-    ) -> Result<FloatSampledTextureCube, IncompatibleSampler> {
+    pub fn float_sampled<S, Min, Mag>(&self, sampler: S) -> FloatSampledTextureCube
+    where
+        S: Borrow<Sampler<Min, Mag>> + CompatibleSampler<F>,
+    {
+        let sampler = sampler.borrow();
+
         if self.data().context_id() != sampler.data().context_id() {
             panic!("Texture and sampler do not belong to the same context.");
         }
 
-        F::validate_minification_filter(
-            &sampler.data().extensions(),
-            sampler.minification_filter(),
-        )?;
-        F::validate_magnification_filter(
-            &sampler.data().extensions(),
-            sampler.magnification_filter(),
-        )?;
-
-        Ok(FloatSampledTextureCube {
+        FloatSampledTextureCube {
             sampler_data: sampler.data().clone(),
             texture_data: self.data().clone(),
             _marker: marker::PhantomData,
-        })
+        }
     }
 }
 
@@ -396,28 +387,21 @@ where
     /// # Panics
     ///
     /// Panics if this texture and the `sampler` do not belong to the same [RenderingContext].
-    pub fn integer_sampled(
-        &self,
-        sampler: &Sampler,
-    ) -> Result<IntegerSampledTextureCube, IncompatibleSampler> {
+    pub fn integer_sampled<S, Min, Mag>(&self, sampler: S) -> IntegerSampledTextureCube
+    where
+        S: Borrow<Sampler<Min, Mag>> + CompatibleSampler<F>,
+    {
+        let sampler = sampler.borrow();
+
         if self.data().context_id() != sampler.data().context_id() {
             panic!("Texture and sampler do not belong to the same context.");
         }
 
-        F::validate_minification_filter(
-            &sampler.data().extensions(),
-            sampler.minification_filter(),
-        )?;
-        F::validate_magnification_filter(
-            &sampler.data().extensions(),
-            sampler.magnification_filter(),
-        )?;
-
-        Ok(IntegerSampledTextureCube {
+        IntegerSampledTextureCube {
             sampler_data: sampler.data().clone(),
             texture_data: self.data().clone(),
             _marker: marker::PhantomData,
-        })
+        }
     }
 }
 
@@ -445,28 +429,24 @@ where
     /// # Panics
     ///
     /// Panics if this texture and the `sampler` do not belong to the same [RenderingContext].
-    pub fn unsigned_integer_sampled(
+    pub fn unsigned_integer_sampled<S, Min, Mag>(
         &self,
-        sampler: &Sampler,
-    ) -> Result<UnsignedIntegerSampledTextureCube, IncompatibleSampler> {
+        sampler: S,
+    ) -> UnsignedIntegerSampledTextureCube
+    where
+        S: Borrow<Sampler<Min, Mag>> + CompatibleSampler<F>,
+    {
+        let sampler = sampler.borrow();
+
         if self.data().context_id() != sampler.data().context_id() {
             panic!("Texture and sampler do not belong to the same context.");
         }
 
-        F::validate_minification_filter(
-            &sampler.data().extensions(),
-            sampler.minification_filter(),
-        )?;
-        F::validate_magnification_filter(
-            &sampler.data().extensions(),
-            sampler.magnification_filter(),
-        )?;
-
-        Ok(UnsignedIntegerSampledTextureCube {
+        UnsignedIntegerSampledTextureCube {
             sampler_data: sampler.data().clone(),
             texture_data: self.data().clone(),
             _marker: marker::PhantomData,
-        })
+        }
     }
 }
 

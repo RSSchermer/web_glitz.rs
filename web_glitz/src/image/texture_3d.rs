@@ -20,12 +20,11 @@ use crate::image::util::{
     region_3d_overlap_width, region_3d_sub_image, texture_data_as_js_buffer,
 };
 use crate::image::{
-    Image2DSource, IncompatibleSampler, LayeredImageSource, MaxMipmapLevelsExceeded, MipmapLevels,
-    Region2D, Region3D,
+    Image2DSource, LayeredImageSource, MaxMipmapLevelsExceeded, MipmapLevels, Region2D, Region3D,
 };
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
-use crate::sampler::{Sampler, SamplerData};
+use crate::sampler::{CompatibleSampler, Sampler, SamplerData};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
 
@@ -336,28 +335,21 @@ where
     /// # Panics
     ///
     /// Panics if this texture and the `sampler` do not belong to the same [RenderingContext].
-    pub fn float_sampled(
-        &self,
-        sampler: &Sampler,
-    ) -> Result<FloatSampledTexture3D, IncompatibleSampler> {
+    pub fn float_sampled<S, Min, Mag>(&self, sampler: &S) -> FloatSampledTexture3D
+    where
+        S: AsRef<Sampler<Min, Mag>> + CompatibleSampler<F>,
+    {
+        let sampler = sampler.as_ref();
+
         if self.data().context_id() != sampler.data().context_id() {
             panic!("Texture and sampler do not belong to the same context.");
         }
 
-        F::validate_minification_filter(
-            &sampler.data().extensions(),
-            sampler.minification_filter(),
-        )?;
-        F::validate_magnification_filter(
-            &sampler.data().extensions(),
-            sampler.magnification_filter(),
-        )?;
-
-        Ok(FloatSampledTexture3D {
+        FloatSampledTexture3D {
             sampler_data: sampler.data().clone(),
             texture_data: self.data().clone(),
             _marker: marker::PhantomData,
-        })
+        }
     }
 }
 
@@ -385,28 +377,21 @@ where
     /// # Panics
     ///
     /// Panics if this texture and the `sampler` do not belong to the same [RenderingContext].
-    pub fn integer_sampled(
-        &self,
-        sampler: &Sampler,
-    ) -> Result<IntegerSampledTexture3D, IncompatibleSampler> {
+    pub fn integer_sampled<S, Min, Mag>(&self, sampler: &S) -> IntegerSampledTexture3D
+    where
+        S: AsRef<Sampler<Min, Mag>> + CompatibleSampler<F>,
+    {
+        let sampler = sampler.as_ref();
+
         if self.data().context_id() != sampler.data().context_id() {
             panic!("Texture and sampler do not belong to the same context.");
         }
 
-        F::validate_minification_filter(
-            &sampler.data().extensions(),
-            sampler.minification_filter(),
-        )?;
-        F::validate_magnification_filter(
-            &sampler.data().extensions(),
-            sampler.magnification_filter(),
-        )?;
-
-        Ok(IntegerSampledTexture3D {
+        IntegerSampledTexture3D {
             sampler_data: sampler.data().clone(),
             texture_data: self.data().clone(),
             _marker: marker::PhantomData,
-        })
+        }
     }
 }
 
@@ -434,28 +419,24 @@ where
     /// # Panics
     ///
     /// Panics if this texture and the `sampler` do not belong to the same [RenderingContext].
-    pub fn unsigned_integer_sampled(
+    pub fn unsigned_integer_sampled<S, Min, Mag>(
         &self,
-        sampler: &Sampler,
-    ) -> Result<UnsignedIntegerSampledTexture3D, IncompatibleSampler> {
+        sampler: &S,
+    ) -> UnsignedIntegerSampledTexture3D
+    where
+        S: AsRef<Sampler<Min, Mag>> + CompatibleSampler<F>,
+    {
+        let sampler = sampler.as_ref();
+
         if self.data().context_id() != sampler.data().context_id() {
             panic!("Texture and sampler do not belong to the same context.");
         }
 
-        F::validate_minification_filter(
-            &sampler.data().extensions(),
-            sampler.minification_filter(),
-        )?;
-        F::validate_magnification_filter(
-            &sampler.data().extensions(),
-            sampler.magnification_filter(),
-        )?;
-
-        Ok(UnsignedIntegerSampledTexture3D {
+        UnsignedIntegerSampledTexture3D {
             sampler_data: sampler.data().clone(),
             texture_data: self.data().clone(),
             _marker: marker::PhantomData,
-        })
+        }
     }
 }
 
