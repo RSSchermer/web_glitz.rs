@@ -257,16 +257,9 @@ pub struct SamplerDescriptor<Min, Mag> {
     pub wrap_r: Wrap,
 }
 
-default impl Default for SamplerDescriptor<Linear, NearestMipmapLinear> {
-    fn default() -> Self {
-        SamplerDescriptor {
-            minification_filter: Linear,
-            magnification_filter: NearestMipmapLinear,
-            lod_range: LODRange::default(),
-            wrap_s: Wrap::Repeat,
-            wrap_t: Wrap::Repeat,
-            wrap_r: Wrap::Repeat,
-        }
+impl SamplerDescriptor<Linear, NearestMipmapLinear> {
+    pub fn default() -> Self {
+        Default::default()
     }
 }
 
@@ -296,6 +289,7 @@ impl_default_for_sampler_descriptor!(Nearest, LinearMipmapLinear);
 impl_default_for_sampler_descriptor!(Linear, Nearest);
 impl_default_for_sampler_descriptor!(Linear, Linear);
 impl_default_for_sampler_descriptor!(Linear, NearestMipmapNearest);
+impl_default_for_sampler_descriptor!(Linear, NearestMipmapLinear);
 impl_default_for_sampler_descriptor!(Linear, LinearMipmapNearest);
 impl_default_for_sampler_descriptor!(Linear, LinearMipmapLinear);
 
@@ -332,7 +326,6 @@ where
             id: UnsafeCell::new(None),
             context_id: context.id(),
             dropper: Box::new(context.clone()),
-            extensions: context.extensions().clone(),
         });
 
         context.submit(SamplerAllocateCommand {
@@ -392,25 +385,44 @@ where
     }
 }
 
-// Current AsRef blanket implementation does not seem to cover this.
-impl<Min, Mag> AsRef<Sampler<Min, Mag>> for Sampler<Min, Mag> {
-    fn as_ref(&self) -> &Sampler<Min, Mag> {
-        self
-    }
-}
-
 pub unsafe trait CompatibleSampler<F>
 where
     F: TextureFormat,
 {
+    type Min: MinificationFilter;
+    type Mag: MagnificationFilter;
+
+    fn get_ref(&self) -> &Sampler<Self::Min, Self::Mag>;
 }
 
 unsafe impl<F, Min, Mag> CompatibleSampler<F> for Sampler<Min, Mag>
 where
-    Min: CompatibleFilter<F>,
-    Mag: CompatibleFilter<F>,
+    Min: CompatibleFilter<F> + MinificationFilter,
+    Mag: CompatibleFilter<F> + MagnificationFilter,
     F: TextureFormat,
 {
+    type Min = Min;
+
+    type Mag = Mag;
+
+    fn get_ref(&self) -> &Sampler<Self::Min, Self::Mag> {
+        self
+    }
+}
+
+unsafe impl<F, Min, Mag> CompatibleSampler<F> for &'_ Sampler<Min, Mag>
+    where
+        Min: CompatibleFilter<F> + MinificationFilter,
+        Mag: CompatibleFilter<F> + MagnificationFilter,
+        F: TextureFormat,
+{
+    type Min = Min;
+
+    type Mag = Mag;
+
+    fn get_ref(&self) -> &Sampler<Self::Min, Self::Mag> {
+        self
+    }
 }
 
 /// Enumerates the compare functions available for a [ShadowSampler].
@@ -531,7 +543,6 @@ impl ShadowSampler {
             id: UnsafeCell::new(None),
             context_id: context.id(),
             dropper: Box::new(context.clone()),
-            extensions: context.extensions().clone(),
         });
 
         context.submit(ShadowSamplerAllocateCommand {
@@ -599,7 +610,6 @@ pub(crate) struct SamplerData {
     id: UnsafeCell<Option<JsId>>,
     context_id: usize,
     dropper: Box<dyn SamplerObjectDropper>,
-    extensions: Extensions,
 }
 
 impl SamplerData {
@@ -609,10 +619,6 @@ impl SamplerData {
 
     pub(crate) fn context_id(&self) -> usize {
         self.context_id
-    }
-
-    pub(crate) fn extensions(&self) -> &Extensions {
-        &self.extensions
     }
 }
 

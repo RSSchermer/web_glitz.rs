@@ -33,8 +33,6 @@
     fn_traits,
     get_mut_unchecked,
     slice_index_methods,
-    specialization,
-    trivial_bounds,
     unboxed_closures,
     unsize,
     optin_builtin_traits

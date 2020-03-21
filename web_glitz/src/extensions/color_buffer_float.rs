@@ -7,20 +7,14 @@ use crate::render_target::{
     AsAttachableImageRef, ColorAttachmentDescription, ColorAttachmentEncoding,
     ColorAttachmentEncodingContext, FloatAttachment,
 };
-use crate::runtime::RenderingContext;
+use crate::runtime::{RenderingContext, Connection};
 
+#[derive(Clone, Debug)]
 pub struct Extension {
     context_id: usize,
 }
 
 impl Extension {
-    pub fn request<Rc>(context: &Rc) -> Option<Self>
-    where
-        Rc: RenderingContext,
-    {
-        unimplemented!()
-    }
-
     pub fn extend<I>(&self, mut float_attachment: FloatAttachment<I>) -> Extended<I>
     where
         I: AsAttachableImageRef,
@@ -37,6 +31,18 @@ impl Extension {
         }
 
         Extended { float_attachment }
+    }
+}
+
+impl super::Extension for Extension {
+    fn try_init(connection: &mut Connection, context_id: usize) -> Option<Self> {
+        let (gl, _) = unsafe { connection.unpack() };
+
+        gl.get_extension("EXT_color_buffer_float").ok().flatten().map(|_| {
+            Extension {
+                context_id
+            }
+        })
     }
 }
 

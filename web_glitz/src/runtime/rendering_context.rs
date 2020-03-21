@@ -35,6 +35,7 @@ use crate::sampler::{
     ShadowSamplerDescriptor,
 };
 use crate::task::GpuTask;
+use crate::extensions::Extension;
 
 /// Trait implemented by types that can serve as a WebGlitz rendering context.
 ///
@@ -61,11 +62,9 @@ pub trait RenderingContext {
     /// Identifier that uniquely identifies this rendering context.
     fn id(&self) -> usize;
 
-    /// Returns information about which extensions are enabled for this rendering context.
-    ///
-    /// See [Extensions] for details.
-    fn extensions(&self) -> &Extensions;
+    fn get_extension<T>(&self) -> Option<T> where T: Extension;
 
+    /// Returns a number indicating the maximum number of samples supported for the `format`.
     fn max_supported_samples<F>(&self, format: F) -> usize
     where
         F: InternalFormat + Multisamplable;

@@ -335,11 +335,11 @@ where
     /// # Panics
     ///
     /// Panics if this texture and the `sampler` do not belong to the same [RenderingContext].
-    pub fn float_sampled<S, Min, Mag>(&self, sampler: &S) -> FloatSampledTexture3D
+    pub fn float_sampled<S>(&self, sampler: S) -> FloatSampledTexture3D
     where
-        S: AsRef<Sampler<Min, Mag>> + CompatibleSampler<F>,
+        S: CompatibleSampler<F>,
     {
-        let sampler = sampler.as_ref();
+        let sampler = sampler.get_ref();
 
         if self.data().context_id() != sampler.data().context_id() {
             panic!("Texture and sampler do not belong to the same context.");
@@ -377,11 +377,11 @@ where
     /// # Panics
     ///
     /// Panics if this texture and the `sampler` do not belong to the same [RenderingContext].
-    pub fn integer_sampled<S, Min, Mag>(&self, sampler: &S) -> IntegerSampledTexture3D
+    pub fn integer_sampled<S>(&self, sampler: S) -> IntegerSampledTexture3D
     where
-        S: AsRef<Sampler<Min, Mag>> + CompatibleSampler<F>,
+        S: CompatibleSampler<F>,
     {
-        let sampler = sampler.as_ref();
+        let sampler = sampler.get_ref();
 
         if self.data().context_id() != sampler.data().context_id() {
             panic!("Texture and sampler do not belong to the same context.");
@@ -419,14 +419,14 @@ where
     /// # Panics
     ///
     /// Panics if this texture and the `sampler` do not belong to the same [RenderingContext].
-    pub fn unsigned_integer_sampled<S, Min, Mag>(
+    pub fn unsigned_integer_sampled<S>(
         &self,
-        sampler: &S,
+        sampler: S,
     ) -> UnsignedIntegerSampledTexture3D
     where
-        S: AsRef<Sampler<Min, Mag>> + CompatibleSampler<F>,
+        S: CompatibleSampler<F>,
     {
-        let sampler = sampler.as_ref();
+        let sampler = sampler.get_ref();
 
         if self.data().context_id() != sampler.data().context_id() {
             panic!("Texture and sampler do not belong to the same context.");

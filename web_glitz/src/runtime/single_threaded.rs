@@ -160,6 +160,7 @@ use crate::task::{GpuTask, Progress};
 use std::collections::VecDeque;
 use std::mem;
 use std::ops::Deref;
+use crate::extensions::Extension;
 
 thread_local!(static ID_GEN: IdGen = IdGen::new());
 
@@ -197,8 +198,11 @@ impl RenderingContext for SingleThreadedContext {
         self.id
     }
 
-    fn extensions(&self) -> &Extensions {
-        &self.extensions
+    fn get_extension<T>(&self) -> Option<T> where T: Extension {
+        let executor = self.executor.deref().borrow();
+        let mut connection = executor.connection.deref().borrow_mut();
+
+        Extension::try_init(&mut connection, self.id)
     }
 
     fn max_supported_samples<F>(&self, _format: F) -> usize
@@ -634,8 +638,6 @@ impl Options for ContextOptions<DefaultRGBABuffer, DefaultDepthBuffer> {
             .map_err(|e| e.as_string().unwrap())?
             .unwrap()
             .unchecked_into();
-        // TODO: temp experimation; remove.
-        gl.get_extension("EXT_color_buffer_float").unwrap().unwrap();
 
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
@@ -777,8 +779,6 @@ impl Options for ContextOptions<DefaultRGBBuffer, DefaultDepthBuffer> {
             .map_err(|e| e.as_string().unwrap())?
             .unwrap()
             .unchecked_into();
-        // TODO: temp experimation; remove.
-        gl.get_extension("EXT_color_buffer_float").unwrap().unwrap();
 
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);

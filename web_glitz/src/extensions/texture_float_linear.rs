@@ -1,10 +1,9 @@
 use crate::image::format::{TextureFormat, R32F, RG32F, RGB32F, RGBA32F};
-use crate::sampler::{
-    CompatibleSampler, Linear, LinearMipmapLinear, LinearMipmapNearest, Nearest,
-    NearestMipmapLinear, NearestMipmapNearest, Sampler,
-};
+use crate::sampler::{CompatibleSampler, Linear, LinearMipmapLinear, LinearMipmapNearest, Nearest, NearestMipmapLinear, NearestMipmapNearest, Sampler, MinificationFilter, MagnificationFilter};
 use std::ops::Deref;
+use crate::runtime::Connection;
 
+#[derive(Clone, Debug)]
 pub struct Extension {
     context_id: usize,
 }
@@ -19,6 +18,19 @@ impl Extension {
     }
 }
 
+impl super::Extension for Extension {
+    fn try_init(connection: &mut Connection, context_id: usize) -> Option<Self> {
+        let (gl, _) = unsafe { connection.unpack() };
+
+        gl.get_extension("OES_texture_float_linear").ok().flatten().map(|_| {
+            Extension {
+                context_id
+            }
+        })
+    }
+}
+
+#[derive(Clone, Copy)]
 pub struct Extended<'a, Min, Mag> {
     sampler: &'a Sampler<Min, Mag>,
 }
@@ -54,7 +66,13 @@ unsafe impl<F> CompatibleFilter<F> for NearestMipmapNearest where F: Filterable 
 unsafe impl<'a, F, Min, Mag> CompatibleSampler<F> for Extended<'a, Min, Mag>
 where
     F: TextureFormat + Filterable,
-    Min: CompatibleFilter<F>,
-    Mag: CompatibleFilter<F>,
+    Min: CompatibleFilter<F> + MinificationFilter,
+    Mag: CompatibleFilter<F> + MagnificationFilter,
 {
+    type Min = Min;
+    type Mag = Mag;
+
+    fn get_ref(&self) -> &Sampler<Self::Min, Self::Mag> {
+        &self.sampler
+    }
 }
