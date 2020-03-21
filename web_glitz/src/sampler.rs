@@ -258,6 +258,8 @@ pub struct SamplerDescriptor<Min, Mag> {
 }
 
 impl SamplerDescriptor<Linear, NearestMipmapLinear> {
+    // TODO: the specialization feature might be able to replace this by simply marking the default
+    // implemention below this this filter combo as the `default` implementation.
     pub fn default() -> Self {
         Default::default()
     }
@@ -410,18 +412,30 @@ where
     }
 }
 
-unsafe impl<F, Min, Mag> CompatibleSampler<F> for &'_ Sampler<Min, Mag>
+unsafe impl<T, F> CompatibleSampler<F> for &'_ T
     where
-        Min: CompatibleFilter<F> + MinificationFilter,
-        Mag: CompatibleFilter<F> + MagnificationFilter,
-        F: TextureFormat,
+        T: CompatibleSampler<F>,
+        F: TextureFormat
 {
-    type Min = Min;
+    type Min = T::Min;
 
-    type Mag = Mag;
+    type Mag = T::Mag;
 
     fn get_ref(&self) -> &Sampler<Self::Min, Self::Mag> {
-        self
+        <T as CompatibleSampler<F>>::get_ref(*self)
+    }
+}
+
+unsafe impl<T, F> CompatibleSampler<F> for &'_ mut T
+    where
+        T: CompatibleSampler<F>,F: TextureFormat
+{
+    type Min = T::Min;
+
+    type Mag = T::Mag;
+
+    fn get_ref(&self) -> &Sampler<Self::Min, Self::Mag> {
+        <T as CompatibleSampler<F>>::get_ref(*self)
     }
 }
 
