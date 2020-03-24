@@ -5,6 +5,7 @@ use crate::render_pass::{
     DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
     DefaultStencilBuffer, Framebuffer, RenderPass, RenderPassContext, RenderPassId,
 };
+use crate::render_pass::framebuffer::GraphicsPipelineTarget;
 use crate::render_target::render_target_description::RenderTargetData;
 use crate::render_target::RenderTargetDescription;
 use crate::task::{ContextId, GpuTask};
@@ -40,10 +41,12 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, ()> {
         let task = f(&Framebuffer {
             color: DefaultRGBBuffer::new(id),
             depth_stencil: (),
-            dimensions: None,
-            context_id,
-            render_pass_id: id,
-            last_pipeline_task_id: Cell::new(0),
+            data: GraphicsPipelineTarget {
+                dimensions: None,
+                context_id,
+                render_pass_id: id,
+                last_pipeline_task_id: Cell::new(0),
+            }
         });
 
         if let ContextId::Id(render_pass_id) = task.context_id() {
@@ -74,10 +77,12 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, DefaultDe
         let task = f(&Framebuffer {
             color: DefaultRGBBuffer::new(id),
             depth_stencil: DefaultDepthStencilBuffer::new(id),
-            dimensions: None,
-            context_id,
-            render_pass_id: id,
-            last_pipeline_task_id: Cell::new(0),
+            data: GraphicsPipelineTarget {
+                dimensions: None,
+                context_id,
+                render_pass_id: id,
+                last_pipeline_task_id: Cell::new(0),
+            }
         });
 
         if let ContextId::Id(render_pass_id) = task.context_id() {
@@ -108,10 +113,12 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, DefaultDe
         let task = f(&Framebuffer {
             color: DefaultRGBBuffer::new(id),
             depth_stencil: DefaultDepthBuffer::new(id),
-            dimensions: None,
-            context_id,
-            render_pass_id: id,
-            last_pipeline_task_id: Cell::new(0),
+            data: GraphicsPipelineTarget {
+                dimensions: None,
+                context_id,
+                render_pass_id: id,
+                last_pipeline_task_id: Cell::new(0),
+            }
         });
 
         if let ContextId::Id(render_pass_id) = task.context_id() {
@@ -142,10 +149,12 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, DefaultSt
         let task = f(&Framebuffer {
             color: DefaultRGBBuffer::new(id),
             depth_stencil: DefaultStencilBuffer::new(id),
-            dimensions: None,
-            context_id,
-            render_pass_id: id,
-            last_pipeline_task_id: Cell::new(0),
+            data: GraphicsPipelineTarget {
+                dimensions: None,
+                context_id,
+                render_pass_id: id,
+                last_pipeline_task_id: Cell::new(0),
+            }
         });
 
         if let ContextId::Id(render_pass_id) = task.context_id() {
@@ -176,10 +185,12 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, ()> {
         let task = f(&Framebuffer {
             color: DefaultRGBABuffer::new(id),
             depth_stencil: (),
-            dimensions: None,
-            context_id,
-            render_pass_id: id,
-            last_pipeline_task_id: Cell::new(0),
+            data: GraphicsPipelineTarget {
+                dimensions: None,
+                context_id,
+                render_pass_id: id,
+                last_pipeline_task_id: Cell::new(0),
+            }
         });
 
         if let ContextId::Id(render_pass_id) = task.context_id() {
@@ -210,10 +221,12 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, DefaultD
         let task = f(&Framebuffer {
             color: DefaultRGBABuffer::new(id),
             depth_stencil: DefaultDepthStencilBuffer::new(id),
-            dimensions: None,
-            context_id,
-            render_pass_id: id,
-            last_pipeline_task_id: Cell::new(0),
+            data: GraphicsPipelineTarget {
+                dimensions: None,
+                context_id,
+                render_pass_id: id,
+                last_pipeline_task_id: Cell::new(0),
+            }
         });
 
         if let ContextId::Id(render_pass_id) = task.context_id() {
@@ -244,10 +257,12 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, DefaultD
         let task = f(&Framebuffer {
             color: DefaultRGBABuffer::new(id),
             depth_stencil: DefaultDepthBuffer::new(id),
-            dimensions: None,
-            context_id,
-            render_pass_id: id,
-            last_pipeline_task_id: Cell::new(0),
+            data: GraphicsPipelineTarget {
+                dimensions: None,
+                context_id,
+                render_pass_id: id,
+                last_pipeline_task_id: Cell::new(0),
+            }
         });
 
         if let ContextId::Id(render_pass_id) = task.context_id() {
@@ -278,10 +293,12 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, DefaultS
         let task = f(&Framebuffer {
             color: DefaultRGBABuffer::new(id),
             depth_stencil: DefaultStencilBuffer::new(id),
-            dimensions: None,
-            context_id,
-            render_pass_id: id,
-            last_pipeline_task_id: Cell::new(0),
+            data: GraphicsPipelineTarget {
+                dimensions: None,
+                context_id,
+                render_pass_id: id,
+                last_pipeline_task_id: Cell::new(0),
+            }
         });
 
         if let ContextId::Id(render_pass_id) = task.context_id() {

@@ -3,6 +3,7 @@ use std::cmp;
 use std::hash::{Hash, Hasher};
 
 use crate::render_pass::{Framebuffer, RenderPass, RenderPassContext, RenderPassId};
+use crate::render_pass::framebuffer::GraphicsPipelineTarget;
 use crate::render_target::attachable_image_ref::AttachableImageData;
 use crate::render_target::render_target_attachment::{
     ColorAttachmentEncoding, ColorAttachmentEncodingContext, LoadAction,
@@ -169,10 +170,12 @@ macro_rules! impl_render_target_description {
                 let task = f(&Framebuffer {
                     color: ($C0  $(,$C)*),
                     depth_stencil: (),
-                    dimensions: Some((width, height)),
-                    context_id,
-                    render_pass_id: id,
-                    last_pipeline_task_id: Cell::new(0),
+                    data: GraphicsPipelineTarget {
+                        dimensions: Some((width, height)),
+                        context_id,
+                        render_pass_id: id,
+                        last_pipeline_task_id: Cell::new(0),
+                    }
                 });
 
                 if let ContextId::Id(render_pass_id) = task.context_id() {
@@ -322,10 +325,12 @@ macro_rules! impl_render_target_description_depth_stencil {
                 let task = f(&Framebuffer {
                     color: ($($C),*),
                     depth_stencil: buffer,
-                    dimensions: Some((width, height)),
-                    context_id,
-                    render_pass_id: id,
-                    last_pipeline_task_id: Cell::new(0),
+                    data: GraphicsPipelineTarget {
+                        dimensions: Some((width, height)),
+                        context_id,
+                        render_pass_id: id,
+                        last_pipeline_task_id: Cell::new(0),
+                    }
                 });
 
                 if let ContextId::Id(render_pass_id) = task.context_id() {

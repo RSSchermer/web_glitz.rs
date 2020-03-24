@@ -184,8 +184,7 @@ impl<'a, F> AttachableImageRef<'a, F> {
     }
 
     pub(crate) fn from_renderbuffer(render_buffer: &'a Renderbuffer<F>) -> Self
-    where
-        F: RenderbufferFormat + 'static,
+
     {
         AttachableImageRef {
             data: AttachableImageData {

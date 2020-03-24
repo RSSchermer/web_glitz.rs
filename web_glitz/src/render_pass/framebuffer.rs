@@ -7,11 +7,7 @@ use std::sync::Arc;
 use fnv::FnvHasher;
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::image::format::{
-    DepthRenderable, DepthStencilRenderable, Filterable, FloatRenderable, IntegerRenderable,
-    InternalFormat, RenderbufferFormat, StencilRenderable, TextureFormat,
-    UnsignedIntegerRenderable, RGB8, RGBA8,
-};
+use crate::image::format::{DepthRenderable, DepthStencilRenderable, Filterable, FloatRenderable, IntegerRenderable, InternalFormat, RenderbufferFormat, StencilRenderable, TextureFormat, UnsignedIntegerRenderable, RGB8, RGBA8, Multisample, Multisamplable};
 use crate::image::renderbuffer::Renderbuffer;
 use crate::image::texture_2d::{Level as Texture2DLevel, LevelSubImage as Texture2DLevelSubImage};
 use crate::image::texture_2d_array::{
@@ -53,32 +49,39 @@ pub trait GraphicsPipelineState<V, R, Tf> {
     /// Creates a new pipeline task.
     ///
     /// See [Framebuffer::pipeline_task] for details.
-    fn pipeline_task<C, Ds, F, T>(&self, framebuffer: &Framebuffer<C, Ds>, f: F) -> PipelineTask<T>
+    fn pipeline_task<F, T>(&self, target: &GraphicsPipelineTarget, f: F) -> PipelineTask<T>
     where
         F: Fn(ActiveGraphicsPipeline<V, R, Tf>) -> T,
         T: GpuTask<PipelineTaskContext>;
 }
 
 impl<V, R, Tf> GraphicsPipelineState<V, R, Tf> for GraphicsPipeline<V, R, Tf> {
-    fn pipeline_task<C, Ds, F, T>(&self, framebuffer: &Framebuffer<C, Ds>, f: F) -> PipelineTask<T>
+    fn pipeline_task<F, T>(&self, target: &GraphicsPipelineTarget, f: F) -> PipelineTask<T>
     where
         F: Fn(ActiveGraphicsPipeline<V, R, Tf>) -> T,
         T: GpuTask<PipelineTaskContext>,
     {
-        PipelineTask::new(framebuffer, self, None, f)
+        PipelineTask::new(target, self, None, f)
     }
 }
 
 impl<'a, V, R, Tf, Fb> GraphicsPipelineState<V, R, Tf>
     for RecordTransformFeedback<'a, V, R, Tf, Fb>
 {
-    fn pipeline_task<C, Ds, F, T>(&self, framebuffer: &Framebuffer<C, Ds>, f: F) -> PipelineTask<T>
+    fn pipeline_task<F, T>(&self, target: &GraphicsPipelineTarget, f: F) -> PipelineTask<T>
     where
         F: Fn(ActiveGraphicsPipeline<V, R, Tf>) -> T,
         T: GpuTask<PipelineTaskContext>,
     {
-        PipelineTask::new(framebuffer, &self.pipeline, Some(self.buffers.clone()), f)
+        PipelineTask::new(target, &self.pipeline, Some(self.buffers.clone()), f)
     }
+}
+
+pub struct GraphicsPipelineTarget {
+    pub(crate) dimensions: Option<(u32, u32)>,
+    pub(crate) context_id: usize,
+    pub(crate) render_pass_id: usize,
+    pub(crate) last_pipeline_task_id: Cell<usize>,
 }
 
 /// Represents a set of image memory buffers that serve as the rendering destination for a
@@ -91,10 +94,7 @@ impl<'a, V, R, Tf, Fb> GraphicsPipelineState<V, R, Tf>
 pub struct Framebuffer<C, Ds> {
     pub color: C,
     pub depth_stencil: Ds,
-    pub(crate) dimensions: Option<(u32, u32)>,
-    pub(crate) context_id: usize,
-    pub(crate) render_pass_id: usize,
-    pub(crate) last_pipeline_task_id: Cell<usize>,
+    pub(crate) data: GraphicsPipelineTarget
 }
 
 impl<C, Ds> Framebuffer<C, Ds> {
@@ -161,7 +161,7 @@ impl<C, Ds> Framebuffer<C, Ds> {
         F: Fn(ActiveGraphicsPipeline<V, R, Tf>) -> T,
         T: GpuTask<PipelineTaskContext>,
     {
-        pipeline.pipeline_task(self, f)
+        pipeline.pipeline_task(&self.data, f)
     }
 }
 
@@ -222,12 +222,12 @@ where
     {
         let source_descriptor = source.descriptor();
 
-        if source_descriptor.context_id != self.context_id {
+        if source_descriptor.context_id != self.data.context_id {
             panic!("The source image belongs to a different context than the framebuffer.");
         }
 
         BlitCommand {
-            render_pass_id: self.render_pass_id,
+            render_pass_id: self.data.render_pass_id,
             read_slot: Gl::COLOR_ATTACHMENT0,
             bitmask: Gl::COLOR_BUFFER_BIT,
             filter: Gl::NEAREST,
@@ -292,12 +292,12 @@ where
     {
         let source_descriptor = source.descriptor();
 
-        if source_descriptor.context_id != self.context_id {
+        if source_descriptor.context_id != self.data.context_id {
             panic!("The source image belongs to a different context than the framebuffer.");
         }
 
         BlitCommand {
-            render_pass_id: self.render_pass_id,
+            render_pass_id: self.data.render_pass_id,
             read_slot: Gl::COLOR_ATTACHMENT0,
             bitmask: Gl::COLOR_BUFFER_BIT,
             filter: Gl::LINEAR,
@@ -364,12 +364,12 @@ where
     {
         let source_descriptor = source.descriptor();
 
-        if source_descriptor.context_id != self.context_id {
+        if source_descriptor.context_id != self.data.context_id {
             panic!("The source image belongs to a different context than the framebuffer.");
         }
 
         BlitCommand {
-            render_pass_id: self.render_pass_id,
+            render_pass_id: self.data.render_pass_id,
             read_slot: Gl::DEPTH_STENCIL_ATTACHMENT,
             bitmask: Gl::DEPTH_BUFFER_BIT & Gl::STENCIL_BUFFER_BIT,
             filter: Gl::NEAREST,
@@ -431,12 +431,12 @@ where
     {
         let source_descriptor = source.descriptor();
 
-        if source_descriptor.context_id != self.context_id {
+        if source_descriptor.context_id != self.data.context_id {
             panic!("The source image belongs to a different context than the framebuffer.");
         }
 
         BlitCommand {
-            render_pass_id: self.render_pass_id,
+            render_pass_id: self.data.render_pass_id,
             read_slot: Gl::DEPTH_STENCIL_ATTACHMENT,
             bitmask: Gl::DEPTH_BUFFER_BIT,
             filter: Gl::NEAREST,
@@ -498,12 +498,12 @@ where
     {
         let source_descriptor = source.descriptor();
 
-        if source_descriptor.context_id != self.context_id {
+        if source_descriptor.context_id != self.data.context_id {
             panic!("The source image belongs to a different context than the framebuffer.");
         }
 
         BlitCommand {
-            render_pass_id: self.render_pass_id,
+            render_pass_id: self.data.render_pass_id,
             read_slot: Gl::DEPTH_STENCIL_ATTACHMENT,
             bitmask: Gl::STENCIL_BUFFER_BIT,
             filter: Gl::NEAREST,
@@ -568,12 +568,12 @@ where
     {
         let source_descriptor = source.descriptor();
 
-        if source_descriptor.context_id != self.context_id {
+        if source_descriptor.context_id != self.data.context_id {
             panic!("The source image belongs to a different context than the framebuffer.");
         }
 
         BlitCommand {
-            render_pass_id: self.render_pass_id,
+            render_pass_id: self.data.render_pass_id,
             read_slot: Gl::DEPTH_ATTACHMENT,
             bitmask: Gl::DEPTH_BUFFER_BIT,
             filter: Gl::NEAREST,
@@ -638,18 +638,394 @@ where
     {
         let source_descriptor = source.descriptor();
 
-        if source_descriptor.context_id != self.context_id {
+        if source_descriptor.context_id != self.data.context_id {
             panic!("The source image belongs to a different context than the framebuffer.");
         }
 
         BlitCommand {
-            render_pass_id: self.render_pass_id,
+            render_pass_id: self.data.render_pass_id,
             read_slot: Gl::STENCIL_ATTACHMENT,
             bitmask: Gl::STENCIL_BUFFER_BIT,
             filter: Gl::NEAREST,
             target_region: region,
             target: self.depth_stencil.descriptor(),
             source: source_descriptor,
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct IncompatibleSampleCount {
+    framebuffer_samples: usize,
+    blit_source_samples: usize
+}
+
+/// Represents a set of image memory buffers that serve as the rendering destination for a
+/// [RenderPass].
+///
+/// The image buffers allocated in the framebuffer correspond to to the images attached to the
+/// [RenderTargetDescription] that was used to define the [RenderPass] (see also [RenderTarget]);
+/// specifically, [color] provides handles to the color buffers (if any), and [depth_stencil]
+/// provides a handle to the depth-stencil buffer (if any).
+pub struct MultisampleFramebuffer<C, Ds> {
+    pub color: C,
+    pub depth_stencil: Ds,
+    pub(crate) data: GraphicsPipelineTarget,
+    pub(crate) samples: usize,
+}
+
+impl<C, Ds> MultisampleFramebuffer<C, Ds> {
+    /// Creates a pipeline task using the given `graphics_pipeline`.
+    ///
+    /// The second parameter `f` must be a function that returns the task that is to be executed
+    /// while the `graphics_pipeline` is bound as the active graphics pipeline. This function
+    /// will receive a reference to this [ActiveGraphicsPipeline] which may be used to encode
+    /// draw commands (see [ActiveGraphicsPipeline::draw_command]). The task returned by the
+    /// function typically consists of 1 ore more draw commands that were created in this way. The
+    /// current framebuffer serves as the output target for the `graphics_pipeline` (your draw
+    /// commands may modify the current framebuffer).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use web_glitz::render_pass::DefaultRGBBuffer;
+    /// # use web_glitz::render_target::DefaultRenderTarget;
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # use web_glitz::vertex::{Vertex, VertexArray};
+    /// # use web_glitz::buffer::{Buffer, UsageHint};
+    /// # use web_glitz::pipeline::graphics::GraphicsPipeline;
+    /// # use web_glitz::pipeline::resources::Resources;
+    /// # fn wrapper<Rc, V>(
+    /// #     context: &Rc,
+    /// #     mut render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
+    /// #     vertex_buffer: Buffer<[V]>,
+    /// #     graphics_pipeline: GraphicsPipeline<V, (), ()>
+    /// # )
+    /// # where
+    /// #     Rc: RenderingContext,
+    /// #     V: Vertex,
+    /// # {
+    /// # let resources = ();
+    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
+    ///         active_pipeline.task_builder()
+    ///             .bind_vertex_buffers(&vertex_buffer)
+    ///             .bind_resources(resources)
+    ///             .draw(16, 1)
+    ///     })
+    /// });
+    /// # }
+    /// ```
+    ///
+    /// In this example, `context` is a [RenderingContext]; `render_target` is a
+    /// [RenderTargetDescription], see also [DefaultRenderTarget] and [RenderTarget];
+    /// `graphics_pipeline` is a [GraphicsPipeline], see [GraphicsPipeline] and
+    /// [RenderingContext::create_graphics_pipeline] for details; `vertex_stream` is a
+    /// [VertexStreamDescription], see [VertexStreamDescription], [VertexArray] and
+    /// [RenderingContext::create_vertex_array] for details; `resources` is a user-defined type for
+    /// which the [Resources] trait is implemented, see [Resources] for details.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `graphics_pipeline` belongs to a different context than the framebuffer for
+    /// which this pipeline task is being created.
+    ///
+    /// Panics if the task returned by `f` contains commands that were constructed for a different
+    /// pipeline task context.
+    pub fn pipeline_task<P, V, R, Tf, F, T>(&self, pipeline: &P, f: F) -> PipelineTask<T>
+        where
+            P: GraphicsPipelineState<V, R, Tf>,
+            F: Fn(ActiveGraphicsPipeline<V, R, Tf>) -> T,
+            T: GpuTask<PipelineTaskContext>,
+    {
+        pipeline.pipeline_task(&self.data, f)
+    }
+}
+
+impl<C, Ds> MultisampleFramebuffer<C, Ds>
+    where
+        C: BlitColorTarget,
+{
+    /// Returns a command that will transfer a rectangle of pixels from the `source` onto a `region`
+    /// of each of the color buffers in framebuffer, using "nearest" filtering if the `source` and
+    /// the `region` have different sizes, or returns an error if the number of samples used for the
+    /// `source` does not match the number of samples used for the framebuffer.
+    ///
+    /// Behaves identically to [Framebuffer::blit_color_nearest_command] except for a sample count
+    /// compatibility check; see [Framebuffer::blit_color_nearest_command] for further details and
+    /// examples.
+    pub fn try_blit_color_nearest_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, IncompatibleSampleCount>
+        where
+            S: MultisampleBlitColorCompatible<C>,
+    {
+        let MultisampleBlitSourceDescriptor{
+            blit_source_descriptor, samples
+        } = source.descriptor();
+
+        if blit_source_descriptor.context_id != self.data.context_id {
+            panic!("The source image belongs to a different context than the framebuffer.");
+        }
+
+        if samples == self.samples {
+            Ok(BlitCommand {
+                render_pass_id: self.data.render_pass_id,
+                read_slot: Gl::COLOR_ATTACHMENT0,
+                bitmask: Gl::COLOR_BUFFER_BIT,
+                filter: Gl::NEAREST,
+                target_region: region,
+                target: self.color.descriptor(),
+                source: blit_source_descriptor,
+            })
+        } else {
+            Err(IncompatibleSampleCount {
+                framebuffer_samples: self.samples,
+                blit_source_samples: samples
+            })
+        }
+    }
+
+    /// Returns a command that will transfer a rectangle of pixels from the `source` onto a `region`
+    /// of each of the color buffers in framebuffer, using "linear" filtering if the `source` and
+    /// the `region` have different sizes, or returns an error if the number of samples used for the
+    /// `source` does not match the number of samples used for the framebuffer.
+    ///
+    /// Behaves identically to [Framebuffer::blit_color_linear_command] except for a sample count
+    /// compatibility check; see [Framebuffer::blit_color_linear_command] for further details and
+    /// examples.
+    pub fn try_blit_color_linear_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, IncompatibleSampleCount>
+        where
+            S: MultisampleBlitColorCompatible<C>,
+            S::Format: Filterable,
+    {
+        let MultisampleBlitSourceDescriptor{
+            blit_source_descriptor, samples
+        } = source.descriptor();
+
+        if blit_source_descriptor.context_id != self.data.context_id {
+            panic!("The source image belongs to a different context than the framebuffer.");
+        }
+
+        if samples == self.samples {
+            Ok(BlitCommand {
+                render_pass_id: self.data.render_pass_id,
+                read_slot: Gl::COLOR_ATTACHMENT0,
+                bitmask: Gl::COLOR_BUFFER_BIT,
+                filter: Gl::LINEAR,
+                target_region: region,
+                target: self.color.descriptor(),
+                source: blit_source_descriptor,
+            })
+        } else {
+            Err(IncompatibleSampleCount {
+                framebuffer_samples: self.samples,
+                blit_source_samples: samples
+            })
+        }
+    }
+}
+
+impl<C, F> MultisampleFramebuffer<C, DepthStencilBuffer<F>>
+    where
+        F: DepthStencilRenderable,
+{
+    /// Returns a command that will transfer a rectangle of both depth and stencil values from the
+    /// `source` depth-stencil image onto a `region` of the depth-stencil buffer in framebuffer,
+    /// using "nearest" filtering if the `source` and the `region` have different sizes, or returns
+    /// an error if the number of samples used for the `source` does not match the number of samples
+    /// used for the framebuffer.
+    ///
+    /// Behaves identically to [Framebuffer::blit_depth_stencil_command] except for a sample count
+    /// compatibility check; see [Framebuffer::blit_depth_stencil_command] for further details and
+    /// examples.
+    pub fn try_blit_depth_stencil_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, IncompatibleSampleCount>
+        where
+            S: MultisampleBlitSource<Format = F>,
+    {
+        let MultisampleBlitSourceDescriptor{
+            blit_source_descriptor, samples
+        } = source.descriptor();
+
+        if blit_source_descriptor.context_id != self.data.context_id {
+            panic!("The source image belongs to a different context than the framebuffer.");
+        }
+
+        if samples == self.samples {
+            Ok(BlitCommand {
+                render_pass_id: self.data.render_pass_id,
+                read_slot: Gl::DEPTH_STENCIL_ATTACHMENT,
+                bitmask: Gl::DEPTH_BUFFER_BIT & Gl::STENCIL_BUFFER_BIT,
+                filter: Gl::NEAREST,
+                target_region: region,
+                target: self.depth_stencil.descriptor(),
+                source: blit_source_descriptor,
+            })
+        } else {
+            Err(IncompatibleSampleCount {
+                framebuffer_samples: self.samples,
+                blit_source_samples: samples
+            })
+        }
+    }
+
+    /// Returns a command that will transfer a rectangle of only depth values from the `source`
+    /// depth-stencil image onto a `region` of the depth-stencil buffer in framebuffer, using
+    /// "nearest" filtering if the `source` and the `region` have different sizes, or returns an
+    /// error if the number of samples used for the `source` does not match the number of samples
+    /// used for the framebuffer.
+    ///
+    /// Behaves identically to [Framebuffer::blit_depth_command] except for a sample count
+    /// compatibility check; see [Framebuffer::blit_depth_command] for further details and examples.
+    pub fn try_blit_depth_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, IncompatibleSampleCount>
+        where
+            S: MultisampleBlitSource<Format = F>,
+    {
+        let MultisampleBlitSourceDescriptor{
+            blit_source_descriptor, samples
+        } = source.descriptor();
+
+        if blit_source_descriptor.context_id != self.data.context_id {
+            panic!("The source image belongs to a different context than the framebuffer.");
+        }
+
+        if samples == self.samples {
+            Ok(BlitCommand {
+                render_pass_id: self.data.render_pass_id,
+                read_slot: Gl::DEPTH_STENCIL_ATTACHMENT,
+                bitmask: Gl::DEPTH_BUFFER_BIT,
+                filter: Gl::NEAREST,
+                target_region: region,
+                target: self.depth_stencil.descriptor(),
+                source: blit_source_descriptor,
+            })
+        } else {
+            Err(IncompatibleSampleCount {
+                framebuffer_samples: self.samples,
+                blit_source_samples: samples
+            })
+        }
+    }
+
+    /// Returns a command that will transfer a rectangle of only stencil values from the `source`
+    /// depth-stencil image onto a `region` of the depth-stencil buffer in framebuffer, using
+    /// "nearest" filtering if the `source` and the `region` have different sizes, or returns an
+    /// error if the number of samples used for the `source` does not match the number of samples
+    /// used for the framebuffer.
+    ///
+    /// Behaves identically to [Framebuffer::blit_stencil_command] except for a sample count
+    /// compatibility check; see [Framebuffer::blit_stencil_command] for further details and
+    /// examples.
+    pub fn try_blit_stencil_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, IncompatibleSampleCount>
+        where
+            S: MultisampleBlitSource<Format = F>,
+    {
+        let MultisampleBlitSourceDescriptor{
+            blit_source_descriptor, samples
+        } = source.descriptor();
+
+        if blit_source_descriptor.context_id != self.data.context_id {
+            panic!("The source image belongs to a different context than the framebuffer.");
+        }
+
+        if samples == self.samples {
+            Ok(BlitCommand {
+                render_pass_id: self.data.render_pass_id,
+                read_slot: Gl::DEPTH_STENCIL_ATTACHMENT,
+                bitmask: Gl::STENCIL_BUFFER_BIT,
+                filter: Gl::NEAREST,
+                target_region: region,
+                target: self.depth_stencil.descriptor(),
+                source: blit_source_descriptor,
+            })
+        } else {
+            Err(IncompatibleSampleCount {
+                framebuffer_samples: self.samples,
+                blit_source_samples: samples
+            })
+        }
+    }
+}
+
+impl<C, F> MultisampleFramebuffer<C, DepthBuffer<F>>
+    where
+        F: DepthRenderable,
+{
+    /// Returns a command that will transfer a rectangle of depth values from the `source` depth
+    /// image onto a `region` of the depth buffer in framebuffer, using "nearest" filtering if the
+    /// `source` and the `region` have different sizes, or returns an error if the number of samples
+    /// used for the `source` does not match the number of samples used for the framebuffer.
+    ///
+    /// Behaves identically to [Framebuffer::blit_depth_command] except for a sample count
+    /// compatibility check; see [Framebuffer::blit_depth_command] for further details and examples.
+    pub fn try_blit_depth_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, IncompatibleSampleCount>
+        where
+            S: MultisampleBlitSource<Format = F>,
+    {
+        let MultisampleBlitSourceDescriptor{
+            blit_source_descriptor, samples
+        } = source.descriptor();
+
+        if blit_source_descriptor.context_id != self.data.context_id {
+            panic!("The source image belongs to a different context than the framebuffer.");
+        }
+
+        if samples == self.samples {
+            Ok(BlitCommand {
+                render_pass_id: self.data.render_pass_id,
+                read_slot: Gl::DEPTH_ATTACHMENT,
+                bitmask: Gl::DEPTH_BUFFER_BIT,
+                filter: Gl::NEAREST,
+                target_region: region,
+                target: self.depth_stencil.descriptor(),
+                source: blit_source_descriptor,
+            })
+        } else {
+            Err(IncompatibleSampleCount {
+                framebuffer_samples: self.samples,
+                blit_source_samples: samples
+            })
+        }
+    }
+}
+
+impl<C, F> MultisampleFramebuffer<C, StencilBuffer<F>>
+    where
+        F: StencilRenderable,
+{
+    /// Returns a command that will transfer a rectangle of stencil values from the `source` depth
+    /// image onto a `region` of the stencil buffer in framebuffer, using "nearest" filtering if the
+    /// `source` and the `region` have different sizes, or returns an error if the number of samples
+    /// used for the `source` does not match the number of samples used for the framebuffer.
+    ///
+    /// Behaves identically to [Framebuffer::blit_stencil_command] except for a sample count
+    /// compatibility check; see [Framebuffer::blit_stencil_command] for further details and
+    /// examples.
+    pub fn try_blit_stencil_command<S>(&self, region: Region2D, source: &S) -> Result<BlitCommand, IncompatibleSampleCount>
+        where
+            S: MultisampleBlitSource<Format = F>,
+    {
+        let MultisampleBlitSourceDescriptor{
+            blit_source_descriptor, samples
+        } = source.descriptor();
+
+        if blit_source_descriptor.context_id != self.data.context_id {
+            panic!("The source image belongs to a different context than the framebuffer.");
+        }
+
+        if samples == self.samples {
+            Ok(BlitCommand {
+                render_pass_id: self.data.render_pass_id,
+                read_slot: Gl::STENCIL_ATTACHMENT,
+                bitmask: Gl::STENCIL_BUFFER_BIT,
+                filter: Gl::NEAREST,
+                target_region: region,
+                target: self.depth_stencil.descriptor(),
+                source: blit_source_descriptor,
+            })
+        } else {
+            Err(IncompatibleSampleCount {
+                framebuffer_samples: self.samples,
+                blit_source_samples: samples
+            })
         }
     }
 }
@@ -726,8 +1102,8 @@ impl<T> PipelineTask<T>
 where
     T: GpuTask<PipelineTaskContext>,
 {
-    pub(crate) fn new<C, Ds, V, R, Tf, F>(
-        framebuffer: &Framebuffer<C, Ds>,
+    pub(crate) fn new<V, R, Tf, F>(
+        framebuffer_data: &GraphicsPipelineTarget,
         pipeline: &GraphicsPipeline<V, R, Tf>,
         transform_feedback_buffers: Option<BufferDescriptors>,
         f: F,
@@ -735,17 +1111,17 @@ where
     where
         F: Fn(ActiveGraphicsPipeline<V, R, Tf>) -> T,
     {
-        if framebuffer.context_id != pipeline.context_id() {
+        if framebuffer_data.context_id != pipeline.context_id() {
             panic!("The pipeline does not belong to the same context as the framebuffer.");
         }
 
-        let id = framebuffer.last_pipeline_task_id.get();
+        let id = framebuffer_data.last_pipeline_task_id.get();
 
-        framebuffer.last_pipeline_task_id.set(id + 1);
+        framebuffer_data.last_pipeline_task_id.set(id + 1);
 
         let mut hasher = FnvHasher::default();
 
-        (framebuffer.render_pass_id, id).hash(&mut hasher);
+        (framebuffer_data.render_pass_id, id).hash(&mut hasher);
 
         let pipeline_task_id = hasher.finish() as usize;
 
@@ -762,7 +1138,7 @@ where
 
         PipelineTask {
             id: pipeline_task_id,
-            render_pass_id: framebuffer.render_pass_id,
+            render_pass_id: framebuffer_data.render_pass_id,
             task,
             transform_feedback_data: pipeline.transform_feedback_data.clone(),
             transform_feedback_buffers,
@@ -776,7 +1152,7 @@ where
             scissor_region: pipeline.scissor_region().clone(),
             blending: pipeline.blending().cloned(),
             viewport: pipeline.viewport().clone(),
-            framebuffer_dimensions: framebuffer.dimensions,
+            framebuffer_dimensions: framebuffer_data.dimensions,
         }
     }
 }
@@ -1859,7 +2235,11 @@ enum BlitTargetDescriptorInternal {
 /// [BlitCommand].
 ///
 /// See [Framebuffer::blit_color_nearest_command] and [Framebuffer::blit_color_linear_command].
-pub trait BlitSource {
+///
+/// # Unsafe
+///
+/// The [Format] type must match the pixel format the blit source described by the [descriptor].
+pub unsafe trait BlitSource {
     /// The image storage format used by the source image.
     type Format: InternalFormat;
 
@@ -1876,7 +2256,7 @@ pub struct BlitSourceDescriptor {
     context_id: usize,
 }
 
-impl<'a, F> BlitSource for Texture2DLevel<'a, F>
+unsafe impl<'a, F> BlitSource for Texture2DLevel<'a, F>
 where
     F: TextureFormat + 'static,
 {
@@ -1891,7 +2271,7 @@ where
     }
 }
 
-impl<'a, F> BlitSource for Texture2DLevelSubImage<'a, F>
+unsafe impl<'a, F> BlitSource for Texture2DLevelSubImage<'a, F>
 where
     F: TextureFormat + 'static,
 {
@@ -1911,7 +2291,7 @@ where
     }
 }
 
-impl<'a, F> BlitSource for Texture2DArrayLevelLayer<'a, F>
+unsafe impl<'a, F> BlitSource for Texture2DArrayLevelLayer<'a, F>
 where
     F: TextureFormat + 'static,
 {
@@ -1926,7 +2306,7 @@ where
     }
 }
 
-impl<'a, F> BlitSource for Texture2DArrayLevelLayerSubImage<'a, F>
+unsafe impl<'a, F> BlitSource for Texture2DArrayLevelLayerSubImage<'a, F>
 where
     F: TextureFormat + 'static,
 {
@@ -1949,7 +2329,7 @@ where
     }
 }
 
-impl<'a, F> BlitSource for Texture3DLevelLayer<'a, F>
+unsafe impl<'a, F> BlitSource for Texture3DLevelLayer<'a, F>
 where
     F: TextureFormat + 'static,
 {
@@ -1964,7 +2344,7 @@ where
     }
 }
 
-impl<'a, F> BlitSource for Texture3DLevelLayerSubImage<'a, F>
+unsafe impl<'a, F> BlitSource for Texture3DLevelLayerSubImage<'a, F>
 where
     F: TextureFormat + 'static,
 {
@@ -1985,7 +2365,7 @@ where
     }
 }
 
-impl<'a, F> BlitSource for TextureCubeLevelFace<'a, F>
+unsafe impl<'a, F> BlitSource for TextureCubeLevelFace<'a, F>
 where
     F: TextureFormat + 'static,
 {
@@ -2000,7 +2380,7 @@ where
     }
 }
 
-impl<'a, F> BlitSource for TextureCubeLevelFaceSubImage<'a, F>
+unsafe impl<'a, F> BlitSource for TextureCubeLevelFaceSubImage<'a, F>
 where
     F: TextureFormat + 'static,
 {
@@ -2021,7 +2401,7 @@ where
     }
 }
 
-impl<F> BlitSource for Renderbuffer<F>
+unsafe impl<F> BlitSource for Renderbuffer<F>
 where
     F: RenderbufferFormat + 'static,
 {
@@ -2034,6 +2414,65 @@ where
             context_id: self.data().context_id(),
         }
     }
+}
+
+unsafe impl<F> BlitSource for Renderbuffer<Multisample<F>>
+    where
+        F: RenderbufferFormat + Multisamplable + 'static,
+{
+    type Format = F;
+
+    fn descriptor(&self) -> BlitSourceDescriptor {
+        BlitSourceDescriptor {
+            attachment: AttachableImageRef::from_renderbuffer(self).into_data(),
+            region: ((0, 0), self.width(), self.height()),
+            context_id: self.data().context_id(),
+        }
+    }
+}
+
+/// Trait implemented by multisample image reference types that can serve as the image data source
+/// for a color [BlitCommand] on a multisample framebuffer.
+///
+/// See [MultisampleFramebuffer::try_blit_color_nearest_command] and
+/// [MultisampleFramebuffer::try_blit_color_linear_command].
+///
+/// # Unsafe
+///
+/// The [Format] type must match the pixel format the blit source described by the [descriptor].
+pub unsafe trait MultisampleBlitSource {
+    /// The image storage format used by the source image.
+    type Format: InternalFormat;
+
+    /// Encapsulates the information about the multisample blit source required by the
+    /// [BlitCommand].
+    fn descriptor(&self) -> MultisampleBlitSourceDescriptor;
+}
+
+unsafe impl<F> MultisampleBlitSource for Renderbuffer<Multisample<F>>
+    where
+        F: RenderbufferFormat + Multisamplable + 'static,
+{
+    type Format = F;
+
+    fn descriptor(&self) -> MultisampleBlitSourceDescriptor {
+        MultisampleBlitSourceDescriptor {
+            blit_source_descriptor: BlitSourceDescriptor {
+                attachment: AttachableImageRef::from_renderbuffer(self).into_data(),
+                region: ((0, 0), self.width(), self.height()),
+                context_id: self.data().context_id(),
+            },
+            samples: self.samples(),
+        }
+    }
+}
+
+/// Returned from [BlitSource::descriptor], encapsulates the information about the blit source
+/// required by the [BlitCommand].
+#[derive(Clone)]
+pub struct MultisampleBlitSourceDescriptor {
+    blit_source_descriptor: BlitSourceDescriptor,
+    samples: usize,
 }
 
 /// Marker trait that identifies [BlitSource] types that can be safely blitted to a typed color
@@ -2087,6 +2526,40 @@ impl_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C1
 impl_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13);
 impl_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14);
 impl_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15);
+
+/// Marker trait that identifies [MultisampleBlitSource] types that can be safely blitted to a typed
+/// color buffer or set of color buffers.
+pub unsafe trait MultisampleBlitColorCompatible<C>: MultisampleBlitSource {}
+
+unsafe impl<T> MultisampleBlitColorCompatible<FloatBuffer<T::Format>> for T
+    where
+        T: MultisampleBlitSource,
+        T::Format: FloatRenderable,
+{
+}
+
+macro_rules! impl_multisample_blit_color_compatible {
+    ($C0:ident, $($C:ident),*) => {
+        unsafe impl<T, $C0, $($C),*> MultisampleBlitColorCompatible<($C0, $($C),*)> for T
+        where T: MultisampleBlitColorCompatible<$C0> $(+ MultisampleBlitColorCompatible<$C>)* {}
+    }
+}
+
+impl_multisample_blit_color_compatible!(C0, C1);
+impl_multisample_blit_color_compatible!(C0, C1, C2);
+impl_multisample_blit_color_compatible!(C0, C1, C2, C3);
+impl_multisample_blit_color_compatible!(C0, C1, C2, C3, C4);
+impl_multisample_blit_color_compatible!(C0, C1, C2, C3, C4, C5);
+impl_multisample_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6);
+impl_multisample_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7);
+impl_multisample_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8);
+impl_multisample_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9);
+impl_multisample_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
+impl_multisample_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11);
+impl_multisample_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12);
+impl_multisample_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13);
+impl_multisample_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14);
+impl_multisample_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15);
 
 /// Encapsulates a command that transfers a rectangle of pixels from a source image into the
 /// framebuffer.

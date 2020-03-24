@@ -1,4 +1,4 @@
-mod framebuffer;
+pub(crate) mod framebuffer;
 pub use self::framebuffer::{
     ActiveGraphicsPipeline, BindIndexBufferCommand, BindResourcesCommand, BindVertexBuffersCommand,
     DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,

@@ -113,6 +113,12 @@ impl<F> Renderbuffer<F> {
     }
 }
 
+impl<F> Renderbuffer<Multisample<F>> where F: Multisamplable {
+    pub fn samples(&self) -> usize {
+        self.data.samples.unwrap()
+    }
+}
+
 impl<F> Renderbuffer<F>
 where
     F: RenderbufferFormat + 'static,
@@ -127,6 +133,7 @@ where
             dropper: Box::new(context.clone()),
             width: descriptor.width,
             height: descriptor.height,
+            samples: None
         });
 
         context.submit(RenderbufferAllocateCommand::<F> {
@@ -168,6 +175,7 @@ where
             dropper: Box::new(context.clone()),
             width: descriptor.width,
             height: descriptor.height,
+            samples: Some(descriptor.format.samples())
         });
 
         context.submit(MultisampleRenderbufferAllocateCommand::<F> {
@@ -202,6 +210,7 @@ pub(crate) struct RenderbufferData {
     dropper: Box<dyn RenderbufferObjectDropper>,
     width: u32,
     height: u32,
+    samples: Option<usize>
 }
 
 impl RenderbufferData {
