@@ -70,7 +70,7 @@ where
 /// use web_glitz::image::Region2D;
 /// use web_glitz::image::format::RGB8;
 /// use web_glitz::image::renderbuffer::RenderbufferDescriptor;
-/// use web_glitz::render_target::{FloatAttachment, LoadOp, RenderTarget, StoreOp};
+/// use web_glitz::render_target::{FloatAttachment, LoadOp, RenderTargetDescriptor, StoreOp};
 ///
 /// let mut renderbuffer = context.create_renderbuffer(&RenderbufferDescriptor {
 ///     format: RGB8,
@@ -78,7 +78,7 @@ where
 ///     height: 256
 /// });
 ///
-/// let render_pass = context.create_render_pass(RenderTarget {
+/// let render_pass = context.create_render_pass(RenderTargetDescriptor {
 ///     color: FloatAttachment {
 ///         image: &mut renderbuffer,
 ///         load_op: LoadOp::Load,
