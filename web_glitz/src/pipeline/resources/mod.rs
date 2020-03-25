@@ -1,6 +1,6 @@
 mod resources;
 pub use self::resources::{
-    BindGroup, BindGroupLayoutBuilder, BindableResourceGroup, IncompatibleResources,
+    BindGroup, BindGroupLayoutBuilder, EncodeBindGroup, IncompatibleResources,
     LayoutAllocationHint, Resource, ResourceBindings, ResourceBindingsLayoutBuilder,
     ResourceBindingsLayoutDescriptor, ResourceSlotDescriptor, ResourceSlotIdentifier,
     ResourceSlotKind, ResourceSlotType, Resources, SampledTextureType, TypedBindableResourceGroup,

@@ -21,18 +21,21 @@ use crate::pipeline::resources::resources::{BindGroup, BindGroupInternal};
 use crate::runtime::state::{BufferRange, ContextUpdate};
 use crate::runtime::Connection;
 use crate::sampler::SamplerData;
+use std::marker;
 
-pub struct BindGroupEncoding<'a> {
+pub struct BindGroupEncoding<'a, E> {
     #[allow(dead_code)]
     pub(crate) context: &'a mut BindGroupEncodingContext,
     pub(crate) bindings: Vec<ResourceBindingDescriptor>,
+    _marker: marker::PhantomData<E>
 }
 
-impl<'a> BindGroupEncoding<'a> {
+impl<'a> BindGroupEncoding<'a, ()> {
     pub fn empty(context: &'a mut BindGroupEncodingContext) -> Self {
         BindGroupEncoding {
             context,
             bindings: Vec::new(),
+            _marker: marker::PhantomData
         }
     }
 }
@@ -157,12 +160,13 @@ impl BindGroupEncodingContext {
     }
 }
 
-pub struct BindGroupEncoder<'a> {
+pub struct BindGroupEncoder<'a, E> {
     context: &'a mut BindGroupEncodingContext,
     bindings: Vec<ResourceBindingDescriptor>,
+    _marker: marker::PhantomData<E>
 }
 
-impl<'a> BindGroupEncoder<'a> {
+impl<'a> BindGroupEncoder<'a, ()> {
     pub fn new(context: &'a mut BindGroupEncodingContext, size_hint: Option<usize>) -> Self {
         let bindings = if let Some(size_hint) = size_hint {
             Vec::with_capacity(size_hint)
@@ -170,17 +174,23 @@ impl<'a> BindGroupEncoder<'a> {
             Vec::new()
         };
 
-        BindGroupEncoder { context, bindings }
+        BindGroupEncoder { context, bindings, _marker: marker::PhantomData }
     }
 }
 
-impl<'a> BindGroupEncoder<'a> {
-    pub fn add_buffer_view<T>(&mut self, slot: u32, buffer_view: BufferView<T>) {
-        if buffer_view.buffer_data().context_id() != self.context.context_id {
+impl<'a, E> BindGroupEncoder<'a, E> {
+    pub fn add_buffer_view<'b, T>(self, slot: u32, buffer_view: BufferView<'b, T>) -> BindGroupEncoder<'a, (BufferView<'b, T>, E)> {
+        let BindGroupEncoder {
+            context,
+            mut bindings,
+            ..
+        } = self;
+
+        if buffer_view.buffer_data().context_id() != context.context_id {
             panic!("Buffer does not belong to same context as the bind group encoder");
         }
 
-        self.bindings.push(ResourceBindingDescriptor {
+        bindings.push(ResourceBindingDescriptor {
             internal: BindingDescriptorInternal::BufferView {
                 index: slot,
                 buffer_data: buffer_view.buffer_data().clone(),
@@ -188,287 +198,513 @@ impl<'a> BindGroupEncoder<'a> {
                 size: buffer_view.size_in_bytes(),
             },
         });
+
+        BindGroupEncoder {
+            context,
+            bindings,
+            _marker: marker::PhantomData
+        }
     }
 
-    pub fn add_float_sampled_texture_2d(
-        &mut self,
+    pub fn add_float_sampled_texture_2d<'b>(
+        self,
         slot: u32,
-        sampled_texture: FloatSampledTexture2D,
-    ) {
-        if sampled_texture.texture_data.context_id() != self.context.context_id {
+        sampled_texture: FloatSampledTexture2D<'b>,
+    ) -> BindGroupEncoder<'a, (FloatSampledTexture2D<'b>, E)> {
+        let BindGroupEncoder {
+            context,
+            mut bindings,
+            ..
+        } = self;
+
+        if sampled_texture.texture_data.context_id() != context.context_id {
             panic!("Texture does not belong to same context as the bind group encoder");
         }
 
-        self.bindings.push(ResourceBindingDescriptor {
+        bindings.push(ResourceBindingDescriptor {
             internal: BindingDescriptorInternal::SampledTexture {
                 unit: slot,
                 sampler_data: sampled_texture.sampler_data.clone(),
                 texture_data: TextureData::Texture2D(sampled_texture.texture_data.clone()),
             },
         });
+
+        BindGroupEncoder {
+            context,
+            bindings,
+            _marker: marker::PhantomData
+        }
     }
 
-    pub fn add_float_sampled_texture_2d_array(
-        &mut self,
+    pub fn add_float_sampled_texture_2d_array<'b>(
+        self,
         slot: u32,
-        sampled_texture: FloatSampledTexture2DArray,
-    ) {
-        if sampled_texture.texture_data.context_id() != self.context.context_id {
+        sampled_texture: FloatSampledTexture2DArray<'b>,
+    ) -> BindGroupEncoder<'a, (FloatSampledTexture2DArray<'b>, E)> {
+        let BindGroupEncoder {
+            context,
+            mut bindings,
+            ..
+        } = self;
+
+        if sampled_texture.texture_data.context_id() != context.context_id {
             panic!("Texture does not belong to same context as the bind group encoder");
         }
 
-        self.bindings.push(ResourceBindingDescriptor {
+        bindings.push(ResourceBindingDescriptor {
             internal: BindingDescriptorInternal::SampledTexture {
                 unit: slot,
                 sampler_data: sampled_texture.sampler_data.clone(),
                 texture_data: TextureData::Texture2DArray(sampled_texture.texture_data.clone()),
             },
         });
+
+        BindGroupEncoder {
+            context,
+            bindings,
+            _marker: marker::PhantomData
+        }
     }
 
-    pub fn add_float_sampled_texture_3d(
-        &mut self,
+    pub fn add_float_sampled_texture_3d<'b>(
+        self,
         slot: u32,
-        sampled_texture: FloatSampledTexture3D,
-    ) {
-        if sampled_texture.texture_data.context_id() != self.context.context_id {
+        sampled_texture: FloatSampledTexture3D<'b>,
+    ) -> BindGroupEncoder<'a, (FloatSampledTexture3D<'b>, E)> {
+        let BindGroupEncoder {
+            context,
+            mut bindings,
+            ..
+        } = self;
+
+        if sampled_texture.texture_data.context_id() != context.context_id {
             panic!("Texture does not belong to same context as the bind group encoder");
         }
 
-        self.bindings.push(ResourceBindingDescriptor {
+        bindings.push(ResourceBindingDescriptor {
             internal: BindingDescriptorInternal::SampledTexture {
                 unit: slot,
                 sampler_data: sampled_texture.sampler_data.clone(),
                 texture_data: TextureData::Texture3D(sampled_texture.texture_data.clone()),
             },
         });
+
+        BindGroupEncoder {
+            context,
+            bindings,
+            _marker: marker::PhantomData
+        }
     }
 
-    pub fn add_float_sampled_texture_cube(
-        &mut self,
+    pub fn add_float_sampled_texture_cube<'b>(
+        self,
         slot: u32,
-        sampled_texture: FloatSampledTextureCube,
-    ) {
-        if sampled_texture.texture_data.context_id() != self.context.context_id {
+        sampled_texture: FloatSampledTextureCube<'b>,
+    ) -> BindGroupEncoder<'a, (FloatSampledTextureCube<'b>, E)> {
+        let BindGroupEncoder {
+            context,
+            mut bindings,
+            ..
+        } = self;
+
+        if sampled_texture.texture_data.context_id() != context.context_id {
             panic!("Texture does not belong to same context as the bind group encoder");
         }
 
-        self.bindings.push(ResourceBindingDescriptor {
+        bindings.push(ResourceBindingDescriptor {
             internal: BindingDescriptorInternal::SampledTexture {
                 unit: slot,
                 sampler_data: sampled_texture.sampler_data.clone(),
                 texture_data: TextureData::TextureCube(sampled_texture.texture_data.clone()),
             },
         });
+
+        BindGroupEncoder {
+            context,
+            bindings,
+            _marker: marker::PhantomData
+        }
     }
 
-    pub fn add_integer_sampled_texture_2d(
-        &mut self,
+    pub fn add_integer_sampled_texture_2d<'b>(
+        self,
         slot: u32,
-        sampled_texture: IntegerSampledTexture2D,
-    ) {
-        if sampled_texture.texture_data.context_id() != self.context.context_id {
+        sampled_texture: IntegerSampledTexture2D<'b>,
+    ) -> BindGroupEncoder<'a, (IntegerSampledTexture2D<'b>, E)> {
+        let BindGroupEncoder {
+            context,
+            mut bindings,
+            ..
+        } = self;
+
+        if sampled_texture.texture_data.context_id() != context.context_id {
             panic!("Texture does not belong to same context as the bind group encoder");
         }
 
-        self.bindings.push(ResourceBindingDescriptor {
+        bindings.push(ResourceBindingDescriptor {
             internal: BindingDescriptorInternal::SampledTexture {
                 unit: slot,
                 sampler_data: sampled_texture.sampler_data.clone(),
                 texture_data: TextureData::Texture2D(sampled_texture.texture_data.clone()),
             },
         });
+
+        BindGroupEncoder {
+            context,
+            bindings,
+            _marker: marker::PhantomData
+        }
     }
 
-    pub fn add_integer_sampled_texture_2d_array(
-        &mut self,
+    pub fn add_integer_sampled_texture_2d_array<'b>(
+        self,
         slot: u32,
-        sampled_texture: IntegerSampledTexture2DArray,
-    ) {
-        if sampled_texture.texture_data.context_id() != self.context.context_id {
+        sampled_texture: IntegerSampledTexture2DArray<'b>,
+    ) -> BindGroupEncoder<'a, (IntegerSampledTexture2DArray<'b>, E)> {
+        let BindGroupEncoder {
+            context,
+            mut bindings,
+            ..
+        } = self;
+
+        if sampled_texture.texture_data.context_id() != context.context_id {
             panic!("Texture does not belong to same context as the bind group encoder");
         }
 
-        self.bindings.push(ResourceBindingDescriptor {
+        bindings.push(ResourceBindingDescriptor {
             internal: BindingDescriptorInternal::SampledTexture {
                 unit: slot,
                 sampler_data: sampled_texture.sampler_data.clone(),
                 texture_data: TextureData::Texture2DArray(sampled_texture.texture_data.clone()),
             },
         });
+
+        BindGroupEncoder {
+            context,
+            bindings,
+            _marker: marker::PhantomData
+        }
     }
 
-    pub fn add_integer_sampled_texture_3d(
-        &mut self,
+    pub fn add_integer_sampled_texture_3d<'b>(
+        self,
         slot: u32,
-        sampled_texture: IntegerSampledTexture3D,
-    ) {
-        if sampled_texture.texture_data.context_id() != self.context.context_id {
+        sampled_texture: IntegerSampledTexture3D<'b>,
+    ) -> BindGroupEncoder<'a, (IntegerSampledTexture3D<'b>, E)> {
+        let BindGroupEncoder {
+            context,
+            mut bindings,
+            ..
+        } = self;
+
+        if sampled_texture.texture_data.context_id() != context.context_id {
             panic!("Texture does not belong to same context as the bind group encoder");
         }
 
-        self.bindings.push(ResourceBindingDescriptor {
+        bindings.push(ResourceBindingDescriptor {
             internal: BindingDescriptorInternal::SampledTexture {
                 unit: slot,
                 sampler_data: sampled_texture.sampler_data.clone(),
                 texture_data: TextureData::Texture3D(sampled_texture.texture_data.clone()),
             },
         });
+
+        BindGroupEncoder {
+            context,
+            bindings,
+            _marker: marker::PhantomData
+        }
     }
 
-    pub fn add_integer_sampled_texture_cube(
-        &mut self,
+    pub fn add_integer_sampled_texture_cube<'b>(
+        self,
         slot: u32,
-        sampled_texture: IntegerSampledTextureCube,
-    ) {
-        if sampled_texture.texture_data.context_id() != self.context.context_id {
+        sampled_texture: IntegerSampledTextureCube<'b>,
+    ) -> BindGroupEncoder<'a, (IntegerSampledTextureCube<'b>, E)> {
+        let BindGroupEncoder {
+            context,
+            mut bindings,
+            ..
+        } = self;
+
+        if sampled_texture.texture_data.context_id() != context.context_id {
             panic!("Texture does not belong to same context as the bind group encoder");
         }
 
-        self.bindings.push(ResourceBindingDescriptor {
+        bindings.push(ResourceBindingDescriptor {
             internal: BindingDescriptorInternal::SampledTexture {
                 unit: slot,
                 sampler_data: sampled_texture.sampler_data.clone(),
                 texture_data: TextureData::TextureCube(sampled_texture.texture_data.clone()),
             },
         });
+
+        BindGroupEncoder {
+            context,
+            bindings,
+            _marker: marker::PhantomData
+        }
     }
 
-    pub fn add_unsigned_integer_sampled_texture_2d(
-        &mut self,
+    pub fn add_unsigned_integer_sampled_texture_2d<'b>(
+        self,
         slot: u32,
-        sampled_texture: UnsignedIntegerSampledTexture2D,
-    ) {
-        if sampled_texture.texture_data.context_id() != self.context.context_id {
+        sampled_texture: UnsignedIntegerSampledTexture2D<'b>,
+    ) -> BindGroupEncoder<'a, (UnsignedIntegerSampledTexture2D<'b>, E)> {
+        let BindGroupEncoder {
+            context,
+            mut bindings,
+            ..
+        } = self;
+
+        if sampled_texture.texture_data.context_id() != context.context_id {
             panic!("Texture does not belong to same context as the bind group encoder");
         }
 
-        self.bindings.push(ResourceBindingDescriptor {
+        bindings.push(ResourceBindingDescriptor {
             internal: BindingDescriptorInternal::SampledTexture {
                 unit: slot,
                 sampler_data: sampled_texture.sampler_data.clone(),
                 texture_data: TextureData::Texture2D(sampled_texture.texture_data.clone()),
             },
         });
+
+        BindGroupEncoder {
+            context,
+            bindings,
+            _marker: marker::PhantomData
+        }
     }
 
-    pub fn add_unsigned_integer_sampled_texture_2d_array(
-        &mut self,
+    pub fn add_unsigned_integer_sampled_texture_2d_array<'b>(
+        self,
         slot: u32,
-        sampled_texture: UnsignedIntegerSampledTexture2DArray,
-    ) {
-        if sampled_texture.texture_data.context_id() != self.context.context_id {
+        sampled_texture: UnsignedIntegerSampledTexture2DArray<'b>,
+    ) -> BindGroupEncoder<'a, (UnsignedIntegerSampledTexture2DArray<'b>, E)> {
+        let BindGroupEncoder {
+            context,
+            mut bindings,
+            ..
+        } = self;
+
+        if sampled_texture.texture_data.context_id() != context.context_id {
             panic!("Texture does not belong to same context as the bind group encoder");
         }
 
-        self.bindings.push(ResourceBindingDescriptor {
+        bindings.push(ResourceBindingDescriptor {
             internal: BindingDescriptorInternal::SampledTexture {
                 unit: slot,
                 sampler_data: sampled_texture.sampler_data.clone(),
                 texture_data: TextureData::Texture2DArray(sampled_texture.texture_data.clone()),
             },
         });
+
+        BindGroupEncoder {
+            context,
+            bindings,
+            _marker: marker::PhantomData
+        }
     }
 
-    pub fn add_unsigned_integer_sampled_texture_3d(
-        &mut self,
+    pub fn add_unsigned_integer_sampled_texture_3d<'b>(
+        self,
         slot: u32,
-        sampled_texture: UnsignedIntegerSampledTexture3D,
-    ) {
-        if sampled_texture.texture_data.context_id() != self.context.context_id {
+        sampled_texture: UnsignedIntegerSampledTexture3D<'b>,
+    ) -> BindGroupEncoder<'a, (UnsignedIntegerSampledTexture3D<'b>, E)> {
+        let BindGroupEncoder {
+            context,
+            mut bindings,
+            ..
+        } = self;
+
+        if sampled_texture.texture_data.context_id() != context.context_id {
             panic!("Texture does not belong to same context as the bind group encoder");
         }
 
-        self.bindings.push(ResourceBindingDescriptor {
+        bindings.push(ResourceBindingDescriptor {
             internal: BindingDescriptorInternal::SampledTexture {
                 unit: slot,
                 sampler_data: sampled_texture.sampler_data.clone(),
                 texture_data: TextureData::Texture3D(sampled_texture.texture_data.clone()),
             },
         });
+
+        BindGroupEncoder {
+            context,
+            bindings,
+            _marker: marker::PhantomData
+        }
     }
 
-    pub fn add_unsigned_integer_sampled_texture_cube(
-        &mut self,
+    pub fn add_unsigned_integer_sampled_texture_cube<'b>(
+        self,
         slot: u32,
-        sampled_texture: UnsignedIntegerSampledTextureCube,
-    ) {
-        if sampled_texture.texture_data.context_id() != self.context.context_id {
+        sampled_texture: UnsignedIntegerSampledTextureCube<'b>,
+    ) -> BindGroupEncoder<'a, (UnsignedIntegerSampledTextureCube<'b>, E)> {
+        let BindGroupEncoder {
+            context,
+            mut bindings,
+            ..
+        } = self;
+
+        if sampled_texture.texture_data.context_id() != context.context_id {
             panic!("Texture does not belong to same context as the bind group encoder");
         }
 
-        self.bindings.push(ResourceBindingDescriptor {
+        bindings.push(ResourceBindingDescriptor {
             internal: BindingDescriptorInternal::SampledTexture {
                 unit: slot,
                 sampler_data: sampled_texture.sampler_data.clone(),
                 texture_data: TextureData::TextureCube(sampled_texture.texture_data.clone()),
             },
         });
+
+        BindGroupEncoder {
+            context,
+            bindings,
+            _marker: marker::PhantomData
+        }
     }
 
-    pub fn add_shadow_sampled_texture_2d(
-        &mut self,
+    pub fn add_shadow_sampled_texture_2d<'b>(
+        self,
         slot: u32,
-        sampled_texture: ShadowSampledTexture2D,
-    ) {
-        if sampled_texture.texture_data.context_id() != self.context.context_id {
+        sampled_texture: ShadowSampledTexture2D<'b>,
+    ) -> BindGroupEncoder<'a, (ShadowSampledTexture2D<'b>, E)> {
+        let BindGroupEncoder {
+            context,
+            mut bindings,
+            ..
+        } = self;
+
+        if sampled_texture.texture_data.context_id() != context.context_id {
             panic!("Texture does not belong to same context as the bind group encoder");
         }
 
-        self.bindings.push(ResourceBindingDescriptor {
+        bindings.push(ResourceBindingDescriptor {
             internal: BindingDescriptorInternal::SampledTexture {
                 unit: slot,
                 sampler_data: sampled_texture.sampler_data.clone(),
                 texture_data: TextureData::Texture2D(sampled_texture.texture_data.clone()),
             },
         });
+
+        BindGroupEncoder {
+            context,
+            bindings,
+            _marker: marker::PhantomData
+        }
     }
 
-    pub fn add_shadow_sampled_texture_2d_array(
-        &mut self,
+    pub fn add_shadow_sampled_texture_2d_array<'b>(
+        self,
         slot: u32,
-        sampled_texture: ShadowSampledTexture2DArray,
-    ) {
-        if sampled_texture.texture_data.context_id() != self.context.context_id {
+        sampled_texture: ShadowSampledTexture2DArray<'b>,
+    ) -> BindGroupEncoder<'a, (ShadowSampledTexture2DArray<'b>, E)> {
+        let BindGroupEncoder {
+            context,
+            mut bindings,
+            ..
+        } = self;
+
+        if sampled_texture.texture_data.context_id() != context.context_id {
             panic!("Texture does not belong to same context as the bind group encoder");
         }
 
-        self.bindings.push(ResourceBindingDescriptor {
+        bindings.push(ResourceBindingDescriptor {
             internal: BindingDescriptorInternal::SampledTexture {
                 unit: slot,
                 sampler_data: sampled_texture.sampler_data.clone(),
                 texture_data: TextureData::Texture2DArray(sampled_texture.texture_data.clone()),
             },
         });
+
+        BindGroupEncoder {
+            context,
+            bindings,
+            _marker: marker::PhantomData
+        }
     }
 
-    pub fn add_shadow_sampled_texture_cube(
-        &mut self,
+    pub fn add_shadow_sampled_texture_cube<'b>(
+        self,
         slot: u32,
-        sampled_texture: ShadowSampledTextureCube,
-    ) {
-        if sampled_texture.texture_data.context_id() != self.context.context_id {
+        sampled_texture: ShadowSampledTextureCube<'b>,
+    ) -> BindGroupEncoder<'a, (ShadowSampledTextureCube<'b>, E)> {
+        let BindGroupEncoder {
+            context,
+            mut bindings,
+            ..
+        } = self;
+
+        if sampled_texture.texture_data.context_id() != context.context_id {
             panic!("Texture does not belong to same context as the bind group encoder");
         }
 
-        self.bindings.push(ResourceBindingDescriptor {
+        bindings.push(ResourceBindingDescriptor {
             internal: BindingDescriptorInternal::SampledTexture {
                 unit: slot,
                 sampler_data: sampled_texture.sampler_data.clone(),
                 texture_data: TextureData::TextureCube(sampled_texture.texture_data.clone()),
             },
         });
+
+        BindGroupEncoder {
+            context,
+            bindings,
+            _marker: marker::PhantomData
+        }
     }
 }
 
-impl<'a> BindGroupEncoder<'a> {
-    pub fn finish(self) -> BindGroupEncoding<'a> {
-        BindGroupEncoding {
-            context: self.context,
-            bindings: self.bindings,
-        }
+macro_rules! nest_pairs {
+    ($head:tt) => ($head);
+    ($head:tt, $($tail:tt),*) => (($head, nest_pairs!($($tail),*)));
+}
+
+macro_rules! nest_pairs_reverse {
+    ([$head:tt] $($reverse:tt)*) => (nest_pairs!($head, $($reverse),*));
+    ([$head:tt, $($tail:tt),*] $($reverse:tt)*) => {
+        nest_pairs_reverse!([$($tail),*] $head $($reverse)*)
     }
 }
+
+macro_rules! impl_finish_bind_group_encoding(
+    ($($B:ident),*) => {
+        impl<'a, $($B),*> BindGroupEncoder<'a, nest_pairs_reverse!([(), $($B),*])> {
+            pub fn finish(self) -> BindGroupEncoding<'a, ($($B,)*)> {
+                let BindGroupEncoder {
+                    context,
+                    bindings,
+                    ..
+                } = self;
+
+                BindGroupEncoding {
+                    context,
+                    bindings,
+                    _marker: marker::PhantomData
+                }
+            }
+        }
+    }
+);
+
+impl_finish_bind_group_encoding!(R0);
+impl_finish_bind_group_encoding!(R0, R1);
+impl_finish_bind_group_encoding!(R0, R1, R2);
+impl_finish_bind_group_encoding!(R0, R1, R2, R3);
+impl_finish_bind_group_encoding!(R0, R1, R2, R3, R4);
+impl_finish_bind_group_encoding!(R0, R1, R2, R3, R4, R5);
+impl_finish_bind_group_encoding!(R0, R1, R2, R3, R4, R5, R6);
+impl_finish_bind_group_encoding!(R0, R1, R2, R3, R4, R5, R6, R7);
+impl_finish_bind_group_encoding!(R0, R1, R2, R3, R4, R5, R6, R7, R8);
+impl_finish_bind_group_encoding!(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9);
+impl_finish_bind_group_encoding!(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10);
+impl_finish_bind_group_encoding!(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11);
+impl_finish_bind_group_encoding!(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12);
+impl_finish_bind_group_encoding!(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12, R13);
+impl_finish_bind_group_encoding!(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12, R13, R14);
+impl_finish_bind_group_encoding!(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12, R13, R14, R16);
 
 #[derive(Clone)]
 pub struct BindGroupDescriptor {
@@ -563,18 +799,6 @@ impl<'a, B> StaticResourceBindingsEncoder<'a, B> {
 }
 
 // TODO: implement this with const generics when possible
-
-macro_rules! nest_pairs {
-    ($head:tt) => ($head);
-    ($head:tt, $($tail:tt),*) => (($head, nest_pairs!($($tail),*)));
-}
-
-macro_rules! nest_pairs_reverse {
-    ([$head:tt] $($reverse:tt)*) => (nest_pairs!($head, $($reverse),*));
-    ([$head:tt, $($tail:tt),*] $($reverse:tt)*) => {
-        nest_pairs_reverse!([$($tail),*] $head $($reverse)*)
-    }
-}
 
 macro_rules! generate_encoder_finish {
     ($n:tt, $($C:ident|$I:ident),*) => {

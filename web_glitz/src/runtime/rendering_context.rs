@@ -25,7 +25,7 @@ use crate::pipeline::graphics::{
     IndexBuffer, IndexFormat, ShaderLinkingError, VertexShader,
 };
 use crate::pipeline::resources::{
-    BindGroup, BindableResourceGroup, IncompatibleResources, ResourceSlotIdentifier,
+    BindGroup, EncodeBindGroup, IncompatibleResources, ResourceSlotIdentifier,
 };
 use crate::render_pass::{RenderPass, RenderPassContext};
 use crate::render_target::RenderTargetDescription;
@@ -114,7 +114,7 @@ pub trait RenderingContext {
     /// ```
     fn create_bind_group<T>(&self, resources: T) -> BindGroup<T>
     where
-        T: BindableResourceGroup;
+        T: EncodeBindGroup;
 
     /// Creates a new GPU-accessible memory [Buffer].
     ///

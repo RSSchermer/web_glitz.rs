@@ -55,7 +55,7 @@ pub(crate) enum BindGroupInternal {
 
 impl<T> BindGroup<T>
 where
-    T: BindableResourceGroup,
+    T: EncodeBindGroup,
 {
     pub(crate) fn new(context_id: usize, resources: T) -> Self {
         let mut encoding_context = BindGroupEncodingContext::new(context_id);
@@ -672,18 +672,23 @@ pub trait TypedBindGroupLayout {
 /// ```
 /// use web_glitz::buffer::Buffer;
 /// use web_glitz::image::texture_2d::FloatSampledTexture2D;
-/// use web_glitz::pipeline::resources::{BindableResourceGroup, BindGroupEncodingContext, BindGroupEncoding, BindGroupEncoder};
+/// use web_glitz::pipeline::resources::{EncodeBindGroup, BindGroupEncodingContext, BindGroupEncoding, BindGroupEncoder};
 ///
 /// struct Resources<'a, 'b> {
 ///     uniform_buffer: &'a Buffer<std140::mat4x4>,
 ///     texture: FloatSampledTexture2D<'b>
 /// }
 ///
-/// impl<'a, 'b> BindableResourceGroup for Resources<'a, 'b> {
+/// impl<'a, 'b> EncodeBindGroup for Resources<'a, 'b> {
+///     type Encoding = (
+///         &'a Buffer<std140::mat4x4>,
+///         FloatSampledTexture2D<'b>,
+///     );
+///
 ///     fn encode_bind_group(
 ///         self,
 ///         encoding_context: &mut BindGroupEncodingContext
-///     ) -> BindGroupEncoding<'a> {
+///     ) -> BindGroupEncoding<Self::Encoding> {
 ///         let mut encoder = BindGroupEncoder::new(encoding_context, Some(2));
 ///
 ///         encoder.add_buffer_view(0, self.uniform_buffer.into());
@@ -693,12 +698,14 @@ pub trait TypedBindGroupLayout {
 ///     }
 /// }
 /// ```
-pub trait BindableResourceGroup {
+pub trait EncodeBindGroup {
+    type Encoding;
+
     /// Encodes a description of the bindings for the resources in the group.
     fn encode_bind_group(
         self,
         encoding_context: &mut BindGroupEncodingContext,
-    ) -> BindGroupEncoding;
+    ) -> BindGroupEncoding<Self::Encoding>;
 }
 
 /// Sub-trait of [BindableResourceGroup], where a type statically describes the layout for the
@@ -1127,12 +1134,14 @@ pub enum SampledTextureType {
 /// fields are defined, then all fields must declare a unique `binding` index; 2 or more
 /// `#[resource(...)]` fields with the same `binding` index will also result in a compilation error.
 pub unsafe trait Resources {
+    type Encoding;
+
     const LAYOUT: &'static [TypedResourceSlotDescriptor];
 
     fn encode_bind_group(
         self,
         encoding_context: &mut BindGroupEncodingContext,
-    ) -> BindGroupEncoding;
+    ) -> BindGroupEncoding<Self::Encoding>;
 }
 
 impl<T> TypedBindGroupLayout for T
@@ -1142,14 +1151,16 @@ where
     const LAYOUT: &'static [TypedResourceSlotDescriptor] = T::LAYOUT;
 }
 
-impl<T> BindableResourceGroup for T
+impl<T> EncodeBindGroup for T
 where
     T: Resources,
 {
+    type Encoding = T::Encoding;
+
     fn encode_bind_group(
         self,
         encoding_context: &mut BindGroupEncodingContext,
-    ) -> BindGroupEncoding {
+    ) -> BindGroupEncoding<Self::Encoding> {
         <T as Resources>::encode_bind_group(self, encoding_context)
     }
 }
@@ -1165,11 +1176,13 @@ impl TypedBindGroupLayout for () {
     const LAYOUT: &'static [TypedResourceSlotDescriptor] = &[];
 }
 
-impl BindableResourceGroup for () {
+impl EncodeBindGroup for () {
+    type Encoding = ();
+
     fn encode_bind_group(
         self,
         encoding_context: &mut BindGroupEncodingContext,
-    ) -> BindGroupEncoding {
+    ) -> BindGroupEncoding<()> {
         BindGroupEncoding::empty(encoding_context)
     }
 }
@@ -1195,20 +1208,24 @@ pub enum IncompatibleResources {
 /// When automatically deriving the [Resources] trait, fields marked with `#[resource(...)]` must
 /// implement this trait.
 pub unsafe trait Resource {
+    type Encoding;
+
     const TYPE: ResourceSlotType;
 
     /// Encodes a binding for this resource at the specified `slot_index`.
-    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder);
+    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)>;
 }
 
 unsafe impl<'a, T> Resource for &'a Buffer<T>
 where
     T: InterfaceBlock,
 {
+    type Encoding = BufferView<'a, T>;
+
     const TYPE: ResourceSlotType = ResourceSlotType::UniformBuffer(T::MEMORY_UNITS);
 
-    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
-        encoder.add_buffer_view(slot_index, self.into());
+    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+        encoder.add_buffer_view(slot_index, self.into())
     }
 }
 
@@ -1216,144 +1233,176 @@ unsafe impl<'a, T> Resource for BufferView<'a, T>
 where
     T: InterfaceBlock,
 {
+    type Encoding = Self;
+
     const TYPE: ResourceSlotType = ResourceSlotType::UniformBuffer(T::MEMORY_UNITS);
 
-    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
-        encoder.add_buffer_view(slot_index, self);
+    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+        encoder.add_buffer_view(slot_index, self)
     }
 }
 
 unsafe impl<'a> Resource for FloatSampledTexture2D<'a> {
+    type Encoding = Self;
+
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::FloatSampler2D);
 
-    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
-        encoder.add_float_sampled_texture_2d(slot_index, self);
+    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+        encoder.add_float_sampled_texture_2d(slot_index, self)
     }
 }
 
 unsafe impl<'a> Resource for FloatSampledTexture2DArray<'a> {
+    type Encoding = Self;
+
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::FloatSampler2DArray);
 
-    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
-        encoder.add_float_sampled_texture_2d_array(slot_index, self);
+    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+        encoder.add_float_sampled_texture_2d_array(slot_index, self)
     }
 }
 
 unsafe impl<'a> Resource for FloatSampledTexture3D<'a> {
+    type Encoding = Self;
+
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::FloatSampler3D);
 
-    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
-        encoder.add_float_sampled_texture_3d(slot_index, self);
+    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+        encoder.add_float_sampled_texture_3d(slot_index, self)
     }
 }
 
 unsafe impl<'a> Resource for FloatSampledTextureCube<'a> {
+    type Encoding = Self;
+
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::FloatSamplerCube);
 
-    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
-        encoder.add_float_sampled_texture_cube(slot_index, self);
+    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+        encoder.add_float_sampled_texture_cube(slot_index, self)
     }
 }
 
 unsafe impl<'a> Resource for IntegerSampledTexture2D<'a> {
+    type Encoding = Self;
+
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::IntegerSampler2D);
 
-    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
-        encoder.add_integer_sampled_texture_2d(slot_index, self);
+    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+        encoder.add_integer_sampled_texture_2d(slot_index, self)
     }
 }
 
 unsafe impl<'a> Resource for IntegerSampledTexture2DArray<'a> {
+    type Encoding = Self;
+
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::IntegerSampler2DArray);
 
-    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
-        encoder.add_integer_sampled_texture_2d_array(slot_index, self);
+    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+        encoder.add_integer_sampled_texture_2d_array(slot_index, self)
     }
 }
 
 unsafe impl<'a> Resource for IntegerSampledTexture3D<'a> {
+    type Encoding = Self;
+
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::IntegerSampler3D);
 
-    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
-        encoder.add_integer_sampled_texture_3d(slot_index, self);
+    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+        encoder.add_integer_sampled_texture_3d(slot_index, self)
     }
 }
 
 unsafe impl<'a> Resource for IntegerSampledTextureCube<'a> {
+    type Encoding = Self;
+
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::IntegerSamplerCube);
 
-    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
-        encoder.add_integer_sampled_texture_cube(slot_index, self);
+    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+        encoder.add_integer_sampled_texture_cube(slot_index, self)
     }
 }
 
 unsafe impl<'a> Resource for UnsignedIntegerSampledTexture2D<'a> {
+    type Encoding = Self;
+
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::UnsignedIntegerSampler2D);
 
-    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
-        encoder.add_unsigned_integer_sampled_texture_2d(slot_index, self);
+    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+        encoder.add_unsigned_integer_sampled_texture_2d(slot_index, self)
     }
 }
 
 unsafe impl<'a> Resource for UnsignedIntegerSampledTexture2DArray<'a> {
+    type Encoding = Self;
+
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::UnsignedIntegerSampler2DArray);
 
-    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
-        encoder.add_unsigned_integer_sampled_texture_2d_array(slot_index, self);
+    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+        encoder.add_unsigned_integer_sampled_texture_2d_array(slot_index, self)
     }
 }
 
 unsafe impl<'a> Resource for UnsignedIntegerSampledTexture3D<'a> {
+    type Encoding = Self;
+
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::UnsignedIntegerSampler3D);
 
-    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
-        encoder.add_unsigned_integer_sampled_texture_3d(slot_index, self);
+    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+        encoder.add_unsigned_integer_sampled_texture_3d(slot_index, self)
     }
 }
 
 unsafe impl<'a> Resource for UnsignedIntegerSampledTextureCube<'a> {
+    type Encoding = Self;
+
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::UnsignedIntegerSamplerCube);
 
-    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
-        encoder.add_unsigned_integer_sampled_texture_cube(slot_index, self);
+    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+        encoder.add_unsigned_integer_sampled_texture_cube(slot_index, self)
     }
 }
 
 unsafe impl<'a> Resource for ShadowSampledTexture2D<'a> {
+    type Encoding = Self;
+
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::Sampler2DShadow);
 
-    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
-        encoder.add_shadow_sampled_texture_2d(slot_index, self);
+    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+        encoder.add_shadow_sampled_texture_2d(slot_index, self)
     }
 }
 
 unsafe impl<'a> Resource for ShadowSampledTexture2DArray<'a> {
+    type Encoding = Self;
+
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::Sampler2DArrayShadow);
 
-    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
-        encoder.add_shadow_sampled_texture_2d_array(slot_index, self);
+    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+        encoder.add_shadow_sampled_texture_2d_array(slot_index, self)
     }
 }
 
 unsafe impl<'a> Resource for ShadowSampledTextureCube<'a> {
+    type Encoding = Self;
+
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::SamplerCubeShadow);
 
-    fn encode(self, slot_index: u32, encoder: &mut BindGroupEncoder) {
-        encoder.add_shadow_sampled_texture_cube(slot_index, self);
+    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+        encoder.add_shadow_sampled_texture_cube(slot_index, self)
     }
 }

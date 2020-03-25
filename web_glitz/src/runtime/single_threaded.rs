@@ -136,7 +136,7 @@ use crate::pipeline::graphics::{
     FragmentShader, GraphicsPipeline, GraphicsPipelineDescriptor, IndexBuffer, IndexFormat,
     VertexShader,
 };
-use crate::pipeline::resources::{BindGroup, BindableResourceGroup};
+use crate::pipeline::resources::{BindGroup, EncodeBindGroup};
 use crate::render_pass::{
     DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
     DefaultStencilBuffer, RenderPass, RenderPassContext, RenderPassId,
@@ -223,7 +223,7 @@ impl RenderingContext for SingleThreadedContext {
 
     fn create_bind_group<T>(&self, resources: T) -> BindGroup<T>
     where
-        T: BindableResourceGroup,
+        T: EncodeBindGroup,
     {
         BindGroup::new(self.id, resources)
     }

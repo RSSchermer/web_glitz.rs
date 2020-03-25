@@ -46,6 +46,14 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
             }
         });
 
+        let resource_types = resource_fields.iter().map(|field| {
+            let ty = &field.ty;
+
+            quote! {
+                <#ty as #mod_path::Resource>::Encoding
+            }
+        });
+
         let resource_encodings = resource_fields.iter().map(|field| {
             let field_name = field
                 .ident
@@ -56,7 +64,7 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
             let binding = field.binding as u32;
 
             quote! {
-                self.#field_name.encode(#binding, &mut encoder);
+                let encoder = self.#field_name.encode(#binding, encoder);
             }
         });
 
@@ -66,6 +74,8 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
         let impl_block = quote! {
             #[automatically_derived]
             unsafe impl #impl_generics #mod_path::Resources for #struct_name #ty_generics #where_clause {
+                type Encoding = (#(#resource_types,)*);
+
                 const LAYOUT: &'static [#mod_path::TypedResourceSlotDescriptor] = &[
                     #(#resource_slot_descriptors,)*
                 ];
@@ -73,8 +83,8 @@ pub fn expand_derive_resources(input: &DeriveInput) -> Result<TokenStream, Strin
                 fn encode_bind_group(
                     self,
                     context: &mut #mod_path::BindGroupEncodingContext,
-                ) -> #mod_path::BindGroupEncoding {
-                    let mut encoder = #mod_path::BindGroupEncoder::new(context, Some(#len));
+                ) -> #mod_path::BindGroupEncoding<Self::Encoding> {
+                    let encoder = #mod_path::BindGroupEncoder::new(context, Some(#len));
 
                     #(#resource_encodings)*
 
