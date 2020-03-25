@@ -18,4 +18,4 @@ pub use self::render_target_attachment::{
 };
 
 pub(crate) mod render_target_description;
-pub use self::render_target_description::{RenderTarget, RenderTargetDescription};
+pub use self::render_target_description::{RenderTargetDescriptor, RenderTargetDescription};

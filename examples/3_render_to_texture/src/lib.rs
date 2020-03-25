@@ -20,7 +20,7 @@ use web_glitz::pipeline::graphics::{
     CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
 use web_glitz::pipeline::resources::BindGroup;
-use web_glitz::render_target::{FloatAttachment, LoadOp, RenderTarget, StoreOp};
+use web_glitz::render_target::{FloatAttachment, LoadOp, RenderTargetDescriptor, StoreOp};
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 use web_glitz::sampler::{Linear, SamplerDescriptor, Wrap};
 use web_glitz::task::{sequence_all, sequence_right};
@@ -149,7 +149,7 @@ pub fn start() {
     // how to create custom render targets, see the documentation for the `web_glitz::render_target`
     // module.
     let secondary_render_pass = context.create_render_pass(
-        RenderTarget {
+        RenderTargetDescriptor {
             color: FloatAttachment {
                 // Note that we need to provide a mut reference to the texture image. This prevents
                 // us from accidentally reading from the same texture elsewhere in the render pass

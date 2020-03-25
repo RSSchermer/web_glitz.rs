@@ -1,9 +1,9 @@
 use std::cell::Cell;
-use std::cmp;
+use std::{cmp, marker};
 use std::hash::{Hash, Hasher};
 
 use crate::render_pass::{Framebuffer, RenderPass, RenderPassContext, RenderPassId};
-use crate::render_pass::framebuffer::GraphicsPipelineTarget;
+use crate::render_pass::framebuffer::{GraphicsPipelineTarget, MultisampleFramebuffer};
 use crate::render_target::attachable_image_ref::AttachableImageData;
 use crate::render_target::render_target_attachment::{
     ColorAttachmentEncoding, ColorAttachmentEncodingContext, LoadAction,
@@ -14,6 +14,36 @@ use crate::render_target::{
 };
 use crate::runtime::state::{AttachmentSet, DepthStencilAttachmentDescriptor, DrawBuffer};
 use crate::task::{ContextId, GpuTask};
+
+pub struct RenderTargetDescriptorBuilder {
+
+}
+
+pub trait EncodeColorBuffers {
+    type ColorBuffers;
+
+    fn encode<'a, 'b,  Ds>(&'a mut self, context: &'b mut ColorBuffersEncodingContext) -> FramebufferEncoder<'a, 'b, Self::ColorBuffers, Ds> {
+
+    }
+}
+
+pub trait EncodeDepthStencilBuffer {
+    type DepthStencilBuffer;
+
+    fn encode<'a, C>(&self, encoder: FramebufferEncoder<'a, C, ()>) -> FramebufferEncoder<'a, C, Self::DepthStencilBuffer> {
+
+    }
+}
+
+pub struct RenderTarget<C, Ds> where C: EncodeColorBuffers, Ds: EncodeDepthStencilBuffer {
+    framebuffer: Framebuffer<C::ColorBuffers, Ds::DepthStencilBuffer>,
+    _marker: marker::PhantomData<(C, Ds)>,
+}
+
+pub struct MultisampleRenderTarget<C, Ds> where C: EncodeColorBuffers, Ds: EncodeDepthStencilBuffer {
+    framebuffer: MultisampleFramebuffer<C::ColorBuffers, Ds::DepthStencilBuffer>,
+    _marker: marker::PhantomData<(C, Ds)>,
+}
 
 /// Describes a render target that may be used with a [RenderPass] task.
 ///
@@ -55,7 +85,7 @@ where
 macro_rules! impl_render_target_description {
     ($C0:ident $(,$C:ident)*) => {
         #[allow(unused_parens)]
-        impl<$C0 $(,$C)*> RenderTargetDescription for RenderTarget<($C0 $(,$C)*), ()>
+        impl<$C0 $(,$C)*> RenderTargetDescription for RenderTargetDescriptor<($C0 $(,$C)*), ()>
         where
             $C0: ColorAttachmentDescription $(,$C: ColorAttachmentDescription)*
         {
@@ -217,7 +247,7 @@ impl_render_target_description!(
 macro_rules! impl_render_target_description_depth_stencil {
     ($($C:ident),*) => {
         #[allow(unused_parens)]
-        impl<$($C,)* Ds> RenderTargetDescription for RenderTarget<($($C),*), Ds>
+        impl<$($C,)* Ds> RenderTargetDescription for RenderTargetDescriptor<($($C),*), Ds>
         where
             $($C: ColorAttachmentDescription,)*
             Ds: DepthStencilAttachmentDescription
@@ -393,7 +423,7 @@ impl_render_target_description_depth_stencil!(
 /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
 /// use web_glitz::image::format::RGBA8;
 /// use web_glitz::image::renderbuffer::RenderbufferDescriptor;
-/// use web_glitz::render_target::{RenderTarget, FloatAttachment, LoadOp, StoreOp};
+/// use web_glitz::render_target::{RenderTargetDescriptor, FloatAttachment, LoadOp, StoreOp};
 ///
 /// let mut color_image = context.create_renderbuffer(&RenderbufferDescriptor{
 ///     format: RGBA8,
@@ -401,7 +431,7 @@ impl_render_target_description_depth_stencil!(
 ///     height: 500
 /// });
 ///
-/// let render_target = RenderTarget {
+/// let render_target = RenderTargetDescriptor {
 ///     color: FloatAttachment {
 ///         image: &mut color_image,
 ///         load_op: LoadOp::Load,
@@ -428,7 +458,7 @@ impl_render_target_description_depth_stencil!(
 /// use web_glitz::image::format::RGBA8;
 /// use web_glitz::image::texture_2d::Texture2DDescriptor;
 /// use web_glitz::image::MipmapLevels;
-/// use web_glitz::render_target::{RenderTarget, FloatAttachment, LoadOp, StoreOp};
+/// use web_glitz::render_target::{RenderTargetDescriptor, FloatAttachment, LoadOp, StoreOp};
 ///
 /// let mut color_image = context.create_texture_2d(&Texture2DDescriptor {
 ///     format: RGBA8,
@@ -437,7 +467,7 @@ impl_render_target_description_depth_stencil!(
 ///     levels: MipmapLevels::Complete
 /// }).unwrap();
 ///
-/// let render_target = RenderTarget {
+/// let render_target = RenderTargetDescriptor {
 ///     color: FloatAttachment {
 ///         image: color_image.base_level_mut(),
 ///         load_op: LoadOp::Load,
@@ -469,7 +499,7 @@ impl_render_target_description_depth_stencil!(
 /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
 /// use web_glitz::image::format::{RGBA8, DepthComponent16};
 /// use web_glitz::image::renderbuffer::RenderbufferDescriptor;
-/// use web_glitz::render_target::{RenderTarget, FloatAttachment, DepthAttachment, LoadOp, StoreOp};
+/// use web_glitz::render_target::{RenderTargetDescriptor, FloatAttachment, DepthAttachment, LoadOp, StoreOp};
 ///
 /// let mut color_image = context.create_renderbuffer(&RenderbufferDescriptor{
 ///     format: RGBA8,
@@ -483,7 +513,7 @@ impl_render_target_description_depth_stencil!(
 ///     height: 500
 /// });
 ///
-/// let render_target = RenderTarget {
+/// let render_target = RenderTargetDescriptor {
 ///     color: FloatAttachment {
 ///         image: &mut color_image,
 ///         load_op: LoadOp::Load,
@@ -524,7 +554,7 @@ impl_render_target_description_depth_stencil!(
 /// use web_glitz::image::format::{RGBA8, R8UI, DepthComponent16};
 /// use web_glitz::image::renderbuffer::RenderbufferDescriptor;
 /// use web_glitz::render_target::{
-///     RenderTarget, FloatAttachment, UnsignedIntegerAttachment, DepthAttachment, LoadOp, StoreOp
+///     RenderTargetDescriptor, FloatAttachment, UnsignedIntegerAttachment, DepthAttachment, LoadOp, StoreOp
 /// };
 ///
 /// let mut color_0_image = context.create_renderbuffer(&RenderbufferDescriptor{
@@ -545,7 +575,7 @@ impl_render_target_description_depth_stencil!(
 ///     height: 500
 /// });
 ///
-/// let render_target = RenderTarget {
+/// let render_target = RenderTargetDescriptor {
 ///     color: (
 ///         FloatAttachment {
 ///             image: &mut color_0_image,
@@ -578,7 +608,7 @@ impl_render_target_description_depth_stencil!(
 ///
 /// For details on how a [RenderTarget] may be used to create a [RenderPass], see
 /// [RenderingContext::create_render_pass].
-pub struct RenderTarget<C, Ds> {
+pub struct RenderTargetDescriptor<C, Ds> {
     /// Zero or more color images attached to this [RenderTarget].
     pub color: C,
 

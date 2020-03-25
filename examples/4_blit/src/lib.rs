@@ -18,7 +18,7 @@ use web_glitz::pipeline::graphics::{
     CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
 use web_glitz::pipeline::resources::BindGroup;
-use web_glitz::render_target::{FloatAttachment, LoadOp, RenderTarget, StoreOp};
+use web_glitz::render_target::{FloatAttachment, LoadOp, RenderTargetDescriptor, StoreOp};
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 use web_glitz::task::sequence_all;
 
@@ -101,7 +101,7 @@ pub fn start() {
     // that here we use a custom render target that uses our `renderbuffer`, rather than the default
     // render target.
     let secondary_render_pass = context.create_render_pass(
-        RenderTarget {
+        RenderTargetDescriptor {
             color: FloatAttachment {
                 image: &mut renderbuffer,
                 // If you don't really care about the current contents of the renderbuffer, or if
