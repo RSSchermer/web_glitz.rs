@@ -124,15 +124,15 @@ pub fn start() {
         .dyn_into()
         .unwrap();
 
-    let (context, render_target) =
+    let (context, mut render_target) =
         unsafe { single_threaded::init(&canvas, &ContextOptions::default()).unwrap() };
 
     let vertex_shader = context
-        .create_vertex_shader(include_str!("vertex.glsl"))
+        .try_create_vertex_shader(include_str!("vertex.glsl"))
         .unwrap();
 
     let fragment_shader = context
-        .create_fragment_shader(include_str!("fragment.glsl"))
+        .try_create_fragment_shader(include_str!("fragment.glsl"))
         .unwrap();
 
     // Create a pipeline.
@@ -146,7 +146,7 @@ pub fn start() {
     // `Resources` type to specify the layout for bind group `0`. We're not using any textures, so
     // we'll use the empty tuple `()` to specify an empty layout for bind group `1`.
     let pipeline = context
-        .create_graphics_pipeline(
+        .try_create_graphics_pipeline(
             &GraphicsPipelineDescriptor::begin()
                 .vertex_shader(&vertex_shader)
                 .primitive_assembly(PrimitiveAssembly::Triangles {
@@ -192,7 +192,7 @@ pub fn start() {
         uniforms: &uniform_buffer,
     });
 
-    let render_pass = context.create_render_pass(render_target, |framebuffer| {
+    let render_pass = render_target.create_render_pass(|framebuffer| {
         framebuffer.pipeline_task(&pipeline, |active_pipeline| {
             // Our render pass has thus far been identical to the render pass in
             // `/examples/0_triangle`. However, our pipeline now does use resources, so we add

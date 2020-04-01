@@ -110,7 +110,7 @@ where
 /// use web_glitz::image::texture_cube::TextureCubeDescriptor;
 /// use web_glitz::{join_all, sequence_all};
 ///
-/// let texture = context.create_texture_cube(&TextureCubeDescriptor {
+/// let texture = context.try_create_texture_cube(&TextureCubeDescriptor {
 ///     format: RGB8,
 ///     width: 256,
 ///     height: 256,
@@ -237,7 +237,7 @@ where
     /// # use web_glitz::image::format::RGB8;
     /// # use web_glitz::image::texture_cube::TextureCubeDescriptor;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
-    /// # let texture = context.create_texture_cube(&TextureCubeDescriptor {
+    /// # let texture = context.try_create_texture_cube(&TextureCubeDescriptor {
     /// #     format: RGB8,
     /// #     width: 256,
     /// #     height: 256,
@@ -276,7 +276,7 @@ where
     /// # use web_glitz::image::format::RGB8;
     /// # use web_glitz::image::texture_cube::TextureCubeDescriptor;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
-    /// # let mut texture = context.create_texture_cube(&TextureCubeDescriptor {
+    /// # let mut texture = context.try_create_texture_cube(&TextureCubeDescriptor {
     /// #     format: RGB8,
     /// #     width: 256,
     /// #     height: 256,
@@ -568,7 +568,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_cube::TextureCubeDescriptor;
     ///
-    /// let texture = context.create_texture_cube(&TextureCubeDescriptor {
+    /// let texture = context.try_create_texture_cube(&TextureCubeDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -599,7 +599,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_cube::TextureCubeDescriptor;
     ///
-    /// let texture = context.create_texture_cube(&TextureCubeDescriptor {
+    /// let texture = context.try_create_texture_cube(&TextureCubeDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -636,7 +636,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_cube::TextureCubeDescriptor;
     ///
-    /// let texture = context.create_texture_cube(&TextureCubeDescriptor {
+    /// let texture = context.try_create_texture_cube(&TextureCubeDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -1030,7 +1030,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_cube::TextureCubeDescriptor;
     ///
-    /// let texture = context.create_texture_cube(&TextureCubeDescriptor {
+    /// let texture = context.try_create_texture_cube(&TextureCubeDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -1090,7 +1090,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_cube::TextureCubeDescriptor;
     ///
-    /// let texture = context.create_texture_cube(&TextureCubeDescriptor {
+    /// let texture = context.try_create_texture_cube(&TextureCubeDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -1211,7 +1211,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_cube::TextureCubeDescriptor;
     ///
-    /// let texture = context.create_texture_cube(&TextureCubeDescriptor {
+    /// let texture = context.try_create_texture_cube(&TextureCubeDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -1271,7 +1271,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_cube::TextureCubeDescriptor;
     ///
-    /// let mut texture = context.create_texture_cube(&TextureCubeDescriptor {
+    /// let mut texture = context.try_create_texture_cube(&TextureCubeDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -1302,7 +1302,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_cube::TextureCubeDescriptor;
     ///
-    /// let mut texture = context.create_texture_cube(&TextureCubeDescriptor {
+    /// let mut texture = context.try_create_texture_cube(&TextureCubeDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -1339,7 +1339,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_cube::TextureCubeDescriptor;
     ///
-    /// let mut texture = context.create_texture_cube(&TextureCubeDescriptor {
+    /// let mut texture = context.try_create_texture_cube(&TextureCubeDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,

@@ -2,10 +2,9 @@ use std::marker;
 use std::ops::{Deref, DerefMut};
 
 use crate::image::format::{R11F_G11F_B10F, R16F, R32F, RG16F, RG32F, RGBA16F, RGBA32F};
-use crate::render_pass::FloatBuffer;
-use crate::render_target::{
-    AsAttachableImageRef, ColorAttachmentDescription, ColorAttachmentEncoding,
-    ColorAttachmentEncodingContext, FloatAttachment,
+use crate::rendering::{
+    AsAttachment, EncodeColorBuffer, ColorBufferEncoding,
+    ColorBufferEncodingContext, FloatAttachment, FloatBuffer
 };
 use crate::runtime::{RenderingContext, Connection};
 
@@ -17,12 +16,12 @@ pub struct Extension {
 impl Extension {
     pub fn extend<I>(&self, mut float_attachment: FloatAttachment<I>) -> Extended<I>
     where
-        I: AsAttachableImageRef,
+        I: AsAttachment,
         I::Format: FloatRenderable,
     {
         if float_attachment
             .image
-            .as_attachable_image_ref()
+            .as_attachment()
             .into_data()
             .context_id
             != self.context_id
@@ -74,20 +73,20 @@ impl<I> DerefMut for Extended<I> {
     }
 }
 
-impl<I> ColorAttachmentDescription for Extended<I>
+impl<I> EncodeColorBuffer for Extended<I>
 where
-    I: AsAttachableImageRef,
+    I: AsAttachment,
     I::Format: FloatRenderable,
 {
     type Buffer = FloatBuffer<I::Format>;
 
-    fn encode<'a, 'b>(
+    fn encode_color_buffer<'a, 'b>(
         &'a mut self,
-        context: &'b mut ColorAttachmentEncodingContext,
-    ) -> ColorAttachmentEncoding<'b, 'a, Self::Buffer> {
-        let image = self.image.as_attachable_image_ref().into_data();
+        context: &'b mut ColorBufferEncodingContext,
+    ) -> ColorBufferEncoding<'b, 'a, Self::Buffer> {
+        let image = self.image.as_attachment().into_data();
 
-        ColorAttachmentEncoding {
+        ColorBufferEncoding {
             buffer: FloatBuffer::new(
                 context.render_pass_id,
                 context.buffer_index,

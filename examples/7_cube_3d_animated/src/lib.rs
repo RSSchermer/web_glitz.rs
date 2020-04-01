@@ -130,7 +130,7 @@ pub fn start() {
         .try_into()
         .expect("Element is not a canvas element.");
 
-    let (context, render_target) = unsafe {
+    let (context, mut render_target) = unsafe {
         single_threaded::init(
             canvas.as_ref(),
             &ContextOptions::begin().enable_depth().finish(),
@@ -139,15 +139,15 @@ pub fn start() {
     };
 
     let vertex_shader = context
-        .create_vertex_shader(include_str!("vertex.glsl"))
+        .try_create_vertex_shader(include_str!("vertex.glsl"))
         .unwrap();
 
     let fragment_shader = context
-        .create_fragment_shader(include_str!("fragment.glsl"))
+        .try_create_fragment_shader(include_str!("fragment.glsl"))
         .unwrap();
 
     let pipeline = context
-        .create_graphics_pipeline(
+        .try_create_graphics_pipeline(
             &GraphicsPipelineDescriptor::begin()
                 .vertex_shader(&vertex_shader)
                 .primitive_assembly(PrimitiveAssembly::Triangles {
@@ -239,7 +239,7 @@ pub fn start() {
         uniforms: &uniform_buffer,
     });
 
-    let render_pass = context.create_render_pass(render_target, |framebuffer| {
+    let render_pass = render_target.create_render_pass(|framebuffer| {
         framebuffer.pipeline_task(&pipeline, |active_pipeline| {
             active_pipeline
                 .task_builder()

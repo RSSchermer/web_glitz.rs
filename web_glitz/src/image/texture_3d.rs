@@ -24,7 +24,7 @@ use crate::image::{
 };
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
-use crate::sampler::{CompatibleSampler, Sampler, SamplerData};
+use crate::sampler::{CompatibleSampler, SamplerData};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
 
@@ -107,7 +107,7 @@ where
 /// use web_glitz::image::texture_3d::Texture3DDescriptor;
 /// use web_glitz::sequence_all;
 ///
-/// let texture = context.create_texture_3d(&Texture3DDescriptor {
+/// let texture = context.try_create_texture_3d(&Texture3DDescriptor {
 ///     format: RGB8,
 ///     width: 256,
 ///     height: 256,
@@ -220,7 +220,7 @@ where
     /// # use web_glitz::image::format::RGB8;
     /// # use web_glitz::image::texture_3d::Texture3DDescriptor;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
-    /// # let texture = context.create_texture_3d(&Texture3DDescriptor {
+    /// # let texture = context.try_create_texture_3d(&Texture3DDescriptor {
     /// #     format: RGB8,
     /// #     width: 256,
     /// #     height: 256,
@@ -260,7 +260,7 @@ where
     /// # use web_glitz::image::format::RGB8;
     /// # use web_glitz::image::texture_3d::Texture3DDescriptor;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
-    /// # let mut texture = context.create_texture_3d(&Texture3DDescriptor {
+    /// # let mut texture = context.try_create_texture_3d(&Texture3DDescriptor {
     /// #     format: RGB8,
     /// #     width: 256,
     /// #     height: 256,
@@ -524,7 +524,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_3d::Texture3DDescriptor;
     ///
-    /// let texture = context.create_texture_3d(&Texture3DDescriptor {
+    /// let texture = context.try_create_texture_3d(&Texture3DDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -556,7 +556,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_3d::Texture3DDescriptor;
     ///
-    /// let texture = context.create_texture_3d(&Texture3DDescriptor {
+    /// let texture = context.try_create_texture_3d(&Texture3DDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -594,7 +594,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_3d::Texture3DDescriptor;
     ///
-    /// let texture = context.create_texture_3d(&Texture3DDescriptor {
+    /// let texture = context.try_create_texture_3d(&Texture3DDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -873,7 +873,7 @@ where
     /// # use web_glitz::image::format::RGB8;
     /// # use web_glitz::image::texture_3d::Texture3DDescriptor;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
-    /// # let texture = context.create_texture_3d(&Texture3DDescriptor {
+    /// # let texture = context.try_create_texture_3d(&Texture3DDescriptor {
     /// #     format: RGB8,
     /// #     width: 256,
     /// #     height: 256,
@@ -914,7 +914,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_3d::Texture3DDescriptor;
     ///
-    /// let texture = context.create_texture_3d(&Texture3DDescriptor {
+    /// let texture = context.try_create_texture_3d(&Texture3DDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -972,7 +972,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_3d::Texture3DDescriptor;
     ///
-    /// let texture = context.create_texture_3d(&Texture3DDescriptor {
+    /// let texture = context.try_create_texture_3d(&Texture3DDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -1038,7 +1038,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_3d::Texture3DDescriptor;
     ///
-    /// let texture = context.create_texture_3d(&Texture3DDescriptor {
+    /// let texture = context.try_create_texture_3d(&Texture3DDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -1071,7 +1071,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_3d::Texture3DDescriptor;
     ///
-    /// let texture = context.create_texture_3d(&Texture3DDescriptor {
+    /// let texture = context.try_create_texture_3d(&Texture3DDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -1110,7 +1110,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_3d::Texture3DDescriptor;
     ///
-    /// let texture = context.create_texture_3d(&Texture3DDescriptor {
+    /// let texture = context.try_create_texture_3d(&Texture3DDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -1407,7 +1407,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_3d::Texture3DDescriptor;
     ///
-    /// let texture = context.create_texture_3d(&Texture3DDescriptor {
+    /// let texture = context.try_create_texture_3d(&Texture3DDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -1466,7 +1466,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_3d::Texture3DDescriptor;
     ///
-    /// let texture = context.create_texture_3d(&Texture3DDescriptor {
+    /// let texture = context.try_create_texture_3d(&Texture3DDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -1632,7 +1632,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_3d::Texture3DDescriptor;
     ///
-    /// let texture = context.create_texture_3d(&Texture3DDescriptor {
+    /// let texture = context.try_create_texture_3d(&Texture3DDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -1666,7 +1666,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_3d::Texture3DDescriptor;
     ///
-    /// let texture = context.create_texture_3d(&Texture3DDescriptor {
+    /// let texture = context.try_create_texture_3d(&Texture3DDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -1704,7 +1704,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_3d::Texture3DDescriptor;
     ///
-    /// let texture = context.create_texture_3d(&Texture3DDescriptor {
+    /// let texture = context.try_create_texture_3d(&Texture3DDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -2059,7 +2059,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_3d::Texture3DDescriptor;
     ///
-    /// let texture = context.create_texture_3d(&Texture3DDescriptor {
+    /// let texture = context.try_create_texture_3d(&Texture3DDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -2122,7 +2122,7 @@ impl<'a, F> LevelsMut<'a, F> {
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_3d::Texture3DDescriptor;
     ///
-    /// let mut texture = context.create_texture_3d(&Texture3DDescriptor {
+    /// let mut texture = context.try_create_texture_3d(&Texture3DDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -2154,7 +2154,7 @@ impl<'a, F> LevelsMut<'a, F> {
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_3d::Texture3DDescriptor;
     ///
-    /// let mut texture = context.create_texture_3d(&Texture3DDescriptor {
+    /// let mut texture = context.try_create_texture_3d(&Texture3DDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -2192,7 +2192,7 @@ impl<'a, F> LevelsMut<'a, F> {
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_3d::Texture3DDescriptor;
     ///
-    /// let mut texture = context.create_texture_3d(&Texture3DDescriptor {
+    /// let mut texture = context.try_create_texture_3d(&Texture3DDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -2466,7 +2466,7 @@ impl<'a, F> LevelMut<'a, F> {
     /// # use web_glitz::image::format::RGB8;
     /// # use web_glitz::image::texture_3d::Texture3DDescriptor;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
-    /// # let mut texture = context.create_texture_3d(&Texture3DDescriptor {
+    /// # let mut texture = context.try_create_texture_3d(&Texture3DDescriptor {
     /// #     format: RGB8,
     /// #     width: 256,
     /// #     height: 256,

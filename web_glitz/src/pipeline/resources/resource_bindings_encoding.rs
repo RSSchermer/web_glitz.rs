@@ -40,6 +40,8 @@ impl<'a> BindGroupEncoding<'a, ()> {
     }
 }
 
+// TODO: separate "internal" type no longer needed now that resource binding descriptor is not
+// public.
 pub(crate) struct ResourceBindingDescriptor {
     internal: BindingDescriptorInternal,
 }

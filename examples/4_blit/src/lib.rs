@@ -18,7 +18,7 @@ use web_glitz::pipeline::graphics::{
     CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
 use web_glitz::pipeline::resources::BindGroup;
-use web_glitz::render_target::{FloatAttachment, LoadOp, RenderTargetDescriptor, StoreOp};
+use web_glitz::rendering::{LoadOp, RenderTargetDescriptor, StoreOp};
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 use web_glitz::task::sequence_all;
 
@@ -47,19 +47,19 @@ pub fn start() {
     // antialiasing we guarantee a single sample default render target.
     let options = ContextOptions::begin().antialias(false).finish();
 
-    let (context, default_render_target) =
+    let (context, mut default_render_target) =
         unsafe { single_threaded::init(&canvas, &options).unwrap() };
 
     let vertex_shader = context
-        .create_vertex_shader(include_str!("vertex.glsl"))
+        .try_create_vertex_shader(include_str!("vertex.glsl"))
         .unwrap();
 
     let fragment_shader = context
-        .create_fragment_shader(include_str!("fragment.glsl"))
+        .try_create_fragment_shader(include_str!("fragment.glsl"))
         .unwrap();
 
     let pipeline = context
-        .create_graphics_pipeline(
+        .try_create_graphics_pipeline(
             &GraphicsPipelineDescriptor::begin()
                 .vertex_shader(&vertex_shader)
                 .primitive_assembly(PrimitiveAssembly::Triangles {
@@ -100,34 +100,27 @@ pub fn start() {
     // This render pass is largely equivalent to the render pass in `/examples/0_triangle`, except
     // that here we use a custom render target that uses our `renderbuffer`, rather than the default
     // render target.
-    let secondary_render_pass = context.create_render_pass(
-        RenderTargetDescriptor {
-            color: FloatAttachment {
-                image: &mut renderbuffer,
-                // If you don't really care about the current contents of the renderbuffer, or if
-                // you intend to clear it anyway, it's good practice to use a `Clear` load-op rather
-                // than a `Load` load-op, as clearing may be significantly faster, especially on
-                // tiled framebuffer memory architectures.
-                load_op: LoadOp::Clear([0.0, 0.0, 0.0, 0.0]),
-                store_op: StoreOp::Store,
-            },
-            depth_stencil: (),
-        },
-        |framebuffer| {
-            framebuffer.pipeline_task(&pipeline, |active_pipeline| {
-                active_pipeline
-                    .task_builder()
-                    .bind_vertex_buffers(&vertex_buffer)
-                    .bind_resources((&BindGroup::empty(), &BindGroup::empty()))
-                    .draw(3, 1)
-                    .finish()
-            })
-        },
-    );
+    let mut secondary_render_target = context.create_render_target(RenderTargetDescriptor::new()
+        .attach_color_float(
+            &mut renderbuffer,
+            LoadOp::Clear([0.0, 0.0, 0.0, 0.0]),
+            StoreOp::Store
+        ));
+
+    let secondary_render_pass = secondary_render_target.create_render_pass(|framebuffer| {
+        framebuffer.pipeline_task(&pipeline, |active_pipeline| {
+            active_pipeline
+                .task_builder()
+                .bind_vertex_buffers(&vertex_buffer)
+                .bind_resources((&BindGroup::empty(), &BindGroup::empty()))
+                .draw(3, 1)
+                .finish()
+        })
+    });
 
     // This second pass blits the image in the renderbuffer to the color buffer of the default
     // render target.
-    let blit_pass = context.create_render_pass(default_render_target, |framebuffer| {
+    let blit_pass = default_render_target.create_render_pass(|framebuffer| {
         framebuffer.blit_color_linear_command(Region2D::Fill, &renderbuffer)
     });
 

@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::image::format::{InternalFormat, RenderbufferFormat, TextureFormat};
+use crate::image::format::{InternalFormat, RenderbufferFormat, TextureFormat, Multisample, Multisamplable};
 use crate::image::renderbuffer::{Renderbuffer, RenderbufferData};
 use crate::image::texture_2d::{
     Level as Texture2DLevel, LevelMut as Texture2DLevelMut, Texture2DData,
@@ -23,97 +23,96 @@ use crate::util::JsId;
 
 /// Trait implemented for image references that can be attached to a render target.
 ///
-/// See also [RenderTarget] and [RenderTargetDescription].
-pub trait AsAttachableImageRef {
+/// See also [RenderTargetDescriptor].
+pub trait AsAttachment {
     /// The type of image storage format the image is stored in.
     type Format: InternalFormat;
 
     /// Converts the image reference into a render target attachment.
-    fn as_attachable_image_ref(&mut self) -> AttachableImageRef<Self::Format>;
+    fn as_attachment(&mut self) -> Attachment<Self::Format>;
 }
 
-impl<'a, T> AsAttachableImageRef for &'a mut T
+impl<'a, T> AsAttachment for &'a mut T
 where
-    T: AsAttachableImageRef,
+    T: AsAttachment,
 {
     type Format = T::Format;
 
-    fn as_attachable_image_ref(&mut self) -> AttachableImageRef<Self::Format> {
-        (*self).as_attachable_image_ref()
+    fn as_attachment(&mut self) -> Attachment<Self::Format> {
+        (*self).as_attachment()
     }
 }
 
-impl<'a, F> AsAttachableImageRef for Texture2DLevelMut<'a, F>
+impl<'a, F> AsAttachment for Texture2DLevelMut<'a, F>
 where
     F: TextureFormat,
 {
     type Format = F;
 
-    fn as_attachable_image_ref(&mut self) -> AttachableImageRef<Self::Format> {
-        AttachableImageRef::from_texture_2d_level(&self)
+    fn as_attachment(&mut self) -> Attachment<Self::Format> {
+        Attachment::from_texture_2d_level(&self)
     }
 }
 
-impl<'a, F> AsAttachableImageRef for Texture2DArrayLevelLayerMut<'a, F>
+impl<'a, F> AsAttachment for Texture2DArrayLevelLayerMut<'a, F>
 where
     F: TextureFormat,
 {
     type Format = F;
 
-    fn as_attachable_image_ref(&mut self) -> AttachableImageRef<Self::Format> {
-        AttachableImageRef::from_texture_2d_array_level_layer(&self)
+    fn as_attachment(&mut self) -> Attachment<Self::Format> {
+        Attachment::from_texture_2d_array_level_layer(&self)
     }
 }
 
-impl<'a, F> AsAttachableImageRef for Texture3DLevelLayerMut<'a, F>
+impl<'a, F> AsAttachment for Texture3DLevelLayerMut<'a, F>
 where
     F: TextureFormat,
 {
     type Format = F;
 
-    fn as_attachable_image_ref(&mut self) -> AttachableImageRef<Self::Format> {
-        AttachableImageRef::from_texture_3d_level_layer(&self)
+    fn as_attachment(&mut self) -> Attachment<Self::Format> {
+        Attachment::from_texture_3d_level_layer(&self)
     }
 }
 
-impl<'a, F> AsAttachableImageRef for TextureCubeLevelFaceMut<'a, F>
+impl<'a, F> AsAttachment for TextureCubeLevelFaceMut<'a, F>
 where
     F: TextureFormat,
 {
     type Format = F;
 
-    fn as_attachable_image_ref(&mut self) -> AttachableImageRef<Self::Format> {
-        AttachableImageRef::from_texture_cube_level_face(&self)
+    fn as_attachment(&mut self) -> Attachment<Self::Format> {
+        Attachment::from_texture_cube_level_face(&self)
     }
 }
 
-impl<F> AsAttachableImageRef for Renderbuffer<F>
+impl<F> AsAttachment for Renderbuffer<F>
 where
     F: RenderbufferFormat + 'static,
 {
     type Format = F;
 
-    fn as_attachable_image_ref(&mut self) -> AttachableImageRef<Self::Format> {
-        AttachableImageRef::from_renderbuffer(self)
+    fn as_attachment(&mut self) -> Attachment<Self::Format> {
+        Attachment::from_renderbuffer(self)
     }
 }
 
+
+
 /// Exclusive reference to an image that may be attached to a [RenderTarget].
-///
-/// See also [FloatAttachment], [IntegerAttachment], [UnsignedIntegerAttachment],
-/// [DepthStencilAttachment], [DepthAttachment], [StencilAttachment].
-pub struct AttachableImageRef<'a, F> {
-    data: AttachableImageData,
+pub struct Attachment<'a, F> {
+    data: AttachmentData,
     marker: marker::PhantomData<&'a F>,
 }
 
-impl<'a, F> AttachableImageRef<'a, F> {
+impl<'a, F> Attachment<'a, F> {
     pub(crate) fn from_texture_2d_level(image: &Texture2DLevel<'a, F>) -> Self
     where
         F: TextureFormat,
     {
-        AttachableImageRef {
-            data: AttachableImageData {
+        Attachment {
+            data: AttachmentData {
                 context_id: image.texture_data().context_id(),
                 kind: AttachableImageRefKind::Texture2DLevel {
                     data: image.texture_data().clone(),
@@ -130,8 +129,8 @@ impl<'a, F> AttachableImageRef<'a, F> {
     where
         F: TextureFormat,
     {
-        AttachableImageRef {
-            data: AttachableImageData {
+        Attachment {
+            data: AttachmentData {
                 context_id: image.texture_data().context_id(),
                 kind: AttachableImageRefKind::Texture2DArrayLevelLayer {
                     data: image.texture_data().clone(),
@@ -149,8 +148,8 @@ impl<'a, F> AttachableImageRef<'a, F> {
     where
         F: TextureFormat,
     {
-        AttachableImageRef {
-            data: AttachableImageData {
+        Attachment {
+            data: AttachmentData {
                 context_id: image.texture_data().context_id(),
                 kind: AttachableImageRefKind::Texture3DLevelLayer {
                     data: image.texture_data().clone(),
@@ -168,8 +167,8 @@ impl<'a, F> AttachableImageRef<'a, F> {
     where
         F: TextureFormat,
     {
-        AttachableImageRef {
-            data: AttachableImageData {
+        Attachment {
+            data: AttachmentData {
                 context_id: image.texture_data().context_id(),
                 kind: AttachableImageRefKind::TextureCubeLevelFace {
                     data: image.texture_data().clone(),
@@ -186,8 +185,8 @@ impl<'a, F> AttachableImageRef<'a, F> {
     pub(crate) fn from_renderbuffer(render_buffer: &'a Renderbuffer<F>) -> Self
 
     {
-        AttachableImageRef {
-            data: AttachableImageData {
+        Attachment {
+            data: AttachmentData {
                 context_id: render_buffer.data().context_id(),
                 kind: AttachableImageRefKind::Renderbuffer {
                     data: render_buffer.data().clone(),
@@ -199,20 +198,88 @@ impl<'a, F> AttachableImageRef<'a, F> {
         }
     }
 
-    pub(crate) fn into_data(self) -> AttachableImageData {
+    pub(crate) fn into_data(self) -> AttachmentData {
+        self.data
+    }
+}
+
+/// Trait implemented for image references that can be attached to a multisample render target.
+///
+/// See also [MultisampleRenderTargetDescriptor].
+pub trait AsMultisampleAttachment {
+    /// The type of image storage format the image is stored in.
+    type SampleFormat: InternalFormat;
+
+    /// Converts the image reference into a render target attachment.
+    fn as_multisample_attachment(&mut self) -> MultisampleAttachment<Self::SampleFormat>;
+}
+
+impl<'a, T> AsMultisampleAttachment for &'a mut T
+    where
+        T: AsMultisampleAttachment,
+{
+    type SampleFormat = T::SampleFormat;
+
+    fn as_multisample_attachment(&mut self) -> MultisampleAttachment<Self::SampleFormat> {
+        (*self).as_multisample_attachment()
+    }
+}
+
+impl<F> AsMultisampleAttachment for Renderbuffer<Multisample<F>>
+    where
+        F: RenderbufferFormat + Multisamplable + 'static,
+{
+    type SampleFormat = F;
+
+    fn as_multisample_attachment(&mut self) -> MultisampleAttachment<Self::SampleFormat> {
+        MultisampleAttachment::from_renderbuffer(self)
+    }
+}
+
+
+/// Exclusive reference to a multisample image that may be attached to a [MultisampleRenderTarget].
+pub struct MultisampleAttachment<'a, F> {
+    data: AttachmentData,
+    samples: usize,
+    marker: marker::PhantomData<&'a F>
+}
+
+impl<'a, F> MultisampleAttachment<'a, F> {
+    pub(crate) fn from_renderbuffer(render_buffer: &'a Renderbuffer<Multisample<F>>) -> Self
+    where F: Multisamplable
+    {
+        MultisampleAttachment {
+            data: AttachmentData {
+                context_id: render_buffer.data().context_id(),
+                kind: AttachableImageRefKind::Renderbuffer {
+                    data: render_buffer.data().clone(),
+                },
+                width: render_buffer.width(),
+                height: render_buffer.height(),
+            },
+            marker: marker::PhantomData,
+            samples: render_buffer.samples()
+        }
+    }
+
+    pub(crate) fn samples(&self) -> usize {
+        self.samples
+    }
+
+    pub(crate) fn into_data(self) -> AttachmentData {
         self.data
     }
 }
 
 #[derive(Clone, Hash, PartialEq)]
-pub(crate) struct AttachableImageData {
+pub(crate) struct AttachmentData {
     pub(crate) context_id: usize,
     pub(crate) kind: AttachableImageRefKind,
     pub(crate) width: u32,
     pub(crate) height: u32,
 }
 
-impl AttachableImageData {
+impl AttachmentData {
     pub(crate) fn id(&self) -> JsId {
         match &self.kind {
             AttachableImageRefKind::Texture2DLevel { data, .. } => data.id().unwrap(),

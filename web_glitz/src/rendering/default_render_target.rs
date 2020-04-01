@@ -1,49 +1,48 @@
 use std::cell::Cell;
 use std::marker;
 
-use crate::render_pass::{
+use crate::rendering::{
     DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
-    DefaultStencilBuffer, Framebuffer, RenderPass, RenderPassContext, RenderPassId,
+    DefaultStencilBuffer, Framebuffer, RenderPass, RenderPassContext, GraphicsPipelineTarget
 };
-use crate::render_pass::framebuffer::GraphicsPipelineTarget;
-use crate::render_target::render_target_description::RenderTargetData;
-use crate::render_target::RenderTargetDescription;
+use crate::rendering::render_target::RenderTargetData;
 use crate::task::{ContextId, GpuTask};
+use crate::runtime::single_threaded::RenderPassIdGen;
 
 /// A handle to the default render target associated with a [RenderingContext].
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone)]
 pub struct DefaultRenderTarget<C, Ds> {
     context_id: usize,
+    render_pass_id_gen: RenderPassIdGen,
     color_buffer: marker::PhantomData<C>,
     depth_stencil_buffer: marker::PhantomData<Ds>,
 }
 
 impl<C, Ds> DefaultRenderTarget<C, Ds> {
-    pub(crate) fn new(context_id: usize) -> Self {
+    pub(crate) fn new(context_id: usize, render_pass_id_gen: RenderPassIdGen) -> Self {
         DefaultRenderTarget {
             context_id,
+            render_pass_id_gen,
             color_buffer: marker::PhantomData,
             depth_stencil_buffer: marker::PhantomData,
         }
     }
 }
 
-impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, ()> {
-    type Framebuffer = Framebuffer<DefaultRGBBuffer, ()>;
-
-    fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
+impl DefaultRenderTarget<DefaultRGBBuffer, ()> {
+    pub fn create_render_pass<F, T>(&mut self, f: F) -> RenderPass<T>
     where
-        F: FnOnce(&Self::Framebuffer) -> T,
+        F: FnOnce(&Framebuffer<DefaultRGBBuffer, ()>) -> T,
         T: GpuTask<RenderPassContext>,
     {
-        let RenderPassId { id, context_id } = id;
+        let id = self.render_pass_id_gen.next();
 
         let task = f(&Framebuffer {
             color: DefaultRGBBuffer::new(id),
             depth_stencil: (),
             data: GraphicsPipelineTarget {
                 dimensions: None,
-                context_id,
+                context_id: self.context_id,
                 render_pass_id: id,
                 last_pipeline_task_id: Cell::new(0),
             }
@@ -57,29 +56,27 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, ()> {
 
         RenderPass {
             id,
-            context_id,
+            context_id: self.context_id,
             render_target: RenderTargetData::Default,
             task,
         }
     }
 }
 
-impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, DefaultDepthStencilBuffer> {
-    type Framebuffer = Framebuffer<DefaultRGBBuffer, DefaultDepthStencilBuffer>;
-
-    fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
+impl DefaultRenderTarget<DefaultRGBBuffer, DefaultDepthStencilBuffer> {
+    pub fn create_render_pass<F, T>(&mut self, f: F) -> RenderPass<T>
     where
-        F: FnOnce(&Self::Framebuffer) -> T,
+        F: FnOnce(&Framebuffer<DefaultRGBBuffer, DefaultDepthStencilBuffer>) -> T,
         T: GpuTask<RenderPassContext>,
     {
-        let RenderPassId { id, context_id } = id;
+        let id = self.render_pass_id_gen.next();
 
         let task = f(&Framebuffer {
             color: DefaultRGBBuffer::new(id),
             depth_stencil: DefaultDepthStencilBuffer::new(id),
             data: GraphicsPipelineTarget {
                 dimensions: None,
-                context_id,
+                context_id: self.context_id,
                 render_pass_id: id,
                 last_pipeline_task_id: Cell::new(0),
             }
@@ -93,29 +90,27 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, DefaultDe
 
         RenderPass {
             id,
-            context_id,
+            context_id: self.context_id,
             render_target: RenderTargetData::Default,
             task,
         }
     }
 }
 
-impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, DefaultDepthBuffer> {
-    type Framebuffer = Framebuffer<DefaultRGBBuffer, DefaultDepthBuffer>;
-
-    fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
+impl DefaultRenderTarget<DefaultRGBBuffer, DefaultDepthBuffer> {
+    pub fn create_render_pass<F, T>(&mut self, f: F) -> RenderPass<T>
     where
-        F: FnOnce(&Self::Framebuffer) -> T,
+        F: FnOnce(&Framebuffer<DefaultRGBBuffer, DefaultDepthBuffer>) -> T,
         T: GpuTask<RenderPassContext>,
     {
-        let RenderPassId { id, context_id } = id;
+        let id = self.render_pass_id_gen.next();
 
         let task = f(&Framebuffer {
             color: DefaultRGBBuffer::new(id),
             depth_stencil: DefaultDepthBuffer::new(id),
             data: GraphicsPipelineTarget {
                 dimensions: None,
-                context_id,
+                context_id: self.context_id,
                 render_pass_id: id,
                 last_pipeline_task_id: Cell::new(0),
             }
@@ -129,29 +124,27 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, DefaultDe
 
         RenderPass {
             id,
-            context_id,
+            context_id: self.context_id,
             render_target: RenderTargetData::Default,
             task,
         }
     }
 }
 
-impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, DefaultStencilBuffer> {
-    type Framebuffer = Framebuffer<DefaultRGBBuffer, DefaultStencilBuffer>;
-
-    fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
+impl DefaultRenderTarget<DefaultRGBBuffer, DefaultStencilBuffer> {
+    pub fn create_render_pass<F, T>(&mut self, f: F) -> RenderPass<T>
     where
-        F: FnOnce(&Self::Framebuffer) -> T,
+        F: FnOnce(&Framebuffer<DefaultRGBBuffer, DefaultStencilBuffer>) -> T,
         T: GpuTask<RenderPassContext>,
     {
-        let RenderPassId { id, context_id } = id;
+        let id = self.render_pass_id_gen.next();
 
         let task = f(&Framebuffer {
             color: DefaultRGBBuffer::new(id),
             depth_stencil: DefaultStencilBuffer::new(id),
             data: GraphicsPipelineTarget {
                 dimensions: None,
-                context_id,
+                context_id: self.context_id,
                 render_pass_id: id,
                 last_pipeline_task_id: Cell::new(0),
             }
@@ -165,29 +158,27 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBBuffer, DefaultSt
 
         RenderPass {
             id,
-            context_id,
+            context_id: self.context_id,
             render_target: RenderTargetData::Default,
             task,
         }
     }
 }
 
-impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, ()> {
-    type Framebuffer = Framebuffer<DefaultRGBABuffer, ()>;
-
-    fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
+impl DefaultRenderTarget<DefaultRGBABuffer, ()> {
+    pub fn create_render_pass<F, T>(&mut self, f: F) -> RenderPass<T>
     where
-        F: FnOnce(&Self::Framebuffer) -> T,
+        F: FnOnce(&Framebuffer<DefaultRGBABuffer, ()>) -> T,
         T: GpuTask<RenderPassContext>,
     {
-        let RenderPassId { id, context_id } = id;
+        let id = self.render_pass_id_gen.next();
 
         let task = f(&Framebuffer {
             color: DefaultRGBABuffer::new(id),
             depth_stencil: (),
             data: GraphicsPipelineTarget {
                 dimensions: None,
-                context_id,
+                context_id: self.context_id,
                 render_pass_id: id,
                 last_pipeline_task_id: Cell::new(0),
             }
@@ -201,29 +192,27 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, ()> {
 
         RenderPass {
             id,
-            context_id,
+            context_id: self.context_id,
             render_target: RenderTargetData::Default,
             task,
         }
     }
 }
 
-impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, DefaultDepthStencilBuffer> {
-    type Framebuffer = Framebuffer<DefaultRGBABuffer, DefaultDepthStencilBuffer>;
-
-    fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
+impl DefaultRenderTarget<DefaultRGBABuffer, DefaultDepthStencilBuffer> {
+    pub fn create_render_pass<F, T>(&mut self, f: F) -> RenderPass<T>
     where
-        F: FnOnce(&Self::Framebuffer) -> T,
+        F: FnOnce(&Framebuffer<DefaultRGBABuffer, DefaultDepthStencilBuffer>) -> T,
         T: GpuTask<RenderPassContext>,
     {
-        let RenderPassId { id, context_id } = id;
+        let id = self.render_pass_id_gen.next();
 
         let task = f(&Framebuffer {
             color: DefaultRGBABuffer::new(id),
             depth_stencil: DefaultDepthStencilBuffer::new(id),
             data: GraphicsPipelineTarget {
                 dimensions: None,
-                context_id,
+                context_id: self.context_id,
                 render_pass_id: id,
                 last_pipeline_task_id: Cell::new(0),
             }
@@ -237,29 +226,27 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, DefaultD
 
         RenderPass {
             id,
-            context_id,
+            context_id: self.context_id,
             render_target: RenderTargetData::Default,
             task,
         }
     }
 }
 
-impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, DefaultDepthBuffer> {
-    type Framebuffer = Framebuffer<DefaultRGBABuffer, DefaultDepthBuffer>;
-
-    fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
+impl DefaultRenderTarget<DefaultRGBABuffer, DefaultDepthBuffer> {
+    pub fn create_render_pass<F, T>(&mut self, f: F) -> RenderPass<T>
     where
-        F: FnOnce(&Self::Framebuffer) -> T,
+        F: FnOnce(&Framebuffer<DefaultRGBABuffer, DefaultDepthBuffer>) -> T,
         T: GpuTask<RenderPassContext>,
     {
-        let RenderPassId { id, context_id } = id;
+        let id = self.render_pass_id_gen.next();
 
         let task = f(&Framebuffer {
             color: DefaultRGBABuffer::new(id),
             depth_stencil: DefaultDepthBuffer::new(id),
             data: GraphicsPipelineTarget {
                 dimensions: None,
-                context_id,
+                context_id: self.context_id,
                 render_pass_id: id,
                 last_pipeline_task_id: Cell::new(0),
             }
@@ -273,29 +260,27 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, DefaultD
 
         RenderPass {
             id,
-            context_id,
+            context_id: self.context_id,
             render_target: RenderTargetData::Default,
             task,
         }
     }
 }
 
-impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, DefaultStencilBuffer> {
-    type Framebuffer = Framebuffer<DefaultRGBABuffer, DefaultStencilBuffer>;
-
-    fn create_render_pass<F, T>(&mut self, id: RenderPassId, f: F) -> RenderPass<T>
+impl DefaultRenderTarget<DefaultRGBABuffer, DefaultStencilBuffer> {
+    pub fn create_render_pass<F, T>(&mut self, f: F) -> RenderPass<T>
     where
-        F: FnOnce(&Self::Framebuffer) -> T,
+        F: FnOnce(&Framebuffer<DefaultRGBABuffer, DefaultStencilBuffer>) -> T,
         T: GpuTask<RenderPassContext>,
     {
-        let RenderPassId { id, context_id } = id;
+        let id = self.render_pass_id_gen.next();
 
         let task = f(&Framebuffer {
             color: DefaultRGBABuffer::new(id),
             depth_stencil: DefaultStencilBuffer::new(id),
             data: GraphicsPipelineTarget {
                 dimensions: None,
-                context_id,
+                context_id: self.context_id,
                 render_pass_id: id,
                 last_pipeline_task_id: Cell::new(0),
             }
@@ -309,7 +294,7 @@ impl RenderTargetDescription for DefaultRenderTarget<DefaultRGBABuffer, DefaultS
 
         RenderPass {
             id,
-            context_id,
+            context_id: self.context_id,
             render_target: RenderTargetData::Default,
             task,
         }

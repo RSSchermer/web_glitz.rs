@@ -98,17 +98,17 @@ pub fn start() {
     // - a context object, which we'll use to interact with the GPU, and;
     // - a handle to the "default" render target, which is the render target the browser will
     //   display on the canvas element.
-    let (context, render_target) =
+    let (context, mut render_target) =
         unsafe { single_threaded::init(&canvas, &ContextOptions::default()).unwrap() };
 
     // Create and compile a vertex shader using the GLSL code in `/src/primary_vertex.glsl`.
     let vertex_shader = context
-        .create_vertex_shader(include_str!("vertex.glsl"))
+        .try_create_vertex_shader(include_str!("vertex.glsl"))
         .unwrap();
 
     // Create and compile a fragment shader using the GLSL code in `/src/primary_fragment.glsl`.
     let fragment_shader = context
-        .create_fragment_shader(include_str!("fragment.glsl"))
+        .try_create_fragment_shader(include_str!("fragment.glsl"))
         .unwrap();
 
     // Create a graphics pipeline. We'll use the vertex and fragment shaders we just initialized
@@ -118,7 +118,7 @@ pub fn start() {
     // the pipeline, otherwise this will return an error. We'll use our `Vertex` type to describe
     // the vertex input layout.
     let pipeline = context
-        .create_graphics_pipeline(
+        .try_create_graphics_pipeline(
             &GraphicsPipelineDescriptor::begin()
                 .vertex_shader(&vertex_shader)
                 .primitive_assembly(PrimitiveAssembly::Triangles {
@@ -176,7 +176,7 @@ pub fn start() {
     // done, the contents of the framebuffer will be stored back into the render target image(s).
     // Since we're using the default render target, that should result in our triangle showing up on
     // the canvas.
-    let render_pass = context.create_render_pass(render_target, |framebuffer| {
+    let render_pass = render_target.create_render_pass(|framebuffer| {
         // Return the render pass task. Our render pass task will consist of a pipeline task that
         // uses the pipeline we initialized earlier. The second argument is a function that takes
         // the activated pipeline and returns a pipeline task.

@@ -6,7 +6,7 @@ pub use self::context_options::{ContextOptions, ContextOptionsBuilder, PowerPref
 
 mod rendering_context;
 pub use self::rendering_context::{
-    Connection, CreateGraphicsPipelineError, Execution, ExtensionState, Extensions,
+    Connection, CreateGraphicsPipelineError, Execution,
     RenderingContext, ShaderCompilationError, UnsupportedSampleCount,
 };
 

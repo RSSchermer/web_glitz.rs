@@ -68,15 +68,15 @@ pub fn start() {
         .dyn_into()
         .unwrap();
 
-    let (context, render_target) =
+    let (context, mut render_target) =
         unsafe { single_threaded::init(&canvas, &ContextOptions::default()).unwrap() };
 
     let vertex_shader = context
-        .create_vertex_shader(include_str!("vertex.glsl"))
+        .try_create_vertex_shader(include_str!("vertex.glsl"))
         .unwrap();
 
     let fragment_shader = context
-        .create_fragment_shader(include_str!("fragment.glsl"))
+        .try_create_fragment_shader(include_str!("fragment.glsl"))
         .unwrap();
 
     // Create a pipeline.
@@ -85,7 +85,7 @@ pub fn start() {
     // this time we specify a typed transform feedback layout. We'll use the same `Vertex` type that
     // we also use as our vertex type.
     let mut pipeline = context
-        .create_graphics_pipeline(
+        .try_create_graphics_pipeline(
             &GraphicsPipelineDescriptor::begin()
                 .vertex_shader(&vertex_shader)
                 .primitive_assembly(PrimitiveAssembly::Triangles {
@@ -132,7 +132,7 @@ pub fn start() {
     let mut transform_feedback_buffer =
         context.create_buffer([Vertex::default(); 3], UsageHint::StreamCopy);
 
-    let render_pass = context.create_render_pass(render_target, |framebuffer| {
+    let render_pass = render_target.create_render_pass(|framebuffer| {
         // Our render pass consists of 2 pipeline tasks: the first one will record transform
         // feedback into the `transform_feedback_buffer` and use our original vertex data as stored
         // in `vertex_buffer` as its vertex input; the second one will not record transform feedback

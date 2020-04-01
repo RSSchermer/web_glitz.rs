@@ -25,10 +25,9 @@ use crate::pipeline::graphics::{
     IndexBuffer, IndexFormat, ShaderLinkingError, VertexShader,
 };
 use crate::pipeline::resources::{
-    BindGroup, EncodeBindGroup, IncompatibleResources, ResourceSlotIdentifier,
+    BindGroup, EncodeBindableResourceGroup, IncompatibleResources, ResourceSlotIdentifier,
 };
-use crate::render_pass::{RenderPass, RenderPassContext};
-use crate::render_target::RenderTargetDescription;
+use crate::rendering::{RenderTargetDescriptor, RenderTarget, MultisampleRenderTarget, MultisampleRenderTargetDescriptor};
 use crate::runtime::state::{CreateProgramError, DynamicState};
 use crate::sampler::{
     MagnificationFilter, MinificationFilter, Sampler, SamplerDescriptor, ShadowSampler,
@@ -36,6 +35,7 @@ use crate::sampler::{
 };
 use crate::task::GpuTask;
 use crate::extensions::Extension;
+
 
 /// Trait implemented by types that can serve as a WebGlitz rendering context.
 ///
@@ -114,7 +114,7 @@ pub trait RenderingContext {
     /// ```
     fn create_bind_group<T>(&self, resources: T) -> BindGroup<T>
     where
-        T: EncodeBindGroup;
+        T: EncodeBindableResourceGroup;
 
     /// Creates a new GPU-accessible memory [Buffer].
     ///
@@ -269,7 +269,7 @@ pub trait RenderingContext {
     /// ```rust
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
-    /// let vertex_shader = context.create_vertex_shader("\
+    /// let vertex_shader = context.try_create_vertex_shader("\
     /// #version 300 es
     ///
     /// layout(location=0) in vec2 position;
@@ -299,11 +299,11 @@ pub trait RenderingContext {
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
     /// let vertex_shader = context
-    ///     .create_vertex_shader(include_str!("../../../examples/0_triangle/src/vertex.glsl"))
+    ///     .try_create_vertex_shader(include_str!("../../../examples/0_triangle/src/vertex.glsl"))
     ///     .unwrap();
     /// # }
     /// ```
-    fn create_vertex_shader<S>(&self, source: S) -> Result<VertexShader, ShaderCompilationError>
+    fn try_create_vertex_shader<S>(&self, source: S) -> Result<VertexShader, ShaderCompilationError>
     where
         S: Borrow<str> + 'static;
 
@@ -317,7 +317,7 @@ pub trait RenderingContext {
     /// ```rust
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
-    /// let fragment_shader = context.create_fragment_shader("\
+    /// let fragment_shader = context.try_create_fragment_shader("\
     /// #version 300 es
     /// precision mediump float;
     ///
@@ -345,11 +345,11 @@ pub trait RenderingContext {
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
     /// let fragment_shader = context
-    ///     .create_fragment_shader(include_str!("../../../examples/0_triangle/src/fragment.glsl"))
+    ///     .try_create_fragment_shader(include_str!("../../../examples/0_triangle/src/fragment.glsl"))
     ///     .unwrap();
     /// # }
     /// ```
-    fn create_fragment_shader<S>(
+    fn try_create_fragment_shader<S>(
         &self,
         source: S,
     ) -> Result<FragmentShader, ShaderCompilationError>
@@ -393,7 +393,7 @@ pub trait RenderingContext {
     ///     .typed_resource_bindings_layout::<MyResources>()
     ///     .finish();
     ///
-    /// let graphics_pipeline = context.create_graphics_pipeline(&descriptor).unwrap();
+    /// let graphics_pipeline = context.try_create_graphics_pipeline(&descriptor).unwrap();
     /// # }
     /// ```
     ///
@@ -405,72 +405,18 @@ pub trait RenderingContext {
     ///
     /// Panics if the [VertexShader] or the [FragmentShader] provided for the pipeline belong to
     /// a different [RenderingContext].
-    fn create_graphics_pipeline<V, R, Tf>(
+    fn try_create_graphics_pipeline<V, R, Tf>(
         &self,
         descriptor: &GraphicsPipelineDescriptor<V, R, Tf>,
     ) -> Result<GraphicsPipeline<V, R, Tf>, CreateGraphicsPipelineError>;
 
-    /// Creates a new [RenderPass] that targets the `render_target` and performs the render pass
-    /// task produced by `f`.
-    ///
-    /// The `render_target` must be a [RenderTargetDescription], either the [DefaultRenderTarget]
-    /// obtained when the runtime was initialized, or a custom render target (see [RenderTarget] for
-    /// details on and examples of creating a valid custom render target). Rendering output buffers
-    /// will be allocated in the framebuffer for each of the color images attached to the render
-    /// target (if any) and for the depth-stencil image attached to the render target (if any).
-    ///
-    /// The `f` function must return a [GpuTask] that can be executed in a [RenderPassContext]. This
-    /// function will receive a reference to the framebuffer representation associated with the
-    /// render target. It may use this reference to construct commands that make up that task, see
-    /// [Framebuffer] for details.
-    ///
-    /// At the start of the render pass, the [LoadOp]s associated with each of the images attached
-    /// to the render target will be performed to initialize the framebuffer. Then the task returned
-    /// from `f` is executed, which may modify the contents of the framebuffer. Finally, the
-    /// [StoreOp]s associated with each of the images attached to the render target will be
-    /// performed to store the (modified) contents of the framebuffer back to these images.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use web_glitz::render_pass::DefaultRGBBuffer;
-    /// # use web_glitz::render_target::DefaultRenderTarget;
-    /// # use web_glitz::runtime::RenderingContext;
-    /// # use web_glitz::vertex::{Vertex, VertexArray};
-    /// # use web_glitz::buffer::UsageHint;
-    /// # use web_glitz::pipeline::graphics::GraphicsPipeline;
-    /// # use web_glitz::pipeline::resources::Resources;
-    /// # fn wrapper<Rc, V>(
-    /// #     context: &Rc,
-    /// #     mut default_render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
-    /// #     vertex_stream: VertexArray<V>,
-    /// #     graphics_pipeline: GraphicsPipeline<V, (), ()>
-    /// # )
-    /// # where
-    /// #     Rc: RenderingContext,
-    /// #     V: Vertex,
-    /// # {
-    /// # let resources = ();
-    /// let render_pass = context.create_render_pass(&mut default_render_target, |framebuffer| {
-    ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
-    ///         active_pipeline.draw_command(&vertex_stream, resources)
-    ///     })
-    /// });
-    /// # }
-    /// ```
-    ///
-    /// # Panics
-    ///
-    /// Panics if any of the images attached to the render target belong to a different context.
-    ///
-    /// Panics if the render pass context ID associated with the task returned from `f` does not
-    /// match the ID generated for this render pass (the task returned from `f` must not contain
-    /// commands that were created for a different render pass).
-    fn create_render_pass<R, F, T>(&self, render_target: R, f: F) -> RenderPass<T>
-    where
-        R: RenderTargetDescription,
-        F: FnOnce(&R::Framebuffer) -> T,
-        T: GpuTask<RenderPassContext>;
+    fn create_render_target<C, Ds>(&self, descriptor: RenderTargetDescriptor<(C,), Ds>) -> RenderTarget<(C,), Ds>;
+
+    fn try_create_render_target<C, Ds>(&self, descriptor: RenderTargetDescriptor<C, Ds>) -> Result<RenderTarget<C, Ds>, MaxColorBuffersExceeded>;
+
+    fn create_multisample_render_target<C, Ds>(&self, descriptor: MultisampleRenderTargetDescriptor<(C,), Ds>) -> MultisampleRenderTarget<(C,), Ds>;
+
+    fn try_create_multisample_render_target<C, Ds>(&self, descriptor: MultisampleRenderTargetDescriptor<C, Ds>) -> Result<MultisampleRenderTarget<C, Ds>, MaxColorBuffersExceeded>;
 
     /// Creates a new [Texture2D] from the given `descriptor`, or returns an error if the descriptor
     /// was invalid.
@@ -489,7 +435,7 @@ pub trait RenderingContext {
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_2d::Texture2DDescriptor;
     ///
-    /// let texture = context.create_texture_2d(&Texture2DDescriptor {
+    /// let texture = context.try_create_texture_2d(&Texture2DDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -497,7 +443,7 @@ pub trait RenderingContext {
     /// }).unwrap();
     /// # }
     /// ```
-    fn create_texture_2d<F>(
+    fn try_create_texture_2d<F>(
         &self,
         descriptor: &Texture2DDescriptor<F>,
     ) -> Result<Texture2D<F>, MaxMipmapLevelsExceeded>
@@ -521,7 +467,7 @@ pub trait RenderingContext {
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_2d_array::Texture2DArrayDescriptor;
     ///
-    /// let texture = context.create_texture_2d_array(&Texture2DArrayDescriptor {
+    /// let texture = context.try_create_texture_2d_array(&Texture2DArrayDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -530,7 +476,7 @@ pub trait RenderingContext {
     /// }).unwrap();
     /// # }
     /// ```
-    fn create_texture_2d_array<F>(
+    fn try_create_texture_2d_array<F>(
         &self,
         descriptor: &Texture2DArrayDescriptor<F>,
     ) -> Result<Texture2DArray<F>, MaxMipmapLevelsExceeded>
@@ -554,7 +500,7 @@ pub trait RenderingContext {
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_3d::Texture3DDescriptor;
     ///
-    /// let texture = context.create_texture_3d(&Texture3DDescriptor {
+    /// let texture = context.try_create_texture_3d(&Texture3DDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -563,7 +509,7 @@ pub trait RenderingContext {
     /// }).unwrap();
     /// # }
     /// ```
-    fn create_texture_3d<F>(
+    fn try_create_texture_3d<F>(
         &self,
         descriptor: &Texture3DDescriptor<F>,
     ) -> Result<Texture3D<F>, MaxMipmapLevelsExceeded>
@@ -587,7 +533,7 @@ pub trait RenderingContext {
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_cube::TextureCubeDescriptor;
     ///
-    /// let texture = context.create_texture_cube(&TextureCubeDescriptor {
+    /// let texture = context.try_create_texture_cube(&TextureCubeDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -595,7 +541,7 @@ pub trait RenderingContext {
     /// }).unwrap();
     /// # }
     /// ```
-    fn create_texture_cube<F>(
+    fn try_create_texture_cube<F>(
         &self,
         descriptor: &TextureCubeDescriptor<F>,
     ) -> Result<TextureCube<F>, MaxMipmapLevelsExceeded>
@@ -700,47 +646,6 @@ pub trait RenderingContext {
         T: GpuTask<Connection> + 'static;
 }
 
-/// Encapsulates the [ExtensionState]s for each of the available context extensions for a
-/// [RenderingContext].
-///
-/// Returned from [RenderingContext::extensions].
-#[derive(Clone)]
-pub struct Extensions {
-    texture_float_linear: ExtensionState,
-}
-
-impl Extensions {
-    /// Returns [ExtensionState::Enabled] if the "texture_float_linear" linear extension is
-    /// enabled, or [ExtensionState::Disabled] otherwise.
-    pub fn texture_float_linear(&self) -> ExtensionState {
-        self.texture_float_linear
-    }
-}
-
-impl Default for Extensions {
-    fn default() -> Self {
-        Extensions {
-            texture_float_linear: ExtensionState::Disabled,
-        }
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Debug)]
-pub enum ExtensionState {
-    Enabled,
-    Disabled,
-}
-
-impl ExtensionState {
-    pub fn is_enabled(&self) -> bool {
-        *self == ExtensionState::Enabled
-    }
-
-    pub fn is_disabled(&self) -> bool {
-        *self == ExtensionState::Disabled
-    }
-}
-
 #[derive(PartialEq, Debug)]
 pub struct ShaderCompilationError(pub(crate) String);
 
@@ -809,6 +714,12 @@ impl From<IncompatibleResources> for CreateGraphicsPipelineError {
 pub struct UnsupportedSampleCount {
     pub(crate) max_supported_samples: usize,
     pub(crate) requested_samples: usize,
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub struct MaxColorBuffersExceeded {
+    pub(crate) max_supported_color_buffers: usize,
+    pub(crate) requested_color_buffers: usize,
 }
 
 /// Returned from [RenderingContext::submit], future result of the [GpuTask] that was submitted

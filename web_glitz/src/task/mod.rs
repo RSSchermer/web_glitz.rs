@@ -16,7 +16,7 @@
 //! use web_glitz::image::texture_2d::Texture2DDescriptor;
 //!
 //! // First we create the texture that we are going to upload to:
-//! let texture = context.create_texture_2d(&Texture2DDescriptor {
+//! let texture = context.try_create_texture_2d(&Texture2DDescriptor {
 //!     format: RGB8,
 //!     width: 256,
 //!     height: 256,
@@ -58,7 +58,7 @@
 //! use web_glitz::image::texture_2d::Texture2DDescriptor;
 //! use web_glitz::task::sequence;
 //!
-//! let texture = context.create_texture_2d(&Texture2DDescriptor {
+//! let texture = context.try_create_texture_2d(&Texture2DDescriptor {
 //!     format: RGB8,
 //!     width: 256,
 //!     height: 256,
@@ -100,7 +100,7 @@
 //! use web_glitz::task::{join_all, sequence_all};
 //!
 //! // First we create the cube-map texture we are going to upload to:
-//! let texture = context.create_texture_cube(&TextureCubeDescriptor {
+//! let texture = context.try_create_texture_cube(&TextureCubeDescriptor {
 //!     format: RGB8,
 //!     width: 256,
 //!     height: 256,
@@ -164,7 +164,7 @@
 //! # use web_glitz::image::{Image2DSource, MipmapLevels};
 //! # use web_glitz::image::format::RGB8;
 //! # use web_glitz::image::texture_2d::Texture2DDescriptor;
-//! # let texture = context.create_texture_2d(&Texture2DDescriptor {
+//! # let texture = context.try_create_texture_2d(&Texture2DDescriptor {
 //! #     format: RGB8,
 //! #     width: 256,
 //! #     height: 256,

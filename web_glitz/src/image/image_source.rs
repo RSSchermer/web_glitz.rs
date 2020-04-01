@@ -16,7 +16,7 @@ use web_sys::{window, CanvasRenderingContext2d, HtmlCanvasElement, HtmlImageElem
 /// use web_glitz::image::format::RGB8;
 /// use web_glitz::image::texture_2d::Texture2DDescriptor;
 ///
-/// let texture = context.create_texture_2d(&Texture2DDescriptor {
+/// let texture = context.try_create_texture_2d(&Texture2DDescriptor {
 ///     format: RGB8,
 ///     width: 256,
 ///     height: 256,
@@ -174,7 +174,7 @@ impl Image2DSource<Vec<[u8; 4]>, [u8; 4]> {
 /// use web_glitz::image::format::RGB8;
 /// use web_glitz::image::texture_3d::Texture3DDescriptor;
 ///
-/// let texture = context.create_texture_3d(&Texture3DDescriptor {
+/// let texture = context.try_create_texture_3d(&Texture3DDescriptor {
 ///     format: RGB8,
 ///     width: 256,
 ///     height: 256,

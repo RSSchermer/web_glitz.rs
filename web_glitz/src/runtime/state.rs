@@ -26,7 +26,7 @@ use crate::pipeline::resources::resource_slot::{
     ShaderResourceSlotDescriptor, TextureSamplerSlot, UniformBlockSlot,
 };
 use crate::pipeline::resources::{ResourceSlotIdentifier, SampledTextureType};
-use crate::render_target::attachable_image_ref::AttachableImageData;
+use crate::rendering::attachment::AttachmentData;
 use crate::runtime::index_lru::IndexLRU;
 use crate::util::{identical, JsId};
 use std::ops::Deref;
@@ -1895,16 +1895,16 @@ impl<'a> FramebufferCache<'a> {
 }
 
 pub(crate) trait AttachmentSet: Hash {
-    fn color_attachments(&self) -> &[Option<AttachableImageData>];
+    fn color_attachments(&self) -> &[Option<AttachmentData>];
 
     fn depth_stencil_attachment(&self) -> &DepthStencilAttachmentDescriptor;
 }
 
 #[derive(Clone, PartialEq, Hash)]
 pub(crate) enum DepthStencilAttachmentDescriptor {
-    Depth(AttachableImageData),
-    Stencil(AttachableImageData),
-    DepthStencil(AttachableImageData),
+    Depth(AttachmentData),
+    Stencil(AttachmentData),
+    DepthStencil(AttachmentData),
     None,
 }
 

@@ -35,8 +35,8 @@ use crate::pipeline::resources::{
     BindGroupDescriptor, ResourceBindings, ResourceBindingsEncodingContext, TypedResourceBindings,
     TypedResourceBindingsLayout,
 };
-use crate::render_pass::RenderPassContext;
-use crate::render_target::attachable_image_ref::{AttachableImageData, AttachableImageRef};
+use crate::rendering::RenderPassContext;
+use crate::rendering::attachment::{AttachmentData, Attachment};
 use crate::runtime::state::{BufferRange, ContextUpdate, DynamicState};
 use crate::runtime::Connection;
 use crate::task::{sequence, ContextId, Empty, GpuTask, Progress, Sequence};
@@ -111,8 +111,8 @@ impl<C, Ds> Framebuffer<C, Ds> {
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::render_pass::DefaultRGBBuffer;
-    /// # use web_glitz::render_target::DefaultRenderTarget;
+    /// # use web_glitz::rendering::DefaultRGBBuffer;
+    /// # use web_glitz::rendering::DefaultRenderTarget;
     /// # use web_glitz::runtime::RenderingContext;
     /// # use web_glitz::vertex::{Vertex, VertexArray};
     /// # use web_glitz::buffer::{Buffer, UsageHint};
@@ -120,7 +120,7 @@ impl<C, Ds> Framebuffer<C, Ds> {
     /// # use web_glitz::pipeline::resources::Resources;
     /// # fn wrapper<Rc, V>(
     /// #     context: &Rc,
-    /// #     mut render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
+    /// #     mut rendering: DefaultRenderTarget<DefaultRGBBuffer, ()>,
     /// #     vertex_buffer: Buffer<[V]>,
     /// #     graphics_pipeline: GraphicsPipeline<V, (), ()>
     /// # )
@@ -129,7 +129,7 @@ impl<C, Ds> Framebuffer<C, Ds> {
     /// #     V: Vertex,
     /// # {
     /// # let resources = ();
-    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    /// let render_pass = context.create_render_pass(&mut rendering, |framebuffer| {
     ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
     ///         active_pipeline.task_builder()
     ///             .bind_vertex_buffers(&vertex_buffer)
@@ -140,7 +140,7 @@ impl<C, Ds> Framebuffer<C, Ds> {
     /// # }
     /// ```
     ///
-    /// In this example, `context` is a [RenderingContext]; `render_target` is a
+    /// In this example, `context` is a [RenderingContext]; `rendering` is a
     /// [RenderTargetDescription], see also [DefaultRenderTarget] and [RenderTarget];
     /// `graphics_pipeline` is a [GraphicsPipeline], see [GraphicsPipeline] and
     /// [RenderingContext::create_graphics_pipeline] for details; `vertex_stream` is a
@@ -193,25 +193,25 @@ where
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::render_target::DefaultRenderTarget;
-    /// # use web_glitz::render_pass::DefaultRGBABuffer;
+    /// # use web_glitz::rendering::DefaultRenderTarget;
+    /// # use web_glitz::rendering::DefaultRGBABuffer;
     /// # use web_glitz::image::texture_2d::Texture2D;
     /// # use web_glitz::image::format::RGBA8;
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(
     /// # context: &Rc,
-    /// # mut render_target: DefaultRenderTarget<DefaultRGBABuffer, ()>,
+    /// # mut rendering: DefaultRenderTarget<DefaultRGBABuffer, ()>,
     /// # texture: Texture2D<RGBA8>
     /// # ) where Rc: RenderingContext {
     /// use web_glitz::image::Region2D;
     ///
-    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    /// let render_pass = context.create_render_pass(&mut rendering, |framebuffer| {
     ///     framebuffer.blit_color_nearest_command(Region2D::Fill, &texture.base_level())
     /// });
     /// # }
     /// ```
     ///
-    /// Here `render_target` is a [RenderTargetDescription] and `texture` is a [Texture2D].
+    /// Here `rendering` is a [RenderTargetDescription] and `texture` is a [Texture2D].
     ///
     /// # Panics
     ///
@@ -262,25 +262,25 @@ where
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::render_target::DefaultRenderTarget;
-    /// # use web_glitz::render_pass::DefaultRGBABuffer;
+    /// # use web_glitz::rendering::DefaultRenderTarget;
+    /// # use web_glitz::rendering::DefaultRGBABuffer;
     /// # use web_glitz::image::texture_2d::Texture2D;
     /// # use web_glitz::image::format::RGBA8;
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(
     /// # context: &Rc,
-    /// # mut render_target: DefaultRenderTarget<DefaultRGBABuffer, ()>,
+    /// # mut rendering: DefaultRenderTarget<DefaultRGBABuffer, ()>,
     /// # texture: Texture2D<RGBA8>
     /// # ) where Rc: RenderingContext {
     /// use web_glitz::image::Region2D;
     ///
-    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    /// let render_pass = context.create_render_pass(&mut rendering, |framebuffer| {
     ///     framebuffer.blit_color_linear_command(Region2D::Fill, &texture.base_level())
     /// });
     /// # }
     /// ```
     ///
-    /// Here `render_target` is a [RenderTargetDescription] and `texture` is a [Texture2D].
+    /// Here `rendering` is a [RenderTargetDescription] and `texture` is a [Texture2D].
     ///
     /// # Panics
     ///
@@ -333,27 +333,27 @@ where
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::render_target::RenderTargetDescription;
-    /// # use web_glitz::render_pass::{ Framebuffer, DepthStencilBuffer};
+    /// # use web_glitz::rendering::RenderTargetDescription;
+    /// # use web_glitz::rendering::{ Framebuffer, DepthStencilBuffer};
     /// # use web_glitz::image::format::Depth24Stencil8;
     /// # use web_glitz::runtime::RenderingContext;
     /// # use web_glitz::image::renderbuffer::Renderbuffer;
     /// # fn wrapper<Rc, T>(
     /// # context: &Rc,
-    /// # mut render_target: T,
+    /// # mut rendering: T,
     /// # renderbuffer: Renderbuffer<Depth24Stencil8>
     /// # ) where
     /// # Rc: RenderingContext,
     /// # T: RenderTargetDescription<Framebuffer=Framebuffer<(), DepthStencilBuffer<Depth24Stencil8>>> {
     /// use web_glitz::image::Region2D;
     ///
-    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    /// let render_pass = context.create_render_pass(&mut rendering, |framebuffer| {
     ///     framebuffer.blit_depth_stencil_command(Region2D::Fill, &renderbuffer)
     /// });
     /// # }
     /// ```
     ///
-    /// Here `render_target` is a [RenderTargetDescription] and `renderbuffer` is a [Renderbuffer].
+    /// Here `rendering` is a [RenderTargetDescription] and `renderbuffer` is a [Renderbuffer].
     ///
     /// # Panics
     ///
@@ -400,27 +400,27 @@ where
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::render_target::RenderTargetDescription;
-    /// # use web_glitz::render_pass::{ Framebuffer, DepthStencilBuffer};
+    /// # use web_glitz::rendering::RenderTargetDescription;
+    /// # use web_glitz::rendering::{ Framebuffer, DepthStencilBuffer};
     /// # use web_glitz::image::format::Depth24Stencil8;
     /// # use web_glitz::runtime::RenderingContext;
     /// # use web_glitz::image::renderbuffer::Renderbuffer;
     /// # fn wrapper<Rc, T>(
     /// # context: &Rc,
-    /// # mut render_target: T,
+    /// # mut rendering: T,
     /// # renderbuffer: Renderbuffer<Depth24Stencil8>
     /// # ) where
     /// # Rc: RenderingContext,
     /// # T: RenderTargetDescription<Framebuffer=Framebuffer<(), DepthStencilBuffer<Depth24Stencil8>>> {
     /// use web_glitz::image::Region2D;
     ///
-    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    /// let render_pass = context.create_render_pass(&mut rendering, |framebuffer| {
     ///     framebuffer.blit_depth_command(Region2D::Fill, &renderbuffer)
     /// });
     /// # }
     /// ```
     ///
-    /// Here `render_target` is a [RenderTargetDescription] and `renderbuffer` is a [Renderbuffer].
+    /// Here `rendering` is a [RenderTargetDescription] and `renderbuffer` is a [Renderbuffer].
     ///
     /// # Panics
     ///
@@ -467,27 +467,27 @@ where
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::render_target::RenderTargetDescription;
-    /// # use web_glitz::render_pass::{ Framebuffer, DepthStencilBuffer};
+    /// # use web_glitz::rendering::RenderTargetDescription;
+    /// # use web_glitz::rendering::{ Framebuffer, DepthStencilBuffer};
     /// # use web_glitz::image::format::Depth24Stencil8;
     /// # use web_glitz::runtime::RenderingContext;
     /// # use web_glitz::image::renderbuffer::Renderbuffer;
     /// # fn wrapper<Rc, T>(
     /// # context: &Rc,
-    /// # mut render_target: T,
+    /// # mut rendering: T,
     /// # renderbuffer: Renderbuffer<Depth24Stencil8>
     /// # ) where
     /// # Rc: RenderingContext,
     /// # T: RenderTargetDescription<Framebuffer=Framebuffer<(), DepthStencilBuffer<Depth24Stencil8>>> {
     /// use web_glitz::image::Region2D;
     ///
-    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    /// let render_pass = context.create_render_pass(&mut rendering, |framebuffer| {
     ///     framebuffer.blit_depth_command(Region2D::Fill, &renderbuffer)
     /// });
     /// # }
     /// ```
     ///
-    /// Here `render_target` is a [RenderTargetDescription] and `renderbuffer` is a [Renderbuffer].
+    /// Here `rendering` is a [RenderTargetDescription] and `renderbuffer` is a [Renderbuffer].
     ///
     /// # Panics
     ///
@@ -537,27 +537,27 @@ where
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::render_target::RenderTargetDescription;
-    /// # use web_glitz::render_pass::{Framebuffer, DepthBuffer};
+    /// # use web_glitz::rendering::RenderTargetDescription;
+    /// # use web_glitz::rendering::{Framebuffer, DepthBuffer};
     /// # use web_glitz::image::format::DepthComponent24;
     /// # use web_glitz::runtime::RenderingContext;
     /// # use web_glitz::image::renderbuffer::Renderbuffer;
     /// # fn wrapper<Rc, T>(
     /// # context: &Rc,
-    /// # mut render_target: T,
+    /// # mut rendering: T,
     /// # renderbuffer: Renderbuffer<DepthComponent24>
     /// # ) where
     /// # Rc: RenderingContext,
     /// # T: RenderTargetDescription<Framebuffer=Framebuffer<(), DepthBuffer<DepthComponent24>>> {
     /// use web_glitz::image::Region2D;
     ///
-    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    /// let render_pass = context.create_render_pass(&mut rendering, |framebuffer| {
     ///     framebuffer.blit_depth_command(Region2D::Fill, &renderbuffer)
     /// });
     /// # }
     /// ```
     ///
-    /// Here `render_target` is a [RenderTargetDescription] and `renderbuffer` is a [Renderbuffer].
+    /// Here `rendering` is a [RenderTargetDescription] and `renderbuffer` is a [Renderbuffer].
     ///
     /// # Panics
     ///
@@ -607,27 +607,27 @@ where
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::render_target::RenderTargetDescription;
-    /// # use web_glitz::render_pass::{Framebuffer, StencilBuffer};
+    /// # use web_glitz::rendering::RenderTargetDescription;
+    /// # use web_glitz::rendering::{Framebuffer, StencilBuffer};
     /// # use web_glitz::image::format::StencilIndex8;
     /// # use web_glitz::runtime::RenderingContext;
     /// # use web_glitz::image::renderbuffer::Renderbuffer;
     /// # fn wrapper<Rc, T>(
     /// # context: &Rc,
-    /// # mut render_target: T,
+    /// # mut rendering: T,
     /// # renderbuffer: Renderbuffer<StencilIndex8>
     /// # ) where
     /// # Rc: RenderingContext,
     /// # T: RenderTargetDescription<Framebuffer=Framebuffer<(), StencilBuffer<StencilIndex8>>> {
     /// use web_glitz::image::Region2D;
     ///
-    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    /// let render_pass = context.create_render_pass(&mut rendering, |framebuffer| {
     ///     framebuffer.blit_stencil_command(Region2D::Fill, &renderbuffer)
     /// });
     /// # }
     /// ```
     ///
-    /// Here `render_target` is a [RenderTargetDescription] and `renderbuffer` is a [Renderbuffer].
+    /// Here `rendering` is a [RenderTargetDescription] and `renderbuffer` is a [Renderbuffer].
     ///
     /// # Panics
     ///
@@ -688,8 +688,8 @@ impl<C, Ds> MultisampleFramebuffer<C, Ds> {
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::render_pass::DefaultRGBBuffer;
-    /// # use web_glitz::render_target::DefaultRenderTarget;
+    /// # use web_glitz::rendering::DefaultRGBBuffer;
+    /// # use web_glitz::rendering::DefaultRenderTarget;
     /// # use web_glitz::runtime::RenderingContext;
     /// # use web_glitz::vertex::{Vertex, VertexArray};
     /// # use web_glitz::buffer::{Buffer, UsageHint};
@@ -697,7 +697,7 @@ impl<C, Ds> MultisampleFramebuffer<C, Ds> {
     /// # use web_glitz::pipeline::resources::Resources;
     /// # fn wrapper<Rc, V>(
     /// #     context: &Rc,
-    /// #     mut render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
+    /// #     mut rendering: DefaultRenderTarget<DefaultRGBBuffer, ()>,
     /// #     vertex_buffer: Buffer<[V]>,
     /// #     graphics_pipeline: GraphicsPipeline<V, (), ()>
     /// # )
@@ -706,7 +706,7 @@ impl<C, Ds> MultisampleFramebuffer<C, Ds> {
     /// #     V: Vertex,
     /// # {
     /// # let resources = ();
-    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    /// let render_pass = context.create_render_pass(&mut rendering, |framebuffer| {
     ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
     ///         active_pipeline.task_builder()
     ///             .bind_vertex_buffers(&vertex_buffer)
@@ -717,7 +717,7 @@ impl<C, Ds> MultisampleFramebuffer<C, Ds> {
     /// # }
     /// ```
     ///
-    /// In this example, `context` is a [RenderingContext]; `render_target` is a
+    /// In this example, `context` is a [RenderingContext]; `rendering` is a
     /// [RenderTargetDescription], see also [DefaultRenderTarget] and [RenderTarget];
     /// `graphics_pipeline` is a [GraphicsPipeline], see [GraphicsPipeline] and
     /// [RenderingContext::create_graphics_pipeline] for details; `vertex_stream` is a
@@ -1399,8 +1399,8 @@ impl<'a, V, R, Tf> ActiveGraphicsPipeline<'a, V, R, Tf> {
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::render_pass::DefaultRGBBuffer;
-    /// # use web_glitz::render_target::DefaultRenderTarget;
+    /// # use web_glitz::rendering::DefaultRGBBuffer;
+    /// # use web_glitz::rendering::DefaultRenderTarget;
     /// # use web_glitz::runtime::RenderingContext;
     /// # use web_glitz::buffer::UsageHint;
     /// # use web_glitz::pipeline::graphics::{GraphicsPipeline, VertexBuffers};
@@ -1773,8 +1773,8 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::render_pass::DefaultRGBBuffer;
-    /// # use web_glitz::render_target::DefaultRenderTarget;
+    /// # use web_glitz::rendering::DefaultRGBBuffer;
+    /// # use web_glitz::rendering::DefaultRenderTarget;
     /// # use web_glitz::runtime::RenderingContext;
     /// # use web_glitz::buffer::UsageHint;
     /// # use web_glitz::pipeline::graphics::{GraphicsPipeline, VertexBuffers};
@@ -1870,8 +1870,8 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::render_pass::DefaultRGBBuffer;
-    /// # use web_glitz::render_target::DefaultRenderTarget;
+    /// # use web_glitz::rendering::DefaultRGBBuffer;
+    /// # use web_glitz::rendering::DefaultRenderTarget;
     /// # use web_glitz::runtime::RenderingContext;
     /// # use web_glitz::buffer::UsageHint;
     /// # use web_glitz::pipeline::graphics::{GraphicsPipeline, VertexBuffers, IndexData};
@@ -2251,7 +2251,7 @@ pub unsafe trait BlitSource {
 /// required by the [BlitCommand].
 #[derive(Clone)]
 pub struct BlitSourceDescriptor {
-    attachment: AttachableImageData,
+    attachment: AttachmentData,
     region: ((u32, u32), u32, u32),
     context_id: usize,
 }
@@ -2264,7 +2264,7 @@ where
 
     fn descriptor(&self) -> BlitSourceDescriptor {
         BlitSourceDescriptor {
-            attachment: AttachableImageRef::from_texture_2d_level(self).into_data(),
+            attachment: Attachment::from_texture_2d_level(self).into_data(),
             region: ((0, 0), self.width(), self.height()),
             context_id: self.texture_data().context_id(),
         }
@@ -2284,7 +2284,7 @@ where
         };
 
         BlitSourceDescriptor {
-            attachment: AttachableImageRef::from_texture_2d_level(&self.level_ref()).into_data(),
+            attachment: Attachment::from_texture_2d_level(&self.level_ref()).into_data(),
             region: (origin, self.width(), self.height()),
             context_id: self.texture_data().context_id(),
         }
@@ -2299,7 +2299,7 @@ where
 
     fn descriptor(&self) -> BlitSourceDescriptor {
         BlitSourceDescriptor {
-            attachment: AttachableImageRef::from_texture_2d_array_level_layer(self).into_data(),
+            attachment: Attachment::from_texture_2d_array_level_layer(self).into_data(),
             region: ((0, 0), self.width(), self.height()),
             context_id: self.texture_data().context_id(),
         }
@@ -2319,7 +2319,7 @@ where
         };
 
         BlitSourceDescriptor {
-            attachment: AttachableImageRef::from_texture_2d_array_level_layer(
+            attachment: Attachment::from_texture_2d_array_level_layer(
                 &self.level_layer_ref(),
             )
             .into_data(),
@@ -2337,7 +2337,7 @@ where
 
     fn descriptor(&self) -> BlitSourceDescriptor {
         BlitSourceDescriptor {
-            attachment: AttachableImageRef::from_texture_3d_level_layer(self).into_data(),
+            attachment: Attachment::from_texture_3d_level_layer(self).into_data(),
             region: ((0, 0), self.width(), self.height()),
             context_id: self.texture_data().context_id(),
         }
@@ -2357,7 +2357,7 @@ where
         };
 
         BlitSourceDescriptor {
-            attachment: AttachableImageRef::from_texture_3d_level_layer(&self.level_layer_ref())
+            attachment: Attachment::from_texture_3d_level_layer(&self.level_layer_ref())
                 .into_data(),
             region: (origin, self.width(), self.height()),
             context_id: self.texture_data().context_id(),
@@ -2373,7 +2373,7 @@ where
 
     fn descriptor(&self) -> BlitSourceDescriptor {
         BlitSourceDescriptor {
-            attachment: AttachableImageRef::from_texture_cube_level_face(self).into_data(),
+            attachment: Attachment::from_texture_cube_level_face(self).into_data(),
             region: ((0, 0), self.width(), self.height()),
             context_id: self.texture_data().context_id(),
         }
@@ -2393,7 +2393,7 @@ where
         };
 
         BlitSourceDescriptor {
-            attachment: AttachableImageRef::from_texture_cube_level_face(&self.level_face_ref())
+            attachment: Attachment::from_texture_cube_level_face(&self.level_face_ref())
                 .into_data(),
             region: (origin, self.width(), self.height()),
             context_id: self.texture_data().context_id(),
@@ -2409,7 +2409,7 @@ where
 
     fn descriptor(&self) -> BlitSourceDescriptor {
         BlitSourceDescriptor {
-            attachment: AttachableImageRef::from_renderbuffer(self).into_data(),
+            attachment: Attachment::from_renderbuffer(self).into_data(),
             region: ((0, 0), self.width(), self.height()),
             context_id: self.data().context_id(),
         }
@@ -2424,7 +2424,7 @@ unsafe impl<F> BlitSource for Renderbuffer<Multisample<F>>
 
     fn descriptor(&self) -> BlitSourceDescriptor {
         BlitSourceDescriptor {
-            attachment: AttachableImageRef::from_renderbuffer(self).into_data(),
+            attachment: Attachment::from_renderbuffer(self).into_data(),
             region: ((0, 0), self.width(), self.height()),
             context_id: self.data().context_id(),
         }
@@ -2458,7 +2458,7 @@ unsafe impl<F> MultisampleBlitSource for Renderbuffer<Multisample<F>>
     fn descriptor(&self) -> MultisampleBlitSourceDescriptor {
         MultisampleBlitSourceDescriptor {
             blit_source_descriptor: BlitSourceDescriptor {
-                attachment: AttachableImageRef::from_renderbuffer(self).into_data(),
+                attachment: Attachment::from_renderbuffer(self).into_data(),
                 region: ((0, 0), self.width(), self.height()),
                 context_id: self.data().context_id(),
             },
@@ -2652,7 +2652,7 @@ impl DefaultRGBBuffer {
     /// The following command will clear the entire buffer to "transparent black":
     ///
     /// ```
-    /// # use web_glitz::render_pass::DefaultRGBBuffer;
+    /// # use web_glitz::rendering::DefaultRGBBuffer;
     /// # use web_glitz::image::Region2D;
     /// # fn wrapper(buffer: &DefaultRGBBuffer) {
     /// let command = buffer.clear_command([0.0, 0.0, 0.0, 0.0], Region2D::Fill);
@@ -2662,7 +2662,7 @@ impl DefaultRGBBuffer {
     /// It's also possible to only clear a specific rectangular area of the buffer:
     ///
     /// ```
-    /// # use web_glitz::render_pass::DefaultRGBBuffer;
+    /// # use web_glitz::rendering::DefaultRGBBuffer;
     /// # use web_glitz::image::Region2D;
     /// # fn wrapper(buffer: &DefaultRGBBuffer) {
     /// let command = buffer.clear_command([0.0, 0.0, 0.0, 0.0], Region2D::Area((0, 0), 100, 100));
@@ -2700,7 +2700,7 @@ impl DefaultRGBABuffer {
     /// The following command will clear the entire buffer to "transparent black":
     ///
     /// ```
-    /// # use web_glitz::render_pass::DefaultRGBABuffer;
+    /// # use web_glitz::rendering::DefaultRGBABuffer;
     /// # use web_glitz::image::Region2D;
     /// # fn wrapper(buffer: &DefaultRGBABuffer) {
     /// let command = buffer.clear_command([0.0, 0.0, 0.0, 0.0], Region2D::Fill);
@@ -2710,7 +2710,7 @@ impl DefaultRGBABuffer {
     /// It's also possible to only clear a specific rectangular area of the buffer:
     ///
     /// ```
-    /// # use web_glitz::render_pass::DefaultRGBABuffer;
+    /// # use web_glitz::rendering::DefaultRGBABuffer;
     /// # use web_glitz::image::Region2D;
     /// # fn wrapper(buffer: &DefaultRGBABuffer) {
     /// let command = buffer.clear_command([0.0, 0.0, 0.0, 0.0], Region2D::Area((0, 0), 100, 100));
@@ -2752,7 +2752,7 @@ impl DefaultDepthStencilBuffer {
     /// and a stencil value of `0`:
     ///
     /// ```
-    /// # use web_glitz::render_pass::DefaultDepthStencilBuffer;
+    /// # use web_glitz::rendering::DefaultDepthStencilBuffer;
     /// # use web_glitz::image::Region2D;
     /// # fn wrapper(buffer: &DefaultDepthStencilBuffer) {
     /// let command = buffer.clear_command(1.0, 0, Region2D::Fill);
@@ -2762,7 +2762,7 @@ impl DefaultDepthStencilBuffer {
     /// It's also possible to only clear a specific rectangular area of the buffer:
     ///
     /// ```
-    /// # use web_glitz::render_pass::DefaultDepthStencilBuffer;
+    /// # use web_glitz::rendering::DefaultDepthStencilBuffer;
     /// # use web_glitz::image::Region2D;
     /// # fn wrapper(buffer: &DefaultDepthStencilBuffer) {
     /// let command = buffer.clear_command(1.0, 0, Region2D::Area((0, 0), 100, 100));
@@ -2795,7 +2795,7 @@ impl DefaultDepthStencilBuffer {
     /// The following command will clear the entire depth-stencil buffer to a depth value of `1.0`:
     ///
     /// ```
-    /// # use web_glitz::render_pass::DefaultDepthStencilBuffer;
+    /// # use web_glitz::rendering::DefaultDepthStencilBuffer;
     /// # use web_glitz::image::Region2D;
     /// # fn wrapper(buffer: &DefaultDepthStencilBuffer) {
     /// let command = buffer.clear_depth_command(1.0, Region2D::Fill);
@@ -2807,7 +2807,7 @@ impl DefaultDepthStencilBuffer {
     /// It's also possible to only clear a specific rectangular area of the buffer:
     ///
     /// ```
-    /// # use web_glitz::render_pass::DefaultDepthStencilBuffer;
+    /// # use web_glitz::rendering::DefaultDepthStencilBuffer;
     /// # use web_glitz::image::Region2D;
     /// # fn wrapper(buffer: &DefaultDepthStencilBuffer) {
     /// let command = buffer.clear_depth_command(1.0, Region2D::Area((0, 0), 100, 100));
@@ -2834,7 +2834,7 @@ impl DefaultDepthStencilBuffer {
     /// The following command will clear the entire depth-stencil buffer to a stencil value of `0`:
     ///
     /// ```
-    /// # use web_glitz::render_pass::DefaultDepthStencilBuffer;
+    /// # use web_glitz::rendering::DefaultDepthStencilBuffer;
     /// # use web_glitz::image::Region2D;
     /// # fn wrapper(buffer: &DefaultDepthStencilBuffer) {
     /// let command = buffer.clear_stencil_command(0, Region2D::Fill);
@@ -2846,7 +2846,7 @@ impl DefaultDepthStencilBuffer {
     /// It's also possible to only clear a specific rectangular area of the buffer:
     ///
     /// ```
-    /// # use web_glitz::render_pass::DefaultDepthStencilBuffer;
+    /// # use web_glitz::rendering::DefaultDepthStencilBuffer;
     /// # use web_glitz::image::Region2D;
     /// # fn wrapper(buffer: &DefaultDepthStencilBuffer) {
     /// let command = buffer.clear_stencil_command(0, Region2D::Area((0, 0), 100, 100));
@@ -2883,7 +2883,7 @@ impl DefaultDepthBuffer {
     /// The following command will clear the entire depth-stencil buffer to a depth value of `1.0`:
     ///
     /// ```
-    /// # use web_glitz::render_pass::DefaultDepthBuffer;
+    /// # use web_glitz::rendering::DefaultDepthBuffer;
     /// # use web_glitz::image::Region2D;
     /// # fn wrapper(buffer: &DefaultDepthBuffer) {
     /// let command = buffer.clear_command(1.0, Region2D::Fill);
@@ -2893,7 +2893,7 @@ impl DefaultDepthBuffer {
     /// It's also possible to only clear a specific rectangular area of the buffer:
     ///
     /// ```
-    /// # use web_glitz::render_pass::DefaultDepthBuffer;
+    /// # use web_glitz::rendering::DefaultDepthBuffer;
     /// # use web_glitz::image::Region2D;
     /// # fn wrapper(buffer: &DefaultDepthBuffer) {
     /// let command = buffer.clear_command(1.0, Region2D::Area((0, 0), 100, 100));
@@ -2930,7 +2930,7 @@ impl DefaultStencilBuffer {
     /// The following command will clear the entire depth-stencil buffer to a stencil value of `0`:
     ///
     /// ```
-    /// # use web_glitz::render_pass::DefaultStencilBuffer;
+    /// # use web_glitz::rendering::DefaultStencilBuffer;
     /// # use web_glitz::image::Region2D;
     /// # fn wrapper(buffer: &DefaultStencilBuffer) {
     /// let command = buffer.clear_command(0, Region2D::Fill);
@@ -2940,7 +2940,7 @@ impl DefaultStencilBuffer {
     /// It's also possible to only clear a specific rectangular area of the buffer:
     ///
     /// ```
-    /// # use web_glitz::render_pass::DefaultStencilBuffer;
+    /// # use web_glitz::rendering::DefaultStencilBuffer;
     /// # use web_glitz::image::Region2D;
     /// # fn wrapper(buffer: &DefaultStencilBuffer) {
     /// let command = buffer.clear_command(0, Region2D::Area((0, 0), 100, 100));
@@ -3000,7 +3000,7 @@ impl<F> FloatBuffer<F> {
     /// The following command will clear the entire buffer to a value of "transparent black":
     ///
     /// ```
-    /// # use web_glitz::render_pass::FloatBuffer;
+    /// # use web_glitz::rendering::FloatBuffer;
     /// # use web_glitz::image::Region2D;
     /// # use web_glitz::image::format::RGBA8;
     /// # fn wrapper(buffer: &FloatBuffer<RGBA8>) {
@@ -3011,7 +3011,7 @@ impl<F> FloatBuffer<F> {
     /// It's also possible to only clear a specific rectangular area of the buffer:
     ///
     /// ```
-    /// # use web_glitz::render_pass::FloatBuffer;
+    /// # use web_glitz::rendering::FloatBuffer;
     /// # use web_glitz::image::Region2D;
     /// # use web_glitz::image::format::RGBA8;
     /// # fn wrapper(buffer: &FloatBuffer<RGBA8>) {
@@ -3075,7 +3075,7 @@ impl<F> IntegerBuffer<F> {
     /// The following command will clear all pixels in the buffer to all zeroes:
     ///
     /// ```
-    /// # use web_glitz::render_pass::IntegerBuffer;
+    /// # use web_glitz::rendering::IntegerBuffer;
     /// # use web_glitz::image::Region2D;
     /// # use web_glitz::image::format::RGBA8I;
     /// # fn wrapper(buffer: &IntegerBuffer<RGBA8I>) {
@@ -3086,7 +3086,7 @@ impl<F> IntegerBuffer<F> {
     /// It's also possible to only clear a specific rectangular area of the buffer:
     ///
     /// ```
-    /// # use web_glitz::render_pass::IntegerBuffer;
+    /// # use web_glitz::rendering::IntegerBuffer;
     /// # use web_glitz::image::Region2D;
     /// # use web_glitz::image::format::RGBA8I;
     /// # fn wrapper(buffer: &IntegerBuffer<RGBA8I>) {
@@ -3149,7 +3149,7 @@ impl<F> UnsignedIntegerBuffer<F> {
     /// The following command will clear all pixels in the buffer to all zeroes:
     ///
     /// ```
-    /// # use web_glitz::render_pass::UnsignedIntegerBuffer;
+    /// # use web_glitz::rendering::UnsignedIntegerBuffer;
     /// # use web_glitz::image::Region2D;
     /// # use web_glitz::image::format::RGBA8UI;
     /// # fn wrapper(buffer: &UnsignedIntegerBuffer<RGBA8UI>) {
@@ -3160,7 +3160,7 @@ impl<F> UnsignedIntegerBuffer<F> {
     /// It's also possible to only clear a specific rectangular area of the buffer:
     ///
     /// ```
-    /// # use web_glitz::render_pass::UnsignedIntegerBuffer;
+    /// # use web_glitz::rendering::UnsignedIntegerBuffer;
     /// # use web_glitz::image::Region2D;
     /// # use web_glitz::image::format::RGBA8UI;
     /// # fn wrapper(buffer: &UnsignedIntegerBuffer<RGBA8UI>) {
@@ -3230,7 +3230,7 @@ impl<F> DepthStencilBuffer<F> {
     /// and a stencil value of `0`:
     ///
     /// ```
-    /// # use web_glitz::render_pass::DepthStencilBuffer;
+    /// # use web_glitz::rendering::DepthStencilBuffer;
     /// # use web_glitz::image::Region2D;
     /// # use web_glitz::image::format::Depth24Stencil8;
     /// # fn wrapper(buffer: &DepthStencilBuffer<Depth24Stencil8>) {
@@ -3241,7 +3241,7 @@ impl<F> DepthStencilBuffer<F> {
     /// It's also possible to only clear a specific rectangular area of the buffer:
     ///
     /// ```
-    /// # use web_glitz::render_pass::DepthStencilBuffer;
+    /// # use web_glitz::rendering::DepthStencilBuffer;
     /// # use web_glitz::image::Region2D;
     /// # use web_glitz::image::format::Depth24Stencil8;
     /// # fn wrapper(buffer: &DepthStencilBuffer<Depth24Stencil8>) {
@@ -3275,7 +3275,7 @@ impl<F> DepthStencilBuffer<F> {
     /// The following command will clear the entire depth-stencil buffer to a depth value of `1.0`:
     ///
     /// ```
-    /// # use web_glitz::render_pass::DepthStencilBuffer;
+    /// # use web_glitz::rendering::DepthStencilBuffer;
     /// # use web_glitz::image::Region2D;
     /// # use web_glitz::image::format::Depth24Stencil8;
     /// # fn wrapper(buffer: &DepthStencilBuffer<Depth24Stencil8>) {
@@ -3288,7 +3288,7 @@ impl<F> DepthStencilBuffer<F> {
     /// It's also possible to only clear a specific rectangular area of the buffer:
     ///
     /// ```
-    /// # use web_glitz::render_pass::DepthStencilBuffer;
+    /// # use web_glitz::rendering::DepthStencilBuffer;
     /// # use web_glitz::image::Region2D;
     /// # use web_glitz::image::format::Depth24Stencil8;
     /// # fn wrapper(buffer: &DepthStencilBuffer<Depth24Stencil8>) {
@@ -3316,7 +3316,7 @@ impl<F> DepthStencilBuffer<F> {
     /// The following command will clear the entire depth-stencil buffer to a stencil value of `0`:
     ///
     /// ```
-    /// # use web_glitz::render_pass::DepthStencilBuffer;
+    /// # use web_glitz::rendering::DepthStencilBuffer;
     /// # use web_glitz::image::Region2D;
     /// # use web_glitz::image::format::Depth24Stencil8;
     /// # fn wrapper(buffer: &DepthStencilBuffer<Depth24Stencil8>) {
@@ -3329,7 +3329,7 @@ impl<F> DepthStencilBuffer<F> {
     /// It's also possible to only clear a specific rectangular area of the buffer:
     ///
     /// ```
-    /// # use web_glitz::render_pass::DepthStencilBuffer;
+    /// # use web_glitz::rendering::DepthStencilBuffer;
     /// # use web_glitz::image::Region2D;
     /// # use web_glitz::image::format::Depth24Stencil8;
     /// # fn wrapper(buffer: &DepthStencilBuffer<Depth24Stencil8>) {
@@ -3390,7 +3390,7 @@ impl<F> DepthBuffer<F> {
     /// The following command will clear the entire depth-stencil buffer to a depth value of `1.0`:
     ///
     /// ```
-    /// # use web_glitz::render_pass::DepthBuffer;
+    /// # use web_glitz::rendering::DepthBuffer;
     /// # use web_glitz::image::Region2D;
     /// # use web_glitz::image::format::DepthComponent24;
     /// # fn wrapper(buffer: &DepthBuffer<DepthComponent24>) {
@@ -3401,7 +3401,7 @@ impl<F> DepthBuffer<F> {
     /// It's also possible to only clear a specific rectangular area of the buffer:
     ///
     /// ```
-    /// # use web_glitz::render_pass::DepthBuffer;
+    /// # use web_glitz::rendering::DepthBuffer;
     /// # use web_glitz::image::Region2D;
     /// # use web_glitz::image::format::DepthComponent24;
     /// # fn wrapper(buffer: &DepthBuffer<DepthComponent24>) {
@@ -3460,7 +3460,7 @@ impl<F> StencilBuffer<F> {
     /// The following command will clear the entire depth-stencil buffer to a stencil value of `0`:
     ///
     /// ```
-    /// # use web_glitz::render_pass::StencilBuffer;
+    /// # use web_glitz::rendering::StencilBuffer;
     /// # use web_glitz::image::Region2D;
     /// # use web_glitz::image::format::StencilIndex8;
     /// # fn wrapper(buffer: &StencilBuffer<StencilIndex8>) {
@@ -3471,7 +3471,7 @@ impl<F> StencilBuffer<F> {
     /// It's also possible to only clear a specific rectangular area of the buffer:
     ///
     /// ```
-    /// # use web_glitz::render_pass::StencilBuffer;
+    /// # use web_glitz::rendering::StencilBuffer;
     /// # use web_glitz::image::Region2D;
     /// # use web_glitz::image::format::StencilIndex8;
     /// # fn wrapper(buffer: &StencilBuffer<StencilIndex8>) {

@@ -24,7 +24,7 @@ use crate::image::{
 };
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
-use crate::sampler::{CompatibleSampler, Sampler, SamplerData, ShadowSampler};
+use crate::sampler::{CompatibleSampler, SamplerData, ShadowSampler};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
 
@@ -124,7 +124,7 @@ where
 /// use web_glitz::image::texture_2d_array::Texture2DArrayDescriptor;
 /// use web_glitz::sequence_all;
 ///
-/// let texture = context.create_texture_2d_array(&Texture2DArrayDescriptor {
+/// let texture = context.try_create_texture_2d_array(&Texture2DArrayDescriptor {
 ///     format: RGB8,
 ///     width: 256,
 ///     height: 256,
@@ -237,7 +237,7 @@ where
     /// # use web_glitz::image::format::RGB8;
     /// # use web_glitz::image::texture_2d_array::Texture2DArrayDescriptor;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
-    /// # let texture = context.create_texture_2d_array(&Texture2DArrayDescriptor {
+    /// # let texture = context.try_create_texture_2d_array(&Texture2DArrayDescriptor {
     /// #     format: RGB8,
     /// #     width: 256,
     /// #     height: 256,
@@ -277,7 +277,7 @@ where
     /// # use web_glitz::image::format::RGB8;
     /// # use web_glitz::image::texture_2d_array::Texture2DArrayDescriptor;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
-    /// # let mut texture = context.create_texture_2d_array(&Texture2DArrayDescriptor {
+    /// # let mut texture = context.try_create_texture_2d_array(&Texture2DArrayDescriptor {
     /// #     format: RGB8,
     /// #     width: 256,
     /// #     height: 256,
@@ -578,7 +578,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_2d_array::Texture2DArrayDescriptor;
     ///
-    /// let texture = context.create_texture_2d_array(&Texture2DArrayDescriptor {
+    /// let texture = context.try_create_texture_2d_array(&Texture2DArrayDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -610,7 +610,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_2d_array::Texture2DArrayDescriptor;
     ///
-    /// let texture = context.create_texture_2d_array(&Texture2DArrayDescriptor {
+    /// let texture = context.try_create_texture_2d_array(&Texture2DArrayDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -648,7 +648,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_2d_array::Texture2DArrayDescriptor;
     ///
-    /// let texture = context.create_texture_2d_array(&Texture2DArrayDescriptor {
+    /// let texture = context.try_create_texture_2d_array(&Texture2DArrayDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -928,7 +928,7 @@ where
     /// # use web_glitz::image::format::RGB8;
     /// # use web_glitz::image::texture_2d_array::Texture2DArrayDescriptor;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
-    /// # let texture = context.create_texture_2d_array(&Texture2DArrayDescriptor {
+    /// # let texture = context.try_create_texture_2d_array(&Texture2DArrayDescriptor {
     /// #     format: RGB8,
     /// #     width: 256,
     /// #     height: 256,
@@ -969,7 +969,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_2d_array::Texture2DArrayDescriptor;
     ///
-    /// let texture = context.create_texture_2d_array(&Texture2DArrayDescriptor {
+    /// let texture = context.try_create_texture_2d_array(&Texture2DArrayDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -1027,7 +1027,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_2d_array::Texture2DArrayDescriptor;
     ///
-    /// let texture = context.create_texture_2d_array(&Texture2DArrayDescriptor {
+    /// let texture = context.try_create_texture_2d_array(&Texture2DArrayDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -1093,7 +1093,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_2d_array::Texture2DArrayDescriptor;
     ///
-    /// let texture = context.create_texture_2d_array(&Texture2DArrayDescriptor {
+    /// let texture = context.try_create_texture_2d_array(&Texture2DArrayDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -1126,7 +1126,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_2d_array::Texture2DArrayDescriptor;
     ///
-    /// let texture = context.create_texture_2d_array(&Texture2DArrayDescriptor {
+    /// let texture = context.try_create_texture_2d_array(&Texture2DArrayDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -1165,7 +1165,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_2d_array::Texture2DArrayDescriptor;
     ///
-    /// let texture = context.create_texture_2d_array(&Texture2DArrayDescriptor {
+    /// let texture = context.try_create_texture_2d_array(&Texture2DArrayDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -1462,7 +1462,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_2d_array::Texture2DArrayDescriptor;
     ///
-    /// let texture = context.create_texture_2d_array(&Texture2DArrayDescriptor {
+    /// let texture = context.try_create_texture_2d_array(&Texture2DArrayDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -1521,7 +1521,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_2d_array::Texture2DArrayDescriptor;
     ///
-    /// let texture = context.create_texture_2d_array(&Texture2DArrayDescriptor {
+    /// let texture = context.try_create_texture_2d_array(&Texture2DArrayDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -1687,7 +1687,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_2d_array::Texture2DArrayDescriptor;
     ///
-    /// let texture = context.create_texture_2d_array(&Texture2DArrayDescriptor {
+    /// let texture = context.try_create_texture_2d_array(&Texture2DArrayDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -1721,7 +1721,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_2d_array::Texture2DArrayDescriptor;
     ///
-    /// let texture = context.create_texture_2d_array(&Texture2DArrayDescriptor {
+    /// let texture = context.try_create_texture_2d_array(&Texture2DArrayDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -1759,7 +1759,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_2d_array::Texture2DArrayDescriptor;
     ///
-    /// let texture = context.create_texture_2d_array(&Texture2DArrayDescriptor {
+    /// let texture = context.try_create_texture_2d_array(&Texture2DArrayDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -2114,7 +2114,7 @@ where
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_2d_array::Texture2DArrayDescriptor;
     ///
-    /// let texture = context.create_texture_2d_array(&Texture2DArrayDescriptor {
+    /// let texture = context.try_create_texture_2d_array(&Texture2DArrayDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -2178,7 +2178,7 @@ impl<'a, F> LevelsMut<'a, F> {
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_2d_array::Texture2DArrayDescriptor;
     ///
-    /// let mut texture = context.create_texture_2d_array(&Texture2DArrayDescriptor {
+    /// let mut texture = context.try_create_texture_2d_array(&Texture2DArrayDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -2210,7 +2210,7 @@ impl<'a, F> LevelsMut<'a, F> {
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_2d_array::Texture2DArrayDescriptor;
     ///
-    /// let mut texture = context.create_texture_2d_array(&Texture2DArrayDescriptor {
+    /// let mut texture = context.try_create_texture_2d_array(&Texture2DArrayDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -2248,7 +2248,7 @@ impl<'a, F> LevelsMut<'a, F> {
     /// use web_glitz::image::format::RGB8;
     /// use web_glitz::image::texture_2d_array::Texture2DArrayDescriptor;
     ///
-    /// let mut texture = context.create_texture_2d_array(&Texture2DArrayDescriptor {
+    /// let mut texture = context.try_create_texture_2d_array(&Texture2DArrayDescriptor {
     ///     format: RGB8,
     ///     width: 256,
     ///     height: 256,
@@ -2522,7 +2522,7 @@ impl<'a, F> LevelMut<'a, F> {
     /// # use web_glitz::image::format::RGB8;
     /// # use web_glitz::image::texture_2d_array::Texture2DArrayDescriptor;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
-    /// # let mut texture = context.create_texture_2d_array(&Texture2DArrayDescriptor {
+    /// # let mut texture = context.try_create_texture_2d_array(&Texture2DArrayDescriptor {
     /// #     format: RGB8,
     /// #     width: 256,
     /// #     height: 256,

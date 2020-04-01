@@ -20,7 +20,7 @@ use web_glitz::pipeline::graphics::{
     CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
 use web_glitz::pipeline::resources::BindGroup;
-use web_glitz::render_target::{FloatAttachment, LoadOp, RenderTargetDescriptor, StoreOp};
+use web_glitz::rendering::{LoadOp, RenderTargetDescriptor, StoreOp};
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 use web_glitz::sampler::{Linear, SamplerDescriptor, Wrap};
 use web_glitz::task::{sequence_all, sequence_right};
@@ -66,19 +66,19 @@ pub fn start() {
         .dyn_into()
         .unwrap();
 
-    let (context, default_render_target) =
+    let (context, mut default_render_target) =
         unsafe { single_threaded::init(&canvas, &ContextOptions::default()).unwrap() };
 
     let primary_vertex_shader = context
-        .create_vertex_shader(include_str!("primary_vertex.glsl"))
+        .try_create_vertex_shader(include_str!("primary_vertex.glsl"))
         .unwrap();
 
     let primary_fragment_shader = context
-        .create_fragment_shader(include_str!("primary_fragment.glsl"))
+        .try_create_fragment_shader(include_str!("primary_fragment.glsl"))
         .unwrap();
 
     let primary_pipeline = context
-        .create_graphics_pipeline(
+        .try_create_graphics_pipeline(
             &GraphicsPipelineDescriptor::begin()
                 .vertex_shader(&primary_vertex_shader)
                 .primitive_assembly(PrimitiveAssembly::Triangles {
@@ -93,15 +93,15 @@ pub fn start() {
         .unwrap();
 
     let secondary_vertex_shader = context
-        .create_vertex_shader(include_str!("secondary_vertex.glsl"))
+        .try_create_vertex_shader(include_str!("secondary_vertex.glsl"))
         .unwrap();
 
     let secondary_fragment_shader = context
-        .create_fragment_shader(include_str!("secondary_fragment.glsl"))
+        .try_create_fragment_shader(include_str!("secondary_fragment.glsl"))
         .unwrap();
 
     let secondary_pipeline = context
-        .create_graphics_pipeline(
+        .try_create_graphics_pipeline(
             &GraphicsPipelineDescriptor::begin()
                 .vertex_shader(&secondary_vertex_shader)
                 .primitive_assembly(PrimitiveAssembly::Triangles {
@@ -118,7 +118,7 @@ pub fn start() {
     // We have to mark the texture as `mut` here, as using a texture as a render target attachment
     // (see below) requires a mut reference to a texture image.
     let mut texture = context
-        .create_texture_2d(&Texture2DDescriptor {
+        .try_create_texture_2d(&Texture2DDescriptor {
             format: RGBA8,
             width: 256,
             height: 256,
@@ -146,32 +146,25 @@ pub fn start() {
 
     // Our secondary render pass uses a custom render target. This render target only has 1 color
     // attachment: we attach the base level of our texture as a "float" attachment. For details on
-    // how to create custom render targets, see the documentation for the `web_glitz::render_target`
+    // how to create custom render targets, see the documentation for the `web_glitz::rendering`
     // module.
-    let secondary_render_pass = context.create_render_pass(
-        RenderTargetDescriptor {
-            color: FloatAttachment {
-                // Note that we need to provide a mut reference to the texture image. This prevents
-                // us from accidentally reading from the same texture elsewhere in the render pass
-                // (by attaching it as a pipeline resource), as reading from a texture while it is
-                // also attached to the current render target would cause undefined behaviour.
-                image: texture.base_level_mut(),
-                load_op: LoadOp::Clear([0.0, 0.0, 0.0, 1.0]),
-                store_op: StoreOp::Store,
-            },
-            depth_stencil: (),
-        },
-        |framebuffer| {
-            framebuffer.pipeline_task(&secondary_pipeline, |active_pipeline| {
-                active_pipeline
-                    .task_builder()
-                    .bind_vertex_buffers(&secondary_vertex_buffer)
-                    .bind_resources((&BindGroup::empty(), &BindGroup::empty()))
-                    .draw(3, 1)
-                    .finish()
-            })
-        },
-    );
+    let mut secondary_render_target = context.create_render_target(RenderTargetDescriptor::new()
+        .attach_color_float(
+            texture.base_level_mut(),
+            LoadOp::Clear([0.0, 0.0, 0.0, 1.0]),
+            StoreOp::Store
+        ));
+
+    let secondary_render_pass = secondary_render_target.create_render_pass(|framebuffer| {
+        framebuffer.pipeline_task(&secondary_pipeline, |active_pipeline| {
+            active_pipeline
+                .task_builder()
+                .bind_vertex_buffers(&secondary_vertex_buffer)
+                .bind_resources((&BindGroup::empty(), &BindGroup::empty()))
+                .draw(3, 1)
+                .finish()
+        })
+    });
 
     let primary_vertex_data = [
         PrimaryVertex {
@@ -206,7 +199,7 @@ pub fn start() {
 
     // Our primary render pass is essentially identical to the render pass used in the
     // `/examples/3_textured_triangle` example.
-    let primary_render_pass = context.create_render_pass(default_render_target, |framebuffer| {
+    let primary_render_pass = default_render_target.create_render_pass(|framebuffer| {
         framebuffer.pipeline_task(&primary_pipeline, |active_pipeline| {
             active_pipeline
                 .task_builder()

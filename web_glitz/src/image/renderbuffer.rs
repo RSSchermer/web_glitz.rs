@@ -70,7 +70,7 @@ where
 /// use web_glitz::image::Region2D;
 /// use web_glitz::image::format::RGB8;
 /// use web_glitz::image::renderbuffer::RenderbufferDescriptor;
-/// use web_glitz::render_target::{FloatAttachment, LoadOp, RenderTargetDescriptor, StoreOp};
+/// use web_glitz::rendering::{FloatAttachment, LoadOp, RenderTargetDescriptor, StoreOp};
 ///
 /// let mut renderbuffer = context.create_renderbuffer(&RenderbufferDescriptor {
 ///     format: RGB8,

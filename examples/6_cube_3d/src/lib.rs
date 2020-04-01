@@ -75,22 +75,22 @@ pub fn start() {
     // We won't use use the default context options this time. Instead we build our own options for
     // which we enable the depth buffer: without a depth buffer a depth test can't be performed (see
     // below).
-    let (context, render_target) = unsafe {
+    let (context, mut render_target) = unsafe {
         single_threaded::init(&canvas, &ContextOptions::begin().enable_depth().finish()).unwrap()
     };
 
     let vertex_shader = context
-        .create_vertex_shader(include_str!("vertex.glsl"))
+        .try_create_vertex_shader(include_str!("vertex.glsl"))
         .unwrap();
 
     let fragment_shader = context
-        .create_fragment_shader(include_str!("fragment.glsl"))
+        .try_create_fragment_shader(include_str!("fragment.glsl"))
         .unwrap();
 
     // Pipeline construction very similar to `2_uniform_buffer`, except this time we also enable the
     // depth test (with default depth test settings).
     let pipeline = context
-        .create_graphics_pipeline(
+        .try_create_graphics_pipeline(
             &GraphicsPipelineDescriptor::begin()
                 .vertex_shader(&vertex_shader)
                 .primitive_assembly(PrimitiveAssembly::Triangles {
@@ -197,7 +197,7 @@ pub fn start() {
         uniforms: &uniform_buffer,
     });
 
-    let render_pass = context.create_render_pass(render_target, |framebuffer| {
+    let render_pass = render_target.create_render_pass(|framebuffer| {
         // This time we'll also bind our index buffer with `bind_index_buffer`. Then, instead of
         // drawing with `draw`, we draw with `draw_indexed` where we specify the number of indices
         // to use (36) and the number of instances to render (1).

@@ -5,7 +5,7 @@ use wasm_bindgen::JsCast;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::image::format::{Filterable, TextureFormat};
-use crate::runtime::{Connection, Extensions, RenderingContext};
+use crate::runtime::{Connection, RenderingContext};
 use crate::task::Progress;
 use crate::task::{ContextId, GpuTask};
 use crate::util::JsId;

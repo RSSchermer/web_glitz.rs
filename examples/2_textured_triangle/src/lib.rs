@@ -64,15 +64,15 @@ pub fn start() {
         .dyn_into()
         .unwrap();
 
-    let (context, render_target) =
+    let (context, mut render_target) =
         unsafe { single_threaded::init(&canvas, &ContextOptions::default()).unwrap() };
 
     let vertex_shader = context
-        .create_vertex_shader(include_str!("vertex.glsl"))
+        .try_create_vertex_shader(include_str!("vertex.glsl"))
         .unwrap();
 
     let fragment_shader = context
-        .create_fragment_shader(include_str!("fragment.glsl"))
+        .try_create_fragment_shader(include_str!("fragment.glsl"))
         .unwrap();
 
     // Create a pipeline.
@@ -86,7 +86,7 @@ pub fn start() {
     // uniform buffers in this example, so we'll use the empty tuple `()` to declare an empty layout
     // for bind group `0`; we'll use our `Resources` type to specify the layout for bind group `1`.
     let pipeline = context
-        .create_graphics_pipeline(
+        .try_create_graphics_pipeline(
             &GraphicsPipelineDescriptor::begin()
                 .vertex_shader(&vertex_shader)
                 .primitive_assembly(PrimitiveAssembly::Triangles {
@@ -122,7 +122,7 @@ pub fn start() {
     // "transparent black"). Note that we only allocate 1 mipmap level (the "base" level) as we
     // won't make use of mipmapping in this example.
     let texture = context
-        .create_texture_2d(&Texture2DDescriptor {
+        .try_create_texture_2d(&Texture2DDescriptor {
             format: RGBA8,
             width: 256,
             height: 256,
@@ -154,7 +154,7 @@ pub fn start() {
         texture: texture.float_sampled(&sampler),
     });
 
-    let render_pass = context.create_render_pass(render_target, |framebuffer| {
+    let render_pass = render_target.create_render_pass(|framebuffer| {
         framebuffer.pipeline_task(&pipeline, |active_pipeline| {
             // Our render pass has thus far been identical to the render pass in
             // `/examples/0_triangle`. However, our pipeline now does use resources, so we add

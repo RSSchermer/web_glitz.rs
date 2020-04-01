@@ -55,11 +55,11 @@ pub(crate) enum BindGroupInternal {
 
 impl<T> BindGroup<T>
 where
-    T: EncodeBindGroup,
+    T: EncodeBindableResourceGroup,
 {
     pub(crate) fn new(context_id: usize, resources: T) -> Self {
         let mut encoding_context = BindGroupEncodingContext::new(context_id);
-        let encoding = resources.encode_bind_group(&mut encoding_context);
+        let encoding = resources.encode_bindable_resource_group(&mut encoding_context);
 
         BindGroup {
             internal: BindGroupInternal::NotEmpty {
@@ -660,32 +660,32 @@ pub trait TypedBindGroupLayout {
     const LAYOUT: &'static [TypedResourceSlotDescriptor];
 }
 
-/// A group of resources that may be used to form a [BindGroup].
+/// A group of resources that may be used to encode a [BindGroup].
 ///
 /// See also [RenderingContext::create_bind_group] for details on how a [BindGroup] is created.
 ///
 /// This trait is implemented for any type that implements the [Resources] trait. The [Resources]
-/// trait may automatically derived (see the documentation for [Resources] for details).
+/// trait may automatically derived (see the documentation for the [Resources] trait for details).
 ///
 /// # Example
 ///
 /// ```
 /// use web_glitz::buffer::Buffer;
 /// use web_glitz::image::texture_2d::FloatSampledTexture2D;
-/// use web_glitz::pipeline::resources::{EncodeBindGroup, BindGroupEncodingContext, BindGroupEncoding, BindGroupEncoder};
+/// use web_glitz::pipeline::resources::{EncodeBindableResourceGroup, BindGroupEncodingContext, BindGroupEncoding, BindGroupEncoder};
 ///
 /// struct Resources<'a, 'b> {
 ///     uniform_buffer: &'a Buffer<std140::mat4x4>,
 ///     texture: FloatSampledTexture2D<'b>
 /// }
 ///
-/// impl<'a, 'b> EncodeBindGroup for Resources<'a, 'b> {
+/// impl<'a, 'b> EncodeBindableResourceGroup for Resources<'a, 'b> {
 ///     type Encoding = (
 ///         &'a Buffer<std140::mat4x4>,
 ///         FloatSampledTexture2D<'b>,
 ///     );
 ///
-///     fn encode_bind_group(
+///     fn encode_bindable_resource_group(
 ///         self,
 ///         encoding_context: &mut BindGroupEncodingContext
 ///     ) -> BindGroupEncoding<Self::Encoding> {
@@ -698,18 +698,17 @@ pub trait TypedBindGroupLayout {
 ///     }
 /// }
 /// ```
-pub trait EncodeBindGroup {
+pub trait EncodeBindableResourceGroup {
     type Encoding;
 
     /// Encodes a description of the bindings for the resources in the group.
-    fn encode_bind_group(
+    fn encode_bindable_resource_group(
         self,
         encoding_context: &mut BindGroupEncodingContext,
     ) -> BindGroupEncoding<Self::Encoding>;
 }
 
-/// Sub-trait of [BindableResourceGroup], where a type statically describes the layout for the
-/// bind group.
+/// Sub-trait of [EncodeBindGroup], where a type statically describes the layout for the bind group.
 ///
 /// A [BindGroup] for resources that implement this trait may be bound to pipeline's with a matching
 /// typed resource bindings layout without additional runtime checks.
@@ -717,9 +716,9 @@ pub trait EncodeBindGroup {
 /// # Unsafe
 ///
 /// Any instance of a type that implements this trait must encode a bind group (see
-/// [BindableResourceGroup::encode_bind_group]) with a layout that matches the bind group layout
-/// declared by [Layout].
-pub unsafe trait TypedBindableResourceGroup {
+/// [EncodeBindGroup::encode_bind_group]) with a layout that matches the bind group layout declared
+/// by [Layout].
+pub unsafe trait TypedBindableResourceGroup: EncodeBindableResourceGroup {
     type Layout: TypedBindGroupLayout;
 }
 
@@ -1151,13 +1150,13 @@ where
     const LAYOUT: &'static [TypedResourceSlotDescriptor] = T::LAYOUT;
 }
 
-impl<T> EncodeBindGroup for T
+impl<T> EncodeBindableResourceGroup for T
 where
     T: Resources,
 {
     type Encoding = T::Encoding;
 
-    fn encode_bind_group(
+    fn encode_bindable_resource_group(
         self,
         encoding_context: &mut BindGroupEncodingContext,
     ) -> BindGroupEncoding<Self::Encoding> {
@@ -1176,10 +1175,10 @@ impl TypedBindGroupLayout for () {
     const LAYOUT: &'static [TypedResourceSlotDescriptor] = &[];
 }
 
-impl EncodeBindGroup for () {
+impl EncodeBindableResourceGroup for () {
     type Encoding = ();
 
-    fn encode_bind_group(
+    fn encode_bindable_resource_group(
         self,
         encoding_context: &mut BindGroupEncodingContext,
     ) -> BindGroupEncoding<()> {

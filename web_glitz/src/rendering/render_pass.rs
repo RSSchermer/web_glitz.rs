@@ -1,34 +1,30 @@
 use js_sys::Uint32Array;
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::render_target::render_target_description::RenderTargetData;
-use crate::render_target::StoreOp;
+use crate::rendering::render_target::RenderTargetData;
+use crate::rendering::StoreOp;
 use crate::runtime::state::{ContextUpdate, DepthStencilAttachmentDescriptor, DynamicState};
 use crate::runtime::Connection;
 use crate::task::{ContextId, GpuTask, Progress};
 
-/// Encapsulates a render pass command.
+/// Encapsulates a render pass.
 ///
-/// A render pass command consists of a render target (see [RenderTargetDescription]) and a render
-/// pass task (a series of commands). The images attached to the render target may be loaded into
-/// the framebuffer. The commands in render pass task may then modify the contents of the
-/// framebuffer. When the task is complete, the contents of the framebuffer may be stored back into
-/// the images attached to the render target.
+/// A render pass task consists of a render target (see [RenderTarget] and
+/// [MultisampleRenderTarget]) and a render pass task (a series of commands). The images attached to
+/// the render target may be loaded into the framebuffer. The commands in render pass task may then
+/// modify the contents of the framebuffer. When the task is complete, the contents of the
+/// framebuffer may be stored back into the images attached to the render target. If and how
+/// the image data is to be loaded and stored is declared as part of the render target, see
+/// [RenderTargetDescriptor] and [MultisampleRenderTargetDescriptor] for details.
 ///
-/// For details on how a [RenderPass] is created, see [RenderingContext::create_render_pass].
+/// For details on how a [RenderPass] is created, see [RenderTarget::create_render_pass] and
+/// [MultisampleRenderTarget::create_render_pass].
 #[derive(Clone)]
 pub struct RenderPass<T> {
     pub(crate) id: usize,
     pub(crate) context_id: usize,
     pub(crate) render_target: RenderTargetData,
     pub(crate) task: T,
-}
-
-/// Unique identifier for a [RenderPass].
-#[derive(PartialEq)]
-pub struct RenderPassId {
-    pub(crate) id: usize,
-    pub(crate) context_id: usize,
 }
 
 /// An execution context associated with a [RenderPass].
