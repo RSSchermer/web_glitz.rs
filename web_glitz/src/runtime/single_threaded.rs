@@ -107,11 +107,11 @@
 use std::any::TypeId;
 use std::borrow::Borrow;
 use std::cell::{Cell, RefCell};
-use std::hash::{Hash, Hasher};
-use std::rc::Rc;
 use std::collections::VecDeque;
+use std::hash::{Hash, Hasher};
 use std::mem;
 use std::ops::Deref;
+use std::rc::Rc;
 
 use fnv::FnvHasher;
 use js_sys::Promise;
@@ -121,6 +121,7 @@ use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext as Gl};
 
 use crate::buffer::{Buffer, IntoBuffer, UsageHint};
+use crate::extensions::Extension;
 use crate::image::format::{
     InternalFormat, Multisamplable, Multisample, RenderbufferFormat, TextureFormat,
 };
@@ -140,11 +141,16 @@ use crate::pipeline::graphics::{
     VertexShader,
 };
 use crate::pipeline::resources::{BindGroup, EncodeBindableResourceGroup};
-use crate::rendering::{DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
-                       DefaultStencilBuffer, DefaultRenderTarget, RenderTarget, MultisampleRenderTargetDescriptor, MultisampleRenderTarget, RenderTargetDescriptor};
+use crate::rendering::{
+    DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
+    DefaultRenderTarget, DefaultStencilBuffer, MultisampleRenderTarget,
+    MultisampleRenderTargetDescriptor, RenderTarget, RenderTargetDescriptor,
+};
 use crate::runtime::executor_job::{job, ExecutorJob, JobState};
 use crate::runtime::fenced::JsTimeoutFencedTaskRunner;
-use crate::runtime::rendering_context::{CreateGraphicsPipelineError, UnsupportedSampleCount, MaxColorBuffersExceeded};
+use crate::runtime::rendering_context::{
+    CreateGraphicsPipelineError, MaxColorBuffersExceeded, UnsupportedSampleCount,
+};
 use crate::runtime::state::DynamicState;
 use crate::runtime::{
     Connection, ContextOptions, Execution, PowerPreference, RenderingContext,
@@ -155,7 +161,6 @@ use crate::sampler::{
     ShadowSamplerDescriptor,
 };
 use crate::task::{GpuTask, Progress};
-use crate::extensions::Extension;
 
 thread_local!(static ID_GEN: IdGen = IdGen::new());
 
@@ -187,7 +192,7 @@ impl RenderPassIdGen {
     fn new(context_id: usize) -> Self {
         RenderPassIdGen {
             context_id,
-            render_pass_id: Rc::new(Cell::new(0))
+            render_pass_id: Rc::new(Cell::new(0)),
         }
     }
 
@@ -220,7 +225,10 @@ impl RenderingContext for SingleThreadedContext {
         self.id
     }
 
-    fn get_extension<T>(&self) -> Option<T> where T: Extension {
+    fn get_extension<T>(&self) -> Option<T>
+    where
+        T: Extension,
+    {
         let executor = self.executor.deref().borrow();
         let mut connection = executor.connection.deref().borrow_mut();
 
@@ -295,7 +303,10 @@ impl RenderingContext for SingleThreadedContext {
         }
     }
 
-    fn try_create_fragment_shader<S>(&self, source: S) -> Result<FragmentShader, ShaderCompilationError>
+    fn try_create_fragment_shader<S>(
+        &self,
+        source: S,
+    ) -> Result<FragmentShader, ShaderCompilationError>
     where
         S: Borrow<str> + 'static,
     {
@@ -317,7 +328,10 @@ impl RenderingContext for SingleThreadedContext {
         GraphicsPipeline::create(self, &mut connection, descriptor)
     }
 
-    fn create_render_target<C, Ds>(&self, descriptor: RenderTargetDescriptor<(C,), Ds>) -> RenderTarget<(C,),  Ds> {
+    fn create_render_target<C, Ds>(
+        &self,
+        descriptor: RenderTargetDescriptor<(C,), Ds>,
+    ) -> RenderTarget<(C,), Ds> {
         let RenderTargetDescriptor {
             color_attachments,
             depth_stencil_attachment,
@@ -328,35 +342,39 @@ impl RenderingContext for SingleThreadedContext {
             color_attachments,
             depth_stencil_attachment,
             context_id: self.id,
-            render_pass_id_gen: self.render_pass_id_gen.clone()
+            render_pass_id_gen: self.render_pass_id_gen.clone(),
         }
     }
 
-    fn try_create_render_target<C, Ds>(&self, descriptor: RenderTargetDescriptor<C, Ds>) -> Result<RenderTarget<C, Ds>, MaxColorBuffersExceeded> {
+    fn try_create_render_target<C, Ds>(
+        &self,
+        descriptor: RenderTargetDescriptor<C, Ds>,
+    ) -> Result<RenderTarget<C, Ds>, MaxColorBuffersExceeded> {
         let RenderTargetDescriptor {
             color_attachments,
             depth_stencil_attachment,
-            color_attachment_count
+            color_attachment_count,
         } = descriptor;
 
         if color_attachment_count > self.max_color_attachments {
             Err(MaxColorBuffersExceeded {
                 max_supported_color_buffers: self.max_color_attachments,
-                requested_color_buffers: color_attachment_count
+                requested_color_buffers: color_attachment_count,
             })
         } else {
-            Ok(
-                RenderTarget {
-                    color_attachments,
-                    depth_stencil_attachment,
-                    context_id: self.id,
-                    render_pass_id_gen: self.render_pass_id_gen.clone()
-                }
-            )
+            Ok(RenderTarget {
+                color_attachments,
+                depth_stencil_attachment,
+                context_id: self.id,
+                render_pass_id_gen: self.render_pass_id_gen.clone(),
+            })
         }
     }
 
-    fn create_multisample_render_target<C, Ds>(&self, descriptor: MultisampleRenderTargetDescriptor<(C,), Ds>) -> MultisampleRenderTarget<(C,), Ds> {
+    fn create_multisample_render_target<C, Ds>(
+        &self,
+        descriptor: MultisampleRenderTargetDescriptor<(C,), Ds>,
+    ) -> MultisampleRenderTarget<(C,), Ds> {
         let MultisampleRenderTargetDescriptor {
             color_attachments,
             depth_stencil_attachment,
@@ -369,34 +387,34 @@ impl RenderingContext for SingleThreadedContext {
             depth_stencil_attachment,
             samples,
             context_id: self.id,
-            render_pass_id_gen: self.render_pass_id_gen.clone()
+            render_pass_id_gen: self.render_pass_id_gen.clone(),
         }
     }
 
-    fn try_create_multisample_render_target<C, Ds>(&self, descriptor: MultisampleRenderTargetDescriptor<C, Ds>) -> Result<MultisampleRenderTarget<C, Ds>, MaxColorBuffersExceeded> {
+    fn try_create_multisample_render_target<C, Ds>(
+        &self,
+        descriptor: MultisampleRenderTargetDescriptor<C, Ds>,
+    ) -> Result<MultisampleRenderTarget<C, Ds>, MaxColorBuffersExceeded> {
         let MultisampleRenderTargetDescriptor {
             color_attachments,
             depth_stencil_attachment,
             samples,
-            color_attachment_count
+            color_attachment_count,
         } = descriptor;
-
 
         if color_attachment_count > self.max_color_attachments {
             Err(MaxColorBuffersExceeded {
                 max_supported_color_buffers: self.max_color_attachments,
-                requested_color_buffers: color_attachment_count
+                requested_color_buffers: color_attachment_count,
             })
         } else {
-            Ok(
-                MultisampleRenderTarget{
-                    color_attachments,
-                    depth_stencil_attachment,
-                    samples,
-                    context_id: self.id,
-                    render_pass_id_gen: self.render_pass_id_gen.clone()
-                }
-            )
+            Ok(MultisampleRenderTarget {
+                color_attachments,
+                depth_stencil_attachment,
+                samples,
+                context_id: self.id,
+                render_pass_id_gen: self.render_pass_id_gen.clone(),
+            })
         }
     }
 
@@ -472,14 +490,18 @@ impl SingleThreadedContext {
         (TypeId::of::<Self>(), id).hash(&mut hasher);
 
         let id = hasher.finish() as usize;
-        let max_color_attachments = gl.get_parameter(Gl::MAX_COLOR_ATTACHMENTS).unwrap().as_f64().unwrap() as usize;
+        let max_color_attachments = gl
+            .get_parameter(Gl::MAX_COLOR_ATTACHMENTS)
+            .unwrap()
+            .as_f64()
+            .unwrap() as usize;
 
         SingleThreadedContext {
             executor: RefCell::new(SingleThreadedExecutor::new(Connection::new(id, gl, state)))
                 .into(),
             id,
             render_pass_id_gen: RenderPassIdGen::new(id),
-            max_color_attachments
+            max_color_attachments,
         }
     }
 }
@@ -651,7 +673,8 @@ impl Options for ContextOptions<DefaultRGBABuffer, ()> {
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref = DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
+        let default_framebuffer_ref =
+            DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
 
         Ok((context, default_framebuffer_ref))
     }
@@ -686,7 +709,8 @@ impl Options for ContextOptions<DefaultRGBABuffer, DefaultDepthStencilBuffer> {
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref = DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
+        let default_framebuffer_ref =
+            DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
 
         Ok((context, default_framebuffer_ref))
     }
@@ -722,7 +746,8 @@ impl Options for ContextOptions<DefaultRGBABuffer, DefaultDepthBuffer> {
 
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref = DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
+        let default_framebuffer_ref =
+            DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
 
         Ok((context, default_framebuffer_ref))
     }
@@ -757,7 +782,8 @@ impl Options for ContextOptions<DefaultRGBABuffer, DefaultStencilBuffer> {
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref = DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
+        let default_framebuffer_ref =
+            DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
 
         Ok((context, default_framebuffer_ref))
     }
@@ -792,7 +818,8 @@ impl Options for ContextOptions<DefaultRGBBuffer, ()> {
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref = DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
+        let default_framebuffer_ref =
+            DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
 
         Ok((context, default_framebuffer_ref))
     }
@@ -827,7 +854,8 @@ impl Options for ContextOptions<DefaultRGBBuffer, DefaultDepthStencilBuffer> {
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref = DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
+        let default_framebuffer_ref =
+            DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
 
         Ok((context, default_framebuffer_ref))
     }
@@ -863,7 +891,8 @@ impl Options for ContextOptions<DefaultRGBBuffer, DefaultDepthBuffer> {
 
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref = DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
+        let default_framebuffer_ref =
+            DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
 
         Ok((context, default_framebuffer_ref))
     }
@@ -898,7 +927,8 @@ impl Options for ContextOptions<DefaultRGBBuffer, DefaultStencilBuffer> {
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref = DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
+        let default_framebuffer_ref =
+            DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
 
         Ok((context, default_framebuffer_ref))
     }

@@ -148,11 +148,11 @@ pub fn start() {
     // attachment: we attach the base level of our texture as a "float" attachment. For details on
     // how to create custom render targets, see the documentation for the `web_glitz::rendering`
     // module.
-    let mut secondary_render_target = context.create_render_target(RenderTargetDescriptor::new()
-        .attach_color_float(
+    let mut secondary_render_target =
+        context.create_render_target(RenderTargetDescriptor::new().attach_color_float(
             texture.base_level_mut(),
             LoadOp::Clear([0.0, 0.0, 0.0, 1.0]),
-            StoreOp::Store
+            StoreOp::Store,
         ));
 
     let secondary_render_pass = secondary_render_target.create_render_pass(|framebuffer| {

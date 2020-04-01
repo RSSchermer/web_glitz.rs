@@ -1,10 +1,13 @@
 use std::marker;
 
-use crate::rendering::{RenderingOutputBuffer, StoreOp, DepthStencilBuffer, LoadOp, AsAttachment, DepthBuffer, StencilBuffer, AsMultisampleAttachment};
-use crate::rendering::load_op::LoadAction;
-use crate::rendering::attachment::AttachmentData;
-use crate::runtime::state::DepthStencilAttachmentDescriptor;
 use crate::image::format::InternalFormat;
+use crate::rendering::attachment::AttachmentData;
+use crate::rendering::load_op::LoadAction;
+use crate::rendering::{
+    AsAttachment, AsMultisampleAttachment, DepthBuffer, DepthStencilBuffer, LoadOp,
+    RenderingOutputBuffer, StencilBuffer, StoreOp,
+};
+use crate::runtime::state::DepthStencilAttachmentDescriptor;
 
 /// Helper trait implemented by types that describe a depth-stencil image attachment for a
 /// [RenderTarget].
@@ -52,15 +55,18 @@ pub struct DepthStencilBufferEncoding<'a, 'b, B> {
     _image_ref: marker::PhantomData<&'b ()>,
 }
 
-impl<'a, 'b, F> DepthStencilBufferEncoding<'a, 'b, DepthStencilBuffer<F>> where F: InternalFormat {
+impl<'a, 'b, F> DepthStencilBufferEncoding<'a, 'b, DepthStencilBuffer<F>>
+where
+    F: InternalFormat,
+{
     pub fn depth_stencil_attachment<I>(
         context: &'a mut DepthStencilBufferEncodingContext,
         image: &'b mut I,
         load_op: LoadOp<(f32, i32)>,
         store_op: StoreOp,
     ) -> Self
-        where
-            I: AsAttachment<Format = F>,
+    where
+        I: AsAttachment<Format = F>,
     {
         let image = image.as_attachment().into_data();
 
@@ -81,8 +87,8 @@ impl<'a, 'b, F> DepthStencilBufferEncoding<'a, 'b, DepthStencilBuffer<F>> where 
         load_op: LoadOp<(f32, i32)>,
         store_op: StoreOp,
     ) -> Self
-        where
-            I: AsMultisampleAttachment<SampleFormat = F>,
+    where
+        I: AsMultisampleAttachment<SampleFormat = F>,
     {
         let image = image.as_multisample_attachment().into_data();
 
@@ -98,7 +104,9 @@ impl<'a, 'b, F> DepthStencilBufferEncoding<'a, 'b, DepthStencilBuffer<F>> where 
     }
 }
 
-impl<'a, 'b, F> DepthStencilBufferEncoding<'a, 'b, DepthBuffer<F>> where F: InternalFormat
+impl<'a, 'b, F> DepthStencilBufferEncoding<'a, 'b, DepthBuffer<F>>
+where
+    F: InternalFormat,
 {
     pub fn depth_attachment<I>(
         context: &'a mut DepthStencilBufferEncodingContext,
@@ -106,8 +114,8 @@ impl<'a, 'b, F> DepthStencilBufferEncoding<'a, 'b, DepthBuffer<F>> where F: Inte
         load_op: LoadOp<f32>,
         store_op: StoreOp,
     ) -> Self
-        where
-            I: AsAttachment<Format = F>,
+    where
+        I: AsAttachment<Format = F>,
     {
         let image = image.as_attachment().into_data();
 
@@ -128,8 +136,8 @@ impl<'a, 'b, F> DepthStencilBufferEncoding<'a, 'b, DepthBuffer<F>> where F: Inte
         load_op: LoadOp<f32>,
         store_op: StoreOp,
     ) -> Self
-        where
-            I: AsMultisampleAttachment<SampleFormat = F>,
+    where
+        I: AsMultisampleAttachment<SampleFormat = F>,
     {
         let image = image.as_multisample_attachment().into_data();
 
@@ -145,15 +153,18 @@ impl<'a, 'b, F> DepthStencilBufferEncoding<'a, 'b, DepthBuffer<F>> where F: Inte
     }
 }
 
-impl<'a, 'b, F> DepthStencilBufferEncoding<'a, 'b, StencilBuffer<F>>  where F: InternalFormat{
+impl<'a, 'b, F> DepthStencilBufferEncoding<'a, 'b, StencilBuffer<F>>
+where
+    F: InternalFormat,
+{
     pub fn stencil_attachment<I>(
         context: &'a mut DepthStencilBufferEncodingContext,
         image: &'b mut I,
         load_op: LoadOp<i32>,
         store_op: StoreOp,
     ) -> Self
-        where
-            I: AsAttachment<Format = F>,
+    where
+        I: AsAttachment<Format = F>,
     {
         let image = image.as_attachment().into_data();
 
@@ -176,8 +187,8 @@ pub struct DepthStencilAttachment<I> {
 }
 
 impl<I> EncodeDepthStencilBuffer for DepthStencilAttachment<I>
-    where
-        I: AsAttachment
+where
+    I: AsAttachment,
 {
     type Buffer = DepthStencilBuffer<I::Format>;
 
@@ -195,8 +206,8 @@ impl<I> EncodeDepthStencilBuffer for DepthStencilAttachment<I>
 }
 
 impl<I> EncodeMultisampleDepthStencilBuffer for DepthStencilAttachment<I>
-    where
-        I: AsMultisampleAttachment
+where
+    I: AsMultisampleAttachment,
 {
     type Buffer = DepthStencilBuffer<I::SampleFormat>;
 
@@ -220,8 +231,8 @@ pub struct DepthAttachment<I> {
 }
 
 impl<I> EncodeDepthStencilBuffer for DepthAttachment<I>
-    where
-        I: AsAttachment
+where
+    I: AsAttachment,
 {
     type Buffer = DepthBuffer<I::Format>;
 
@@ -239,8 +250,8 @@ impl<I> EncodeDepthStencilBuffer for DepthAttachment<I>
 }
 
 impl<I> EncodeMultisampleDepthStencilBuffer for DepthAttachment<I>
-    where
-        I: AsMultisampleAttachment
+where
+    I: AsMultisampleAttachment,
 {
     type Buffer = DepthBuffer<I::SampleFormat>;
 
@@ -264,8 +275,8 @@ pub struct StencilAttachment<I> {
 }
 
 impl<I> EncodeDepthStencilBuffer for StencilAttachment<I>
-    where
-        I: AsAttachment
+where
+    I: AsAttachment,
 {
     type Buffer = StencilBuffer<I::Format>;
 
@@ -289,10 +300,7 @@ pub(crate) enum DepthStencilAttachmentType {
 }
 
 impl DepthStencilAttachmentType {
-    pub(crate) fn descriptor(
-        &self,
-        image: AttachmentData,
-    ) -> DepthStencilAttachmentDescriptor {
+    pub(crate) fn descriptor(&self, image: AttachmentData) -> DepthStencilAttachmentDescriptor {
         match self {
             DepthStencilAttachmentType::DepthStencil => {
                 DepthStencilAttachmentDescriptor::DepthStencil(image)

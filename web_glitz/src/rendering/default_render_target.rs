@@ -1,13 +1,13 @@
 use std::cell::Cell;
 use std::marker;
 
+use crate::rendering::render_target::RenderTargetData;
 use crate::rendering::{
     DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
-    DefaultStencilBuffer, Framebuffer, RenderPass, RenderPassContext, GraphicsPipelineTarget
+    DefaultStencilBuffer, Framebuffer, GraphicsPipelineTarget, RenderPass, RenderPassContext,
 };
-use crate::rendering::render_target::RenderTargetData;
-use crate::task::{ContextId, GpuTask};
 use crate::runtime::single_threaded::RenderPassIdGen;
+use crate::task::{ContextId, GpuTask};
 
 /// A handle to the default render target associated with a [RenderingContext].
 #[derive(Clone)]
@@ -45,7 +45,7 @@ impl DefaultRenderTarget<DefaultRGBBuffer, ()> {
                 context_id: self.context_id,
                 render_pass_id: id,
                 last_pipeline_task_id: Cell::new(0),
-            }
+            },
         });
 
         if let ContextId::Id(render_pass_id) = task.context_id() {
@@ -79,7 +79,7 @@ impl DefaultRenderTarget<DefaultRGBBuffer, DefaultDepthStencilBuffer> {
                 context_id: self.context_id,
                 render_pass_id: id,
                 last_pipeline_task_id: Cell::new(0),
-            }
+            },
         });
 
         if let ContextId::Id(render_pass_id) = task.context_id() {
@@ -113,7 +113,7 @@ impl DefaultRenderTarget<DefaultRGBBuffer, DefaultDepthBuffer> {
                 context_id: self.context_id,
                 render_pass_id: id,
                 last_pipeline_task_id: Cell::new(0),
-            }
+            },
         });
 
         if let ContextId::Id(render_pass_id) = task.context_id() {
@@ -147,7 +147,7 @@ impl DefaultRenderTarget<DefaultRGBBuffer, DefaultStencilBuffer> {
                 context_id: self.context_id,
                 render_pass_id: id,
                 last_pipeline_task_id: Cell::new(0),
-            }
+            },
         });
 
         if let ContextId::Id(render_pass_id) = task.context_id() {
@@ -181,7 +181,7 @@ impl DefaultRenderTarget<DefaultRGBABuffer, ()> {
                 context_id: self.context_id,
                 render_pass_id: id,
                 last_pipeline_task_id: Cell::new(0),
-            }
+            },
         });
 
         if let ContextId::Id(render_pass_id) = task.context_id() {
@@ -215,7 +215,7 @@ impl DefaultRenderTarget<DefaultRGBABuffer, DefaultDepthStencilBuffer> {
                 context_id: self.context_id,
                 render_pass_id: id,
                 last_pipeline_task_id: Cell::new(0),
-            }
+            },
         });
 
         if let ContextId::Id(render_pass_id) = task.context_id() {
@@ -249,7 +249,7 @@ impl DefaultRenderTarget<DefaultRGBABuffer, DefaultDepthBuffer> {
                 context_id: self.context_id,
                 render_pass_id: id,
                 last_pipeline_task_id: Cell::new(0),
-            }
+            },
         });
 
         if let ContextId::Id(render_pass_id) = task.context_id() {
@@ -283,7 +283,7 @@ impl DefaultRenderTarget<DefaultRGBABuffer, DefaultStencilBuffer> {
                 context_id: self.context_id,
                 render_pass_id: id,
                 last_pipeline_task_id: Cell::new(0),
-            }
+            },
         });
 
         if let ContextId::Id(render_pass_id) = task.context_id() {

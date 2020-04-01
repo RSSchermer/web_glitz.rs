@@ -100,11 +100,11 @@ pub fn start() {
     // This render pass is largely equivalent to the render pass in `/examples/0_triangle`, except
     // that here we use a custom render target that uses our `renderbuffer`, rather than the default
     // render target.
-    let mut secondary_render_target = context.create_render_target(RenderTargetDescriptor::new()
-        .attach_color_float(
+    let mut secondary_render_target =
+        context.create_render_target(RenderTargetDescriptor::new().attach_color_float(
             &mut renderbuffer,
             LoadOp::Clear([0.0, 0.0, 0.0, 0.0]),
-            StoreOp::Store
+            StoreOp::Store,
         ));
 
     let secondary_render_pass = secondary_render_target.create_render_pass(|framebuffer| {

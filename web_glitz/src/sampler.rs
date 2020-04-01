@@ -413,9 +413,9 @@ where
 }
 
 unsafe impl<T, F> CompatibleSampler<F> for &'_ T
-    where
-        T: CompatibleSampler<F>,
-        F: TextureFormat
+where
+    T: CompatibleSampler<F>,
+    F: TextureFormat,
 {
     type Min = T::Min;
 
@@ -427,8 +427,9 @@ unsafe impl<T, F> CompatibleSampler<F> for &'_ T
 }
 
 unsafe impl<T, F> CompatibleSampler<F> for &'_ mut T
-    where
-        T: CompatibleSampler<F>,F: TextureFormat
+where
+    T: CompatibleSampler<F>,
+    F: TextureFormat,
 {
     type Min = T::Min;
 

@@ -3,7 +3,9 @@ use std::sync::Arc;
 
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::image::format::{InternalFormat, RenderbufferFormat, TextureFormat, Multisample, Multisamplable};
+use crate::image::format::{
+    InternalFormat, Multisamplable, Multisample, RenderbufferFormat, TextureFormat,
+};
 use crate::image::renderbuffer::{Renderbuffer, RenderbufferData};
 use crate::image::texture_2d::{
     Level as Texture2DLevel, LevelMut as Texture2DLevelMut, Texture2DData,
@@ -98,8 +100,6 @@ where
     }
 }
 
-
-
 /// Exclusive reference to an image that may be attached to a [RenderTarget].
 pub struct Attachment<'a, F> {
     data: AttachmentData,
@@ -182,9 +182,7 @@ impl<'a, F> Attachment<'a, F> {
         }
     }
 
-    pub(crate) fn from_renderbuffer(render_buffer: &'a Renderbuffer<F>) -> Self
-
-    {
+    pub(crate) fn from_renderbuffer(render_buffer: &'a Renderbuffer<F>) -> Self {
         Attachment {
             data: AttachmentData {
                 context_id: render_buffer.data().context_id(),
@@ -215,8 +213,8 @@ pub trait AsMultisampleAttachment {
 }
 
 impl<'a, T> AsMultisampleAttachment for &'a mut T
-    where
-        T: AsMultisampleAttachment,
+where
+    T: AsMultisampleAttachment,
 {
     type SampleFormat = T::SampleFormat;
 
@@ -226,8 +224,8 @@ impl<'a, T> AsMultisampleAttachment for &'a mut T
 }
 
 impl<F> AsMultisampleAttachment for Renderbuffer<Multisample<F>>
-    where
-        F: RenderbufferFormat + Multisamplable + 'static,
+where
+    F: RenderbufferFormat + Multisamplable + 'static,
 {
     type SampleFormat = F;
 
@@ -236,17 +234,17 @@ impl<F> AsMultisampleAttachment for Renderbuffer<Multisample<F>>
     }
 }
 
-
 /// Exclusive reference to a multisample image that may be attached to a [MultisampleRenderTarget].
 pub struct MultisampleAttachment<'a, F> {
     data: AttachmentData,
     samples: usize,
-    marker: marker::PhantomData<&'a F>
+    marker: marker::PhantomData<&'a F>,
 }
 
 impl<'a, F> MultisampleAttachment<'a, F> {
     pub(crate) fn from_renderbuffer(render_buffer: &'a Renderbuffer<Multisample<F>>) -> Self
-    where F: Multisamplable
+    where
+        F: Multisamplable,
     {
         MultisampleAttachment {
             data: AttachmentData {
@@ -258,7 +256,7 @@ impl<'a, F> MultisampleAttachment<'a, F> {
                 height: render_buffer.height(),
             },
             marker: marker::PhantomData,
-            samples: render_buffer.samples()
+            samples: render_buffer.samples(),
         }
     }
 

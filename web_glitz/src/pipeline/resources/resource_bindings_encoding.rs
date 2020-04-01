@@ -27,7 +27,7 @@ pub struct BindGroupEncoding<'a, E> {
     #[allow(dead_code)]
     pub(crate) context: &'a mut BindGroupEncodingContext,
     pub(crate) bindings: Vec<ResourceBindingDescriptor>,
-    _marker: marker::PhantomData<E>
+    _marker: marker::PhantomData<E>,
 }
 
 impl<'a> BindGroupEncoding<'a, ()> {
@@ -35,7 +35,7 @@ impl<'a> BindGroupEncoding<'a, ()> {
         BindGroupEncoding {
             context,
             bindings: Vec::new(),
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 }
@@ -165,7 +165,7 @@ impl BindGroupEncodingContext {
 pub struct BindGroupEncoder<'a, E> {
     context: &'a mut BindGroupEncodingContext,
     bindings: Vec<ResourceBindingDescriptor>,
-    _marker: marker::PhantomData<E>
+    _marker: marker::PhantomData<E>,
 }
 
 impl<'a> BindGroupEncoder<'a, ()> {
@@ -176,12 +176,20 @@ impl<'a> BindGroupEncoder<'a, ()> {
             Vec::new()
         };
 
-        BindGroupEncoder { context, bindings, _marker: marker::PhantomData }
+        BindGroupEncoder {
+            context,
+            bindings,
+            _marker: marker::PhantomData,
+        }
     }
 }
 
 impl<'a, E> BindGroupEncoder<'a, E> {
-    pub fn add_buffer_view<'b, T>(self, slot: u32, buffer_view: BufferView<'b, T>) -> BindGroupEncoder<'a, (BufferView<'b, T>, E)> {
+    pub fn add_buffer_view<'b, T>(
+        self,
+        slot: u32,
+        buffer_view: BufferView<'b, T>,
+    ) -> BindGroupEncoder<'a, (BufferView<'b, T>, E)> {
         let BindGroupEncoder {
             context,
             mut bindings,
@@ -204,7 +212,7 @@ impl<'a, E> BindGroupEncoder<'a, E> {
         BindGroupEncoder {
             context,
             bindings,
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 
@@ -234,7 +242,7 @@ impl<'a, E> BindGroupEncoder<'a, E> {
         BindGroupEncoder {
             context,
             bindings,
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 
@@ -264,7 +272,7 @@ impl<'a, E> BindGroupEncoder<'a, E> {
         BindGroupEncoder {
             context,
             bindings,
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 
@@ -294,7 +302,7 @@ impl<'a, E> BindGroupEncoder<'a, E> {
         BindGroupEncoder {
             context,
             bindings,
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 
@@ -324,7 +332,7 @@ impl<'a, E> BindGroupEncoder<'a, E> {
         BindGroupEncoder {
             context,
             bindings,
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 
@@ -354,7 +362,7 @@ impl<'a, E> BindGroupEncoder<'a, E> {
         BindGroupEncoder {
             context,
             bindings,
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 
@@ -384,7 +392,7 @@ impl<'a, E> BindGroupEncoder<'a, E> {
         BindGroupEncoder {
             context,
             bindings,
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 
@@ -414,7 +422,7 @@ impl<'a, E> BindGroupEncoder<'a, E> {
         BindGroupEncoder {
             context,
             bindings,
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 
@@ -444,7 +452,7 @@ impl<'a, E> BindGroupEncoder<'a, E> {
         BindGroupEncoder {
             context,
             bindings,
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 
@@ -474,7 +482,7 @@ impl<'a, E> BindGroupEncoder<'a, E> {
         BindGroupEncoder {
             context,
             bindings,
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 
@@ -504,7 +512,7 @@ impl<'a, E> BindGroupEncoder<'a, E> {
         BindGroupEncoder {
             context,
             bindings,
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 
@@ -534,7 +542,7 @@ impl<'a, E> BindGroupEncoder<'a, E> {
         BindGroupEncoder {
             context,
             bindings,
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 
@@ -564,7 +572,7 @@ impl<'a, E> BindGroupEncoder<'a, E> {
         BindGroupEncoder {
             context,
             bindings,
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 
@@ -594,7 +602,7 @@ impl<'a, E> BindGroupEncoder<'a, E> {
         BindGroupEncoder {
             context,
             bindings,
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 
@@ -624,7 +632,7 @@ impl<'a, E> BindGroupEncoder<'a, E> {
         BindGroupEncoder {
             context,
             bindings,
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 
@@ -654,7 +662,7 @@ impl<'a, E> BindGroupEncoder<'a, E> {
         BindGroupEncoder {
             context,
             bindings,
-            _marker: marker::PhantomData
+            _marker: marker::PhantomData,
         }
     }
 }
@@ -706,7 +714,9 @@ impl_finish_bind_group_encoding!(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R1
 impl_finish_bind_group_encoding!(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12);
 impl_finish_bind_group_encoding!(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12, R13);
 impl_finish_bind_group_encoding!(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12, R13, R14);
-impl_finish_bind_group_encoding!(R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12, R13, R14, R16);
+impl_finish_bind_group_encoding!(
+    R0, R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12, R13, R14, R16
+);
 
 #[derive(Clone)]
 pub struct BindGroupDescriptor {

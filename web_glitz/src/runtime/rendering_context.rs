@@ -9,6 +9,7 @@ use futures::task::Context;
 use web_sys::WebGl2RenderingContext as Gl;
 
 use crate::buffer::{Buffer, IntoBuffer, UsageHint};
+use crate::extensions::Extension;
 use crate::image::format::{
     InternalFormat, Multisamplable, Multisample, RenderbufferFormat, TextureFormat,
 };
@@ -27,15 +28,16 @@ use crate::pipeline::graphics::{
 use crate::pipeline::resources::{
     BindGroup, EncodeBindableResourceGroup, IncompatibleResources, ResourceSlotIdentifier,
 };
-use crate::rendering::{RenderTargetDescriptor, RenderTarget, MultisampleRenderTarget, MultisampleRenderTargetDescriptor};
+use crate::rendering::{
+    MultisampleRenderTarget, MultisampleRenderTargetDescriptor, RenderTarget,
+    RenderTargetDescriptor,
+};
 use crate::runtime::state::{CreateProgramError, DynamicState};
 use crate::sampler::{
     MagnificationFilter, MinificationFilter, Sampler, SamplerDescriptor, ShadowSampler,
     ShadowSamplerDescriptor,
 };
 use crate::task::GpuTask;
-use crate::extensions::Extension;
-
 
 /// Trait implemented by types that can serve as a WebGlitz rendering context.
 ///
@@ -62,7 +64,9 @@ pub trait RenderingContext {
     /// Identifier that uniquely identifies this rendering context.
     fn id(&self) -> usize;
 
-    fn get_extension<T>(&self) -> Option<T> where T: Extension;
+    fn get_extension<T>(&self) -> Option<T>
+    where
+        T: Extension;
 
     /// Returns a number indicating the maximum number of samples supported for the `format`.
     fn max_supported_samples<F>(&self, format: F) -> usize
@@ -303,7 +307,10 @@ pub trait RenderingContext {
     ///     .unwrap();
     /// # }
     /// ```
-    fn try_create_vertex_shader<S>(&self, source: S) -> Result<VertexShader, ShaderCompilationError>
+    fn try_create_vertex_shader<S>(
+        &self,
+        source: S,
+    ) -> Result<VertexShader, ShaderCompilationError>
     where
         S: Borrow<str> + 'static;
 
@@ -410,13 +417,25 @@ pub trait RenderingContext {
         descriptor: &GraphicsPipelineDescriptor<V, R, Tf>,
     ) -> Result<GraphicsPipeline<V, R, Tf>, CreateGraphicsPipelineError>;
 
-    fn create_render_target<C, Ds>(&self, descriptor: RenderTargetDescriptor<(C,), Ds>) -> RenderTarget<(C,), Ds>;
+    fn create_render_target<C, Ds>(
+        &self,
+        descriptor: RenderTargetDescriptor<(C,), Ds>,
+    ) -> RenderTarget<(C,), Ds>;
 
-    fn try_create_render_target<C, Ds>(&self, descriptor: RenderTargetDescriptor<C, Ds>) -> Result<RenderTarget<C, Ds>, MaxColorBuffersExceeded>;
+    fn try_create_render_target<C, Ds>(
+        &self,
+        descriptor: RenderTargetDescriptor<C, Ds>,
+    ) -> Result<RenderTarget<C, Ds>, MaxColorBuffersExceeded>;
 
-    fn create_multisample_render_target<C, Ds>(&self, descriptor: MultisampleRenderTargetDescriptor<(C,), Ds>) -> MultisampleRenderTarget<(C,), Ds>;
+    fn create_multisample_render_target<C, Ds>(
+        &self,
+        descriptor: MultisampleRenderTargetDescriptor<(C,), Ds>,
+    ) -> MultisampleRenderTarget<(C,), Ds>;
 
-    fn try_create_multisample_render_target<C, Ds>(&self, descriptor: MultisampleRenderTargetDescriptor<C, Ds>) -> Result<MultisampleRenderTarget<C, Ds>, MaxColorBuffersExceeded>;
+    fn try_create_multisample_render_target<C, Ds>(
+        &self,
+        descriptor: MultisampleRenderTargetDescriptor<C, Ds>,
+    ) -> Result<MultisampleRenderTarget<C, Ds>, MaxColorBuffersExceeded>;
 
     /// Creates a new [Texture2D] from the given `descriptor`, or returns an error if the descriptor
     /// was invalid.

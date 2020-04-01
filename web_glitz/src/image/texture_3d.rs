@@ -419,10 +419,7 @@ where
     /// # Panics
     ///
     /// Panics if this texture and the `sampler` do not belong to the same [RenderingContext].
-    pub fn unsigned_integer_sampled<S>(
-        &self,
-        sampler: S,
-    ) -> UnsignedIntegerSampledTexture3D
+    pub fn unsigned_integer_sampled<S>(&self, sampler: S) -> UnsignedIntegerSampledTexture3D
     where
         S: CompatibleSampler<F>,
     {

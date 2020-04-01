@@ -3,10 +3,10 @@ use std::ops::{Deref, DerefMut};
 
 use crate::image::format::{R11F_G11F_B10F, R16F, R32F, RG16F, RG32F, RGBA16F, RGBA32F};
 use crate::rendering::{
-    AsAttachment, EncodeColorBuffer, ColorBufferEncoding,
-    ColorBufferEncodingContext, FloatAttachment, FloatBuffer
+    AsAttachment, ColorBufferEncoding, ColorBufferEncodingContext, EncodeColorBuffer,
+    FloatAttachment, FloatBuffer,
 };
-use crate::runtime::{RenderingContext, Connection};
+use crate::runtime::{Connection, RenderingContext};
 
 #[derive(Clone, Debug)]
 pub struct Extension {
@@ -37,11 +37,10 @@ impl super::Extension for Extension {
     fn try_init(connection: &mut Connection, context_id: usize) -> Option<Self> {
         let (gl, _) = unsafe { connection.unpack() };
 
-        gl.get_extension("EXT_color_buffer_float").ok().flatten().map(|_| {
-            Extension {
-                context_id
-            }
-        })
+        gl.get_extension("EXT_color_buffer_float")
+            .ok()
+            .flatten()
+            .map(|_| Extension { context_id })
     }
 }
 

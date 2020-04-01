@@ -2,13 +2,23 @@ use std::cell::Cell;
 use std::cmp;
 use std::hash::{Hash, Hasher};
 
-use crate::rendering::{EncodeMultisampleColorBuffer, EncodeMultisampleDepthStencilBuffer, ColorBufferEncoding, ColorBufferEncodingContext, Framebuffer, RenderPass, RenderPassContext, GraphicsPipelineTarget, MultisampleFramebuffer, EncodeColorBuffer, EncodeDepthStencilBuffer, DepthStencilBufferEncoding, DepthStencilBufferEncodingContext, StoreOp, AsAttachment, LoadOp, DepthStencilAttachment, DepthAttachment, StencilAttachment, FloatAttachment, IntegerAttachment, UnsignedIntegerAttachment, AsMultisampleAttachment};
+use crate::image::format::{
+    DepthRenderable, DepthStencilRenderable, FloatRenderable, IntegerRenderable, StencilRenderable,
+    UnsignedIntegerRenderable,
+};
 use crate::rendering::attachment::AttachmentData;
+use crate::rendering::load_op::LoadAction;
+use crate::rendering::{
+    AsAttachment, AsMultisampleAttachment, ColorBufferEncoding, ColorBufferEncodingContext,
+    DepthAttachment, DepthStencilAttachment, DepthStencilBufferEncoding,
+    DepthStencilBufferEncodingContext, EncodeColorBuffer, EncodeDepthStencilBuffer,
+    EncodeMultisampleColorBuffer, EncodeMultisampleDepthStencilBuffer, FloatAttachment,
+    Framebuffer, GraphicsPipelineTarget, IntegerAttachment, LoadOp, MultisampleFramebuffer,
+    RenderPass, RenderPassContext, StencilAttachment, StoreOp, UnsignedIntegerAttachment,
+};
+use crate::runtime::single_threaded::RenderPassIdGen;
 use crate::runtime::state::{AttachmentSet, DepthStencilAttachmentDescriptor, DrawBuffer};
 use crate::task::{ContextId, GpuTask};
-use crate::rendering::load_op::LoadAction;
-use crate::runtime::single_threaded::RenderPassIdGen;
-use crate::image::format::{FloatRenderable, IntegerRenderable, UnsignedIntegerRenderable, DepthStencilRenderable, DepthRenderable, StencilRenderable};
 
 /// Marker trait for image reference types that may be attached to a [RenderTargetDescriptor] as a
 /// floating point color attachment.
@@ -16,7 +26,12 @@ use crate::image::format::{FloatRenderable, IntegerRenderable, UnsignedIntegerRe
 /// See [RenderTargetDescriptor::attach_color_float] for details.
 pub unsafe trait AttachColorFloat: AsAttachment {}
 
-unsafe impl<T> AttachColorFloat for T where T: AsAttachment, T::Format: FloatRenderable {}
+unsafe impl<T> AttachColorFloat for T
+where
+    T: AsAttachment,
+    T::Format: FloatRenderable,
+{
+}
 
 /// Marker trait for image reference types that may be attached to a [RenderTargetDescriptor] as an
 /// integer color attachment.
@@ -24,7 +39,12 @@ unsafe impl<T> AttachColorFloat for T where T: AsAttachment, T::Format: FloatRen
 /// See [RenderTargetDescriptor::attach_color_integer] for details.
 pub unsafe trait AttachColorInteger: AsAttachment {}
 
-unsafe impl<T> AttachColorInteger for T where T: AsAttachment, T::Format: IntegerRenderable {}
+unsafe impl<T> AttachColorInteger for T
+where
+    T: AsAttachment,
+    T::Format: IntegerRenderable,
+{
+}
 
 /// Marker trait for image reference types that may be attached to a [RenderTargetDescriptor] as an
 /// unsigned integer color attachment.
@@ -32,7 +52,12 @@ unsafe impl<T> AttachColorInteger for T where T: AsAttachment, T::Format: Intege
 /// See [RenderTargetDescriptor::attach_color_unsigned_integer] for details.
 pub unsafe trait AttachColorUnsignedInteger: AsAttachment {}
 
-unsafe impl<T> AttachColorUnsignedInteger for T where T: AsAttachment, T::Format: UnsignedIntegerRenderable {}
+unsafe impl<T> AttachColorUnsignedInteger for T
+where
+    T: AsAttachment,
+    T::Format: UnsignedIntegerRenderable,
+{
+}
 
 /// Marker trait for image reference types that may be attached to a [RenderTargetDescriptor] as a
 /// depth-stencil attachment.
@@ -40,7 +65,12 @@ unsafe impl<T> AttachColorUnsignedInteger for T where T: AsAttachment, T::Format
 /// See [RenderTargetDescriptor::attach_depth_stencil] for details.
 pub unsafe trait AttachDepthStencil: AsAttachment {}
 
-unsafe impl<T> AttachDepthStencil for T where T: AsAttachment, T::Format: DepthStencilRenderable {}
+unsafe impl<T> AttachDepthStencil for T
+where
+    T: AsAttachment,
+    T::Format: DepthStencilRenderable,
+{
+}
 
 /// Marker trait for image reference types that may be attached to a [RenderTargetDescriptor] as a
 /// depth attachment.
@@ -48,7 +78,12 @@ unsafe impl<T> AttachDepthStencil for T where T: AsAttachment, T::Format: DepthS
 /// See [RenderTargetDescriptor::attach_depth] for details.
 pub unsafe trait AttachDepth: AsAttachment {}
 
-unsafe impl<T> AttachDepth for T where T: AsAttachment, T::Format: DepthRenderable {}
+unsafe impl<T> AttachDepth for T
+where
+    T: AsAttachment,
+    T::Format: DepthRenderable,
+{
+}
 
 /// Marker trait for image reference types that may be attached to a [RenderTargetDescriptor] as a
 /// stencil attachment.
@@ -56,7 +91,12 @@ unsafe impl<T> AttachDepth for T where T: AsAttachment, T::Format: DepthRenderab
 /// See [RenderTargetDescriptor::attach_stencil] for details.
 pub unsafe trait AttachStencil: AsAttachment {}
 
-unsafe impl<T> AttachStencil for T where T: AsAttachment, T::Format: StencilRenderable {}
+unsafe impl<T> AttachStencil for T
+where
+    T: AsAttachment,
+    T::Format: StencilRenderable,
+{
+}
 
 /// Describes a [RenderTarget] for a [RenderPass].
 ///
@@ -314,15 +354,23 @@ impl<C> RenderTargetDescriptor<C, ()> {
     ///     .attach_depth_stencil(&mut depth_stencil_image, LoadOp::Load, StoreOp::Store);
     /// # }
     /// ```
-    pub fn attach_depth_stencil<Ds>(self, image: Ds, load_op: LoadOp<(f32, i32)>, store_op: StoreOp) -> RenderTargetDescriptor<C, DepthStencilAttachment<Ds>> where Ds: AttachDepthStencil {
+    pub fn attach_depth_stencil<Ds>(
+        self,
+        image: Ds,
+        load_op: LoadOp<(f32, i32)>,
+        store_op: StoreOp,
+    ) -> RenderTargetDescriptor<C, DepthStencilAttachment<Ds>>
+    where
+        Ds: AttachDepthStencil,
+    {
         RenderTargetDescriptor {
             color_attachments: self.color_attachments,
             depth_stencil_attachment: DepthStencilAttachment {
                 image,
                 load_op,
-                store_op
+                store_op,
             },
-            color_attachment_count: self.color_attachment_count
+            color_attachment_count: self.color_attachment_count,
         }
     }
 
@@ -347,15 +395,23 @@ impl<C> RenderTargetDescriptor<C, ()> {
     ///     .attach_depth(&mut depth_image, LoadOp::Load, StoreOp::Store);
     /// # }
     /// ```
-    pub fn attach_depth<Ds>(self, image: Ds, load_op: LoadOp<f32>, store_op: StoreOp) -> RenderTargetDescriptor<C, DepthAttachment<Ds>> where Ds: AttachDepth {
+    pub fn attach_depth<Ds>(
+        self,
+        image: Ds,
+        load_op: LoadOp<f32>,
+        store_op: StoreOp,
+    ) -> RenderTargetDescriptor<C, DepthAttachment<Ds>>
+    where
+        Ds: AttachDepth,
+    {
         RenderTargetDescriptor {
             color_attachments: self.color_attachments,
             depth_stencil_attachment: DepthAttachment {
                 image,
                 load_op,
-                store_op
+                store_op,
             },
-            color_attachment_count: self.color_attachment_count
+            color_attachment_count: self.color_attachment_count,
         }
     }
 
@@ -380,15 +436,23 @@ impl<C> RenderTargetDescriptor<C, ()> {
     ///     .attach_stencil(&mut stencil_image, LoadOp::Load, StoreOp::Store);
     /// # }
     /// ```
-    pub fn attach_stencil<Ds>(self, image: Ds, load_op: LoadOp<i32>, store_op: StoreOp) -> RenderTargetDescriptor<C, StencilAttachment<Ds>> where Ds: AttachStencil {
+    pub fn attach_stencil<Ds>(
+        self,
+        image: Ds,
+        load_op: LoadOp<i32>,
+        store_op: StoreOp,
+    ) -> RenderTargetDescriptor<C, StencilAttachment<Ds>>
+    where
+        Ds: AttachStencil,
+    {
         RenderTargetDescriptor {
             color_attachments: self.color_attachments,
             depth_stencil_attachment: StencilAttachment {
                 image,
                 load_op,
-                store_op
+                store_op,
             },
-            color_attachment_count: self.color_attachment_count
+            color_attachment_count: self.color_attachment_count,
         }
     }
 }
@@ -507,51 +571,21 @@ macro_rules! impl_attach_render_target_color {
     }
 }
 
-impl_attach_render_target_color!(
-    1,
-);
-impl_attach_render_target_color!(
-    2, C0
-);
-impl_attach_render_target_color!(
-    3, C0, C1
-);
-impl_attach_render_target_color!(
-    4, C0, C1, C2
-);
-impl_attach_render_target_color!(
-    5, C0, C1, C2, C3
-);
-impl_attach_render_target_color!(
-    6, C0, C1, C2, C3, C4
-);
-impl_attach_render_target_color!(
-    7, C0, C1, C2, C3, C4, C5
-);
-impl_attach_render_target_color!(
-    8, C0, C1, C2, C3, C4, C5, C6
-);
-impl_attach_render_target_color!(
-    9, C0, C1, C2, C3, C4, C5, C6, C7
-);
-impl_attach_render_target_color!(
-    10, C0, C1, C2, C3, C4, C5, C6, C7, C8
-);
-impl_attach_render_target_color!(
-    11, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9
-);
-impl_attach_render_target_color!(
-    12, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10
-);
-impl_attach_render_target_color!(
-    13, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11
-);
-impl_attach_render_target_color!(
-    14, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12
-);
-impl_attach_render_target_color!(
-    15, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13
-);
+impl_attach_render_target_color!(1,);
+impl_attach_render_target_color!(2, C0);
+impl_attach_render_target_color!(3, C0, C1);
+impl_attach_render_target_color!(4, C0, C1, C2);
+impl_attach_render_target_color!(5, C0, C1, C2, C3);
+impl_attach_render_target_color!(6, C0, C1, C2, C3, C4);
+impl_attach_render_target_color!(7, C0, C1, C2, C3, C4, C5);
+impl_attach_render_target_color!(8, C0, C1, C2, C3, C4, C5, C6);
+impl_attach_render_target_color!(9, C0, C1, C2, C3, C4, C5, C6, C7);
+impl_attach_render_target_color!(10, C0, C1, C2, C3, C4, C5, C6, C7, C8);
+impl_attach_render_target_color!(11, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9);
+impl_attach_render_target_color!(12, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
+impl_attach_render_target_color!(13, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11);
+impl_attach_render_target_color!(14, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12);
+impl_attach_render_target_color!(15, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13);
 impl_attach_render_target_color!(
     16, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14
 );
@@ -562,7 +596,12 @@ impl_attach_render_target_color!(
 /// See [MultisampleRenderTargetDescriptor::attach_color_float] for details.
 pub unsafe trait AttachMultisampleColorFloat: AsMultisampleAttachment {}
 
-unsafe impl<T> AttachMultisampleColorFloat for T where T: AsMultisampleAttachment, T::SampleFormat: FloatRenderable {}
+unsafe impl<T> AttachMultisampleColorFloat for T
+where
+    T: AsMultisampleAttachment,
+    T::SampleFormat: FloatRenderable,
+{
+}
 
 /// Marker trait for multisample image reference types that may be attached to a
 /// [MultisampleRenderTargetDescriptor] as a depth-stencil attachment.
@@ -570,7 +609,12 @@ unsafe impl<T> AttachMultisampleColorFloat for T where T: AsMultisampleAttachmen
 /// See [MultisampleRenderTargetDescriptor::attach_depth_stencil] for details.
 pub unsafe trait AttachMultisampleDepthStencil: AsMultisampleAttachment {}
 
-unsafe impl<T> AttachMultisampleDepthStencil for T where T: AsMultisampleAttachment, T::SampleFormat: DepthStencilRenderable {}
+unsafe impl<T> AttachMultisampleDepthStencil for T
+where
+    T: AsMultisampleAttachment,
+    T::SampleFormat: DepthStencilRenderable,
+{
+}
 
 /// Marker trait for multisample image reference types that may be attached to a
 /// [MultisampleRenderTargetDescriptor] as a depth attachment.
@@ -578,7 +622,12 @@ unsafe impl<T> AttachMultisampleDepthStencil for T where T: AsMultisampleAttachm
 /// See [MultisampleRenderTargetDescriptor::attach_depth] for details.
 pub unsafe trait AttachMultisampleDepth: AsMultisampleAttachment {}
 
-unsafe impl<T> AttachMultisampleDepth for T where T: AsMultisampleAttachment, T::SampleFormat: DepthRenderable {}
+unsafe impl<T> AttachMultisampleDepth for T
+where
+    T: AsMultisampleAttachment,
+    T::SampleFormat: DepthRenderable,
+{
+}
 
 /// Describes a [MultisampleRenderTarget] for a [RenderPass].
 ///
@@ -634,7 +683,7 @@ impl MultisampleRenderTargetDescriptor<(), ()> {
             color_attachments: (),
             depth_stencil_attachment: (),
             samples,
-            color_attachment_count: 0
+            color_attachment_count: 0,
         }
     }
 }
@@ -667,11 +716,22 @@ impl<C> MultisampleRenderTargetDescriptor<C, ()> {
     /// Panics if the number of samples used by the `image` does not match the nubmer of samples
     /// specified for this [MultisampleRenderTargetDescriptor] (see
     /// [MultisampleRenderTargetDescriptor::new]).
-    pub fn attach_depth_stencil<Ds>(self, mut image: Ds, load_op: LoadOp<(f32, i32)>, store_op: StoreOp) -> MultisampleRenderTargetDescriptor<C, DepthStencilAttachment<Ds>> where Ds: AttachMultisampleDepthStencil {
+    pub fn attach_depth_stencil<Ds>(
+        self,
+        mut image: Ds,
+        load_op: LoadOp<(f32, i32)>,
+        store_op: StoreOp,
+    ) -> MultisampleRenderTargetDescriptor<C, DepthStencilAttachment<Ds>>
+    where
+        Ds: AttachMultisampleDepthStencil,
+    {
         let image_samples = image.as_multisample_attachment().samples();
 
         if image_samples != self.samples {
-            panic!("Descriptor expects {} samples, but image uses {} samples", self.samples, image_samples);
+            panic!(
+                "Descriptor expects {} samples, but image uses {} samples",
+                self.samples, image_samples
+            );
         }
 
         MultisampleRenderTargetDescriptor {
@@ -679,10 +739,10 @@ impl<C> MultisampleRenderTargetDescriptor<C, ()> {
             depth_stencil_attachment: DepthStencilAttachment {
                 image,
                 load_op,
-                store_op
+                store_op,
             },
             samples: self.samples,
-            color_attachment_count: self.color_attachment_count
+            color_attachment_count: self.color_attachment_count,
         }
     }
 
@@ -713,11 +773,22 @@ impl<C> MultisampleRenderTargetDescriptor<C, ()> {
     /// Panics if the number of samples used by the `image` does not match the nubmer of samples
     /// specified for this [MultisampleRenderTargetDescriptor] (see
     /// [MultisampleRenderTargetDescriptor::new]).
-    pub fn attach_depth<Ds>(self, mut image: Ds, load_op: LoadOp<f32>, store_op: StoreOp) -> MultisampleRenderTargetDescriptor<C, DepthAttachment<Ds>> where Ds: AttachMultisampleDepth {
+    pub fn attach_depth<Ds>(
+        self,
+        mut image: Ds,
+        load_op: LoadOp<f32>,
+        store_op: StoreOp,
+    ) -> MultisampleRenderTargetDescriptor<C, DepthAttachment<Ds>>
+    where
+        Ds: AttachMultisampleDepth,
+    {
         let image_samples = image.as_multisample_attachment().samples();
 
         if image_samples != self.samples {
-            panic!("Descriptor expects {} samples, but image uses {} samples", self.samples, image_samples);
+            panic!(
+                "Descriptor expects {} samples, but image uses {} samples",
+                self.samples, image_samples
+            );
         }
 
         MultisampleRenderTargetDescriptor {
@@ -725,10 +796,10 @@ impl<C> MultisampleRenderTargetDescriptor<C, ()> {
             depth_stencil_attachment: DepthAttachment {
                 image,
                 load_op,
-                store_op
+                store_op,
             },
             samples: self.samples,
-            color_attachment_count: self.color_attachment_count
+            color_attachment_count: self.color_attachment_count,
         }
     }
 }
@@ -799,45 +870,19 @@ macro_rules! impl_attach_multisample_render_target_color {
     }
 }
 
-impl_attach_multisample_render_target_color!(
-    1,
-);
-impl_attach_multisample_render_target_color!(
-    2, C0
-);
-impl_attach_multisample_render_target_color!(
-    3, C0, C1
-);
-impl_attach_multisample_render_target_color!(
-    4, C0, C1, C2
-);
-impl_attach_multisample_render_target_color!(
-    5, C0, C1, C2, C3
-);
-impl_attach_multisample_render_target_color!(
-    6, C0, C1, C2, C3, C4
-);
-impl_attach_multisample_render_target_color!(
-    7, C0, C1, C2, C3, C4, C5
-);
-impl_attach_multisample_render_target_color!(
-    8, C0, C1, C2, C3, C4, C5, C6
-);
-impl_attach_multisample_render_target_color!(
-    9, C0, C1, C2, C3, C4, C5, C6, C7
-);
-impl_attach_multisample_render_target_color!(
-    10, C0, C1, C2, C3, C4, C5, C6, C7, C8
-);
-impl_attach_multisample_render_target_color!(
-    11, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9
-);
-impl_attach_multisample_render_target_color!(
-    12, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10
-);
-impl_attach_multisample_render_target_color!(
-    13, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11
-);
+impl_attach_multisample_render_target_color!(1,);
+impl_attach_multisample_render_target_color!(2, C0);
+impl_attach_multisample_render_target_color!(3, C0, C1);
+impl_attach_multisample_render_target_color!(4, C0, C1, C2);
+impl_attach_multisample_render_target_color!(5, C0, C1, C2, C3);
+impl_attach_multisample_render_target_color!(6, C0, C1, C2, C3, C4);
+impl_attach_multisample_render_target_color!(7, C0, C1, C2, C3, C4, C5);
+impl_attach_multisample_render_target_color!(8, C0, C1, C2, C3, C4, C5, C6);
+impl_attach_multisample_render_target_color!(9, C0, C1, C2, C3, C4, C5, C6, C7);
+impl_attach_multisample_render_target_color!(10, C0, C1, C2, C3, C4, C5, C6, C7, C8);
+impl_attach_multisample_render_target_color!(11, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9);
+impl_attach_multisample_render_target_color!(12, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
+impl_attach_multisample_render_target_color!(13, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11);
 impl_attach_multisample_render_target_color!(
     14, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12
 );

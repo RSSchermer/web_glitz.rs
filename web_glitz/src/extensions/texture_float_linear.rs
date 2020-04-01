@@ -1,7 +1,10 @@
 use crate::image::format::{TextureFormat, R32F, RG32F, RGB32F, RGBA32F};
-use crate::sampler::{CompatibleSampler, Linear, LinearMipmapLinear, LinearMipmapNearest, Nearest, NearestMipmapLinear, NearestMipmapNearest, Sampler, MinificationFilter, MagnificationFilter};
-use std::ops::Deref;
 use crate::runtime::Connection;
+use crate::sampler::{
+    CompatibleSampler, Linear, LinearMipmapLinear, LinearMipmapNearest, MagnificationFilter,
+    MinificationFilter, Nearest, NearestMipmapLinear, NearestMipmapNearest, Sampler,
+};
+use std::ops::Deref;
 
 #[derive(Clone, Debug)]
 pub struct Extension {
@@ -22,11 +25,10 @@ impl super::Extension for Extension {
     fn try_init(connection: &mut Connection, context_id: usize) -> Option<Self> {
         let (gl, _) = unsafe { connection.unpack() };
 
-        gl.get_extension("OES_texture_float_linear").ok().flatten().map(|_| {
-            Extension {
-                context_id
-            }
-        })
+        gl.get_extension("OES_texture_float_linear")
+            .ok()
+            .flatten()
+            .map(|_| Extension { context_id })
     }
 }
 

@@ -1,10 +1,12 @@
 use std::marker;
 
 use crate::image::format::InternalFormat;
-use crate::rendering::{FloatBuffer, IntegerBuffer, RenderingOutputBuffer, UnsignedIntegerBuffer, StoreOp, LoadOp};
-use crate::rendering::attachment::{AttachmentData, AsMultisampleAttachment};
-use crate::rendering::AsAttachment;
+use crate::rendering::attachment::{AsMultisampleAttachment, AttachmentData};
 use crate::rendering::load_op::LoadAction;
+use crate::rendering::AsAttachment;
+use crate::rendering::{
+    FloatBuffer, IntegerBuffer, LoadOp, RenderingOutputBuffer, StoreOp, UnsignedIntegerBuffer,
+};
 
 /// Helper trait implemented by types that describe a color image attachment for a [RenderTarget].
 pub trait EncodeColorBuffer {
@@ -57,7 +59,9 @@ pub struct ColorBufferEncoding<'a, 'b, B> {
     pub(crate) _image_ref: marker::PhantomData<&'b ()>,
 }
 
-impl<'a, 'b, F> ColorBufferEncoding<'a, 'b, FloatBuffer<F>> where F: InternalFormat
+impl<'a, 'b, F> ColorBufferEncoding<'a, 'b, FloatBuffer<F>>
+where
+    F: InternalFormat,
 {
     pub fn float_attachment<I>(
         context: &'a mut ColorBufferEncodingContext,
@@ -91,8 +95,8 @@ impl<'a, 'b, F> ColorBufferEncoding<'a, 'b, FloatBuffer<F>> where F: InternalFor
         load_op: LoadOp<[f32; 4]>,
         store_op: StoreOp,
     ) -> Self
-        where
-            I: AsMultisampleAttachment<SampleFormat = F>,
+    where
+        I: AsMultisampleAttachment<SampleFormat = F>,
     {
         let image = image.as_multisample_attachment().into_data();
 
@@ -112,7 +116,9 @@ impl<'a, 'b, F> ColorBufferEncoding<'a, 'b, FloatBuffer<F>> where F: InternalFor
     }
 }
 
-impl<'a, 'b, F> ColorBufferEncoding<'a, 'b, IntegerBuffer<F>> where F: InternalFormat
+impl<'a, 'b, F> ColorBufferEncoding<'a, 'b, IntegerBuffer<F>>
+where
+    F: InternalFormat,
 {
     pub fn integer_attachment<I>(
         context: &'a mut ColorBufferEncodingContext,
@@ -141,7 +147,9 @@ impl<'a, 'b, F> ColorBufferEncoding<'a, 'b, IntegerBuffer<F>> where F: InternalF
     }
 }
 
-impl<'a, 'b, F> ColorBufferEncoding<'a, 'b, UnsignedIntegerBuffer<F>> where F: InternalFormat
+impl<'a, 'b, F> ColorBufferEncoding<'a, 'b, UnsignedIntegerBuffer<F>>
+where
+    F: InternalFormat,
 {
     pub fn unsigned_integer_attachment<I>(
         context: &'a mut ColorBufferEncodingContext,
@@ -178,7 +186,7 @@ pub struct FloatAttachment<I> {
 
 impl<I> EncodeColorBuffer for FloatAttachment<I>
 where
-    I: AsAttachment
+    I: AsAttachment,
 {
     type Buffer = FloatBuffer<I::Format>;
 
@@ -186,18 +194,13 @@ where
         &'a mut self,
         context: &'b mut ColorBufferEncodingContext,
     ) -> ColorBufferEncoding<'b, 'a, Self::Buffer> {
-        ColorBufferEncoding::float_attachment(
-            context,
-            &mut self.image,
-            self.load_op,
-            self.store_op,
-        )
+        ColorBufferEncoding::float_attachment(context, &mut self.image, self.load_op, self.store_op)
     }
 }
 
 impl<I> EncodeMultisampleColorBuffer for FloatAttachment<I>
-    where
-        I: AsMultisampleAttachment
+where
+    I: AsMultisampleAttachment,
 {
     type Buffer = FloatBuffer<I::SampleFormat>;
 
@@ -222,7 +225,7 @@ pub struct IntegerAttachment<I> {
 
 impl<I> EncodeColorBuffer for IntegerAttachment<I>
 where
-    I: AsAttachment
+    I: AsAttachment,
 {
     type Buffer = IntegerBuffer<I::Format>;
 
@@ -247,7 +250,7 @@ pub struct UnsignedIntegerAttachment<I> {
 
 impl<I> EncodeColorBuffer for UnsignedIntegerAttachment<I>
 where
-    I: AsAttachment
+    I: AsAttachment,
 {
     type Buffer = UnsignedIntegerBuffer<I::Format>;
 

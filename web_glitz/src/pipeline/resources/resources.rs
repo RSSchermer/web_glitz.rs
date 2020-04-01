@@ -1212,7 +1212,11 @@ pub unsafe trait Resource {
     const TYPE: ResourceSlotType;
 
     /// Encodes a binding for this resource at the specified `slot_index`.
-    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)>;
+    fn encode<E>(
+        self,
+        slot_index: u32,
+        encoder: BindGroupEncoder<E>,
+    ) -> BindGroupEncoder<(Self::Encoding, E)>;
 }
 
 unsafe impl<'a, T> Resource for &'a Buffer<T>
@@ -1223,7 +1227,11 @@ where
 
     const TYPE: ResourceSlotType = ResourceSlotType::UniformBuffer(T::MEMORY_UNITS);
 
-    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+    fn encode<E>(
+        self,
+        slot_index: u32,
+        encoder: BindGroupEncoder<E>,
+    ) -> BindGroupEncoder<(Self::Encoding, E)> {
         encoder.add_buffer_view(slot_index, self.into())
     }
 }
@@ -1236,7 +1244,11 @@ where
 
     const TYPE: ResourceSlotType = ResourceSlotType::UniformBuffer(T::MEMORY_UNITS);
 
-    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+    fn encode<E>(
+        self,
+        slot_index: u32,
+        encoder: BindGroupEncoder<E>,
+    ) -> BindGroupEncoder<(Self::Encoding, E)> {
         encoder.add_buffer_view(slot_index, self)
     }
 }
@@ -1247,7 +1259,11 @@ unsafe impl<'a> Resource for FloatSampledTexture2D<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::FloatSampler2D);
 
-    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+    fn encode<E>(
+        self,
+        slot_index: u32,
+        encoder: BindGroupEncoder<E>,
+    ) -> BindGroupEncoder<(Self::Encoding, E)> {
         encoder.add_float_sampled_texture_2d(slot_index, self)
     }
 }
@@ -1258,7 +1274,11 @@ unsafe impl<'a> Resource for FloatSampledTexture2DArray<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::FloatSampler2DArray);
 
-    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+    fn encode<E>(
+        self,
+        slot_index: u32,
+        encoder: BindGroupEncoder<E>,
+    ) -> BindGroupEncoder<(Self::Encoding, E)> {
         encoder.add_float_sampled_texture_2d_array(slot_index, self)
     }
 }
@@ -1269,7 +1289,11 @@ unsafe impl<'a> Resource for FloatSampledTexture3D<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::FloatSampler3D);
 
-    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+    fn encode<E>(
+        self,
+        slot_index: u32,
+        encoder: BindGroupEncoder<E>,
+    ) -> BindGroupEncoder<(Self::Encoding, E)> {
         encoder.add_float_sampled_texture_3d(slot_index, self)
     }
 }
@@ -1280,7 +1304,11 @@ unsafe impl<'a> Resource for FloatSampledTextureCube<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::FloatSamplerCube);
 
-    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+    fn encode<E>(
+        self,
+        slot_index: u32,
+        encoder: BindGroupEncoder<E>,
+    ) -> BindGroupEncoder<(Self::Encoding, E)> {
         encoder.add_float_sampled_texture_cube(slot_index, self)
     }
 }
@@ -1291,7 +1319,11 @@ unsafe impl<'a> Resource for IntegerSampledTexture2D<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::IntegerSampler2D);
 
-    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+    fn encode<E>(
+        self,
+        slot_index: u32,
+        encoder: BindGroupEncoder<E>,
+    ) -> BindGroupEncoder<(Self::Encoding, E)> {
         encoder.add_integer_sampled_texture_2d(slot_index, self)
     }
 }
@@ -1302,7 +1334,11 @@ unsafe impl<'a> Resource for IntegerSampledTexture2DArray<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::IntegerSampler2DArray);
 
-    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+    fn encode<E>(
+        self,
+        slot_index: u32,
+        encoder: BindGroupEncoder<E>,
+    ) -> BindGroupEncoder<(Self::Encoding, E)> {
         encoder.add_integer_sampled_texture_2d_array(slot_index, self)
     }
 }
@@ -1313,7 +1349,11 @@ unsafe impl<'a> Resource for IntegerSampledTexture3D<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::IntegerSampler3D);
 
-    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+    fn encode<E>(
+        self,
+        slot_index: u32,
+        encoder: BindGroupEncoder<E>,
+    ) -> BindGroupEncoder<(Self::Encoding, E)> {
         encoder.add_integer_sampled_texture_3d(slot_index, self)
     }
 }
@@ -1324,7 +1364,11 @@ unsafe impl<'a> Resource for IntegerSampledTextureCube<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::IntegerSamplerCube);
 
-    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+    fn encode<E>(
+        self,
+        slot_index: u32,
+        encoder: BindGroupEncoder<E>,
+    ) -> BindGroupEncoder<(Self::Encoding, E)> {
         encoder.add_integer_sampled_texture_cube(slot_index, self)
     }
 }
@@ -1335,7 +1379,11 @@ unsafe impl<'a> Resource for UnsignedIntegerSampledTexture2D<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::UnsignedIntegerSampler2D);
 
-    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+    fn encode<E>(
+        self,
+        slot_index: u32,
+        encoder: BindGroupEncoder<E>,
+    ) -> BindGroupEncoder<(Self::Encoding, E)> {
         encoder.add_unsigned_integer_sampled_texture_2d(slot_index, self)
     }
 }
@@ -1346,7 +1394,11 @@ unsafe impl<'a> Resource for UnsignedIntegerSampledTexture2DArray<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::UnsignedIntegerSampler2DArray);
 
-    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+    fn encode<E>(
+        self,
+        slot_index: u32,
+        encoder: BindGroupEncoder<E>,
+    ) -> BindGroupEncoder<(Self::Encoding, E)> {
         encoder.add_unsigned_integer_sampled_texture_2d_array(slot_index, self)
     }
 }
@@ -1357,7 +1409,11 @@ unsafe impl<'a> Resource for UnsignedIntegerSampledTexture3D<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::UnsignedIntegerSampler3D);
 
-    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+    fn encode<E>(
+        self,
+        slot_index: u32,
+        encoder: BindGroupEncoder<E>,
+    ) -> BindGroupEncoder<(Self::Encoding, E)> {
         encoder.add_unsigned_integer_sampled_texture_3d(slot_index, self)
     }
 }
@@ -1368,7 +1424,11 @@ unsafe impl<'a> Resource for UnsignedIntegerSampledTextureCube<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::UnsignedIntegerSamplerCube);
 
-    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+    fn encode<E>(
+        self,
+        slot_index: u32,
+        encoder: BindGroupEncoder<E>,
+    ) -> BindGroupEncoder<(Self::Encoding, E)> {
         encoder.add_unsigned_integer_sampled_texture_cube(slot_index, self)
     }
 }
@@ -1379,7 +1439,11 @@ unsafe impl<'a> Resource for ShadowSampledTexture2D<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::Sampler2DShadow);
 
-    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+    fn encode<E>(
+        self,
+        slot_index: u32,
+        encoder: BindGroupEncoder<E>,
+    ) -> BindGroupEncoder<(Self::Encoding, E)> {
         encoder.add_shadow_sampled_texture_2d(slot_index, self)
     }
 }
@@ -1390,7 +1454,11 @@ unsafe impl<'a> Resource for ShadowSampledTexture2DArray<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::Sampler2DArrayShadow);
 
-    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+    fn encode<E>(
+        self,
+        slot_index: u32,
+        encoder: BindGroupEncoder<E>,
+    ) -> BindGroupEncoder<(Self::Encoding, E)> {
         encoder.add_shadow_sampled_texture_2d_array(slot_index, self)
     }
 }
@@ -1401,7 +1469,11 @@ unsafe impl<'a> Resource for ShadowSampledTextureCube<'a> {
     const TYPE: ResourceSlotType =
         ResourceSlotType::SampledTexture(SampledTextureType::SamplerCubeShadow);
 
-    fn encode<E>(self, slot_index: u32, encoder: BindGroupEncoder<E>) -> BindGroupEncoder<(Self::Encoding, E)> {
+    fn encode<E>(
+        self,
+        slot_index: u32,
+        encoder: BindGroupEncoder<E>,
+    ) -> BindGroupEncoder<(Self::Encoding, E)> {
         encoder.add_shadow_sampled_texture_cube(slot_index, self)
     }
 }
