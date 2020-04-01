@@ -598,7 +598,7 @@ impl SingleThreadedExecutor {
             buffer.push_back(Box::new(job));
 
             // Only queue a new micro task if this if the first job to be buffered, otherwise a
-            // task will have already been queued.
+            // micro task will have already been queued.
             if buffer.len() == 1 {
                 let ref_cell: &RefCell<_> = self.process_buffer_closure.borrow();
                 let callback_ref = ref_cell.borrow();
