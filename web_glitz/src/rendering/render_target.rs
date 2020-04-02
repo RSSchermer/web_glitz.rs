@@ -3,9 +3,14 @@ use std::cmp;
 use std::hash::{Hash, Hasher};
 
 use crate::image::format::{
-    DepthRenderable, DepthStencilRenderable, FloatRenderable, IntegerRenderable, StencilRenderable,
-    UnsignedIntegerRenderable,
+    DepthRenderable, DepthStencilRenderable, FloatRenderable, IntegerRenderable, Multisamplable,
+    Multisample, RenderbufferFormat, StencilRenderable, TextureFormat, UnsignedIntegerRenderable,
 };
+use crate::image::renderbuffer::Renderbuffer;
+use crate::image::texture_2d::LevelMut as Texture2DLevelMut;
+use crate::image::texture_2d_array::LevelLayerMut as Texture2DArrayLevelLayerMut;
+use crate::image::texture_3d::LevelLayerMut as Texture3DLevelLayerMut;
+use crate::image::texture_cube::LevelFaceMut as TextureCubeLevelFaceMut;
 use crate::rendering::attachment::AttachmentData;
 use crate::rendering::load_op::LoadAction;
 use crate::rendering::{
@@ -26,10 +31,30 @@ use crate::task::{ContextId, GpuTask};
 /// See [RenderTargetDescriptor::attach_color_float] for details.
 pub unsafe trait AttachColorFloat: AsAttachment {}
 
-unsafe impl<T> AttachColorFloat for T
-where
-    T: AsAttachment,
-    T::Format: FloatRenderable,
+unsafe impl<'a, T> AttachColorFloat for &'a mut T where T: AttachColorFloat {}
+
+unsafe impl<'a, F> AttachColorFloat for Texture2DLevelMut<'a, F> where
+    F: TextureFormat + FloatRenderable
+{
+}
+
+unsafe impl<'a, F> AttachColorFloat for Texture2DArrayLevelLayerMut<'a, F> where
+    F: TextureFormat + FloatRenderable
+{
+}
+
+unsafe impl<'a, F> AttachColorFloat for Texture3DLevelLayerMut<'a, F> where
+    F: TextureFormat + FloatRenderable
+{
+}
+
+unsafe impl<'a, F> AttachColorFloat for TextureCubeLevelFaceMut<'a, F> where
+    F: TextureFormat + FloatRenderable
+{
+}
+
+unsafe impl<F> AttachColorFloat for Renderbuffer<F> where
+    F: RenderbufferFormat + FloatRenderable + 'static
 {
 }
 
@@ -39,10 +64,30 @@ where
 /// See [RenderTargetDescriptor::attach_color_integer] for details.
 pub unsafe trait AttachColorInteger: AsAttachment {}
 
-unsafe impl<T> AttachColorInteger for T
-where
-    T: AsAttachment,
-    T::Format: IntegerRenderable,
+unsafe impl<'a, T> AttachColorInteger for &'a mut T where T: AttachColorInteger {}
+
+unsafe impl<'a, F> AttachColorInteger for Texture2DLevelMut<'a, F> where
+    F: TextureFormat + IntegerRenderable
+{
+}
+
+unsafe impl<'a, F> AttachColorInteger for Texture2DArrayLevelLayerMut<'a, F> where
+    F: TextureFormat + IntegerRenderable
+{
+}
+
+unsafe impl<'a, F> AttachColorInteger for Texture3DLevelLayerMut<'a, F> where
+    F: TextureFormat + IntegerRenderable
+{
+}
+
+unsafe impl<'a, F> AttachColorInteger for TextureCubeLevelFaceMut<'a, F> where
+    F: TextureFormat + IntegerRenderable
+{
+}
+
+unsafe impl<F> AttachColorInteger for Renderbuffer<F> where
+    F: RenderbufferFormat + IntegerRenderable + 'static
 {
 }
 
@@ -52,10 +97,30 @@ where
 /// See [RenderTargetDescriptor::attach_color_unsigned_integer] for details.
 pub unsafe trait AttachColorUnsignedInteger: AsAttachment {}
 
-unsafe impl<T> AttachColorUnsignedInteger for T
-where
-    T: AsAttachment,
-    T::Format: UnsignedIntegerRenderable,
+unsafe impl<'a, T> AttachColorUnsignedInteger for &'a mut T where T: AttachColorUnsignedInteger {}
+
+unsafe impl<'a, F> AttachColorUnsignedInteger for Texture2DLevelMut<'a, F> where
+    F: TextureFormat + UnsignedIntegerRenderable
+{
+}
+
+unsafe impl<'a, F> AttachColorUnsignedInteger for Texture2DArrayLevelLayerMut<'a, F> where
+    F: TextureFormat + UnsignedIntegerRenderable
+{
+}
+
+unsafe impl<'a, F> AttachColorUnsignedInteger for Texture3DLevelLayerMut<'a, F> where
+    F: TextureFormat + UnsignedIntegerRenderable
+{
+}
+
+unsafe impl<'a, F> AttachColorUnsignedInteger for TextureCubeLevelFaceMut<'a, F> where
+    F: TextureFormat + UnsignedIntegerRenderable
+{
+}
+
+unsafe impl<F> AttachColorUnsignedInteger for Renderbuffer<F> where
+    F: RenderbufferFormat + UnsignedIntegerRenderable + 'static
 {
 }
 
@@ -65,10 +130,30 @@ where
 /// See [RenderTargetDescriptor::attach_depth_stencil] for details.
 pub unsafe trait AttachDepthStencil: AsAttachment {}
 
-unsafe impl<T> AttachDepthStencil for T
-where
-    T: AsAttachment,
-    T::Format: DepthStencilRenderable,
+unsafe impl<'a, T> AttachDepthStencil for &'a mut T where T: AttachDepthStencil {}
+
+unsafe impl<'a, F> AttachDepthStencil for Texture2DLevelMut<'a, F> where
+    F: TextureFormat + DepthStencilRenderable
+{
+}
+
+unsafe impl<'a, F> AttachDepthStencil for Texture2DArrayLevelLayerMut<'a, F> where
+    F: TextureFormat + DepthStencilRenderable
+{
+}
+
+unsafe impl<'a, F> AttachDepthStencil for Texture3DLevelLayerMut<'a, F> where
+    F: TextureFormat + DepthStencilRenderable
+{
+}
+
+unsafe impl<'a, F> AttachDepthStencil for TextureCubeLevelFaceMut<'a, F> where
+    F: TextureFormat + DepthStencilRenderable
+{
+}
+
+unsafe impl<F> AttachDepthStencil for Renderbuffer<F> where
+    F: RenderbufferFormat + DepthStencilRenderable + 'static
 {
 }
 
@@ -78,10 +163,27 @@ where
 /// See [RenderTargetDescriptor::attach_depth] for details.
 pub unsafe trait AttachDepth: AsAttachment {}
 
-unsafe impl<T> AttachDepth for T
-where
-    T: AsAttachment,
-    T::Format: DepthRenderable,
+unsafe impl<'a, T> AttachDepth for &'a mut T where T: AttachDepth {}
+
+unsafe impl<'a, F> AttachDepth for Texture2DLevelMut<'a, F> where F: TextureFormat + DepthRenderable {}
+
+unsafe impl<'a, F> AttachDepth for Texture2DArrayLevelLayerMut<'a, F> where
+    F: TextureFormat + DepthRenderable
+{
+}
+
+unsafe impl<'a, F> AttachDepth for Texture3DLevelLayerMut<'a, F> where
+    F: TextureFormat + DepthRenderable
+{
+}
+
+unsafe impl<'a, F> AttachDepth for TextureCubeLevelFaceMut<'a, F> where
+    F: TextureFormat + DepthRenderable
+{
+}
+
+unsafe impl<F> AttachDepth for Renderbuffer<F> where
+    F: RenderbufferFormat + DepthRenderable + 'static
 {
 }
 
@@ -91,10 +193,30 @@ where
 /// See [RenderTargetDescriptor::attach_stencil] for details.
 pub unsafe trait AttachStencil: AsAttachment {}
 
-unsafe impl<T> AttachStencil for T
-where
-    T: AsAttachment,
-    T::Format: StencilRenderable,
+unsafe impl<'a, T> AttachStencil for &'a mut T where T: AttachStencil {}
+
+unsafe impl<'a, F> AttachStencil for Texture2DLevelMut<'a, F> where
+    F: TextureFormat + StencilRenderable
+{
+}
+
+unsafe impl<'a, F> AttachStencil for Texture2DArrayLevelLayerMut<'a, F> where
+    F: TextureFormat + StencilRenderable
+{
+}
+
+unsafe impl<'a, F> AttachStencil for Texture3DLevelLayerMut<'a, F> where
+    F: TextureFormat + StencilRenderable
+{
+}
+
+unsafe impl<'a, F> AttachStencil for TextureCubeLevelFaceMut<'a, F> where
+    F: TextureFormat + StencilRenderable
+{
+}
+
+unsafe impl<F> AttachStencil for Renderbuffer<F> where
+    F: RenderbufferFormat + StencilRenderable + 'static
 {
 }
 
@@ -596,10 +718,10 @@ impl_attach_render_target_color!(
 /// See [MultisampleRenderTargetDescriptor::attach_color_float] for details.
 pub unsafe trait AttachMultisampleColorFloat: AsMultisampleAttachment {}
 
-unsafe impl<T> AttachMultisampleColorFloat for T
-where
-    T: AsMultisampleAttachment,
-    T::SampleFormat: FloatRenderable,
+unsafe impl<'a, T> AttachMultisampleColorFloat for &'a mut T where T: AttachMultisampleColorFloat {}
+
+unsafe impl<F> AttachMultisampleColorFloat for Renderbuffer<Multisample<F>> where
+    F: RenderbufferFormat + Multisamplable + FloatRenderable + 'static
 {
 }
 
@@ -609,10 +731,11 @@ where
 /// See [MultisampleRenderTargetDescriptor::attach_depth_stencil] for details.
 pub unsafe trait AttachMultisampleDepthStencil: AsMultisampleAttachment {}
 
-unsafe impl<T> AttachMultisampleDepthStencil for T
-where
-    T: AsMultisampleAttachment,
-    T::SampleFormat: DepthStencilRenderable,
+unsafe impl<'a, T> AttachMultisampleDepthStencil for &'a mut T where T: AttachMultisampleDepthStencil
+{}
+
+unsafe impl<F> AttachMultisampleDepthStencil for Renderbuffer<Multisample<F>> where
+    F: RenderbufferFormat + Multisamplable + DepthStencilRenderable + 'static
 {
 }
 
@@ -622,10 +745,10 @@ where
 /// See [MultisampleRenderTargetDescriptor::attach_depth] for details.
 pub unsafe trait AttachMultisampleDepth: AsMultisampleAttachment {}
 
-unsafe impl<T> AttachMultisampleDepth for T
-where
-    T: AsMultisampleAttachment,
-    T::SampleFormat: DepthRenderable,
+unsafe impl<'a, T> AttachMultisampleDepth for &'a mut T where T: AttachMultisampleDepth {}
+
+unsafe impl<F> AttachMultisampleDepth for Renderbuffer<Multisample<F>> where
+    F: RenderbufferFormat + Multisamplable + DepthRenderable + 'static
 {
 }
 

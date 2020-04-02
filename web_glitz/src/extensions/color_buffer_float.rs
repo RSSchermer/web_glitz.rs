@@ -1,11 +1,8 @@
-use std::marker;
 use std::ops::{Deref, DerefMut};
 
 use crate::image::format::{R11F_G11F_B10F, R16F, R32F, RG16F, RG32F, RGBA16F, RGBA32F};
-use crate::rendering::{
-    AsAttachment, ColorBufferEncoding, ColorBufferEncodingContext, EncodeColorBuffer,
-    FloatAttachment, FloatBuffer,
-};
+use crate::rendering::render_target::{AttachColorFloat, AttachMultisampleColorFloat};
+use crate::rendering::{AsAttachment, AsMultisampleAttachment, Attachment, MultisampleAttachment};
 use crate::runtime::{Connection, RenderingContext};
 
 #[derive(Clone, Debug)]
@@ -14,22 +11,28 @@ pub struct Extension {
 }
 
 impl Extension {
-    pub fn extend<I>(&self, mut float_attachment: FloatAttachment<I>) -> Extended<I>
+    pub fn extend<I>(&self, mut image: I) -> Extended<I>
     where
         I: AsAttachment,
         I::Format: FloatRenderable,
     {
-        if float_attachment
-            .image
-            .as_attachment()
-            .into_data()
-            .context_id
-            != self.context_id
-        {
+        if image.as_attachment().into_data().context_id != self.context_id {
             panic!("Attachment image belongs to a different context than this extension.");
         }
 
-        Extended { float_attachment }
+        Extended { image }
+    }
+
+    pub fn extend_multisample<I>(&self, mut image: I) -> Extended<I>
+    where
+        I: AsMultisampleAttachment,
+        I::SampleFormat: FloatRenderable,
+    {
+        if image.as_multisample_attachment().into_data().context_id != self.context_id {
+            panic!("Attachment image belongs to a different context than this extension.");
+        }
+
+        Extended { image }
     }
 }
 
@@ -55,48 +58,55 @@ unsafe impl FloatRenderable for RGBA32F {}
 unsafe impl FloatRenderable for R11F_G11F_B10F {}
 
 pub struct Extended<I> {
-    float_attachment: FloatAttachment<I>,
+    image: I,
 }
 
 impl<I> Deref for Extended<I> {
-    type Target = FloatAttachment<I>;
+    type Target = I;
 
     fn deref(&self) -> &Self::Target {
-        &self.float_attachment
+        &self.image
     }
 }
 
 impl<I> DerefMut for Extended<I> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.float_attachment
+        &mut self.image
     }
 }
 
-impl<I> EncodeColorBuffer for Extended<I>
+impl<I> AsAttachment for Extended<I>
+where
+    I: AsAttachment,
+{
+    type Format = I::Format;
+
+    fn as_attachment(&mut self) -> Attachment<Self::Format> {
+        self.image.as_attachment()
+    }
+}
+
+impl<I> AsMultisampleAttachment for Extended<I>
+where
+    I: AsMultisampleAttachment,
+{
+    type SampleFormat = I::SampleFormat;
+
+    fn as_multisample_attachment(&mut self) -> MultisampleAttachment<Self::SampleFormat> {
+        self.image.as_multisample_attachment()
+    }
+}
+
+unsafe impl<I> AttachColorFloat for Extended<I>
 where
     I: AsAttachment,
     I::Format: FloatRenderable,
 {
-    type Buffer = FloatBuffer<I::Format>;
+}
 
-    fn encode_color_buffer<'a, 'b>(
-        &'a mut self,
-        context: &'b mut ColorBufferEncodingContext,
-    ) -> ColorBufferEncoding<'b, 'a, Self::Buffer> {
-        let image = self.image.as_attachment().into_data();
-
-        ColorBufferEncoding {
-            buffer: FloatBuffer::new(
-                context.render_pass_id,
-                context.buffer_index,
-                image.width,
-                image.height,
-            ),
-            load_action: self.load_op.as_load_float_action(context.buffer_index),
-            store_op: self.store_op,
-            image,
-            _context: context,
-            _image_ref: marker::PhantomData,
-        }
-    }
+unsafe impl<I> AttachMultisampleColorFloat for Extended<I>
+where
+    I: AsMultisampleAttachment,
+    I::SampleFormat: FloatRenderable,
+{
 }
