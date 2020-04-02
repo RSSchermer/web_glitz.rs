@@ -3,8 +3,8 @@ use std::marker;
 use serde_derive::Serialize;
 
 use crate::rendering::{
-    DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
-    DefaultStencilBuffer,
+    DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultMultisampleRenderTarget,
+    DefaultRGBABuffer, DefaultRGBBuffer, DefaultRenderTarget, DefaultStencilBuffer,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
@@ -21,21 +21,15 @@ impl Default for PowerPreference {
     }
 }
 
-pub struct ContextOptions<C, Ds> {
-    color: marker::PhantomData<C>,
-    depth_stencil: marker::PhantomData<Ds>,
-    antialias: bool,
+pub struct ContextOptions<T> {
+    render_target: marker::PhantomData<T>,
     preserve_drawing_buffer: bool,
     fail_if_major_performance_caveat: bool,
     premultiplied_alpha: bool,
     power_preference: PowerPreference,
 }
 
-impl<C, Ds> ContextOptions<C, Ds> {
-    pub fn antialias(&self) -> bool {
-        self.antialias
-    }
-
+impl<T> ContextOptions<T> {
     pub fn preserve_drawing_buffer(&self) -> bool {
         self.preserve_drawing_buffer
     }
@@ -53,13 +47,11 @@ impl<C, Ds> ContextOptions<C, Ds> {
     }
 }
 
-impl Default for ContextOptions<DefaultRGBABuffer, ()> {
+impl Default for ContextOptions<DefaultMultisampleRenderTarget<DefaultRGBABuffer, ()>> {
     fn default() -> Self {
         ContextOptions {
-            color: marker::PhantomData,
-            depth_stencil: marker::PhantomData,
+            render_target: marker::PhantomData,
             fail_if_major_performance_caveat: false,
-            antialias: true,
             preserve_drawing_buffer: false,
             premultiplied_alpha: true,
             power_preference: PowerPreference::default(),
@@ -67,13 +59,11 @@ impl Default for ContextOptions<DefaultRGBABuffer, ()> {
     }
 }
 
-impl ContextOptions<DefaultRGBABuffer, ()> {
-    pub fn begin() -> ContextOptionsBuilder<DefaultRGBABuffer, ()> {
+impl ContextOptions<DefaultMultisampleRenderTarget<DefaultRGBABuffer, ()>> {
+    pub fn begin() -> ContextOptionsBuilder<DefaultMultisampleRenderTarget<DefaultRGBABuffer, ()>> {
         ContextOptionsBuilder {
-            color: marker::PhantomData,
-            depth_stencil: marker::PhantomData,
+            render_target: marker::PhantomData,
             fail_if_major_performance_caveat: false,
-            antialias: true,
             preserve_drawbuffer: false,
             premultiplied_alpha: true,
             power_preference: PowerPreference::default(),
@@ -81,23 +71,15 @@ impl ContextOptions<DefaultRGBABuffer, ()> {
     }
 }
 
-pub struct ContextOptionsBuilder<C, Ds> {
-    color: marker::PhantomData<C>,
-    depth_stencil: marker::PhantomData<Ds>,
+pub struct ContextOptionsBuilder<T> {
+    render_target: marker::PhantomData<T>,
     fail_if_major_performance_caveat: bool,
-    antialias: bool,
     preserve_drawbuffer: bool,
     premultiplied_alpha: bool,
     power_preference: PowerPreference,
 }
 
-impl<C, Ds> ContextOptionsBuilder<C, Ds> {
-    pub fn antialias(mut self, antialias: bool) -> Self {
-        self.antialias = antialias;
-
-        self
-    }
-
+impl<T> ContextOptionsBuilder<T> {
     pub fn fail_if_major_performance_caveat(
         mut self,
         fail_if_major_performance_caveat: bool,
@@ -125,36 +107,10 @@ impl<C, Ds> ContextOptionsBuilder<C, Ds> {
         self
     }
 
-    pub fn enable_alpha(self) -> ContextOptionsBuilder<DefaultRGBABuffer, Ds> {
-        ContextOptionsBuilder {
-            color: marker::PhantomData,
-            depth_stencil: marker::PhantomData,
-            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat,
-            antialias: self.antialias,
-            preserve_drawbuffer: self.preserve_drawbuffer,
-            premultiplied_alpha: self.premultiplied_alpha,
-            power_preference: self.power_preference,
-        }
-    }
-
-    pub fn disable_alpha(self) -> ContextOptionsBuilder<DefaultRGBBuffer, Ds> {
-        ContextOptionsBuilder {
-            color: marker::PhantomData,
-            depth_stencil: marker::PhantomData,
-            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat,
-            antialias: self.antialias,
-            preserve_drawbuffer: self.preserve_drawbuffer,
-            premultiplied_alpha: self.premultiplied_alpha,
-            power_preference: self.power_preference,
-        }
-    }
-
-    pub fn finish(self) -> ContextOptions<C, Ds> {
+    pub fn finish(self) -> ContextOptions<T> {
         ContextOptions {
-            color: marker::PhantomData,
-            depth_stencil: marker::PhantomData,
+            render_target: marker::PhantomData,
             fail_if_major_performance_caveat: self.fail_if_major_performance_caveat,
-            antialias: self.antialias,
             preserve_drawing_buffer: self.preserve_drawbuffer,
             premultiplied_alpha: self.premultiplied_alpha,
             power_preference: self.power_preference,
@@ -162,101 +118,11 @@ impl<C, Ds> ContextOptionsBuilder<C, Ds> {
     }
 }
 
-impl<C> ContextOptionsBuilder<C, ()> {
-    pub fn enable_depth(self) -> ContextOptionsBuilder<C, DefaultDepthBuffer> {
+impl<C, Ds> ContextOptionsBuilder<DefaultMultisampleRenderTarget<C, Ds>> {
+    pub fn disable_antialias(self) -> ContextOptionsBuilder<DefaultRenderTarget<C, Ds>> {
         ContextOptionsBuilder {
-            color: marker::PhantomData,
-            depth_stencil: marker::PhantomData,
+            render_target: marker::PhantomData,
             fail_if_major_performance_caveat: self.fail_if_major_performance_caveat,
-            antialias: self.antialias,
-            preserve_drawbuffer: self.preserve_drawbuffer,
-            premultiplied_alpha: self.premultiplied_alpha,
-            power_preference: self.power_preference,
-        }
-    }
-
-    pub fn disable_depth(self) -> Self {
-        self
-    }
-
-    pub fn enable_stencil(self) -> ContextOptionsBuilder<C, DefaultStencilBuffer> {
-        ContextOptionsBuilder {
-            color: marker::PhantomData,
-            depth_stencil: marker::PhantomData,
-            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat,
-            antialias: self.antialias,
-            preserve_drawbuffer: self.preserve_drawbuffer,
-            premultiplied_alpha: self.premultiplied_alpha,
-            power_preference: self.power_preference,
-        }
-    }
-
-    pub fn disable_stencil(self) -> Self {
-        self
-    }
-}
-
-impl<C> ContextOptionsBuilder<C, DefaultDepthBuffer> {
-    pub fn enable_depth(self) -> Self {
-        self
-    }
-
-    pub fn disable_depth(self) -> ContextOptionsBuilder<C, ()> {
-        ContextOptionsBuilder {
-            color: marker::PhantomData,
-            depth_stencil: marker::PhantomData,
-            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat,
-            antialias: self.antialias,
-            preserve_drawbuffer: self.preserve_drawbuffer,
-            premultiplied_alpha: self.premultiplied_alpha,
-            power_preference: self.power_preference,
-        }
-    }
-
-    pub fn enable_stencil(self) -> ContextOptionsBuilder<C, DefaultDepthStencilBuffer> {
-        ContextOptionsBuilder {
-            color: marker::PhantomData,
-            depth_stencil: marker::PhantomData,
-            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat,
-            antialias: self.antialias,
-            preserve_drawbuffer: self.preserve_drawbuffer,
-            premultiplied_alpha: self.premultiplied_alpha,
-            power_preference: self.power_preference,
-        }
-    }
-
-    pub fn disable_stencil(self) -> Self {
-        self
-    }
-}
-
-impl<C> ContextOptionsBuilder<C, DefaultStencilBuffer> {
-    pub fn enable_depth(self) -> ContextOptionsBuilder<C, DefaultDepthStencilBuffer> {
-        ContextOptionsBuilder {
-            color: marker::PhantomData,
-            depth_stencil: marker::PhantomData,
-            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat,
-            antialias: self.antialias,
-            preserve_drawbuffer: self.preserve_drawbuffer,
-            premultiplied_alpha: self.premultiplied_alpha,
-            power_preference: self.power_preference,
-        }
-    }
-
-    pub fn disable_depth(self) -> Self {
-        self
-    }
-
-    pub fn enable_stencil(self) -> Self {
-        self
-    }
-
-    pub fn disable_stencil(self) -> ContextOptionsBuilder<C, ()> {
-        ContextOptionsBuilder {
-            color: marker::PhantomData,
-            depth_stencil: marker::PhantomData,
-            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat,
-            antialias: self.antialias,
             preserve_drawbuffer: self.preserve_drawbuffer,
             premultiplied_alpha: self.premultiplied_alpha,
             power_preference: self.power_preference,
@@ -264,33 +130,131 @@ impl<C> ContextOptionsBuilder<C, DefaultStencilBuffer> {
     }
 }
 
-impl<C> ContextOptionsBuilder<C, DefaultDepthStencilBuffer> {
-    pub fn enable_depth(self) -> Self {
-        self
-    }
-
-    pub fn disable_depth(self) -> ContextOptionsBuilder<C, DefaultStencilBuffer> {
+impl<Ds> ContextOptionsBuilder<DefaultMultisampleRenderTarget<DefaultRGBABuffer, Ds>> {
+    pub fn disable_alpha(
+        self,
+    ) -> ContextOptionsBuilder<DefaultMultisampleRenderTarget<DefaultRGBBuffer, Ds>> {
         ContextOptionsBuilder {
-            color: marker::PhantomData,
-            depth_stencil: marker::PhantomData,
+            render_target: marker::PhantomData,
             fail_if_major_performance_caveat: self.fail_if_major_performance_caveat,
-            antialias: self.antialias,
+            preserve_drawbuffer: self.preserve_drawbuffer,
+            premultiplied_alpha: self.premultiplied_alpha,
+            power_preference: self.power_preference,
+        }
+    }
+}
+
+impl<C> ContextOptionsBuilder<DefaultMultisampleRenderTarget<C, ()>> {
+    pub fn enable_depth(
+        self,
+    ) -> ContextOptionsBuilder<DefaultMultisampleRenderTarget<C, DefaultDepthBuffer>> {
+        ContextOptionsBuilder {
+            render_target: marker::PhantomData,
+            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat,
             preserve_drawbuffer: self.preserve_drawbuffer,
             premultiplied_alpha: self.premultiplied_alpha,
             power_preference: self.power_preference,
         }
     }
 
-    pub fn enable_stencil(self) -> Self {
-        self
+    pub fn enable_stencil(
+        self,
+    ) -> ContextOptionsBuilder<DefaultMultisampleRenderTarget<C, DefaultStencilBuffer>> {
+        ContextOptionsBuilder {
+            render_target: marker::PhantomData,
+            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat,
+            preserve_drawbuffer: self.preserve_drawbuffer,
+            premultiplied_alpha: self.premultiplied_alpha,
+            power_preference: self.power_preference,
+        }
+    }
+}
+
+impl<C> ContextOptionsBuilder<DefaultMultisampleRenderTarget<C, DefaultDepthBuffer>> {
+    pub fn enable_stencil(
+        self,
+    ) -> ContextOptionsBuilder<DefaultMultisampleRenderTarget<C, DefaultDepthStencilBuffer>> {
+        ContextOptionsBuilder {
+            render_target: marker::PhantomData,
+            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat,
+            preserve_drawbuffer: self.preserve_drawbuffer,
+            premultiplied_alpha: self.premultiplied_alpha,
+            power_preference: self.power_preference,
+        }
+    }
+}
+
+impl<C> ContextOptionsBuilder<DefaultMultisampleRenderTarget<C, DefaultStencilBuffer>> {
+    pub fn enable_depth(
+        self,
+    ) -> ContextOptionsBuilder<DefaultMultisampleRenderTarget<C, DefaultDepthStencilBuffer>> {
+        ContextOptionsBuilder {
+            render_target: marker::PhantomData,
+            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat,
+            preserve_drawbuffer: self.preserve_drawbuffer,
+            premultiplied_alpha: self.premultiplied_alpha,
+            power_preference: self.power_preference,
+        }
+    }
+}
+
+impl<Ds> ContextOptionsBuilder<DefaultRenderTarget<DefaultRGBABuffer, Ds>> {
+    pub fn disable_alpha(self) -> ContextOptionsBuilder<DefaultRenderTarget<DefaultRGBBuffer, Ds>> {
+        ContextOptionsBuilder {
+            render_target: marker::PhantomData,
+            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat,
+            preserve_drawbuffer: self.preserve_drawbuffer,
+            premultiplied_alpha: self.premultiplied_alpha,
+            power_preference: self.power_preference,
+        }
+    }
+}
+
+impl<C> ContextOptionsBuilder<DefaultRenderTarget<C, ()>> {
+    pub fn enable_depth(self) -> ContextOptionsBuilder<DefaultRenderTarget<C, DefaultDepthBuffer>> {
+        ContextOptionsBuilder {
+            render_target: marker::PhantomData,
+            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat,
+            preserve_drawbuffer: self.preserve_drawbuffer,
+            premultiplied_alpha: self.premultiplied_alpha,
+            power_preference: self.power_preference,
+        }
     }
 
-    pub fn disable_stencil(self) -> ContextOptionsBuilder<C, DefaultDepthBuffer> {
+    pub fn enable_stencil(
+        self,
+    ) -> ContextOptionsBuilder<DefaultRenderTarget<C, DefaultStencilBuffer>> {
         ContextOptionsBuilder {
-            color: marker::PhantomData,
-            depth_stencil: marker::PhantomData,
+            render_target: marker::PhantomData,
             fail_if_major_performance_caveat: self.fail_if_major_performance_caveat,
-            antialias: self.antialias,
+            preserve_drawbuffer: self.preserve_drawbuffer,
+            premultiplied_alpha: self.premultiplied_alpha,
+            power_preference: self.power_preference,
+        }
+    }
+}
+
+impl<C> ContextOptionsBuilder<DefaultRenderTarget<C, DefaultDepthBuffer>> {
+    pub fn enable_stencil(
+        self,
+    ) -> ContextOptionsBuilder<DefaultRenderTarget<C, DefaultDepthStencilBuffer>> {
+        ContextOptionsBuilder {
+            render_target: marker::PhantomData,
+            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat,
+            preserve_drawbuffer: self.preserve_drawbuffer,
+            premultiplied_alpha: self.premultiplied_alpha,
+            power_preference: self.power_preference,
+        }
+    }
+}
+
+impl<C> ContextOptionsBuilder<DefaultRenderTarget<C, DefaultStencilBuffer>> {
+    pub fn enable_depth(
+        self,
+    ) -> ContextOptionsBuilder<DefaultRenderTarget<C, DefaultDepthStencilBuffer>> {
+        ContextOptionsBuilder {
+            render_target: marker::PhantomData,
+            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat,
             preserve_drawbuffer: self.preserve_drawbuffer,
             premultiplied_alpha: self.premultiplied_alpha,
             power_preference: self.power_preference,

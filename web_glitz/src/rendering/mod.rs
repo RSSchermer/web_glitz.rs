@@ -3,6 +3,9 @@ pub use self::attachment::{
     AsAttachment, AsMultisampleAttachment, Attachment, MultisampleAttachment,
 };
 
+pub(crate) mod default_multisample_render_target;
+pub use self::default_multisample_render_target::DefaultMultisampleRenderTarget;
+
 pub(crate) mod default_render_target;
 pub use self::default_render_target::DefaultRenderTarget;
 

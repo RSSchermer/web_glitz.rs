@@ -45,7 +45,7 @@ pub fn start() {
     // We'll disable antialiasing on the default render target for this example, as blit operations
     // require that the number of samples on the source and target images match; by disabling
     // antialiasing we guarantee a single sample default render target.
-    let options = ContextOptions::begin().antialias(false).finish();
+    let options = ContextOptions::begin().disable_antialias().finish();
 
     let (context, mut default_render_target) =
         unsafe { single_threaded::init(&canvas, &options).unwrap() };

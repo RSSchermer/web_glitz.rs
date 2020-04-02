@@ -2575,6 +2575,16 @@ where
 {
 }
 
+unsafe impl<T> MultisampleBlitColorCompatible<DefaultRGBABuffer> for T where
+    T: MultisampleBlitSource<Format = RGBA8>
+{
+}
+
+unsafe impl<T> MultisampleBlitColorCompatible<DefaultRGBBuffer> for T where
+    T: MultisampleBlitSource<Format = RGB8>
+{
+}
+
 macro_rules! impl_multisample_blit_color_compatible {
     ($C0:ident, $($C:ident),*) => {
         unsafe impl<T, $C0, $($C),*> MultisampleBlitColorCompatible<($C0, $($C),*)> for T

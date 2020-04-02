@@ -142,9 +142,10 @@ use crate::pipeline::graphics::{
 };
 use crate::pipeline::resources::{BindGroup, EncodeBindableResourceGroup};
 use crate::rendering::{
-    DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
-    DefaultRenderTarget, DefaultStencilBuffer, MultisampleRenderTarget,
-    MultisampleRenderTargetDescriptor, RenderTarget, RenderTargetDescriptor,
+    DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultMultisampleRenderTarget,
+    DefaultRGBABuffer, DefaultRGBBuffer, DefaultRenderTarget, DefaultStencilBuffer,
+    MultisampleRenderTarget, MultisampleRenderTargetDescriptor, RenderTarget,
+    RenderTargetDescriptor,
 };
 use crate::runtime::executor_job::{job, ExecutorJob, JobState};
 use crate::runtime::fenced::JsTimeoutFencedTaskRunner;
@@ -644,7 +645,341 @@ pub trait Options {
     unsafe fn get_context(&self, canvas: &HtmlCanvasElement) -> Self::Output;
 }
 
-impl Options for ContextOptions<DefaultRGBABuffer, ()> {
+impl Options for ContextOptions<DefaultMultisampleRenderTarget<DefaultRGBABuffer, ()>> {
+    type Output = Result<
+        (
+            SingleThreadedContext,
+            DefaultMultisampleRenderTarget<DefaultRGBABuffer, ()>,
+        ),
+        String,
+    >;
+
+    unsafe fn get_context(&self, canvas: &HtmlCanvasElement) -> Self::Output {
+        let options = JsValue::from_serde(&OptionsJson {
+            alpha: true,
+            antialias: true,
+            depth: false,
+            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat(),
+            power_preference: self.power_preference(),
+            premultiplied_alpha: self.premultiplied_alpha(),
+            preserve_drawing_buffer: self.preserve_drawing_buffer(),
+            stencil: false,
+        })
+        .unwrap();
+
+        let gl = canvas
+            .get_context_with_context_options("webgl2", &options)
+            .map_err(|e| e.as_string().unwrap())?
+            .unwrap()
+            .unchecked_into();
+        let state = DynamicState::initial(&gl);
+        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as usize;
+        let context = SingleThreadedContext::from_webgl2_context(gl, state);
+        let render_target = DefaultMultisampleRenderTarget::new(
+            context.id(),
+            samples,
+            context.render_pass_id_gen.clone(),
+        );
+
+        Ok((context, render_target))
+    }
+}
+
+impl Options
+    for ContextOptions<DefaultMultisampleRenderTarget<DefaultRGBABuffer, DefaultDepthStencilBuffer>>
+{
+    type Output = Result<
+        (
+            SingleThreadedContext,
+            DefaultMultisampleRenderTarget<DefaultRGBABuffer, DefaultDepthStencilBuffer>,
+        ),
+        String,
+    >;
+
+    unsafe fn get_context(&self, canvas: &HtmlCanvasElement) -> Self::Output {
+        let options = JsValue::from_serde(&OptionsJson {
+            alpha: true,
+            antialias: true,
+            depth: true,
+            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat(),
+            power_preference: self.power_preference(),
+            premultiplied_alpha: self.premultiplied_alpha(),
+            preserve_drawing_buffer: self.preserve_drawing_buffer(),
+            stencil: true,
+        })
+        .unwrap();
+
+        let gl = canvas
+            .get_context_with_context_options("webgl2", &options)
+            .map_err(|e| e.as_string().unwrap())?
+            .unwrap()
+            .unchecked_into();
+        let state = DynamicState::initial(&gl);
+        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as usize;
+        let context = SingleThreadedContext::from_webgl2_context(gl, state);
+        let render_target = DefaultMultisampleRenderTarget::new(
+            context.id(),
+            samples,
+            context.render_pass_id_gen.clone(),
+        );
+
+        Ok((context, render_target))
+    }
+}
+
+impl Options
+    for ContextOptions<DefaultMultisampleRenderTarget<DefaultRGBABuffer, DefaultDepthBuffer>>
+{
+    type Output = Result<
+        (
+            SingleThreadedContext,
+            DefaultMultisampleRenderTarget<DefaultRGBABuffer, DefaultDepthBuffer>,
+        ),
+        String,
+    >;
+
+    unsafe fn get_context(&self, canvas: &HtmlCanvasElement) -> Self::Output {
+        let options = JsValue::from_serde(&OptionsJson {
+            alpha: true,
+            antialias: true,
+            depth: true,
+            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat(),
+            power_preference: self.power_preference(),
+            premultiplied_alpha: self.premultiplied_alpha(),
+            preserve_drawing_buffer: self.preserve_drawing_buffer(),
+            stencil: false,
+        })
+        .unwrap();
+
+        let gl: web_sys::WebGl2RenderingContext = canvas
+            .get_context_with_context_options("webgl2", &options)
+            .map_err(|e| e.as_string().unwrap())?
+            .unwrap()
+            .unchecked_into();
+
+        let state = DynamicState::initial(&gl);
+        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as usize;
+        let context = SingleThreadedContext::from_webgl2_context(gl, state);
+        let render_target = DefaultMultisampleRenderTarget::new(
+            context.id(),
+            samples,
+            context.render_pass_id_gen.clone(),
+        );
+
+        Ok((context, render_target))
+    }
+}
+
+impl Options
+    for ContextOptions<DefaultMultisampleRenderTarget<DefaultRGBABuffer, DefaultStencilBuffer>>
+{
+    type Output = Result<
+        (
+            SingleThreadedContext,
+            DefaultMultisampleRenderTarget<DefaultRGBABuffer, DefaultStencilBuffer>,
+        ),
+        String,
+    >;
+
+    unsafe fn get_context(&self, canvas: &HtmlCanvasElement) -> Self::Output {
+        let options = JsValue::from_serde(&OptionsJson {
+            alpha: true,
+            antialias: true,
+            depth: false,
+            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat(),
+            power_preference: self.power_preference(),
+            premultiplied_alpha: self.premultiplied_alpha(),
+            preserve_drawing_buffer: self.preserve_drawing_buffer(),
+            stencil: true,
+        })
+        .unwrap();
+
+        let gl = canvas
+            .get_context_with_context_options("webgl2", &options)
+            .map_err(|e| e.as_string().unwrap())?
+            .unwrap()
+            .unchecked_into();
+        let state = DynamicState::initial(&gl);
+        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as usize;
+        let context = SingleThreadedContext::from_webgl2_context(gl, state);
+        let render_target = DefaultMultisampleRenderTarget::new(
+            context.id(),
+            samples,
+            context.render_pass_id_gen.clone(),
+        );
+
+        Ok((context, render_target))
+    }
+}
+
+impl Options for ContextOptions<DefaultMultisampleRenderTarget<DefaultRGBBuffer, ()>> {
+    type Output = Result<
+        (
+            SingleThreadedContext,
+            DefaultMultisampleRenderTarget<DefaultRGBBuffer, ()>,
+        ),
+        String,
+    >;
+
+    unsafe fn get_context(&self, canvas: &HtmlCanvasElement) -> Self::Output {
+        let options = JsValue::from_serde(&OptionsJson {
+            alpha: false,
+            antialias: true,
+            depth: false,
+            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat(),
+            power_preference: self.power_preference(),
+            premultiplied_alpha: self.premultiplied_alpha(),
+            preserve_drawing_buffer: self.preserve_drawing_buffer(),
+            stencil: false,
+        })
+        .unwrap();
+
+        let gl = canvas
+            .get_context_with_context_options("webgl2", &options)
+            .map_err(|e| e.as_string().unwrap())?
+            .unwrap()
+            .unchecked_into();
+        let state = DynamicState::initial(&gl);
+        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as usize;
+        let context = SingleThreadedContext::from_webgl2_context(gl, state);
+        let render_target = DefaultMultisampleRenderTarget::new(
+            context.id(),
+            samples,
+            context.render_pass_id_gen.clone(),
+        );
+
+        Ok((context, render_target))
+    }
+}
+
+impl Options
+    for ContextOptions<DefaultMultisampleRenderTarget<DefaultRGBBuffer, DefaultDepthStencilBuffer>>
+{
+    type Output = Result<
+        (
+            SingleThreadedContext,
+            DefaultMultisampleRenderTarget<DefaultRGBBuffer, DefaultDepthStencilBuffer>,
+        ),
+        String,
+    >;
+
+    unsafe fn get_context(&self, canvas: &HtmlCanvasElement) -> Self::Output {
+        let options = JsValue::from_serde(&OptionsJson {
+            alpha: false,
+            antialias: true,
+            depth: true,
+            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat(),
+            power_preference: self.power_preference(),
+            premultiplied_alpha: self.premultiplied_alpha(),
+            preserve_drawing_buffer: self.preserve_drawing_buffer(),
+            stencil: true,
+        })
+        .unwrap();
+
+        let gl = canvas
+            .get_context_with_context_options("webgl2", &options)
+            .map_err(|e| e.as_string().unwrap())?
+            .unwrap()
+            .unchecked_into();
+        let state = DynamicState::initial(&gl);
+        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as usize;
+        let context = SingleThreadedContext::from_webgl2_context(gl, state);
+        let render_target = DefaultMultisampleRenderTarget::new(
+            context.id(),
+            samples,
+            context.render_pass_id_gen.clone(),
+        );
+
+        Ok((context, render_target))
+    }
+}
+
+impl Options
+    for ContextOptions<DefaultMultisampleRenderTarget<DefaultRGBBuffer, DefaultDepthBuffer>>
+{
+    type Output = Result<
+        (
+            SingleThreadedContext,
+            DefaultMultisampleRenderTarget<DefaultRGBBuffer, DefaultDepthBuffer>,
+        ),
+        String,
+    >;
+
+    unsafe fn get_context(&self, canvas: &HtmlCanvasElement) -> Self::Output {
+        let options = JsValue::from_serde(&OptionsJson {
+            alpha: false,
+            antialias: true,
+            depth: true,
+            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat(),
+            power_preference: self.power_preference(),
+            premultiplied_alpha: self.premultiplied_alpha(),
+            preserve_drawing_buffer: self.preserve_drawing_buffer(),
+            stencil: false,
+        })
+        .unwrap();
+
+        let gl: web_sys::WebGl2RenderingContext = canvas
+            .get_context_with_context_options("webgl2", &options)
+            .map_err(|e| e.as_string().unwrap())?
+            .unwrap()
+            .unchecked_into();
+
+        let state = DynamicState::initial(&gl);
+        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as usize;
+        let context = SingleThreadedContext::from_webgl2_context(gl, state);
+        let render_target = DefaultMultisampleRenderTarget::new(
+            context.id(),
+            samples,
+            context.render_pass_id_gen.clone(),
+        );
+
+        Ok((context, render_target))
+    }
+}
+
+impl Options
+    for ContextOptions<DefaultMultisampleRenderTarget<DefaultRGBBuffer, DefaultStencilBuffer>>
+{
+    type Output = Result<
+        (
+            SingleThreadedContext,
+            DefaultMultisampleRenderTarget<DefaultRGBBuffer, DefaultStencilBuffer>,
+        ),
+        String,
+    >;
+
+    unsafe fn get_context(&self, canvas: &HtmlCanvasElement) -> Self::Output {
+        let options = JsValue::from_serde(&OptionsJson {
+            alpha: false,
+            antialias: true,
+            depth: false,
+            fail_if_major_performance_caveat: self.fail_if_major_performance_caveat(),
+            power_preference: self.power_preference(),
+            premultiplied_alpha: self.premultiplied_alpha(),
+            preserve_drawing_buffer: self.preserve_drawing_buffer(),
+            stencil: true,
+        })
+        .unwrap();
+
+        let gl = canvas
+            .get_context_with_context_options("webgl2", &options)
+            .map_err(|e| e.as_string().unwrap())?
+            .unwrap()
+            .unchecked_into();
+        let state = DynamicState::initial(&gl);
+        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as usize;
+        let context = SingleThreadedContext::from_webgl2_context(gl, state);
+        let render_target = DefaultMultisampleRenderTarget::new(
+            context.id(),
+            samples,
+            context.render_pass_id_gen.clone(),
+        );
+
+        Ok((context, render_target))
+    }
+}
+
+impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBABuffer, ()>> {
     type Output = Result<
         (
             SingleThreadedContext,
@@ -656,7 +991,7 @@ impl Options for ContextOptions<DefaultRGBABuffer, ()> {
     unsafe fn get_context(&self, canvas: &HtmlCanvasElement) -> Self::Output {
         let options = JsValue::from_serde(&OptionsJson {
             alpha: true,
-            antialias: self.antialias(),
+            antialias: false,
             depth: false,
             fail_if_major_performance_caveat: self.fail_if_major_performance_caveat(),
             power_preference: self.power_preference(),
@@ -673,18 +1008,18 @@ impl Options for ContextOptions<DefaultRGBABuffer, ()> {
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref =
+        let render_target =
             DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
 
-        Ok((context, default_framebuffer_ref))
+        Ok((context, render_target))
     }
 }
 
-impl Options for ContextOptions<DefaultRGBABuffer, DefaultDepthStencilBuffer> {
+impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBABuffer, DefaultDepthStencilBuffer>> {
     type Output = Result<
         (
             SingleThreadedContext,
-            DefaultRenderTarget<DefaultRGBBuffer, ()>,
+            DefaultRenderTarget<DefaultRGBABuffer, DefaultDepthStencilBuffer>,
         ),
         String,
     >;
@@ -692,7 +1027,7 @@ impl Options for ContextOptions<DefaultRGBABuffer, DefaultDepthStencilBuffer> {
     unsafe fn get_context(&self, canvas: &HtmlCanvasElement) -> Self::Output {
         let options = JsValue::from_serde(&OptionsJson {
             alpha: true,
-            antialias: self.antialias(),
+            antialias: false,
             depth: true,
             fail_if_major_performance_caveat: self.fail_if_major_performance_caveat(),
             power_preference: self.power_preference(),
@@ -709,14 +1044,14 @@ impl Options for ContextOptions<DefaultRGBABuffer, DefaultDepthStencilBuffer> {
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref =
+        let render_target =
             DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
 
-        Ok((context, default_framebuffer_ref))
+        Ok((context, render_target))
     }
 }
 
-impl Options for ContextOptions<DefaultRGBABuffer, DefaultDepthBuffer> {
+impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBABuffer, DefaultDepthBuffer>> {
     type Output = Result<
         (
             SingleThreadedContext,
@@ -728,7 +1063,7 @@ impl Options for ContextOptions<DefaultRGBABuffer, DefaultDepthBuffer> {
     unsafe fn get_context(&self, canvas: &HtmlCanvasElement) -> Self::Output {
         let options = JsValue::from_serde(&OptionsJson {
             alpha: true,
-            antialias: self.antialias(),
+            antialias: false,
             depth: true,
             fail_if_major_performance_caveat: self.fail_if_major_performance_caveat(),
             power_preference: self.power_preference(),
@@ -746,14 +1081,14 @@ impl Options for ContextOptions<DefaultRGBABuffer, DefaultDepthBuffer> {
 
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref =
+        let render_target =
             DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
 
-        Ok((context, default_framebuffer_ref))
+        Ok((context, render_target))
     }
 }
 
-impl Options for ContextOptions<DefaultRGBABuffer, DefaultStencilBuffer> {
+impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBABuffer, DefaultStencilBuffer>> {
     type Output = Result<
         (
             SingleThreadedContext,
@@ -765,7 +1100,7 @@ impl Options for ContextOptions<DefaultRGBABuffer, DefaultStencilBuffer> {
     unsafe fn get_context(&self, canvas: &HtmlCanvasElement) -> Self::Output {
         let options = JsValue::from_serde(&OptionsJson {
             alpha: true,
-            antialias: self.antialias(),
+            antialias: false,
             depth: false,
             fail_if_major_performance_caveat: self.fail_if_major_performance_caveat(),
             power_preference: self.power_preference(),
@@ -782,14 +1117,14 @@ impl Options for ContextOptions<DefaultRGBABuffer, DefaultStencilBuffer> {
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref =
+        let render_target =
             DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
 
-        Ok((context, default_framebuffer_ref))
+        Ok((context, render_target))
     }
 }
 
-impl Options for ContextOptions<DefaultRGBBuffer, ()> {
+impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBBuffer, ()>> {
     type Output = Result<
         (
             SingleThreadedContext,
@@ -800,8 +1135,8 @@ impl Options for ContextOptions<DefaultRGBBuffer, ()> {
 
     unsafe fn get_context(&self, canvas: &HtmlCanvasElement) -> Self::Output {
         let options = JsValue::from_serde(&OptionsJson {
-            alpha: true,
-            antialias: self.antialias(),
+            alpha: false,
+            antialias: false,
             depth: false,
             fail_if_major_performance_caveat: self.fail_if_major_performance_caveat(),
             power_preference: self.power_preference(),
@@ -818,14 +1153,14 @@ impl Options for ContextOptions<DefaultRGBBuffer, ()> {
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref =
+        let render_target =
             DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
 
-        Ok((context, default_framebuffer_ref))
+        Ok((context, render_target))
     }
 }
 
-impl Options for ContextOptions<DefaultRGBBuffer, DefaultDepthStencilBuffer> {
+impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBBuffer, DefaultDepthStencilBuffer>> {
     type Output = Result<
         (
             SingleThreadedContext,
@@ -836,8 +1171,8 @@ impl Options for ContextOptions<DefaultRGBBuffer, DefaultDepthStencilBuffer> {
 
     unsafe fn get_context(&self, canvas: &HtmlCanvasElement) -> Self::Output {
         let options = JsValue::from_serde(&OptionsJson {
-            alpha: true,
-            antialias: self.antialias(),
+            alpha: false,
+            antialias: false,
             depth: true,
             fail_if_major_performance_caveat: self.fail_if_major_performance_caveat(),
             power_preference: self.power_preference(),
@@ -854,14 +1189,14 @@ impl Options for ContextOptions<DefaultRGBBuffer, DefaultDepthStencilBuffer> {
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref =
+        let render_target =
             DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
 
-        Ok((context, default_framebuffer_ref))
+        Ok((context, render_target))
     }
 }
 
-impl Options for ContextOptions<DefaultRGBBuffer, DefaultDepthBuffer> {
+impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBBuffer, DefaultDepthBuffer>> {
     type Output = Result<
         (
             SingleThreadedContext,
@@ -872,8 +1207,8 @@ impl Options for ContextOptions<DefaultRGBBuffer, DefaultDepthBuffer> {
 
     unsafe fn get_context(&self, canvas: &HtmlCanvasElement) -> Self::Output {
         let options = JsValue::from_serde(&OptionsJson {
-            alpha: true,
-            antialias: self.antialias(),
+            alpha: false,
+            antialias: false,
             depth: true,
             fail_if_major_performance_caveat: self.fail_if_major_performance_caveat(),
             power_preference: self.power_preference(),
@@ -891,14 +1226,14 @@ impl Options for ContextOptions<DefaultRGBBuffer, DefaultDepthBuffer> {
 
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref =
+        let render_target =
             DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
 
-        Ok((context, default_framebuffer_ref))
+        Ok((context, render_target))
     }
 }
 
-impl Options for ContextOptions<DefaultRGBBuffer, DefaultStencilBuffer> {
+impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBBuffer, DefaultStencilBuffer>> {
     type Output = Result<
         (
             SingleThreadedContext,
@@ -909,8 +1244,8 @@ impl Options for ContextOptions<DefaultRGBBuffer, DefaultStencilBuffer> {
 
     unsafe fn get_context(&self, canvas: &HtmlCanvasElement) -> Self::Output {
         let options = JsValue::from_serde(&OptionsJson {
-            alpha: true,
-            antialias: self.antialias(),
+            alpha: false,
+            antialias: false,
             depth: false,
             fail_if_major_performance_caveat: self.fail_if_major_performance_caveat(),
             power_preference: self.power_preference(),
@@ -927,10 +1262,10 @@ impl Options for ContextOptions<DefaultRGBBuffer, DefaultStencilBuffer> {
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let default_framebuffer_ref =
+        let render_target =
             DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
 
-        Ok((context, default_framebuffer_ref))
+        Ok((context, render_target))
     }
 }
 
