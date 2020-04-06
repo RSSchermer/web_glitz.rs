@@ -1,4 +1,4 @@
-# WebGlitz - Low Level web-graphics framework for Rust
+# WebGlitz - low level web-graphics framework for Rust
 
 WebGlitz is a "Rusty" abstraction on top of WebGL 2.0 that aims to make it safer and easier to interface with the GPU 
 without much additional runtime overhead in the core render-loop. The API is inspired by modern graphics API's like 
