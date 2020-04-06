@@ -342,7 +342,7 @@ pub struct VertexInputLayoutAllocationHint {
 /// # Example
 ///
 /// ```rust
-/// use web_glitz::pipeline::graphics::{AttibuteLayoutAllocationHint, VertexInputLayoutDescriptorBuilder, VertexInputLayoutAllocationHint, InputRate, VertexAttributeDescriptor};
+/// use web_glitz::pipeline::graphics::{VertexInputLayoutDescriptorBuilder, VertexInputLayoutAllocationHint, InputRate, VertexAttributeDescriptor};
 /// use web_glitz::pipeline::graphics::attribute_format::VertexAttributeFormat;
 ///
 /// let mut builder = VertexInputLayoutDescriptorBuilder::new(Some(VertexInputLayoutAllocationHint {

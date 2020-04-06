@@ -117,40 +117,35 @@ impl<C, Ds> Framebuffer<C, Ds> {
     /// ```
     /// # use web_glitz::rendering::DefaultRGBBuffer;
     /// # use web_glitz::rendering::DefaultRenderTarget;
-    /// # use web_glitz::runtime::RenderingContext;
-    /// # use web_glitz::vertex::{Vertex, VertexArray};
     /// # use web_glitz::buffer::{Buffer, UsageHint};
-    /// # use web_glitz::pipeline::graphics::GraphicsPipeline;
-    /// # use web_glitz::pipeline::resources::Resources;
-    /// # fn wrapper<Rc, V>(
-    /// #     context: &Rc,
-    /// #     mut rendering: DefaultRenderTarget<DefaultRGBBuffer, ()>,
+    /// # use web_glitz::pipeline::graphics::{GraphicsPipeline, Vertex};
+    /// # use web_glitz::pipeline::resources::BindGroup;
+    /// # fn wrapper<V>(
+    /// #     mut render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
     /// #     vertex_buffer: Buffer<[V]>,
     /// #     graphics_pipeline: GraphicsPipeline<V, (), ()>
     /// # )
     /// # where
-    /// #     Rc: RenderingContext,
     /// #     V: Vertex,
     /// # {
-    /// # let resources = ();
-    /// let render_pass = context.create_render_pass(&mut rendering, |framebuffer| {
+    /// # let resources = BindGroup::empty();
+    /// let render_pass = render_target.create_render_pass(|framebuffer| {
     ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
     ///         active_pipeline.task_builder()
     ///             .bind_vertex_buffers(&vertex_buffer)
-    ///             .bind_resources(resources)
+    ///             .bind_resources(&resources)
     ///             .draw(16, 1)
+    ///             .finish()
     ///     })
     /// });
     /// # }
     /// ```
     ///
-    /// In this example, `context` is a [RenderingContext]; `rendering` is a
-    /// [RenderTargetDescription], see also [DefaultRenderTarget] and [RenderTarget];
-    /// `graphics_pipeline` is a [GraphicsPipeline], see [GraphicsPipeline] and
-    /// [RenderingContext::create_graphics_pipeline] for details; `vertex_stream` is a
-    /// [VertexStreamDescription], see [VertexStreamDescription], [VertexArray] and
-    /// [RenderingContext::create_vertex_array] for details; `resources` is a user-defined type for
-    /// which the [Resources] trait is implemented, see [Resources] for details.
+    /// In this example, `context` is a [RenderingContext]; `render_target` is a [RenderTarget], see
+    /// also [DefaultRenderTarget] and [RenderTarget]; `graphics_pipeline` is a [GraphicsPipeline],
+    /// see [GraphicsPipeline] for details; `vertex_buffer` is a [Buffer] holding a [Vertex] type,
+    /// see [Buffer], [Vertex] for details; `resources` is a resource [BindGroup], see [BindGroup]
+    /// for details.
     ///
     /// # Panics
     ///
@@ -197,25 +192,24 @@ where
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::rendering::DefaultRenderTarget;
-    /// # use web_glitz::rendering::DefaultRGBABuffer;
+    /// # use web_glitz::rendering::{RenderTarget, FloatAttachment};
     /// # use web_glitz::image::texture_2d::Texture2D;
     /// # use web_glitz::image::format::RGBA8;
-    /// # use web_glitz::runtime::RenderingContext;
-    /// # fn wrapper<Rc>(
-    /// # context: &Rc,
-    /// # mut rendering: DefaultRenderTarget<DefaultRGBABuffer, ()>,
+    /// # use web_glitz::image::renderbuffer::Renderbuffer;
+    /// # fn wrapper(
+    /// # mut render_target: RenderTarget<(FloatAttachment<Renderbuffer<RGBA8>>,), ()>,
     /// # texture: Texture2D<RGBA8>
-    /// # ) where Rc: RenderingContext {
+    /// # ) {
     /// use web_glitz::image::Region2D;
     ///
-    /// let render_pass = context.create_render_pass(&mut rendering, |framebuffer| {
+    /// let render_pass = render_target.create_render_pass(|framebuffer| {
     ///     framebuffer.blit_color_nearest_command(Region2D::Fill, &texture.base_level())
     /// });
     /// # }
     /// ```
     ///
-    /// Here `rendering` is a [RenderTargetDescription] and `texture` is a [Texture2D].
+    /// Here `render_target` is a [RenderTarget]  or [DefaultRenderTarget] and `texture` is a
+    /// [Texture2D].
     ///
     /// # Panics
     ///
@@ -266,25 +260,24 @@ where
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::rendering::DefaultRenderTarget;
-    /// # use web_glitz::rendering::DefaultRGBABuffer;
+    /// # use web_glitz::rendering::{RenderTarget, FloatAttachment};
     /// # use web_glitz::image::texture_2d::Texture2D;
+    /// # use web_glitz::image::renderbuffer::Renderbuffer;
     /// # use web_glitz::image::format::RGBA8;
-    /// # use web_glitz::runtime::RenderingContext;
-    /// # fn wrapper<Rc>(
-    /// # context: &Rc,
-    /// # mut rendering: DefaultRenderTarget<DefaultRGBABuffer, ()>,
+    /// # fn wrapper(
+    /// # mut render_target: RenderTarget<(FloatAttachment<Renderbuffer<RGBA8>>,), ()>,
     /// # texture: Texture2D<RGBA8>
-    /// # ) where Rc: RenderingContext {
+    /// # ) {
     /// use web_glitz::image::Region2D;
     ///
-    /// let render_pass = context.create_render_pass(&mut rendering, |framebuffer| {
+    /// let render_pass = render_target.create_render_pass(|framebuffer| {
     ///     framebuffer.blit_color_linear_command(Region2D::Fill, &texture.base_level())
     /// });
     /// # }
     /// ```
     ///
-    /// Here `rendering` is a [RenderTargetDescription] and `texture` is a [Texture2D].
+    /// Here `render_target` is a [RenderTarget] or [DefaultRenderTarget] and `texture` is a
+    /// [Texture2D].
     ///
     /// # Panics
     ///
@@ -337,27 +330,23 @@ where
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::rendering::RenderTargetDescription;
-    /// # use web_glitz::rendering::{ Framebuffer, DepthStencilBuffer};
-    /// # use web_glitz::image::format::Depth24Stencil8;
-    /// # use web_glitz::runtime::RenderingContext;
+    /// # use web_glitz::rendering::{RenderTarget, DepthStencilAttachment, FloatAttachment};
+    /// # use web_glitz::image::format::{Depth24Stencil8, RGBA8};
     /// # use web_glitz::image::renderbuffer::Renderbuffer;
-    /// # fn wrapper<Rc, T>(
-    /// # context: &Rc,
-    /// # mut rendering: T,
+    /// # fn wrapper(
+    /// # mut render_target: RenderTarget<(FloatAttachment<Renderbuffer<RGBA8>>,), DepthStencilAttachment<Renderbuffer<Depth24Stencil8>>>,
     /// # renderbuffer: Renderbuffer<Depth24Stencil8>
-    /// # ) where
-    /// # Rc: RenderingContext,
-    /// # T: RenderTargetDescription<Framebuffer=Framebuffer<(), DepthStencilBuffer<Depth24Stencil8>>> {
+    /// # ) {
     /// use web_glitz::image::Region2D;
     ///
-    /// let render_pass = context.create_render_pass(&mut rendering, |framebuffer| {
+    /// let render_pass = render_target.create_render_pass(|framebuffer| {
     ///     framebuffer.blit_depth_stencil_command(Region2D::Fill, &renderbuffer)
     /// });
     /// # }
     /// ```
     ///
-    /// Here `rendering` is a [RenderTargetDescription] and `renderbuffer` is a [Renderbuffer].
+    /// Here `render_target` is a [RenderTarget] or [DefaultRenderTarget] and `renderbuffer` is a
+    /// [Renderbuffer].
     ///
     /// # Panics
     ///
@@ -378,7 +367,12 @@ where
             bitmask: Gl::DEPTH_BUFFER_BIT & Gl::STENCIL_BUFFER_BIT,
             filter: Gl::NEAREST,
             target_region: region,
-            target: self.depth_stencil.descriptor(),
+            target: BlitTargetDescriptor {
+                internal: BlitTargetDescriptorInternal::FBO {
+                    width: self.depth_stencil.width(),
+                    height: self.depth_stencil.height(),
+                },
+            },
             source: source_descriptor,
         }
     }
@@ -404,27 +398,23 @@ where
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::rendering::RenderTargetDescription;
-    /// # use web_glitz::rendering::{ Framebuffer, DepthStencilBuffer};
-    /// # use web_glitz::image::format::Depth24Stencil8;
-    /// # use web_glitz::runtime::RenderingContext;
+    /// # use web_glitz::rendering::{RenderTarget, DepthStencilAttachment, FloatAttachment};
+    /// # use web_glitz::image::format::{Depth24Stencil8, RGBA8};
     /// # use web_glitz::image::renderbuffer::Renderbuffer;
-    /// # fn wrapper<Rc, T>(
-    /// # context: &Rc,
-    /// # mut rendering: T,
+    /// # fn wrapper(
+    /// # mut render_target: RenderTarget<(FloatAttachment<Renderbuffer<RGBA8>>,), DepthStencilAttachment<Renderbuffer<Depth24Stencil8>>>,
     /// # renderbuffer: Renderbuffer<Depth24Stencil8>
-    /// # ) where
-    /// # Rc: RenderingContext,
-    /// # T: RenderTargetDescription<Framebuffer=Framebuffer<(), DepthStencilBuffer<Depth24Stencil8>>> {
+    /// # ) {
     /// use web_glitz::image::Region2D;
     ///
-    /// let render_pass = context.create_render_pass(&mut rendering, |framebuffer| {
+    /// let render_pass = render_target.create_render_pass(|framebuffer| {
     ///     framebuffer.blit_depth_command(Region2D::Fill, &renderbuffer)
     /// });
     /// # }
     /// ```
     ///
-    /// Here `rendering` is a [RenderTargetDescription] and `renderbuffer` is a [Renderbuffer].
+    /// Here `render_target` is a [RenderTarget] or [DefaultRenderTarget] and `renderbuffer` is a
+    /// [Renderbuffer].
     ///
     /// # Panics
     ///
@@ -445,7 +435,12 @@ where
             bitmask: Gl::DEPTH_BUFFER_BIT,
             filter: Gl::NEAREST,
             target_region: region,
-            target: self.depth_stencil.descriptor(),
+            target: BlitTargetDescriptor {
+                internal: BlitTargetDescriptorInternal::FBO {
+                    width: self.depth_stencil.width(),
+                    height: self.depth_stencil.height(),
+                },
+            },
             source: source_descriptor,
         }
     }
@@ -471,27 +466,23 @@ where
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::rendering::RenderTargetDescription;
-    /// # use web_glitz::rendering::{ Framebuffer, DepthStencilBuffer};
-    /// # use web_glitz::image::format::Depth24Stencil8;
-    /// # use web_glitz::runtime::RenderingContext;
+    /// # use web_glitz::rendering::{RenderTarget, DepthStencilAttachment, FloatAttachment};
+    /// # use web_glitz::image::format::{Depth24Stencil8, RGBA8};
     /// # use web_glitz::image::renderbuffer::Renderbuffer;
-    /// # fn wrapper<Rc, T>(
-    /// # context: &Rc,
-    /// # mut rendering: T,
+    /// # fn wrapper(
+    /// # mut render_target: RenderTarget<(FloatAttachment<Renderbuffer<RGBA8>>,), DepthStencilAttachment<Renderbuffer<Depth24Stencil8>>>,
     /// # renderbuffer: Renderbuffer<Depth24Stencil8>
-    /// # ) where
-    /// # Rc: RenderingContext,
-    /// # T: RenderTargetDescription<Framebuffer=Framebuffer<(), DepthStencilBuffer<Depth24Stencil8>>> {
+    /// # ) {
     /// use web_glitz::image::Region2D;
     ///
-    /// let render_pass = context.create_render_pass(&mut rendering, |framebuffer| {
-    ///     framebuffer.blit_depth_command(Region2D::Fill, &renderbuffer)
+    /// let render_pass = render_target.create_render_pass(|framebuffer| {
+    ///     framebuffer.blit_stencil_command(Region2D::Fill, &renderbuffer)
     /// });
     /// # }
     /// ```
     ///
-    /// Here `rendering` is a [RenderTargetDescription] and `renderbuffer` is a [Renderbuffer].
+    /// Here `rendering` is a [RenderTarget] or [DefaultRenderTarget] and `renderbuffer` is a
+    /// [Renderbuffer].
     ///
     /// # Panics
     ///
@@ -512,7 +503,12 @@ where
             bitmask: Gl::STENCIL_BUFFER_BIT,
             filter: Gl::NEAREST,
             target_region: region,
-            target: self.depth_stencil.descriptor(),
+            target: BlitTargetDescriptor {
+                internal: BlitTargetDescriptorInternal::FBO {
+                    width: self.depth_stencil.width(),
+                    height: self.depth_stencil.height(),
+                },
+            },
             source: source_descriptor,
         }
     }
@@ -541,21 +537,16 @@ where
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::rendering::RenderTargetDescription;
-    /// # use web_glitz::rendering::{Framebuffer, DepthBuffer};
-    /// # use web_glitz::image::format::DepthComponent24;
-    /// # use web_glitz::runtime::RenderingContext;
+    /// # use web_glitz::rendering::{RenderTarget, DepthAttachment, FloatAttachment};
+    /// # use web_glitz::image::format::{DepthComponent24, RGBA8};
     /// # use web_glitz::image::renderbuffer::Renderbuffer;
-    /// # fn wrapper<Rc, T>(
-    /// # context: &Rc,
-    /// # mut rendering: T,
+    /// # fn wrapper(
+    /// # mut render_target: RenderTarget<(FloatAttachment<Renderbuffer<RGBA8>>,), DepthAttachment<Renderbuffer<DepthComponent24>>>,
     /// # renderbuffer: Renderbuffer<DepthComponent24>
-    /// # ) where
-    /// # Rc: RenderingContext,
-    /// # T: RenderTargetDescription<Framebuffer=Framebuffer<(), DepthBuffer<DepthComponent24>>> {
+    /// # ) {
     /// use web_glitz::image::Region2D;
     ///
-    /// let render_pass = context.create_render_pass(&mut rendering, |framebuffer| {
+    /// let render_pass = render_target.create_render_pass(|framebuffer| {
     ///     framebuffer.blit_depth_command(Region2D::Fill, &renderbuffer)
     /// });
     /// # }
@@ -582,7 +573,12 @@ where
             bitmask: Gl::DEPTH_BUFFER_BIT,
             filter: Gl::NEAREST,
             target_region: region,
-            target: self.depth_stencil.descriptor(),
+            target: BlitTargetDescriptor {
+                internal: BlitTargetDescriptorInternal::FBO {
+                    width: self.depth_stencil.width(),
+                    height: self.depth_stencil.height(),
+                },
+            },
             source: source_descriptor,
         }
     }
@@ -611,21 +607,16 @@ where
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::rendering::RenderTargetDescription;
-    /// # use web_glitz::rendering::{Framebuffer, StencilBuffer};
-    /// # use web_glitz::image::format::StencilIndex8;
-    /// # use web_glitz::runtime::RenderingContext;
+    /// # use web_glitz::rendering::{RenderTarget, StencilAttachment, FloatAttachment};
+    /// # use web_glitz::image::format::{StencilIndex8, RGBA8};
     /// # use web_glitz::image::renderbuffer::Renderbuffer;
-    /// # fn wrapper<Rc, T>(
-    /// # context: &Rc,
-    /// # mut rendering: T,
+    /// # fn wrapper(
+    /// # mut render_target: RenderTarget<(FloatAttachment<Renderbuffer<RGBA8>>,), StencilAttachment<Renderbuffer<StencilIndex8>>>,
     /// # renderbuffer: Renderbuffer<StencilIndex8>
-    /// # ) where
-    /// # Rc: RenderingContext,
-    /// # T: RenderTargetDescription<Framebuffer=Framebuffer<(), StencilBuffer<StencilIndex8>>> {
+    /// # ) {
     /// use web_glitz::image::Region2D;
     ///
-    /// let render_pass = context.create_render_pass(&mut rendering, |framebuffer| {
+    /// let render_pass = render_target.create_render_pass(|framebuffer| {
     ///     framebuffer.blit_stencil_command(Region2D::Fill, &renderbuffer)
     /// });
     /// # }
@@ -652,7 +643,12 @@ where
             bitmask: Gl::STENCIL_BUFFER_BIT,
             filter: Gl::NEAREST,
             target_region: region,
-            target: self.depth_stencil.descriptor(),
+            target: BlitTargetDescriptor {
+                internal: BlitTargetDescriptorInternal::FBO {
+                    width: self.depth_stencil.width(),
+                    height: self.depth_stencil.height(),
+                },
+            },
             source: source_descriptor,
         }
     }
@@ -692,30 +688,26 @@ impl<C, Ds> MultisampleFramebuffer<C, Ds> {
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::rendering::DefaultRGBBuffer;
-    /// # use web_glitz::rendering::DefaultRenderTarget;
+    /// # use web_glitz::rendering::{DefaultRenderTarget, DefaultRGBBuffer};
     /// # use web_glitz::runtime::RenderingContext;
-    /// # use web_glitz::vertex::{Vertex, VertexArray};
-    /// # use web_glitz::buffer::{Buffer, UsageHint};
-    /// # use web_glitz::pipeline::graphics::GraphicsPipeline;
-    /// # use web_glitz::pipeline::resources::Resources;
-    /// # fn wrapper<Rc, V>(
-    /// #     context: &Rc,
-    /// #     mut rendering: DefaultRenderTarget<DefaultRGBBuffer, ()>,
-    /// #     vertex_buffer: Buffer<[V]>,
+    /// # use web_glitz::buffer::{BufferView, UsageHint};
+    /// # use web_glitz::pipeline::graphics::{GraphicsPipeline, Vertex};
+    /// # fn wrapper<V>(
+    /// #     mut render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
+    /// #     vertex_buffers: BufferView<[V]>,
     /// #     graphics_pipeline: GraphicsPipeline<V, (), ()>
     /// # )
     /// # where
-    /// #     Rc: RenderingContext,
     /// #     V: Vertex,
     /// # {
     /// # let resources = ();
-    /// let render_pass = context.create_render_pass(&mut rendering, |framebuffer| {
+    /// let render_pass = render_target.create_render_pass(|framebuffer| {
     ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
     ///         active_pipeline.task_builder()
-    ///             .bind_vertex_buffers(&vertex_buffer)
+    ///             .bind_vertex_buffers(vertex_buffers)
     ///             .bind_resources(resources)
     ///             .draw(16, 1)
+    ///             .finish()
     ///     })
     /// });
     /// # }
@@ -875,7 +867,12 @@ where
                 bitmask: Gl::DEPTH_BUFFER_BIT & Gl::STENCIL_BUFFER_BIT,
                 filter: Gl::NEAREST,
                 target_region: region,
-                target: self.depth_stencil.descriptor(),
+                target: BlitTargetDescriptor {
+                    internal: BlitTargetDescriptorInternal::FBO {
+                        width: self.depth_stencil.width(),
+                        height: self.depth_stencil.height(),
+                    },
+                },
                 source: blit_source_descriptor,
             })
         } else {
@@ -918,7 +915,12 @@ where
                 bitmask: Gl::DEPTH_BUFFER_BIT,
                 filter: Gl::NEAREST,
                 target_region: region,
-                target: self.depth_stencil.descriptor(),
+                target: BlitTargetDescriptor {
+                    internal: BlitTargetDescriptorInternal::FBO {
+                        width: self.depth_stencil.width(),
+                        height: self.depth_stencil.height(),
+                    },
+                },
                 source: blit_source_descriptor,
             })
         } else {
@@ -962,7 +964,12 @@ where
                 bitmask: Gl::STENCIL_BUFFER_BIT,
                 filter: Gl::NEAREST,
                 target_region: region,
-                target: self.depth_stencil.descriptor(),
+                target: BlitTargetDescriptor {
+                    internal: BlitTargetDescriptorInternal::FBO {
+                        width: self.depth_stencil.width(),
+                        height: self.depth_stencil.height(),
+                    },
+                },
                 source: blit_source_descriptor,
             })
         } else {
@@ -1009,7 +1016,12 @@ where
                 bitmask: Gl::DEPTH_BUFFER_BIT,
                 filter: Gl::NEAREST,
                 target_region: region,
-                target: self.depth_stencil.descriptor(),
+                target: BlitTargetDescriptor {
+                    internal: BlitTargetDescriptorInternal::FBO {
+                        width: self.depth_stencil.width(),
+                        height: self.depth_stencil.height(),
+                    },
+                },
                 source: blit_source_descriptor,
             })
         } else {
@@ -1057,7 +1069,12 @@ where
                 bitmask: Gl::STENCIL_BUFFER_BIT,
                 filter: Gl::NEAREST,
                 target_region: region,
-                target: self.depth_stencil.descriptor(),
+                target: BlitTargetDescriptor {
+                    internal: BlitTargetDescriptorInternal::FBO {
+                        width: self.depth_stencil.width(),
+                        height: self.depth_stencil.height(),
+                    },
+                },
                 source: blit_source_descriptor,
             })
         } else {
@@ -1441,24 +1458,23 @@ impl<'a, V, R, Tf> ActiveGraphicsPipeline<'a, V, R, Tf> {
     /// # use web_glitz::rendering::DefaultRGBBuffer;
     /// # use web_glitz::rendering::DefaultRenderTarget;
     /// # use web_glitz::runtime::RenderingContext;
-    /// # use web_glitz::buffer::UsageHint;
-    /// # use web_glitz::pipeline::graphics::{GraphicsPipeline, VertexBuffers};
-    /// # use web_glitz::pipeline::resources::Resources;
+    /// # use web_glitz::buffer::BufferView;
+    /// # use web_glitz::pipeline::graphics::{GraphicsPipeline, Vertex};
     /// # fn wrapper<Rc, V>(
     /// #     context: &Rc,
     /// #     mut render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
-    /// #     vertex_buffers: V,
+    /// #     vertex_buffer: BufferView<[V]>,
     /// #     graphics_pipeline: GraphicsPipeline<V, (), ()>
     /// # )
     /// # where
     /// #     Rc: RenderingContext,
-    /// #     V: VertexBuffers,
+    /// #     V: Vertex,
     /// # {
     /// # let resources = ();
-    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    /// let render_pass = render_target.create_render_pass(|framebuffer| {
     ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
     ///         active_pipeline.task_builder()
-    ///             .bind_vertex_buffers(vertex_buffers)
+    ///             .bind_vertex_buffers(vertex_buffer)
     ///             .bind_resources(resources)
     ///             .draw(16, 1)
     ///             .finish()
@@ -1814,22 +1830,18 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
     /// ```
     /// # use web_glitz::rendering::DefaultRGBBuffer;
     /// # use web_glitz::rendering::DefaultRenderTarget;
-    /// # use web_glitz::runtime::RenderingContext;
-    /// # use web_glitz::buffer::UsageHint;
-    /// # use web_glitz::pipeline::graphics::{GraphicsPipeline, VertexBuffers};
-    /// # use web_glitz::pipeline::resources::Resources;
-    /// # fn wrapper<Rc, V>(
-    /// #     context: &Rc,
+    /// # use web_glitz::buffer::{UsageHint, BufferView};
+    /// # use web_glitz::pipeline::graphics::{GraphicsPipeline, Vertex};
+    /// # fn wrapper<V>(
     /// #     mut render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
-    /// #     vertex_buffers: V,
+    /// #     vertex_buffers: BufferView<[V]>,
     /// #     graphics_pipeline: GraphicsPipeline<V, (), ()>
     /// # )
     /// # where
-    /// #     Rc: RenderingContext,
-    /// #     V: VertexBuffers,
+    /// #     V: Vertex,
     /// # {
     /// # let resources = ();
-    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    /// let render_pass = render_target.create_render_pass(|framebuffer| {
     ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
     ///         active_pipeline.task_builder()
     ///             .bind_vertex_buffers(vertex_buffers)
@@ -1911,24 +1923,19 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
     /// ```
     /// # use web_glitz::rendering::DefaultRGBBuffer;
     /// # use web_glitz::rendering::DefaultRenderTarget;
-    /// # use web_glitz::runtime::RenderingContext;
-    /// # use web_glitz::buffer::UsageHint;
-    /// # use web_glitz::pipeline::graphics::{GraphicsPipeline, VertexBuffers, IndexData};
-    /// # use web_glitz::pipeline::resources::Resources;
-    /// # fn wrapper<Rc, V, I>(
-    /// #     context: &Rc,
+    /// # use web_glitz::buffer::{UsageHint, BufferView};
+    /// # use web_glitz::pipeline::graphics::{GraphicsPipeline, Vertex, IndexBufferView};
+    /// # fn wrapper<V>(
     /// #     mut render_target: DefaultRenderTarget<DefaultRGBBuffer, ()>,
-    /// #     vertex_buffers: V,
-    /// #     index_buffer: I,
+    /// #     vertex_buffers: BufferView<[V]>,
+    /// #     index_buffer: IndexBufferView<u16>,
     /// #     graphics_pipeline: GraphicsPipeline<V, (), ()>
     /// # )
     /// # where
-    /// #     Rc: RenderingContext,
-    /// #     V: VertexBuffers,
-    /// #     I: IndexData
+    /// #     V: Vertex,
     /// # {
     /// # let resources = ();
-    /// let render_pass = context.create_render_pass(&mut render_target, |framebuffer| {
+    /// let render_pass = render_target.create_render_pass(|framebuffer| {
     ///     framebuffer.pipeline_task(&graphics_pipeline, |active_pipeline| {
     ///         active_pipeline.task_builder()
     ///             .bind_vertex_buffers(vertex_buffers)
@@ -1943,7 +1950,7 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
     ///
     /// In this example `graphics_pipeline` is a [GraphicsPipeline], see [GraphicsPipeline] and
     /// [RenderingContext::create_graphics_pipeline] for details; `vertex_buffers` is a set of
-    /// [VertexBuffers]; `index_buffer` is an [IndexBuffer[; `resources` is a user-defined type for
+    /// [VertexBuffers]; `index_buffer` is an [IndexBuffer]; `resources` is a user-defined type for
     /// which the [Resources] trait is implemented, see [Resources] for details.
     pub fn draw_indexed(
         self,
@@ -2188,15 +2195,15 @@ impl BlitColorTarget for DefaultRGBABuffer {
     }
 }
 
-impl<C> BlitColorTarget for C
+impl<C> BlitColorTarget for (C,)
 where
     C: RenderingOutputBuffer,
 {
     fn descriptor(&self) -> BlitTargetDescriptor {
         BlitTargetDescriptor {
             internal: BlitTargetDescriptorInternal::FBO {
-                width: self.width(),
-                height: self.height(),
+                width: self.0.width(),
+                height: self.0.height(),
             },
         }
     }
@@ -2542,12 +2549,13 @@ where
 }
 
 macro_rules! impl_blit_color_compatible {
-    ($C0:ident, $($C:ident),*) => {
-        unsafe impl<T, $C0, $($C),*> BlitColorCompatible<($C0, $($C),*)> for T
+    ($C0:ident $(,$C:ident)*) => {
+        unsafe impl<T, $C0 $(,$C)*> BlitColorCompatible<($C0 $(,$C)*,)> for T
         where T: BlitColorCompatible<$C0> $(+ BlitColorCompatible<$C>)* {}
     }
 }
 
+impl_blit_color_compatible!(C0);
 impl_blit_color_compatible!(C0, C1);
 impl_blit_color_compatible!(C0, C1, C2);
 impl_blit_color_compatible!(C0, C1, C2, C3);

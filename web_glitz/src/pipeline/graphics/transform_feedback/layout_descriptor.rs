@@ -570,7 +570,7 @@ pub struct TransformFeedbackLayoutAllocationHint {
 ///     attribute_count: 3
 /// }));
 ///
-/// builder.add_bind_slot()
+/// builder.add_buffer_slot()
 ///     .add_attribute(TransformFeedbackAttributeDescriptor {
 ///         ident: "position".into(),
 ///         attribute_type: TransformFeedbackAttributeType::FloatVector3,

@@ -387,10 +387,10 @@ impl<'a, T> BufferView<'a, [T]> {
     /// ```rust
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
-    /// use web_glitz::buffer::UsageHint;
+    /// use web_glitz::buffer::{Buffer, BufferView, UsageHint};
     ///
-    /// let buffer = context.create_buffer([1.0, 2.0, 3.0, 4.0], UsageHint::StreamDraw);
-    /// let view = buffer.view();
+    /// let buffer: Buffer<[f32]> = context.create_buffer([1.0, 2.0, 3.0, 4.0], UsageHint::StreamDraw);
+    /// let view = BufferView::from(&buffer);
     ///
     /// view.get(1); // Some BufferView<f32> containing `2.0`
     /// view.get(1..3); // Some BufferView<[f32]> containing `[2.0, 3.0]`
@@ -418,10 +418,10 @@ impl<'a, T> BufferView<'a, [T]> {
     /// ```rust
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
-    /// use web_glitz::buffer::UsageHint;
+    /// use web_glitz::buffer::{Buffer, BufferView, UsageHint};
     ///
-    /// let buffer = context.create_buffer([1.0, 2.0, 3.0, 4.0], UsageHint::StreamDraw);
-    /// let view = buffer.view();
+    /// let buffer: Buffer<[f32]> = context.create_buffer([1.0, 2.0, 3.0, 4.0], UsageHint::StreamDraw);
+    /// let view = BufferView::from(&buffer);
     ///
     /// unsafe { view.get_unchecked(1) }; // BufferView<f32> containing `2.0`
     /// # }
@@ -517,15 +517,15 @@ impl<'a, T> BufferViewMut<'a, [T]> {
     /// ```rust
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
-    /// use web_glitz::buffer::UsageHint;
+    /// use web_glitz::buffer::{Buffer, BufferViewMut, UsageHint};
     ///
-    /// let buffer = context.create_buffer([1.0, 2.0, 3.0, 4.0], UsageHint::StreamDraw);
-    /// let view = buffer.view();
+    /// let mut buffer: Buffer<[f32]> = context.create_buffer([1.0, 2.0, 3.0, 4.0], UsageHint::StreamDraw);
+    /// let mut view = BufferViewMut::from(&mut buffer);
     ///
-    /// view.get(1); // Some BufferView<f32> containing `2.0`
-    /// view.get(1..3); // Some BufferView<[f32]> containing `[2.0, 3.0]`
-    /// view.get(..2); // Some BufferView<[f32]> containing `[1.0 2.0]`
-    /// view.get(4); // None (index out of bounds)
+    /// view.get_mut(1); // Some BufferViewMut<f32> containing `2.0`
+    /// view.get_mut(1..3); // Some BufferViewMut<[f32]> containing `[2.0, 3.0]`
+    /// view.get_mut(..2); // Some BufferViewMut<[f32]> containing `[1.0 2.0]`
+    /// view.get_mut(4); // None (index out of bounds)
     /// # }
     /// ```
     pub fn get_mut<I>(&mut self, index: I) -> Option<BufferViewMut<I::Output>>
@@ -548,12 +548,12 @@ impl<'a, T> BufferViewMut<'a, [T]> {
     /// ```rust
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
-    /// use web_glitz::buffer::UsageHint;
+    /// use web_glitz::buffer::{Buffer, BufferViewMut, UsageHint};
     ///
-    /// let buffer = context.create_buffer([1.0, 2.0, 3.0, 4.0], UsageHint::StreamDraw);
-    /// let view = buffer.view();
+    /// let mut buffer: Buffer<[f32]> = context.create_buffer([1.0, 2.0, 3.0, 4.0], UsageHint::StreamDraw);
+    /// let mut view = BufferViewMut::from(&mut buffer);
     ///
-    /// unsafe { view.get_unchecked(1) }; // BufferView<f32> containing `2.0`
+    /// unsafe { view.get_unchecked_mut(1) }; // BufferViewMut<f32> containing `2.0`
     /// # }
     /// ```
     ///
@@ -1032,6 +1032,20 @@ pub trait BufferViewMutSliceIndex<T>: BufferViewSliceIndex<T> {
         }
     }
 }
+
+impl<T> BufferViewMutSliceIndex<T> for usize {}
+
+impl<T> BufferViewMutSliceIndex<T> for RangeFull {}
+
+impl<T> BufferViewMutSliceIndex<T> for Range<usize> {}
+
+impl<T> BufferViewMutSliceIndex<T> for RangeInclusive<usize> {}
+
+impl<T> BufferViewMutSliceIndex<T> for RangeFrom<usize> {}
+
+impl<T> BufferViewMutSliceIndex<T> for RangeTo<usize> {}
+
+impl<T> BufferViewMutSliceIndex<T> for RangeToInclusive<usize> {}
 
 /// Command for uploading data to a [Buffer] or a sub-section of a buffer as viewed by a
 /// [BufferView].

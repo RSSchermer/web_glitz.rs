@@ -8,5 +8,5 @@ repository = "https://github.com/RSSchermer/weg_glitz.rs"
 license = "MIT"
 
 [dev-dependencies]
-compiletest_rs = "0.3.22"
+compiletest_rs = "0.4.1"
 web-glitz = { path = "../web_glitz" }

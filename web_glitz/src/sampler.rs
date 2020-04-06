@@ -26,8 +26,8 @@ mod filter_seal {
     impl Seal for LinearMipmapLinear {}
 }
 
-/// Sealed trait implemented for marker types that define the methods available to a [Sampler] for
-/// magnification filtering.
+/// Sealed trait implemented for marker types that identify magnification filtering operations used
+/// by [Sampler]s.
 ///
 /// Magnification filtering is used when a sampling a texture value for a fragment that is smaller
 /// than the candidate texels. See [Nearest] and [Linear] for details on how these filtering
@@ -36,8 +36,8 @@ pub trait MagnificationFilter: filter_seal::Seal {
     const ID: u32;
 }
 
-/// Sealed trait implemented for marker types that define the methods available to a [Sampler] for
-/// minification filtering.
+/// Sealed trait implemented for marker types that identify minification filtering operations used
+/// by [Sampler]s.
 ///
 /// Minification filtering is used when a sampling a texture value for a fragment that is larger
 /// than the candidate texels.
@@ -206,12 +206,12 @@ impl Default for LODRange {
 ///
 /// ```rust
 /// use web_glitz::sampler::{
-///     SamplerDescriptor, MinificationFilter, MagnificationFilter, LODRange, Wrap
+///     SamplerDescriptor, NearestMipmapLinear, Linear, LODRange, Wrap
 /// };
 ///
 /// assert_eq!(SamplerDescriptor::default(), SamplerDescriptor {
-///     minification_filter: MinificationFilter::NearestMipmapLinear,
-///     magnification_filter: MagnificationFilter::Linear,
+///     minification_filter: NearestMipmapLinear,
+///     magnification_filter: Linear,
 ///     lod_range: LODRange::default(),
 ///     wrap_s: Wrap::Repeat,
 ///     wrap_t: Wrap::Repeat,
@@ -257,7 +257,7 @@ pub struct SamplerDescriptor<Min, Mag> {
     pub wrap_r: Wrap,
 }
 
-impl SamplerDescriptor<Linear, NearestMipmapLinear> {
+impl SamplerDescriptor<NearestMipmapLinear, Linear> {
     // TODO: the specialization feature might be able to replace this by simply marking the default
     // implemention below this this filter combo as the `default` implementation.
     pub fn default() -> Self {
@@ -283,17 +283,17 @@ macro_rules! impl_default_for_sampler_descriptor {
 }
 
 impl_default_for_sampler_descriptor!(Nearest, Nearest);
-impl_default_for_sampler_descriptor!(Nearest, Linear);
-impl_default_for_sampler_descriptor!(Nearest, NearestMipmapNearest);
-impl_default_for_sampler_descriptor!(Nearest, NearestMipmapLinear);
-impl_default_for_sampler_descriptor!(Nearest, LinearMipmapNearest);
-impl_default_for_sampler_descriptor!(Nearest, LinearMipmapLinear);
 impl_default_for_sampler_descriptor!(Linear, Nearest);
+impl_default_for_sampler_descriptor!(NearestMipmapNearest, Nearest);
+impl_default_for_sampler_descriptor!(NearestMipmapLinear, Nearest);
+impl_default_for_sampler_descriptor!(LinearMipmapNearest, Nearest);
+impl_default_for_sampler_descriptor!(LinearMipmapLinear, Nearest);
+impl_default_for_sampler_descriptor!(Nearest, Linear);
 impl_default_for_sampler_descriptor!(Linear, Linear);
-impl_default_for_sampler_descriptor!(Linear, NearestMipmapNearest);
-impl_default_for_sampler_descriptor!(Linear, NearestMipmapLinear);
-impl_default_for_sampler_descriptor!(Linear, LinearMipmapNearest);
-impl_default_for_sampler_descriptor!(Linear, LinearMipmapLinear);
+impl_default_for_sampler_descriptor!(NearestMipmapNearest, Linear);
+impl_default_for_sampler_descriptor!(NearestMipmapLinear, Linear);
+impl_default_for_sampler_descriptor!(LinearMipmapNearest, Linear);
+impl_default_for_sampler_descriptor!(LinearMipmapLinear, Linear);
 
 /// Samples texture values given texture coordinates texture coordinates.
 ///

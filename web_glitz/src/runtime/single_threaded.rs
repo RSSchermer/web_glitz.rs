@@ -336,8 +336,11 @@ impl RenderingContext for SingleThreadedContext {
         let RenderTargetDescriptor {
             color_attachments,
             depth_stencil_attachment,
+            context_id,
             ..
         } = descriptor;
+
+        context_id.verify(self.id);
 
         RenderTarget {
             color_attachments,
@@ -355,7 +358,10 @@ impl RenderingContext for SingleThreadedContext {
             color_attachments,
             depth_stencil_attachment,
             color_attachment_count,
+            context_id,
         } = descriptor;
+
+        context_id.verify(self.id);
 
         if color_attachment_count > self.max_color_attachments {
             Err(MaxColorBuffersExceeded {
@@ -380,8 +386,11 @@ impl RenderingContext for SingleThreadedContext {
             color_attachments,
             depth_stencil_attachment,
             samples,
+            context_id,
             ..
         } = descriptor;
+
+        context_id.verify(self.id);
 
         MultisampleRenderTarget {
             color_attachments,
@@ -401,7 +410,10 @@ impl RenderingContext for SingleThreadedContext {
             depth_stencil_attachment,
             samples,
             color_attachment_count,
+            context_id,
         } = descriptor;
+
+        context_id.verify(self.id);
 
         if color_attachment_count > self.max_color_attachments {
             Err(MaxColorBuffersExceeded {

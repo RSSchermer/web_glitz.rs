@@ -1598,7 +1598,7 @@ unsafe impl PixelUnpack<Alpha> for u8 {
 
 // Note: copying the casing convention of Multisample (as opposed to MultiSample) from OpenGL.
 
-pub struct Multisample<F>(F, usize)
+pub struct Multisample<F>(pub F, pub usize)
 where
     F: Multisamplable;
 

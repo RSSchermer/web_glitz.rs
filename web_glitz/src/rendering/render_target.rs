@@ -285,7 +285,7 @@ unsafe impl<F> AttachStencil for Renderbuffer<F> where
 /// }).unwrap();
 ///
 /// let render_target_descriptor = RenderTargetDescriptor::new()
-///     .attach_color_float(&mut color_image, LoadOp::Load, StoreOp::Store);
+///     .attach_color_float(color_image.base_level_mut(), LoadOp::Load, StoreOp::Store);
 /// # }
 /// ```
 ///
@@ -352,7 +352,7 @@ unsafe impl<F> AttachStencil for Renderbuffer<F> where
 /// });
 ///
 /// let mut color_image_1 = context.create_renderbuffer(&RenderbufferDescriptor{
-///     format: RGBA8,
+///     format: RGBA8I,
 ///     width: 500,
 ///     height: 500
 /// });
@@ -441,6 +441,7 @@ pub struct RenderTargetDescriptor<C, Ds> {
     pub(crate) color_attachments: C,
     pub(crate) depth_stencil_attachment: Ds,
     pub(crate) color_attachment_count: usize,
+    pub(crate) context_id: RenderTargetContextId,
 }
 
 impl RenderTargetDescriptor<(), ()> {
@@ -450,6 +451,7 @@ impl RenderTargetDescriptor<(), ()> {
             color_attachments: (),
             depth_stencil_attachment: (),
             color_attachment_count: 0,
+            context_id: RenderTargetContextId::new(),
         }
     }
 }
@@ -478,13 +480,15 @@ impl<C> RenderTargetDescriptor<C, ()> {
     /// ```
     pub fn attach_depth_stencil<Ds>(
         self,
-        image: Ds,
+        mut image: Ds,
         load_op: LoadOp<(f32, i32)>,
         store_op: StoreOp,
     ) -> RenderTargetDescriptor<C, DepthStencilAttachment<Ds>>
     where
         Ds: AttachDepthStencil,
     {
+        let context_id = image.as_attachment().into_data().context_id;
+
         RenderTargetDescriptor {
             color_attachments: self.color_attachments,
             depth_stencil_attachment: DepthStencilAttachment {
@@ -493,6 +497,7 @@ impl<C> RenderTargetDescriptor<C, ()> {
                 store_op,
             },
             color_attachment_count: self.color_attachment_count,
+            context_id: self.context_id.record("depth-stencil", context_id),
         }
     }
 
@@ -519,13 +524,15 @@ impl<C> RenderTargetDescriptor<C, ()> {
     /// ```
     pub fn attach_depth<Ds>(
         self,
-        image: Ds,
+        mut image: Ds,
         load_op: LoadOp<f32>,
         store_op: StoreOp,
     ) -> RenderTargetDescriptor<C, DepthAttachment<Ds>>
     where
         Ds: AttachDepth,
     {
+        let context_id = image.as_attachment().into_data().context_id;
+
         RenderTargetDescriptor {
             color_attachments: self.color_attachments,
             depth_stencil_attachment: DepthAttachment {
@@ -534,6 +541,7 @@ impl<C> RenderTargetDescriptor<C, ()> {
                 store_op,
             },
             color_attachment_count: self.color_attachment_count,
+            context_id: self.context_id.record("depth-stencil", context_id),
         }
     }
 
@@ -560,13 +568,15 @@ impl<C> RenderTargetDescriptor<C, ()> {
     /// ```
     pub fn attach_stencil<Ds>(
         self,
-        image: Ds,
+        mut image: Ds,
         load_op: LoadOp<i32>,
         store_op: StoreOp,
     ) -> RenderTargetDescriptor<C, StencilAttachment<Ds>>
     where
         Ds: AttachStencil,
     {
+        let context_id = image.as_attachment().into_data().context_id;
+
         RenderTargetDescriptor {
             color_attachments: self.color_attachments,
             depth_stencil_attachment: StencilAttachment {
@@ -575,12 +585,13 @@ impl<C> RenderTargetDescriptor<C, ()> {
                 store_op,
             },
             color_attachment_count: self.color_attachment_count,
+            context_id: self.context_id.record("depth-stencil", context_id),
         }
     }
 }
 
 macro_rules! impl_attach_render_target_color {
-    ($count:tt, $($C:ident),*) => {
+    ($count:tt, $label:tt, $($C:ident),*) => {
         impl<$($C,)* Ds> RenderTargetDescriptor<($($C,)*), Ds> {
             /// Attaches an image that stores floating point values to the next color slot.
             ///
@@ -603,7 +614,9 @@ macro_rules! impl_attach_render_target_color {
             ///     .attach_color_float(&mut color_image, LoadOp::Load, StoreOp::Store);
             /// # }
             /// ```
-            pub fn attach_color_float<C>(self, image: C, load_op: LoadOp<[f32; 4]>, store_op: StoreOp) -> RenderTargetDescriptor<($($C,)* FloatAttachment<C>,), Ds> where C: AttachColorFloat {
+            pub fn attach_color_float<C>(self, mut image: C, load_op: LoadOp<[f32; 4]>, store_op: StoreOp) -> RenderTargetDescriptor<($($C,)* FloatAttachment<C>,), Ds> where C: AttachColorFloat {
+                let context_id = image.as_attachment().into_data().context_id;
+
                 #[allow(non_snake_case)]
                 let ($($C,)*) = self.color_attachments;
 
@@ -614,7 +627,8 @@ macro_rules! impl_attach_render_target_color {
                         store_op
                     },),
                     depth_stencil_attachment: self.depth_stencil_attachment,
-                    color_attachment_count: $count
+                    color_attachment_count: $count,
+                    context_id: self.context_id.record($label, context_id)
                 }
             }
 
@@ -639,7 +653,9 @@ macro_rules! impl_attach_render_target_color {
             ///     .attach_color_integer(&mut color_image, LoadOp::Load, StoreOp::Store);
             /// # }
             /// ```
-            pub fn attach_color_integer<C>(self, image: C, load_op: LoadOp<[i32; 4]>, store_op: StoreOp) -> RenderTargetDescriptor<($($C,)* IntegerAttachment<C>,), Ds> where C: AttachColorInteger {
+            pub fn attach_color_integer<C>(self, mut image: C, load_op: LoadOp<[i32; 4]>, store_op: StoreOp) -> RenderTargetDescriptor<($($C,)* IntegerAttachment<C>,), Ds> where C: AttachColorInteger {
+                let context_id = image.as_attachment().into_data().context_id;
+
                 #[allow(non_snake_case)]
                 let ($($C,)*) = self.color_attachments;
 
@@ -650,7 +666,8 @@ macro_rules! impl_attach_render_target_color {
                         store_op
                     },),
                     depth_stencil_attachment: self.depth_stencil_attachment,
-                    color_attachment_count: $count
+                    color_attachment_count: $count,
+                    context_id: self.context_id.record($label, context_id)
                 }
             }
 
@@ -675,7 +692,9 @@ macro_rules! impl_attach_render_target_color {
             ///     .attach_color_unsigned_integer(&mut color_image, LoadOp::Load, StoreOp::Store);
             /// # }
             /// ```
-            pub fn attach_color_unsigned_integer<C>(self, image: C, load_op: LoadOp<[u32; 4]>, store_op: StoreOp) -> RenderTargetDescriptor<($($C,)* UnsignedIntegerAttachment<C>,), Ds> where C: AttachColorUnsignedInteger {
+            pub fn attach_color_unsigned_integer<C>(self, mut image: C, load_op: LoadOp<[u32; 4]>, store_op: StoreOp) -> RenderTargetDescriptor<($($C,)* UnsignedIntegerAttachment<C>,), Ds> where C: AttachColorUnsignedInteger {
+                let context_id = image.as_attachment().into_data().context_id;
+
                 #[allow(non_snake_case)]
                 let ($($C,)*) = self.color_attachments;
 
@@ -686,30 +705,35 @@ macro_rules! impl_attach_render_target_color {
                         store_op
                     },),
                     depth_stencil_attachment: self.depth_stencil_attachment,
-                    color_attachment_count: $count
+                    color_attachment_count: $count,
+                    context_id: self.context_id.record($label, context_id)
                 }
             }
         }
     }
 }
 
-impl_attach_render_target_color!(1,);
-impl_attach_render_target_color!(2, C0);
-impl_attach_render_target_color!(3, C0, C1);
-impl_attach_render_target_color!(4, C0, C1, C2);
-impl_attach_render_target_color!(5, C0, C1, C2, C3);
-impl_attach_render_target_color!(6, C0, C1, C2, C3, C4);
-impl_attach_render_target_color!(7, C0, C1, C2, C3, C4, C5);
-impl_attach_render_target_color!(8, C0, C1, C2, C3, C4, C5, C6);
-impl_attach_render_target_color!(9, C0, C1, C2, C3, C4, C5, C6, C7);
-impl_attach_render_target_color!(10, C0, C1, C2, C3, C4, C5, C6, C7, C8);
-impl_attach_render_target_color!(11, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9);
-impl_attach_render_target_color!(12, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
-impl_attach_render_target_color!(13, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11);
-impl_attach_render_target_color!(14, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12);
-impl_attach_render_target_color!(15, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13);
+impl_attach_render_target_color!(1, "color 0",);
+impl_attach_render_target_color!(2, "color 1", C0);
+impl_attach_render_target_color!(3, "color 2", C0, C1);
+impl_attach_render_target_color!(4, "color 3", C0, C1, C2);
+impl_attach_render_target_color!(5, "color 4", C0, C1, C2, C3);
+impl_attach_render_target_color!(6, "color 5", C0, C1, C2, C3, C4);
+impl_attach_render_target_color!(7, "color 6", C0, C1, C2, C3, C4, C5);
+impl_attach_render_target_color!(8, "color 7", C0, C1, C2, C3, C4, C5, C6);
+impl_attach_render_target_color!(9, "color 8", C0, C1, C2, C3, C4, C5, C6, C7);
+impl_attach_render_target_color!(10, "color 9", C0, C1, C2, C3, C4, C5, C6, C7, C8);
+impl_attach_render_target_color!(11, "color 10", C0, C1, C2, C3, C4, C5, C6, C7, C8, C9);
+impl_attach_render_target_color!(12, "color 11", C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
+impl_attach_render_target_color!(13, "color 12", C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11);
 impl_attach_render_target_color!(
-    16, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14
+    14, "color 13", C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12
+);
+impl_attach_render_target_color!(
+    15, "color 14", C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13
+);
+impl_attach_render_target_color!(
+    16, "color 15", C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14
 );
 
 /// Marker trait for multisample image reference types that may be attached to a
@@ -773,13 +797,15 @@ unsafe impl<F> AttachMultisampleDepth for Renderbuffer<Multisample<F>> where
 /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
 /// use web_glitz::image::format::{Multisample, RGBA8};
 /// use web_glitz::image::renderbuffer::MultisampleRenderbufferDescriptor;
-/// use web_glitz::rendering::{RenderTargetDescriptor, LoadOp, StoreOp};
+/// use web_glitz::rendering::{MultisampleRenderTargetDescriptor, LoadOp, StoreOp};
 ///
 /// let mut color_image = context.create_multisample_renderbuffer(&MultisampleRenderbufferDescriptor {
 ///     format: Multisample(RGBA8, 16),
 ///     width: 500,
 ///     height: 500
-/// });
+/// }).unwrap();
+///
+/// # let render_target_descriptor = MultisampleRenderTargetDescriptor::new(4);
 ///
 /// render_target_descriptor.attach_color_float(&mut color_image, LoadOp::Load, StoreOp::Store);
 ///
@@ -796,6 +822,7 @@ pub struct MultisampleRenderTargetDescriptor<C, Ds> {
     pub(crate) depth_stencil_attachment: Ds,
     pub(crate) samples: usize,
     pub(crate) color_attachment_count: usize,
+    pub(crate) context_id: RenderTargetContextId,
 }
 
 impl MultisampleRenderTargetDescriptor<(), ()> {
@@ -807,6 +834,7 @@ impl MultisampleRenderTargetDescriptor<(), ()> {
             depth_stencil_attachment: (),
             samples,
             color_attachment_count: 0,
+            context_id: RenderTargetContextId::new(),
         }
     }
 }
@@ -821,13 +849,13 @@ impl<C> MultisampleRenderTargetDescriptor<C, ()> {
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
     /// use web_glitz::image::format::{Depth24Stencil8, Multisample};
     /// use web_glitz::image::renderbuffer::MultisampleRenderbufferDescriptor;
-    /// use web_glitz::rendering::{RenderTargetDescriptor, LoadOp, StoreOp};
+    /// use web_glitz::rendering::{MultisampleRenderTargetDescriptor, LoadOp, StoreOp};
     ///
     /// let mut depth_stencil_image = context.create_multisample_renderbuffer(&MultisampleRenderbufferDescriptor {
     ///     format: Multisample(Depth24Stencil8, 4),
     ///     width: 500,
     ///     height: 500
-    /// });
+    /// }).unwrap();
     ///
     /// let render_target_descriptor = MultisampleRenderTargetDescriptor::new(4)
     ///     .attach_depth_stencil(&mut depth_stencil_image, LoadOp::Load, StoreOp::Store);
@@ -848,7 +876,9 @@ impl<C> MultisampleRenderTargetDescriptor<C, ()> {
     where
         Ds: AttachMultisampleDepthStencil,
     {
-        let image_samples = image.as_multisample_attachment().samples();
+        let attachment = image.as_multisample_attachment();
+        let image_samples = attachment.samples();
+        let context_id = attachment.into_data().context_id;
 
         if image_samples != self.samples {
             panic!(
@@ -866,6 +896,7 @@ impl<C> MultisampleRenderTargetDescriptor<C, ()> {
             },
             samples: self.samples,
             color_attachment_count: self.color_attachment_count,
+            context_id: self.context_id.record("depth-stencil", context_id),
         }
     }
 
@@ -878,13 +909,13 @@ impl<C> MultisampleRenderTargetDescriptor<C, ()> {
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
     /// use web_glitz::image::format::{DepthComponent24, Multisample};
     /// use web_glitz::image::renderbuffer::MultisampleRenderbufferDescriptor;
-    /// use web_glitz::rendering::{RenderTargetDescriptor, LoadOp, StoreOp};
+    /// use web_glitz::rendering::{MultisampleRenderTargetDescriptor, LoadOp, StoreOp};
     ///
     /// let mut depth_image = context.create_multisample_renderbuffer(&MultisampleRenderbufferDescriptor {
     ///     format: Multisample(DepthComponent24, 4),
     ///     width: 500,
     ///     height: 500
-    /// });
+    /// }).unwrap();
     ///
     /// let render_target_descriptor = MultisampleRenderTargetDescriptor::new(4)
     ///     .attach_depth(&mut depth_image, LoadOp::Load, StoreOp::Store);
@@ -905,7 +936,9 @@ impl<C> MultisampleRenderTargetDescriptor<C, ()> {
     where
         Ds: AttachMultisampleDepth,
     {
-        let image_samples = image.as_multisample_attachment().samples();
+        let attachment = image.as_multisample_attachment();
+        let image_samples = attachment.samples();
+        let context_id = attachment.into_data().context_id;
 
         if image_samples != self.samples {
             panic!(
@@ -923,12 +956,13 @@ impl<C> MultisampleRenderTargetDescriptor<C, ()> {
             },
             samples: self.samples,
             color_attachment_count: self.color_attachment_count,
+            context_id: self.context_id.record("depth-stencil", context_id),
         }
     }
 }
 
 macro_rules! impl_attach_multisample_render_target_color {
-    ($count:tt, $($C:ident),*) => {
+    ($count:tt, $label:tt, $($C:ident),*) => {
         impl<$($C,)* Ds> MultisampleRenderTargetDescriptor<($($C,)*), Ds> {
             /// Attaches an image that stores floating point values to the next color slot.
             ///
@@ -939,13 +973,13 @@ macro_rules! impl_attach_multisample_render_target_color {
             /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
             /// use web_glitz::image::format::{Multisample, RGBA8};
             /// use web_glitz::image::renderbuffer::MultisampleRenderbufferDescriptor;
-            /// use web_glitz::rendering::{RenderTargetDescriptor, LoadOp, StoreOp};
+            /// use web_glitz::rendering::{MultisampleRenderTargetDescriptor, LoadOp, StoreOp};
             ///
             /// let mut color_image = context.create_multisample_renderbuffer(&MultisampleRenderbufferDescriptor{
             ///     format: Multisample(RGBA8, 4),
             ///     width: 500,
             ///     height: 500
-            /// });
+            /// }).unwrap();
             ///
             /// let render_target_descriptor = MultisampleRenderTargetDescriptor::new(4)
             ///     .attach_color_float(&mut color_image, LoadOp::Load, StoreOp::Store);
@@ -965,7 +999,9 @@ macro_rules! impl_attach_multisample_render_target_color {
             ) -> MultisampleRenderTargetDescriptor<($($C,)* FloatAttachment<C>,), Ds>
                 where C: AttachMultisampleColorFloat
             {
-                let image_samples = image.as_multisample_attachment().samples();
+                let attachment = image.as_multisample_attachment();
+                let image_samples = attachment.samples();
+                let context_id = attachment.into_data().context_id;
 
                 if image_samples != self.samples {
                     panic!(
@@ -986,34 +1022,41 @@ macro_rules! impl_attach_multisample_render_target_color {
                     },),
                     depth_stencil_attachment: self.depth_stencil_attachment,
                     samples: self.samples,
-                    color_attachment_count: $count
+                    color_attachment_count: $count,
+                    context_id: self.context_id.record($label, context_id)
                 }
             }
         }
     }
 }
 
-impl_attach_multisample_render_target_color!(1,);
-impl_attach_multisample_render_target_color!(2, C0);
-impl_attach_multisample_render_target_color!(3, C0, C1);
-impl_attach_multisample_render_target_color!(4, C0, C1, C2);
-impl_attach_multisample_render_target_color!(5, C0, C1, C2, C3);
-impl_attach_multisample_render_target_color!(6, C0, C1, C2, C3, C4);
-impl_attach_multisample_render_target_color!(7, C0, C1, C2, C3, C4, C5);
-impl_attach_multisample_render_target_color!(8, C0, C1, C2, C3, C4, C5, C6);
-impl_attach_multisample_render_target_color!(9, C0, C1, C2, C3, C4, C5, C6, C7);
-impl_attach_multisample_render_target_color!(10, C0, C1, C2, C3, C4, C5, C6, C7, C8);
-impl_attach_multisample_render_target_color!(11, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9);
-impl_attach_multisample_render_target_color!(12, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
-impl_attach_multisample_render_target_color!(13, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11);
+impl_attach_multisample_render_target_color!(1, "color 0",);
+impl_attach_multisample_render_target_color!(2, "color 1", C0);
+impl_attach_multisample_render_target_color!(3, "color 2", C0, C1);
+impl_attach_multisample_render_target_color!(4, "color 3", C0, C1, C2);
+impl_attach_multisample_render_target_color!(5, "color 4", C0, C1, C2, C3);
+impl_attach_multisample_render_target_color!(6, "color 5", C0, C1, C2, C3, C4);
+impl_attach_multisample_render_target_color!(7, "color 6", C0, C1, C2, C3, C4, C5);
+impl_attach_multisample_render_target_color!(8, "color 7", C0, C1, C2, C3, C4, C5, C6);
+impl_attach_multisample_render_target_color!(9, "color 8", C0, C1, C2, C3, C4, C5, C6, C7);
+impl_attach_multisample_render_target_color!(10, "color 9", C0, C1, C2, C3, C4, C5, C6, C7, C8);
 impl_attach_multisample_render_target_color!(
-    14, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12
+    11, "color 10", C0, C1, C2, C3, C4, C5, C6, C7, C8, C9
 );
 impl_attach_multisample_render_target_color!(
-    15, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13
+    12, "color 11", C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10
 );
 impl_attach_multisample_render_target_color!(
-    16, C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14
+    13, "color 12", C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11
+);
+impl_attach_multisample_render_target_color!(
+    14, "color 13", C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12
+);
+impl_attach_multisample_render_target_color!(
+    15, "color 14", C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13
+);
+impl_attach_multisample_render_target_color!(
+    16, "color 15", C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14
 );
 
 /// Describes a target for rendering operations.
@@ -1048,16 +1091,18 @@ impl_attach_multisample_render_target_color!(
 /// takes a [Framebuffer] as its input and returns a render pass task:
 ///
 /// ```
-/// # use web_glitz::rendering::{LoadOp, StoreOp};
 /// # use web_glitz::runtime::RenderingContext;
-/// # use web_glitz::image::renderbuffer::RenderbufferDescriptor;
-/// # use web_glitz::image::format::RGBA8;
 /// # fn wrapper<Rc>(
 /// #     context: &Rc,
 /// # )
 /// # where
 /// #     Rc: RenderingContext,
 /// # {
+/// use web_glitz::image::Region2D;
+/// use web_glitz::image::format::RGBA8;
+/// use web_glitz::image::renderbuffer::RenderbufferDescriptor;
+/// use web_glitz::rendering::{LoadOp, StoreOp, RenderTargetDescriptor};
+///
 /// let mut color_image = context.create_renderbuffer(&RenderbufferDescriptor{
 ///     format: RGBA8,
 ///     width: 500,
@@ -1074,7 +1119,7 @@ impl_attach_multisample_render_target_color!(
 ///     // Return a task that modifies the framebuffer, see the documentation for the
 ///     // `Framebuffer` type for details. For this example, we'll clear the first (and only) color
 ///     // attachment to "opaque red".
-///     framebuffer.color.0.clear_command([1.0, 0.0, 0.0, 1.0])
+///     framebuffer.color.0.clear_command([1.0, 0.0, 0.0, 1.0], Region2D::Fill)
 /// });
 /// # }
 /// ```
@@ -1388,7 +1433,28 @@ macro_rules! impl_create_render_pass {
                 }
             }
         }
+    }
+}
 
+impl_create_render_pass!(C0);
+impl_create_render_pass!(C0, C1);
+impl_create_render_pass!(C0, C1, C2);
+impl_create_render_pass!(C0, C1, C2, C3);
+impl_create_render_pass!(C0, C1, C2, C3, C4);
+impl_create_render_pass!(C0, C1, C2, C3, C4, C5);
+impl_create_render_pass!(C0, C1, C2, C3, C4, C5, C6);
+impl_create_render_pass!(C0, C1, C2, C3, C4, C5, C6, C7);
+impl_create_render_pass!(C0, C1, C2, C3, C4, C5, C6, C7, C8);
+impl_create_render_pass!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9);
+impl_create_render_pass!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
+impl_create_render_pass!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11);
+impl_create_render_pass!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12);
+impl_create_render_pass!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13);
+impl_create_render_pass!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14);
+impl_create_render_pass!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15);
+
+macro_rules! impl_create_render_pass_depth_stencil {
+    ($($C:ident),*) => {
         #[allow(unused_parens)]
         impl<$($C,)* Ds> RenderTarget<($($C,)*), Ds>
         where
@@ -1656,22 +1722,85 @@ macro_rules! impl_create_render_pass {
     }
 }
 
-impl_create_render_pass!(C0);
-impl_create_render_pass!(C0, C1);
-impl_create_render_pass!(C0, C1, C2);
-impl_create_render_pass!(C0, C1, C2, C3);
-impl_create_render_pass!(C0, C1, C2, C3, C4);
-impl_create_render_pass!(C0, C1, C2, C3, C4, C5);
-impl_create_render_pass!(C0, C1, C2, C3, C4, C5, C6);
-impl_create_render_pass!(C0, C1, C2, C3, C4, C5, C6, C7);
-impl_create_render_pass!(C0, C1, C2, C3, C4, C5, C6, C7, C8);
-impl_create_render_pass!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9);
-impl_create_render_pass!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
-impl_create_render_pass!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11);
-impl_create_render_pass!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12);
-impl_create_render_pass!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13);
-impl_create_render_pass!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14);
-impl_create_render_pass!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15);
+impl_create_render_pass_depth_stencil!(C0);
+impl_create_render_pass_depth_stencil!(C0, C1);
+impl_create_render_pass_depth_stencil!(C0, C1, C2);
+impl_create_render_pass_depth_stencil!(C0, C1, C2, C3);
+impl_create_render_pass_depth_stencil!(C0, C1, C2, C3, C4);
+impl_create_render_pass_depth_stencil!(C0, C1, C2, C3, C4, C5);
+impl_create_render_pass_depth_stencil!(C0, C1, C2, C3, C4, C5, C6);
+impl_create_render_pass_depth_stencil!(C0, C1, C2, C3, C4, C5, C6, C7);
+impl_create_render_pass_depth_stencil!(C0, C1, C2, C3, C4, C5, C6, C7, C8);
+impl_create_render_pass_depth_stencil!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9);
+impl_create_render_pass_depth_stencil!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
+impl_create_render_pass_depth_stencil!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11);
+impl_create_render_pass_depth_stencil!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12);
+impl_create_render_pass_depth_stencil!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13);
+impl_create_render_pass_depth_stencil!(
+    C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14
+);
+impl_create_render_pass_depth_stencil!(
+    C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15
+);
+
+pub(crate) enum RenderTargetContextId {
+    Any,
+    Single(&'static str, usize),
+    Mixed {
+        first: (&'static str, usize),
+        second: &'static str,
+    },
+}
+
+impl RenderTargetContextId {
+    pub(crate) fn new() -> Self {
+        RenderTargetContextId::Any
+    }
+
+    pub(crate) fn record(self, label: &'static str, context_id: usize) -> Self {
+        match self {
+            RenderTargetContextId::Any => RenderTargetContextId::Single(label, context_id),
+            RenderTargetContextId::Single(first_label, first_id) => {
+                if context_id != first_id {
+                    RenderTargetContextId::Mixed {
+                        first: (first_label, first_id),
+                        second: label,
+                    }
+                } else {
+                    self
+                }
+            }
+            _ => self,
+        }
+    }
+
+    pub(crate) fn verify(&self, context_id: usize) {
+        match self {
+            RenderTargetContextId::Single(label, id) => {
+                if context_id != *id {
+                    panic!("The {} attachment belongs to a different context.", label)
+                }
+            }
+            RenderTargetContextId::Mixed {
+                first: (first_label, first_id),
+                second: second_label,
+            } => {
+                if context_id != *first_id {
+                    panic!(
+                        "The {} attachment belongs to a different context.",
+                        first_label
+                    )
+                } else {
+                    panic!(
+                        "The {} attachment belongs to a different context.",
+                        second_label
+                    )
+                }
+            }
+            _ => (),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub(crate) enum RenderTargetData {

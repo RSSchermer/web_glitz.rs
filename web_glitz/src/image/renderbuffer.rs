@@ -53,11 +53,13 @@ where
 /// Stores a single 2-dimensional image, optimized for use as a [RenderTarget] attachment.
 ///
 /// Unlike a [Texture2D], which can also hold a single 2-dimensional image, a [Renderbuffer] cannot
-/// be sampled. However, a [Renderbuffer] is optimized for use as a render target, whereas a
-/// [Texture2D] may not be. A [Renderbuffer] is therefor the logical choice for a [RenderTarget]
-/// attachment that does not need to be sampled.
+/// be sampled. However, a [Renderbuffer] is optimized for use as a render target attachment,
+/// whereas a [Texture2D] may not be. A [Renderbuffer] is therefor the best choice for a
+/// [RenderTarget] attachment that never needs to be sampled.
 ///
-/// See [RenderingContext::create_renderbuffer] for details on how a [Renderbuffer] is created.
+/// See [RenderingContext::create_renderbuffer] and
+/// [RenderingContext::create_multisample_renderbuffer] for details on how a [Renderbuffer] is
+/// created for single-sample and multisample image data respectively.
 ///
 /// # Example
 ///
@@ -70,7 +72,7 @@ where
 /// use web_glitz::image::Region2D;
 /// use web_glitz::image::format::RGB8;
 /// use web_glitz::image::renderbuffer::RenderbufferDescriptor;
-/// use web_glitz::rendering::{FloatAttachment, LoadOp, RenderTargetDescriptor, StoreOp};
+/// use web_glitz::rendering::{LoadOp, RenderTargetDescriptor, StoreOp};
 ///
 /// let mut renderbuffer = context.create_renderbuffer(&RenderbufferDescriptor {
 ///     format: RGB8,
@@ -78,15 +80,17 @@ where
 ///     height: 256
 /// });
 ///
-/// let render_pass = context.create_render_pass(RenderTargetDescriptor {
-///     color: FloatAttachment {
-///         image: &mut renderbuffer,
-///         load_op: LoadOp::Load,
-///         store_op: StoreOp::Store
-///     },
-///     depth_stencil: ()
-/// }, |framebuffer| {
-///     framebuffer.color.clear_command([0.0, 0.0, 1.0, 0.0], Region2D::Area((64, 64), 128, 128))
+/// let mut render_target = context.create_render_target(
+///     RenderTargetDescriptor::new()
+///         .attach_color_float(
+///             &mut renderbuffer,
+///             LoadOp::Load,
+///             StoreOp::Store
+///         )
+/// );
+///
+/// let render_pass = render_target.create_render_pass(|framebuffer| {
+///     framebuffer.color.0.clear_command([0.0, 0.0, 1.0, 0.0], Region2D::Area((64, 64), 128, 128))
 /// });
 ///
 /// context.submit(render_pass);
@@ -117,6 +121,7 @@ impl<F> Renderbuffer<Multisample<F>>
 where
     F: Multisamplable,
 {
+    /// Returns the number of samples this [Renderbuffer] stores for its image data.
     pub fn samples(&self) -> usize {
         self.data.samples.unwrap()
     }

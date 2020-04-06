@@ -116,7 +116,6 @@ impl GraphicsPipelineDescriptor<(), (), ()> {
 /// - The viewport may be specified with [viewport]. See [Viewport] for details on the viewport. If
 ///   no viewport is explicitly specified, then the viewport will default to [Viewport::Auto].
 ///
-///
 /// Finally, the [GraphicsPipelineDescriptor] may be finalized by calling [finish]. [finish] may
 /// only be called if at least the following have been explicitly specified:
 ///
@@ -127,16 +126,14 @@ impl GraphicsPipelineDescriptor<(), (), ()> {
 /// # Example
 ///
 /// ```
-/// # use web_glitz::pipeline::graphics::{VertexShader, FragmentShader};
+/// # use web_glitz::pipeline::graphics::{VertexShader, FragmentShader, TypedVertexInputLayout};
 /// # use web_glitz::pipeline::resources::TypedResourceBindingsLayout;
-/// # use web_glitz::vertex::TypedVertexInputLayout;
 /// # fn wrapper<MyVertex: TypedVertexInputLayout, MyResources: TypedResourceBindingsLayout>(
 /// #     vertex_shader: VertexShader,
 /// #     fragment_shader: FragmentShader
 /// # ) {
 /// use web_glitz::pipeline::graphics::{
-///     GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder, CullingMode,
-///     SlotBindingStrategy, DepthTest
+///     GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder, CullingMode, DepthTest
 /// };
 ///
 /// let graphics_pipeline_descriptor = GraphicsPipelineDescriptor::begin()

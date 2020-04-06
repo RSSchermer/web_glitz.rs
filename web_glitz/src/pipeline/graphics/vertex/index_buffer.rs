@@ -130,7 +130,7 @@ impl IndexType {
 /// use web_glitz::pipeline::graphics::IndexBuffer;
 /// use web_glitz::buffer::UsageHint;
 ///
-/// let index_buffer: IndexBuffer<[u16]> = context.create_index_buffer([1.0, 2.0, 3.0, 4.0], UsageHint::StreamDraw);
+/// let index_buffer: IndexBuffer<u16> = context.create_index_buffer([1, 2, 3, 4], UsageHint::StreamDraw);
 /// # }
 /// ```
 pub struct IndexBuffer<T>
@@ -199,9 +199,10 @@ where
     /// ```rust
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
+    /// use web_glitz::pipeline::graphics::IndexBuffer;
     /// use web_glitz::buffer::UsageHint;
     ///
-    /// let index_buffer = context.create_buffer([1.0, 2.0, 3.0, 4.0], UsageHint::StreamDraw);
+    /// let index_buffer: IndexBuffer<u16> = context.create_index_buffer([1, 2, 3, 4], UsageHint::StreamDraw);
     ///
     /// index_buffer.get(1..3); // Some IndexBufferView<[f32]> containing `[2.0, 3.0]`
     /// index_buffer.get(..2); // Some IndexBufferView<[f32]> containing `[1.0 2.0]`
@@ -222,9 +223,10 @@ where
     /// ```rust
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
+    /// use web_glitz::pipeline::graphics::IndexBuffer;
     /// use web_glitz::buffer::UsageHint;
     ///
-    /// let index_buffer = context.create_index_buffer([1.0, 2.0, 3.0, 4.0], UsageHint::StreamDraw);
+    /// let index_buffer: IndexBuffer<u16> = context.create_index_buffer([1, 2, 3, 4], UsageHint::StreamDraw);
     ///
     /// unsafe { index_buffer.get_unchecked(1..3) }; // IndexBufferView<[f32]> containing `[2.0, 3.0]`
     /// # }
@@ -324,10 +326,11 @@ where
     /// ```rust
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
+    /// use web_glitz::pipeline::graphics::{IndexBuffer, IndexBufferView};
     /// use web_glitz::buffer::UsageHint;
     ///
-    /// let index_buffer = context.create_buffer([1.0, 2.0, 3.0, 4.0], UsageHint::StreamDraw);
-    /// let view = index_buffer.view();
+    /// let index_buffer: IndexBuffer<u16> = context.create_index_buffer([1, 2, 3, 4], UsageHint::StreamDraw);
+    /// let view = IndexBufferView::from(&index_buffer);
     ///
     /// view.get(1..3); // Some IndexBufferView<[f32]> containing `[2.0, 3.0]`
     /// view.get(..2); // Some IndexBufferView<[f32]> containing `[1.0 2.0]`
@@ -348,10 +351,11 @@ where
     /// ```rust
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
+    /// use web_glitz::pipeline::graphics::{IndexBuffer, IndexBufferView};
     /// use web_glitz::buffer::UsageHint;
     ///
-    /// let index_buffer = context.create_index_buffer([1.0, 2.0, 3.0, 4.0], UsageHint::StreamDraw);
-    /// let view = index_buffer.view();
+    /// let index_buffer: IndexBuffer<u16> = context.create_index_buffer([1, 2, 3, 4], UsageHint::StreamDraw);
+    /// let view = IndexBufferView::from(&index_buffer);
     ///
     /// unsafe { view.get_unchecked(1..3) }; // IndexBufferView<[f32]> containing `[2.0, 3.0]`
     /// # }

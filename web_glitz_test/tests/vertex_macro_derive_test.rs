@@ -1,9 +1,4 @@
-#![feature(
-    const_fn,
-    const_raw_ptr_deref,
-    const_raw_ptr_to_usize_cast,
-    untagged_unions
-)]
+#![feature(const_fn, const_ptr_offset_from, const_transmute, ptr_offset_from)]
 
 use web_glitz::pipeline::graphics::attribute_format::VertexAttributeFormat;
 use web_glitz::pipeline::graphics::{Vertex, VertexAttributeDescriptor};

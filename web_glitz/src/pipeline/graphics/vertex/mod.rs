@@ -42,7 +42,7 @@ pub mod attribute_format;
 /// one of the [VertexAttributeFormatIdentifier] types defined in the [attribute_format] module:
 ///
 /// ```rust
-/// # #![feature(const_fn)]
+/// # #![feature(const_fn, const_transmute, const_ptr_offset_from, ptr_offset_from)]
 /// #[derive(web_glitz::derive::Vertex, Clone, Copy)]
 /// struct Vertex {
 ///     #[vertex_attribute(location = 0, format = "Float2_f32")]

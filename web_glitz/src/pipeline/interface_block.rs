@@ -14,7 +14,7 @@
 /// `std140` memory units defined in the [std140] crate:
 ///
 /// ```
-/// # #![feature(const_fn)]
+/// # #![feature(const_fn, const_loop, const_if_match, const_ptr_offset_from, const_transmute, ptr_offset_from)]
 /// use web_glitz::pipeline::interface_block::InterfaceBlock;
 ///
 /// #[std140::repr_std140]
@@ -29,6 +29,7 @@
 /// [InterfaceBlock]:
 ///
 /// ```
+/// # #![feature(const_fn, const_loop, const_if_match, const_ptr_offset_from, const_transmute, ptr_offset_from)]
 /// use web_glitz::pipeline::interface_block::InterfaceBlock;
 ///
 /// #[std140::repr_std140]
@@ -108,7 +109,7 @@ where
 /// This trait is required to be implemented for any type that wishes to implement [InterfaceBlock]
 /// or [InterfaceBlockComponent].
 ///
-/// This trait is already implemented for any type marked with [sdt140::ReprStd140], including any
+/// This trait is already implemented for any type marked with [std140::ReprStd140], including any
 /// user-defined structs marked with the `#[std140::repr_std140]` attribute.
 ///
 /// # Unsafe

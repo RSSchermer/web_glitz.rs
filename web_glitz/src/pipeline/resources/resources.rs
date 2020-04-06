@@ -302,6 +302,7 @@ pub struct LayoutAllocationHint {
 /// Enumerates the errors that may occur when building a [ResourceBindingsLayoutDescriptor].
 ///
 /// See [ResourceBindingsLayoutDescriptorBuilder].
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ResourceBindingsLayoutBuilderError {
     InvalidBindGroupSequence(InvalidBindGroupSequence),
     InvalidResourceSlotSequence(InvalidResourceSlotSequence),
@@ -334,6 +335,7 @@ pub struct InvalidBindGroupSequence {
 /// # Example
 ///
 /// ```
+/// # use web_glitz::pipeline::resources::{ResourceBindingsLayoutBuilderError};
 /// use web_glitz::pipeline::resources::{ResourceSlotDescriptor, ResourceBindingsLayoutBuilder, LayoutAllocationHint, ResourceSlotIdentifier, ResourceSlotKind};
 ///
 /// let mut builder = ResourceBindingsLayoutBuilder::new(Some(LayoutAllocationHint {
@@ -362,6 +364,7 @@ pub struct InvalidBindGroupSequence {
 ///         })?
 ///         .finish()
 ///     .finish();
+/// # Ok::<(), ResourceBindingsLayoutBuilderError>(())
 /// ```
 ///
 /// Note that all bind groups must be added in increasing order of bind group index and no
@@ -670,7 +673,7 @@ pub trait TypedBindGroupLayout {
 /// # Example
 ///
 /// ```
-/// use web_glitz::buffer::Buffer;
+/// use web_glitz::buffer::{Buffer, BufferView};
 /// use web_glitz::image::texture_2d::FloatSampledTexture2D;
 /// use web_glitz::pipeline::resources::{EncodeBindableResourceGroup, BindGroupEncodingContext, BindGroupEncoding, BindGroupEncoder};
 ///
@@ -681,7 +684,7 @@ pub trait TypedBindGroupLayout {
 ///
 /// impl<'a, 'b> EncodeBindableResourceGroup for Resources<'a, 'b> {
 ///     type Encoding = (
-///         &'a Buffer<std140::mat4x4>,
+///         BufferView<'a, std140::mat4x4>,
 ///         FloatSampledTexture2D<'b>,
 ///     );
 ///
@@ -689,12 +692,10 @@ pub trait TypedBindGroupLayout {
 ///         self,
 ///         encoding_context: &mut BindGroupEncodingContext
 ///     ) -> BindGroupEncoding<Self::Encoding> {
-///         let mut encoder = BindGroupEncoder::new(encoding_context, Some(2));
-///
-///         encoder.add_buffer_view(0, self.uniform_buffer.into());
-///         encoder.add_float_sampled_texture_2d(1, self.texture);
-///
-///         encoder.finish()
+///         BindGroupEncoder::new(encoding_context, Some(2))
+///             .add_buffer_view(0, self.uniform_buffer.into())
+///             .add_float_sampled_texture_2d(1, self.texture)
+///             .finish()
 ///     }
 /// }
 /// ```
@@ -1085,11 +1086,10 @@ pub enum SampledTextureType {
 /// instances should be bound to the pipeline:
 ///
 /// ```
+/// # #![feature(const_fn, const_loop, const_if_match, const_ptr_offset_from, const_transmute, ptr_offset_from)]
 /// use web_glitz::image::texture_2d::FloatSampledTexture2D;
 /// use web_glitz::image::texture_2d_array::FloatSampledTexture2DArray;
 /// use web_glitz::buffer::Buffer;
-/// use web_glitz::std140;
-/// use web_glitz::std140::repr_std140;
 ///
 /// #[derive(web_glitz::derive::Resources)]
 /// struct BufferResources<'a> {
@@ -1106,7 +1106,7 @@ pub enum SampledTextureType {
 ///     second_texture: FloatSampledTexture2DArray<'a>,
 /// }
 ///
-/// #[repr_std140]
+/// #[std140::repr_std140]
 /// #[derive(web_glitz::derive::InterfaceBlock)]
 /// struct SomeUniformBlock {
 ///     some_uniform: std140::vec4,

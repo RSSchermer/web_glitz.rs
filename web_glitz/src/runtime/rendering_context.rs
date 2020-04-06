@@ -42,28 +42,35 @@ use crate::task::GpuTask;
 /// Trait implemented by types that can serve as a WebGlitz rendering context.
 ///
 /// The rendering context is the main interface of interaction with the Graphics Processing Unit
-/// (GPU). It has 3 main roles:
+/// (GPU). It has 4 main roles:
 ///
-/// 1. Provide information about the abilities of the current GPU connection, see [extensions].
+/// 1. Provide information about the abilities of the current GPU connection, see
+///    [max_supported_samples].
 /// 2. Act as a factory for the following WebGlitz objects:
 ///    - [Buffer]s, see [create_buffer].
-///    - [Texture2D]s, see [create_texture_2d].
-///    - [Texture2DArray]s, see [create_texture_2d_array].
-///    - [Texture3D]s, see [create_texture_3d].
-///    - [TextureCube]s, see [create_texture_cube].
+///    - [Texture2D]s, see [try_create_texture_2d].
+///    - [Texture2DArray]s, see [try_create_texture_2d_array].
+///    - [Texture3D]s, see [try_create_texture_3d].
+///    - [TextureCube]s, see [try_create_texture_cube].
 ///    - [Sampler]s, see [create_sampler].
 ///    - [ShadowSampler]s, see [create_shadow_sampler].
-///    - [Renderbuffer]s, see [create_renderbuffer].
-///    - [VertexShader]s, see [create_vertex_shader].
-///    - [FragmentShader]s, see [create_fragment_shader].
-///    - [GraphicsPipeline]s, see [create_graphics_pipeline].
-///    - [VertexArray]s, see [create_vertex_array].
-///    - [RenderPass]es, see [create_render_pass].
+///    - [Renderbuffer]s, see [create_renderbuffer] and [try_create_multisample_renderbuffer].
+///    - [VertexShader]s, see [try_create_vertex_shader].
+///    - [FragmentShader]s, see [try_create_fragment_shader].
+///    - [GraphicsPipeline]s, see [try_create_graphics_pipeline].
+///    - [BindGroup]s, see [create_bind_group].
+///    - [RenderTarget]s, see [create_render_target], [try_create_render_target],
+///      [create_multisample_render_target] and [try_create_multisample_render_target].
 /// 3. Submission of [GpuTask]s to the GPU with [submit].
+/// 4. Extension initialization, see [get_extension].
 pub trait RenderingContext {
     /// Identifier that uniquely identifies this rendering context.
     fn id(&self) -> usize;
 
+    /// Returns the requested extension, or `None` if the extension is not available on this
+    /// context.
+    ///
+    /// See the [web_glitz::extensions] module for the available extensions.
     fn get_extension<T>(&self) -> Option<T>
     where
         T: Extension;
@@ -86,22 +93,26 @@ pub trait RenderingContext {
     ///
     /// # Example
     ///
-    /// This example creates a bind group containg a single uniform buffer. We derive the
+    /// This example creates a bind group containing a single uniform buffer. We derive the
     /// [Resources] trait to define a typed bind group layout:
     ///
     /// ```
+    /// # #![feature(const_fn, const_loop, const_if_match, const_ptr_offset_from, const_transmute, ptr_offset_from)]
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
     /// use web_glitz::buffer::{Buffer, UsageHint};
-    /// use web_glitz::std140;
-    /// use web_glitz::std140::repr_std140;
     ///
     /// #[derive(web_glitz::derive::Resources)]
     /// struct Resources<'a> {
     ///     #[resource(binding=0, name="SomeUniformBlock")]
-    ///     uniform_buffer: &'a Buffer<UniformBlock>,
+    ///     uniform_buffer: &'a Buffer<Uniforms>,
     /// }
     ///
-    /// #[repr_std140]
-    /// #[derive(web_glitz::derive::InterfaceBlock)]
+    /// // We use the `std140` crate to ensure that the layout of our `Uniforms` type conforms to
+    /// // the std140 data layout. We also implement `Copy` (and it's super-trait `Clone`) to
+    /// // ensure that we can upload this type into a `Buffer`.
+    /// #[std140::repr_std140]
+    /// #[derive(web_glitz::derive::InterfaceBlock, Clone, Copy)]
     /// struct Uniforms {
     ///     scale: std140::float,
     /// }
@@ -115,6 +126,7 @@ pub trait RenderingContext {
     /// let bind_group = context.create_bind_group(Resources {
     ///     uniform_buffer: &uniform_buffer,
     /// });
+    /// # }
     /// ```
     fn create_bind_group<T>(&self, resources: T) -> BindGroup<T>
     where
@@ -124,19 +136,19 @@ pub trait RenderingContext {
     ///
     /// # Examples
     ///
-    /// A buffer can store any type that is both [Sized] and [Copy] (although not all types are
-    /// usefull in GPU operations). We can for example store an [InterfaceBlock] type (which we
-    /// might later use to back a uniform block in a pipeline):
+    /// A buffer can store any type that is both [Sized] and [Copy]. We can for example store an
+    /// [InterfaceBlock] type (which we might later use to provide data to a uniform block in a
+    /// pipeline):
     ///
     /// ```
-    /// # #![feature(const_fn)]
+    /// # #![feature(const_fn, const_loop, const_if_match, const_ptr_offset_from, const_transmute, ptr_offset_from)]
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
     /// use web_glitz::buffer::UsageHint;
-    /// use web_glitz::std140;
-    /// use web_glitz::std140::repr_std140;
     ///
-    /// #[repr_std140]
+    /// // We use the `std140` crate to ensure that the layout of our `Uniforms` type conforms to
+    /// // the std140 data layout.
+    /// #[std140::repr_std140]
     /// #[derive(web_glitz::derive::InterfaceBlock, Clone, Copy)]
     /// struct Uniforms {
     ///     scale: std140::float,
@@ -155,11 +167,11 @@ pub trait RenderingContext {
     /// repeatedly (see [UsageHint] for details).
     ///
     /// A buffer can also store an array of any type `T` that is both [Sized] and [Copy], by
-    /// initializing a type that implements `Borrow<[T]>`. We can for example store an array of
-    /// [Vertex] values (which we might later use to create a [VertexArray]):
+    /// initializing it with a type that implements `Borrow<[T]>`. We can for example store an array
+    /// of [Vertex] values:
     ///
     /// ```
-    /// # #![feature(const_fn)]
+    /// # #![feature(const_fn, const_transmute, const_ptr_offset_from, ptr_offset_from)]
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
     /// use web_glitz::buffer::{Buffer, UsageHint};
@@ -201,14 +213,13 @@ pub trait RenderingContext {
         D: IntoBuffer<T>,
         T: ?Sized;
 
-    /// Creates a new GPU-accessible memory [IndexBuffer].
+    /// Creates a new [IndexBuffer].
     ///
     /// # Examples
     ///
     /// An [IndexBuffer] can store a slice of indices that implement [IndexFormat]:
     ///
     /// ```
-    /// # #![feature(const_fn)]
     /// # use web_glitz::runtime::RenderingContext;
     /// # use web_glitz::pipeline::graphics::IndexBuffer;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
@@ -223,9 +234,9 @@ pub trait RenderingContext {
     /// intend to read this buffer on the GPU and we intend to modify the contents of the buffer
     /// only rarely (see [UsageHint] for details).
     ///
-    /// Note that [create_buffer] takes ownership of the data source (`index_data` in the example)
-    /// and that the data source must be `'static`. It is however possible to use shared ownership
-    /// constructs like [Rc](std::rc::Rc) or [Arc](std::sync::Arc).
+    /// Note that [create_index_buffer] takes ownership of the data source (`index_data` in the
+    /// example) and that the data source must be `'static`. It is however possible to use shared
+    /// ownership constructs like [Rc](std::rc::Rc) or [Arc](std::sync::Arc).
     fn create_index_buffer<D, T>(&self, data: D, usage_hint: UsageHint) -> IndexBuffer<T>
     where
         D: Borrow<[T]> + 'static,
@@ -256,6 +267,30 @@ pub trait RenderingContext {
     where
         F: RenderbufferFormat + 'static;
 
+    /// Creates a new [Renderbuffer] for multisample image data, or returns an error if the number
+    /// of samples specified exceeds the maximum number of samples supported for the image format.
+    ///
+    /// See also [max_supported_samples].
+    ///
+    /// # Example
+    ///
+    /// A multisample renderbuffer is created from a [MultisampleRenderbufferDescriptor]:
+    ///
+    /// ```rust
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
+    /// use web_glitz::image::format::{Multisample, RGB8};
+    /// use web_glitz::image::renderbuffer::MultisampleRenderbufferDescriptor;
+    ///
+    /// let renderbuffer = context.create_multisample_renderbuffer(&MultisampleRenderbufferDescriptor {
+    ///     format: Multisample(RGB8, 4),
+    ///     width: 256,
+    ///     height: 256
+    /// }).unwrap();
+    /// # }
+    /// ```
+    ///
+    /// Here `context` is a [RenderingContext].
     fn create_multisample_renderbuffer<F>(
         &self,
         descriptor: &MultisampleRenderbufferDescriptor<F>,
@@ -384,8 +419,7 @@ pub trait RenderingContext {
     /// #     fragment_shader: &FragmentShader
     /// # ) where Rc: RenderingContext, MyVertex: TypedVertexInputLayout, MyResources: TypedResourceBindingsLayout {
     /// use web_glitz::pipeline::graphics::{
-    ///     GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder, CullingMode,
-    ///     SlotBindingStrategy, DepthTest
+    ///     GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder, CullingMode, DepthTest
     /// };
     ///
     /// let descriptor = GraphicsPipelineDescriptor::begin()
@@ -417,21 +451,191 @@ pub trait RenderingContext {
         descriptor: &GraphicsPipelineDescriptor<V, R, Tf>,
     ) -> Result<GraphicsPipeline<V, R, Tf>, CreateGraphicsPipelineError>;
 
+    /// Creates a new [RenderTarget] from the given descriptor.
+    ///
+    /// The descriptor must only attach one color buffer. As multiple color buffers are not
+    /// guaranteed to be supported, use [try_create_render_target] instead when trying to create
+    /// a render target from a descriptor that attaches more than one color buffer.
+    ///
+    /// For details on the construction of a descriptor, see [RenderTargetDescriptor].
+    ///
+    /// See also [create_multisample_render_target] for creating a render target that use
+    /// multisample image attachments.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
+    /// use web_glitz::image::format::RGBA8;
+    /// use web_glitz::image::renderbuffer::RenderbufferDescriptor;
+    /// use web_glitz::rendering::{RenderTargetDescriptor, LoadOp, StoreOp};
+    ///
+    /// let mut color_image = context.create_renderbuffer(&RenderbufferDescriptor{
+    ///     format: RGBA8,
+    ///     width: 500,
+    ///     height: 500
+    /// });
+    ///
+    /// let render_target_descriptor = RenderTargetDescriptor::new()
+    ///     .attach_color_float(&mut color_image, LoadOp::Load, StoreOp::Store);
+    ///
+    /// let render_target = context.create_render_target(render_target_descriptor);
+    /// # }
+    /// ```
+    ///
+    /// For more examples of render target descriptors, see [RenderTargetDescriptor].
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the attached images belongs to a different context.
     fn create_render_target<C, Ds>(
         &self,
         descriptor: RenderTargetDescriptor<(C,), Ds>,
     ) -> RenderTarget<(C,), Ds>;
 
+    /// Creates a new [RenderTarget] from the given descriptor or returns an error if the
+    /// descriptor attaches more images than the maximum number of supported attachments.
+    ///
+    /// See also [max_attachments].
+    ///
+    /// If the descriptor only attaches a single color image, consider using [create_render_target]
+    /// instead, which always succeeds.
+    ///
+    /// For details on the construction of a descriptor, see [RenderTargetDescriptor].
+    ///
+    /// See also [try_create_multisample_render_target] for creating a render target that use
+    /// multisample image attachments.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
+    /// use web_glitz::image::format::{RGBA8, RGBA8I};
+    /// use web_glitz::image::renderbuffer::RenderbufferDescriptor;
+    /// use web_glitz::rendering::{RenderTargetDescriptor, LoadOp, StoreOp};
+    ///
+    /// let mut color_image_0 = context.create_renderbuffer(&RenderbufferDescriptor{
+    ///     format: RGBA8,
+    ///     width: 500,
+    ///     height: 500
+    /// });
+    ///
+    /// let mut color_image_1 = context.create_renderbuffer(&RenderbufferDescriptor{
+    ///     format: RGBA8I,
+    ///     width: 500,
+    ///     height: 500
+    /// });
+    ///
+    /// let render_target_descriptor = RenderTargetDescriptor::new()
+    ///     .attach_color_float(&mut color_image_0, LoadOp::Load, StoreOp::Store)
+    ///     .attach_color_integer(&mut color_image_1, LoadOp::Load, StoreOp::Store);
+    ///
+    /// let render_target = context.try_create_render_target(render_target_descriptor).unwrap();
+    /// # }
+    /// ```
+    ///
+    /// For more examples of render target descriptors, see [RenderTargetDescriptor].
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the attached images belongs to a different context.
     fn try_create_render_target<C, Ds>(
         &self,
         descriptor: RenderTargetDescriptor<C, Ds>,
     ) -> Result<RenderTarget<C, Ds>, MaxColorBuffersExceeded>;
 
+    /// Creates a new [MultisampleRenderTarget] from the given descriptor.
+    ///
+    /// The descriptor must only attach one color buffer. As multiple color buffers are not
+    /// guaranteed to be supported, use [try_create_multisample_render_target] instead when trying
+    /// to create a render target from a descriptor that attaches more than one color buffer.
+    ///
+    /// For details on the construction of a descriptor, see [MultisampleRenderTargetDescriptor].
+    ///
+    /// See also [try_create_multisample_render_target] for creating a render target that use
+    /// multisample image attachments.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
+    /// use web_glitz::image::format::{Multisample, RGBA8};
+    /// use web_glitz::image::renderbuffer::MultisampleRenderbufferDescriptor;
+    /// use web_glitz::rendering::{MultisampleRenderTargetDescriptor, LoadOp, StoreOp};
+    ///
+    /// let mut color_image = context.create_multisample_renderbuffer(&MultisampleRenderbufferDescriptor{
+    ///     format: Multisample(RGBA8, 4),
+    ///     width: 500,
+    ///     height: 500
+    /// }).unwrap();
+    ///
+    /// let render_target_descriptor = MultisampleRenderTargetDescriptor::new(4)
+    ///     .attach_color_float(&mut color_image, LoadOp::Load, StoreOp::Store);
+    ///
+    /// let render_target = context.create_multisample_render_target(render_target_descriptor);
+    /// # }
+    /// ```
+    ///
+    /// For more examples of render target descriptors, see [RenderTargetDescriptor].
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the attached images belongs to a different context.
     fn create_multisample_render_target<C, Ds>(
         &self,
         descriptor: MultisampleRenderTargetDescriptor<(C,), Ds>,
     ) -> MultisampleRenderTarget<(C,), Ds>;
 
+    /// Creates a new [MultisampleRenderTarget] from the given descriptor or returns an error if the
+    /// descriptor attaches more images than the maximum number of supported attachments.
+    ///
+    /// See also [max_attachments].
+    ///
+    /// If the descriptor only attaches a single color image, consider using
+    /// [create_multisample_render_target] instead, which always succeeds.
+    ///
+    /// For details on the construction of a descriptor, see [MultisampleRenderTargetDescriptor].
+    ///
+    /// See also [try_create_render_target] for creating a render target that use single-sample
+    /// image attachments.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
+    /// use web_glitz::image::format::{Multisample, RGBA8};
+    /// use web_glitz::image::renderbuffer::MultisampleRenderbufferDescriptor;
+    /// use web_glitz::rendering::{MultisampleRenderTargetDescriptor, LoadOp, StoreOp};
+    ///
+    /// let mut color_image_0 = context.create_multisample_renderbuffer(&MultisampleRenderbufferDescriptor{
+    ///     format: Multisample(RGBA8, 4),
+    ///     width: 500,
+    ///     height: 500
+    /// }).unwrap();
+    ///
+    /// let mut color_image_1 = context.create_multisample_renderbuffer(&MultisampleRenderbufferDescriptor{
+    ///     format: Multisample(RGBA8, 4),
+    ///     width: 500,
+    ///     height: 500
+    /// }).unwrap();
+    ///
+    /// let render_target_descriptor = MultisampleRenderTargetDescriptor::new(4)
+    ///     .attach_color_float(&mut color_image_0, LoadOp::Load, StoreOp::Store)
+    ///     .attach_color_float(&mut color_image_1, LoadOp::Load, StoreOp::Store);
+    ///
+    /// let render_target = context.try_create_multisample_render_target(render_target_descriptor).unwrap();
+    /// # }
+    /// ```
+    ///
+    /// For more examples of render target descriptors, see [RenderTargetDescriptor].
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the attached images belongs to a different context.
     fn try_create_multisample_render_target<C, Ds>(
         &self,
         descriptor: MultisampleRenderTargetDescriptor<C, Ds>,
@@ -577,12 +781,12 @@ pub trait RenderingContext {
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
     /// use web_glitz::sampler::{
-    ///     SamplerDescriptor, MinificationFilter, MagnificationFilter, LODRange, Wrap
+    ///     SamplerDescriptor, Linear, NearestMipmapLinear, LODRange, Wrap
     /// };
     ///
     /// let sampler = context.create_sampler(&SamplerDescriptor {
-    ///     minification_filter: MinificationFilter::NearestMipmapLinear,
-    ///     magnification_filter: MagnificationFilter::Linear,
+    ///     minification_filter: NearestMipmapLinear,
+    ///     magnification_filter: Linear,
     ///     lod_range: LODRange::default(),
     ///     wrap_s: Wrap::Repeat,
     ///     wrap_t: Wrap::Repeat,
@@ -634,22 +838,21 @@ pub trait RenderingContext {
     /// ```rust
     /// # use web_glitz::runtime::{Connection, RenderingContext};
     /// # use web_glitz::task::GpuTask;
-    /// # fn wrapper<Rc, T>(context: &Rc, task: T) where Rc: RenderingContext, T: GpuTask<Connection> + 'static {
+    /// # fn wrapper<Rc, T>(context: &Rc, task: T) where Rc: RenderingContext, T: GpuTask<Connection, Output=()> + 'static {
     /// use futures::future::FutureExt;
-    ///
-    /// use wasm_bindgen_futures::future_to_promise;
+    /// use wasm_bindgen_futures::spawn_local;
     ///
     /// let future_output = context.submit(task);
     ///
-    /// future_to_promise(future_output.inspect(|output| {
+    /// spawn_local(future_output.inspect(|output| {
     ///     // Do something with the output...
     /// }));
     /// # }
     /// ```
     ///
-    /// In this example we use [wasm_bindgen_futures::future_to_promise] to run the future returned
-    /// by [submit] in a WASM web context and use the `inspect` combinator to do something with the
-    /// output value when the future resolves.
+    /// In this example we use [wasm_bindgen_futures::spawn_local] to run the future returned by
+    /// [submit] in a WASM web context and use the `inspect` combinator provided by
+    /// [futures::future::FutureExt] to do something with the output value when the future resolves.
     ///
     /// Note that in many cases the output of a task is not relevant (the output is often just the
     /// empty tuple `()`). In this case it is not necessary to ever poll the future for the task to
