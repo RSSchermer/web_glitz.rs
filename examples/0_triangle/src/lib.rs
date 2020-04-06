@@ -2,9 +2,10 @@
 //
 // This example assumes some familiarity with graphics pipelines, vertex shaders and fragment
 // shaders. However, if you've ever done any graphics programming with another graphics API
-// (OpenGL/WebGl, Direct3D, Metal, Vulkan, ...), then this will hopefully make sense.
+// (OpenGL/WebGl, Direct3D, Metal, Vulkan, ...), then this will hopefully look familiar.
 
-// For the time being, the `web_glitz::Vertex` derive macro requires that we enable some features:
+// For the time being, the `web_glitz::derive::Vertex` derive macro requires that we enable some
+// nightly features:
 #![feature(const_fn, const_ptr_offset_from, const_transmute, ptr_offset_from)]
 
 use wasm_bindgen::prelude::*;
@@ -34,12 +35,10 @@ use web_sys::{window, HtmlCanvasElement};
 // the data type the pipeline expects for the attribute; this correspondence will be verified when
 // the pipeline is created.
 //
-// We also have to make sure our type implements `Copy` if we want to be able to store it in a
-// GPU-accessible buffer. This is because uploading data to and downloading data from a buffer
-// involves doing a bitwise copy of the data. WebGlitz relies on the semantics associated with the
-// `Copy` trait to make sure that this is safe. `Clone` is a supertrait of `Copy`, so we'll also
-// have to implement `Clone`. Fortunately this is easy: both `Clone` and `Copy` can be automatically
-// derived.
+// We also have to make sure our type implements `Copy` (and it's super-trait `Clone`) if we want to
+// be able to store it in a GPU-accessible buffer. This is because uploading data to and downloading
+// data from a buffer involves doing a bitwise copy of the data. WebGlitz relies on the semantics
+// associated with the `Copy` trait to ensure that this is safe.
 #[derive(web_glitz::derive::Vertex, Clone, Copy)]
 struct Vertex {
     // We intend to bind this field to the `position` attribute in the vertex shader, which is of
@@ -165,14 +164,12 @@ pub fn start() {
 
     // Create a render pass for our default render target.
     //
-    // Here's the conceptual explanation of what will happen in our render pass:
-    //
     // When this render pass gets executed, the images associated with the render target (a.k.a. the
     // "attached images" or the "attachments"; in this case an RGBA color image that is displayed on
     // the canvas) will be loaded into "framebuffer memory". The second argument is a function that
     // takes this framebuffer as an argument and returns a render pass task that may modify the
     // contents of the framebuffer. Our render pass will tell the driver to run our `pipeline` once
-    // on our `vertex_array` so that we'll "draw" our triangle to the framebuffer. When the task is
+    // on our `vertex_buffer` so that we'll "draw" our triangle to the framebuffer. When the task is
     // done, the contents of the framebuffer will be stored back into the render target image(s).
     // Since we're using the default render target, that should result in our triangle showing up on
     // the canvas.
@@ -200,5 +197,5 @@ pub fn start() {
     // executed.
     context.submit(render_pass);
 
-    // We should be seeing our first triangle on the canvas now!
+    // We should see our first triangle on the canvas now!
 }
