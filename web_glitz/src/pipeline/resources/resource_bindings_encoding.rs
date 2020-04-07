@@ -1,7 +1,9 @@
 use std::borrow::Borrow;
+use std::marker;
 use std::sync::Arc;
 
 use crate::buffer::{BufferData, BufferView};
+use crate::image::sampler::SamplerData;
 use crate::image::texture_2d::{
     FloatSampledTexture2D, IntegerSampledTexture2D, ShadowSampledTexture2D, Texture2DData,
     UnsignedIntegerSampledTexture2D,
@@ -20,8 +22,6 @@ use crate::image::texture_cube::{
 use crate::pipeline::resources::resources::{BindGroup, BindGroupInternal};
 use crate::runtime::state::{BufferRange, ContextUpdate};
 use crate::runtime::Connection;
-use crate::sampler::SamplerData;
-use std::marker;
 
 pub struct BindGroupEncoding<'a, E> {
     #[allow(dead_code)]

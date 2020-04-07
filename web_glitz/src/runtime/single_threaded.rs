@@ -128,6 +128,10 @@ use crate::image::format::{
 use crate::image::renderbuffer::{
     MultisampleRenderbufferDescriptor, Renderbuffer, RenderbufferDescriptor,
 };
+use crate::image::sampler::{
+    MagnificationFilter, MinificationFilter, Sampler, SamplerDescriptor, ShadowSampler,
+    ShadowSamplerDescriptor,
+};
 use crate::image::texture_2d::{Texture2D, Texture2DDescriptor};
 use crate::image::texture_2d_array::{Texture2DArray, Texture2DArrayDescriptor};
 use crate::image::texture_3d::{Texture3D, Texture3DDescriptor};
@@ -156,10 +160,6 @@ use crate::runtime::state::DynamicState;
 use crate::runtime::{
     Connection, ContextOptions, Execution, PowerPreference, RenderingContext,
     ShaderCompilationError,
-};
-use crate::sampler::{
-    MagnificationFilter, MinificationFilter, Sampler, SamplerDescriptor, ShadowSampler,
-    ShadowSamplerDescriptor,
 };
 use crate::task::{GpuTask, Progress};
 

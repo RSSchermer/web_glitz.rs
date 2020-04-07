@@ -49,7 +49,6 @@ pub mod image;
 pub mod pipeline;
 pub mod rendering;
 pub mod runtime;
-pub mod sampler;
 pub mod task;
 
 mod util;

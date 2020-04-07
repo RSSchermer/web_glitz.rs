@@ -1,10 +1,11 @@
+use std::ops::Deref;
+
 use crate::image::format::{TextureFormat, R32F, RG32F, RGB32F, RGBA32F};
-use crate::runtime::Connection;
-use crate::sampler::{
+use crate::image::sampler::{
     CompatibleSampler, Linear, LinearMipmapLinear, LinearMipmapNearest, MagnificationFilter,
     MinificationFilter, Nearest, NearestMipmapLinear, NearestMipmapNearest, Sampler,
 };
-use std::ops::Deref;
+use crate::runtime::Connection;
 
 #[derive(Clone, Debug)]
 pub struct Extension {

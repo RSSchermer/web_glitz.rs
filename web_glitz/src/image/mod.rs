@@ -5,19 +5,27 @@
 //! represent the available data formats for image storage.
 //!
 //! A distinction is made between a texture ([Texture2D], [Texture3D], [Texture2DArray],
-//! [TextureCube]) and a renderbuffer ([Renderbuffer]): a texture may be sampled (see
-//! [web_glitz::sampler]), but is not necessarily optimized for use with a
-//! [RenderTarget](web_glitz::render_pass::RenderTarget), whereas a renderbuffer may not be sampled,
-//! but is optimized for use with a [RenderTarget](web_glitz::render_pass::RenderTarget).
+//! [TextureCube]) and a renderbuffer ([Renderbuffer]): a texture may be sampled (see [sampler]),
+//! but is not necessarily optimized for use with a [RenderTarget](web_glitz::rendering::RenderTarget),
+//! whereas a renderbuffer may not be sampled, but is optimized for use with a
+//! [RenderTarget](web_glitz::rendering::RenderTarget).
 //!
 //! # 2-Dimensional image storage
 //!
 //! 2-Dimensional image storage has a `width` and a `height`. It may be thought of as a `width` by
-//! `height` 2-dimensional grid of cells, where each cell stores one value; all values share a type
-//! determined by the storage's [InternalFormat].
+//! `height` 2-dimensional grid of cells, where each cell stores a pixel value; all pixels share a
+//! type determined by the storage's [InternalFormat].
 //!
 //! The [Texture2D] and [Renderbuffer] types provide 2-dimensional image storage. An [Image2DSource]
 //! may hold data that is to be uploaded to 2-dimensional image storage.
+//!
+//! # Multisampling
+//!
+//! Multisampling is an anti-aliasing technique where instead of a single value, multiple sample
+//! values are stored for each pixel from which a final anti-aliased pixel value may be derived.
+//! Multisample formats may be constucted with [Multisample]. Multisample storage formats are
+//! currently only supported for [Renderbuffer]s, see
+//! [RenderingContext::try_create_multisample_renderbuffer] for details.
 //!
 //! # Layered image storage
 //!
@@ -87,6 +95,7 @@ pub use self::image_source::{FromPixelsError, Image2DSource, LayeredImageSource}
 
 pub mod format;
 pub mod renderbuffer;
+pub mod sampler;
 pub mod texture_2d;
 pub mod texture_2d_array;
 pub mod texture_3d;

@@ -1598,6 +1598,19 @@ unsafe impl PixelUnpack<Alpha> for u8 {
 
 // Note: copying the casing convention of Multisample (as opposed to MultiSample) from OpenGL.
 
+/// Constructs a multisample storage format.
+///
+/// # Example
+///
+/// The following creates an [RGBA8] format with 4 samples:
+///
+/// ```
+/// use web_glitz::image::format::{Multisample, RGBA8};
+///
+/// let format = Multisample(RGBA8, 4);
+/// ```
+///
+/// Note that the base format must be [Multisamplable].
 pub struct Multisample<F>(pub F, pub usize)
 where
     F: Multisamplable;

@@ -11,7 +11,7 @@ use crate::task::{ContextId, GpuTask};
 use crate::util::JsId;
 
 mod filter_seal {
-    use crate::sampler::{
+    use super::{
         Linear, LinearMipmapLinear, LinearMipmapNearest, Nearest, NearestMipmapLinear,
         NearestMipmapNearest,
     };

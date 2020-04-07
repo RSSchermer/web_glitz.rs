@@ -11,6 +11,7 @@ use web_sys::{window, HtmlCanvasElement};
 
 use web_glitz::buffer::UsageHint;
 use web_glitz::image::format::RGBA8;
+use web_glitz::image::sampler::{Linear, SamplerDescriptor};
 use web_glitz::image::texture_2d::{FloatSampledTexture2D, Texture2DDescriptor};
 use web_glitz::image::{Image2DSource, MipmapLevels};
 use web_glitz::pipeline::graphics::{
@@ -18,7 +19,6 @@ use web_glitz::pipeline::graphics::{
 };
 use web_glitz::pipeline::resources::BindGroup;
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
-use web_glitz::sampler::{Linear, SamplerDescriptor};
 use web_glitz::task::sequence_all;
 
 #[derive(web_glitz::derive::Vertex, Clone, Copy)]

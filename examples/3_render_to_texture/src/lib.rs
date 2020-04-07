@@ -14,6 +14,7 @@ use web_sys::{window, HtmlCanvasElement};
 
 use web_glitz::buffer::{Buffer, UsageHint};
 use web_glitz::image::format::RGBA8;
+use web_glitz::image::sampler::{Linear, SamplerDescriptor, Wrap};
 use web_glitz::image::texture_2d::{FloatSampledTexture2D, Texture2DDescriptor};
 use web_glitz::image::MipmapLevels;
 use web_glitz::pipeline::graphics::{
@@ -22,7 +23,6 @@ use web_glitz::pipeline::graphics::{
 use web_glitz::pipeline::resources::BindGroup;
 use web_glitz::rendering::{LoadOp, RenderTargetDescriptor, StoreOp};
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
-use web_glitz::sampler::{Linear, SamplerDescriptor, Wrap};
 use web_glitz::task::{sequence_all, sequence_right};
 
 // This example will use 2 render passes:

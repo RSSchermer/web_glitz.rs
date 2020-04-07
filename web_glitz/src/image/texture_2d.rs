@@ -13,6 +13,7 @@ use crate::image::format::{
     TextureFormat, UnsignedIntegerSamplable,
 };
 use crate::image::image_source::Image2DSourceInternal;
+use crate::image::sampler::{CompatibleSampler, SamplerData, ShadowSampler};
 use crate::image::texture_object_dropper::TextureObjectDropper;
 use crate::image::util::{
     max_mipmap_levels, mipmap_size, region_2d_overlap_height, region_2d_overlap_width,
@@ -21,7 +22,6 @@ use crate::image::util::{
 use crate::image::{Image2DSource, MaxMipmapLevelsExceeded, MipmapLevels, Region2D};
 use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
-use crate::sampler::{CompatibleSampler, SamplerData, ShadowSampler};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
 
