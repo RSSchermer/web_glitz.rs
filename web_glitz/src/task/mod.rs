@@ -1,3 +1,5 @@
+//! Provides a framework for specifying units of work that are to be executed by the GPU driver.
+//!
 //! WebGlitz's execution model centers around the concepts of "tasks" and "commands". A "task" is a
 //! unit of work that is to be executed on a graphical processing unit (GPU). A "command" is an
 //! atomic task; a task may composed of multiple commands. There is not a specific type that
@@ -179,6 +181,11 @@
 //!
 //! This will return a [Future] that will resolve with the task's output (see [GpuTask::Output])
 //! after the task has finished executing.
+//!
+//! [Texture2D]: web_glitz::image::texture_2d::Texture2D
+//! [RenderingContext]: web_glitz::runtime::RenderingContext
+//! [TextureCube]: web_glitz::image::texture_cube::TextureCube
+//! [Future]: std::future::Future
 
 mod gpu_task;
 pub use self::gpu_task::{ContextId, Empty, GpuTask, GpuTaskExt, Progress};

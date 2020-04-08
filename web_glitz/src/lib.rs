@@ -1,7 +1,7 @@
 //! WebGlitz is a low level graphics framework for the web build on top of WebGL 2 through
-//! [wasm-bindgen](https://github.com/rustwasm/wasm-bindgen). It intends to be easier to use by
-//! providing a more declarative interface (as opposed to WebGL's very procedural and stateful
-//! interface) that is memory safe and does not expose undefined behaviour.
+//! [wasm-bindgen]. It intends to be easier to use by providing a more declarative interface (as
+//! opposed to WebGL's procedural and stateful interface) that is memory safe and does not expose
+//! undefined behaviour.
 //!
 //! # Execution model
 //!
@@ -25,6 +25,8 @@
 //! performance cost on a task. However, it may also allow you to spread the work involved in task
 //! construction across multiple threads. How this trade-off impacts overall performance will depend
 //! on your application.
+//!
+//! [wasm-bindgen]: https://github.com/rustwasm/wasm-bindgen
 
 #![feature(
     coerce_unsized,

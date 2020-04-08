@@ -13,6 +13,10 @@ use super::{Join, Join3, Join4, Join5, Sequence, Sequence3, Sequence4, Sequence5
 ///
 /// If a context instance is compatible with [GpuTask::context_id], then invoking
 /// [GpuTask::progress] with this instance must not result in undefined behaviour.
+///
+/// [Connection]: web_glitz::runtime::Connection;
+/// [RenderPassContext]: web_glitz::rendering::RenderPassContext;
+/// [PipelineTaskContext]: web_glitz::rendering::PipelineTaskContext;
 pub unsafe trait GpuTask<Ec> {
     /// The type of output that results from this task finishing.
     type Output;

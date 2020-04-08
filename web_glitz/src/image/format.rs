@@ -1,3 +1,5 @@
+//! Provides marker types for various internal image storage formats.
+
 use web_sys::WebGl2RenderingContext as Gl;
 
 /// Trait implemented for types that represent image formats for storing image data in
@@ -1633,6 +1635,7 @@ where
     }
 }
 
+/// Marker trait for formats that support multisample storage.
 pub unsafe trait Multisamplable: InternalFormat {}
 
 unsafe impl Multisamplable for R8 {}

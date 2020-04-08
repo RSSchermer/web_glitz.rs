@@ -71,11 +71,15 @@
 //!
 //! Note that [RenderingContext::create_buffer] takes ownership of the data source (`vertex_data`
 //! in the example) and that the data source must be `'static`. It is however possible to use shared
-//! ownership constructs like [Rc](std::rc::Rc) or [Arc](std::sync::Arc). We use a
-//! [UsageHint::StaticDraw] to once again indiciate that we wish to read this data on the GPU, but
-//! this time we don't intend to modify the data in the buffer later.
+//! ownership constructs like [Rc] or [Arc]. We use a [UsageHint::StaticDraw] to once again
+//! indiciate that we wish to read this data on the GPU, but this time we don't intend to modify the
+//! data in the buffer later.
 //!
-//! #
+//! [InterfaceBlock]: web_glitz::pipeline::interface_block::InterfaceBlock
+//! [RenderingContext]: web_glitz::runtime::RenderingContext
+//! [Vertex]: web_glitz::pipeline::graphics::Vertex
+//! [Rc]: std::rc::Rc
+//! [Arc]: std::sync::Arc
 use std::borrow::Borrow;
 use std::cell::UnsafeCell;
 use std::marker;
@@ -673,7 +677,7 @@ pub trait IntoBuffer<T>
 where
     T: ?Sized,
 {
-    /// Stores the data in a buffer belonging to the given [context], using the given [usage_hint].
+    /// Stores the data in a buffer belonging to the given `context`, using the given `usage_hint`.
     ///
     /// This consumes the Rust value and produces a GPU-accessible [Buffer] containing a bitwise
     /// copy of data.
