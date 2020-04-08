@@ -1,3 +1,5 @@
+//! Provides rendering contexts that act as the main point of interaction with the GPU.
+//!
 //! WebGlitz currently only provides a single threaded runtime that can run on the main WASM thread,
 //! see the documentation for the [single_threaded] module for details.
 

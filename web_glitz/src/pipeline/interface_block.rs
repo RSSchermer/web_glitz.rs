@@ -7,7 +7,7 @@
 /// match the memory layout specified, otherwise a pipeline that uses an interface block backed by
 /// the instance may produce unexpected results.
 ///
-/// # Recommended use
+/// # Safely Deriving
 ///
 /// This trait may be automatically derived on a struct when all of its members implement
 /// [InterfaceBlockComponent]. Notably, [InterfaceBlockComponent] is implemented for all basic

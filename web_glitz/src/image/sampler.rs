@@ -205,7 +205,7 @@ impl Default for LODRange {
 /// Can be instantiated with default values through [Default]:
 ///
 /// ```rust
-/// use web_glitz::sampler::{
+/// use web_glitz::image::sampler::{
 ///     SamplerDescriptor, NearestMipmapLinear, Linear, LODRange, Wrap
 /// };
 ///
@@ -479,7 +479,7 @@ pub enum CompareFunction {
 /// Can be instantiated with default values through [Default]:
 ///
 /// ```rust
-/// use web_glitz::sampler::{ShadowSamplerDescriptor, CompareFunction, Wrap};
+/// use web_glitz::image::sampler::{ShadowSamplerDescriptor, CompareFunction, Wrap};
 ///
 /// assert_eq!(ShadowSamplerDescriptor::default(), ShadowSamplerDescriptor {
 ///     compare: CompareFunction::LessOrEqual,

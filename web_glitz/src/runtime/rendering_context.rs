@@ -780,7 +780,7 @@ pub trait RenderingContext {
     /// ```rust
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
-    /// use web_glitz::sampler::{
+    /// use web_glitz::image::sampler::{
     ///     SamplerDescriptor, Linear, NearestMipmapLinear, LODRange, Wrap
     /// };
     ///
@@ -811,7 +811,7 @@ pub trait RenderingContext {
     /// ```rust
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext + Clone + 'static {
-    /// use web_glitz::sampler::{ShadowSamplerDescriptor, CompareFunction, Wrap};
+    /// use web_glitz::image::sampler::{ShadowSamplerDescriptor, CompareFunction, Wrap};
     ///
     /// let shadow_sampler = context.create_shadow_sampler(&ShadowSamplerDescriptor {
     ///     compare: CompareFunction::LessOrEqual,

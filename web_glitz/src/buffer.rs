@@ -1,3 +1,81 @@
+//! GPU-accessible memory buffers that contain typed data.
+//!
+//! # Initialization
+//!
+//! A buffer can store any type that is both [Sized] and [Copy]. We can for example store an
+//! [InterfaceBlock] type (which we might later use to provide data to a uniform block in a
+//! pipeline):
+//!
+//! ```
+//! # #![feature(const_fn, const_loop, const_if_match, const_ptr_offset_from, const_transmute, ptr_offset_from)]
+//! # use web_glitz::runtime::RenderingContext;
+//! # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
+//! use web_glitz::buffer::UsageHint;
+//!
+//! // We use the `std140` crate to ensure that the layout of our `Uniforms` type conforms to
+//! // the std140 data layout.
+//! #[std140::repr_std140]
+//! #[derive(web_glitz::derive::InterfaceBlock, Clone, Copy)]
+//! struct Uniforms {
+//!     scale: std140::float,
+//! }
+//!
+//! let uniforms = Uniforms {
+//!     scale: std140::float(0.5),
+//! };
+//!
+//! let uniform_buffer = context.create_buffer(uniforms, UsageHint::DynamicDraw);
+//! # }
+//! ```
+//!
+//! Here `context` is a [RenderingContext]. We use [UsageHint::DynamicDraw] to indicate that we
+//! intend to read this buffer on the GPU and we intend to modify the contents of the buffer
+//! repeatedly (see [UsageHint] for details).
+//!
+//! A buffer can also store an array of any type `T` that is both [Sized] and [Copy], by
+//! initializing it with a type that implements `Borrow<[T]>`. We can for example store an array
+//! of [Vertex] values:
+//!
+//! ```
+//! # #![feature(const_fn, const_transmute, const_ptr_offset_from, ptr_offset_from)]
+//! # use web_glitz::runtime::RenderingContext;
+//! # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
+//! use web_glitz::buffer::{Buffer, UsageHint};
+//!
+//! #[derive(web_glitz::derive::Vertex, Clone, Copy)]
+//! struct Vertex {
+//!     #[vertex_attribute(location = 0, format = "Float2_f32")]
+//!     position: [f32; 2],
+//!     #[vertex_attribute(location = 1, format = "Float3_u8_norm")]
+//!     color: [u8; 3],
+//! }
+//!
+//! let vertex_data = [
+//!     Vertex {
+//!         position: [0.0, 0.5],
+//!         color: [255, 0, 0],
+//!     },
+//!     Vertex {
+//!         position: [-0.5, -0.5],
+//!         color: [0, 255, 0],
+//!     },
+//!     Vertex {
+//!         position: [0.5, -0.5],
+//!         color: [0, 0, 255],
+//!     },
+//! ];
+//!
+//! let vertex_buffer: Buffer<[Vertex]> = context.create_buffer(vertex_data, UsageHint::StaticDraw);
+//! # }
+//! ```
+//!
+//! Note that [RenderingContext::create_buffer] takes ownership of the data source (`vertex_data`
+//! in the example) and that the data source must be `'static`. It is however possible to use shared
+//! ownership constructs like [Rc](std::rc::Rc) or [Arc](std::sync::Arc). We use a
+//! [UsageHint::StaticDraw] to once again indiciate that we wish to read this data on the GPU, but
+//! this time we don't intend to modify the data in the buffer later.
+//!
+//! #
 use std::borrow::Borrow;
 use std::cell::UnsafeCell;
 use std::marker;
@@ -14,7 +92,7 @@ use crate::runtime::{Connection, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
 
-/// A GPU-accessible memory buffer that contains typed memory.
+/// A GPU-accessible memory buffer that contains typed data.
 ///
 /// # Example
 ///
