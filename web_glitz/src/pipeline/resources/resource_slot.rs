@@ -504,7 +504,7 @@ impl UniformBlockSlot {
         memory_layout: &[MemoryUnit],
     ) -> Result<(), IncompatibleInterface> {
         'outer: for expected_unit in self.layout.iter() {
-            'inner: for actual_unit in memory_layout.iter() {
+            for actual_unit in memory_layout.iter() {
                 if actual_unit.offset > expected_unit.offset {
                     return Err(IncompatibleInterface::MissingUnit(*expected_unit));
                 } else if expected_unit.offset == actual_unit.offset {

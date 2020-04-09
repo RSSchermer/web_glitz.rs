@@ -1,6 +1,7 @@
 use crate::buffer::{Buffer, BufferViewMut};
-use crate::pipeline::graphics::util::{BufferDescriptor, BufferDescriptors};
+use crate::pipeline::graphics::util::BufferDescriptor;
 use crate::pipeline::graphics::{TransformFeedback, TypedTransformFeedbackLayout};
+use staticvec::StaticVec;
 
 /// Encodes a description of a (set of) buffer(s) or buffer region(s) that can record the output
 /// feedback from the transform stage of a graphics pipeline.
@@ -64,7 +65,7 @@ impl TransformFeedbackBuffersEncodingContext {
 pub struct TransformFeedbackBuffersEncoding<'a> {
     #[allow(unused)]
     context: &'a mut TransformFeedbackBuffersEncodingContext,
-    descriptors: BufferDescriptors,
+    descriptors: StaticVec<BufferDescriptor, 16>,
 }
 
 impl<'a> TransformFeedbackBuffersEncoding<'a> {
@@ -72,7 +73,7 @@ impl<'a> TransformFeedbackBuffersEncoding<'a> {
     pub fn new(context: &'a mut TransformFeedbackBuffersEncodingContext) -> Self {
         TransformFeedbackBuffersEncoding {
             context,
-            descriptors: BufferDescriptors::new(),
+            descriptors: StaticVec::new(),
         }
     }
 
@@ -90,7 +91,7 @@ impl<'a> TransformFeedbackBuffersEncoding<'a> {
             .push(BufferDescriptor::from_buffer_view(*buffer.into()));
     }
 
-    pub(crate) fn into_descriptors(self) -> BufferDescriptors {
+    pub(crate) fn into_descriptors(self) -> StaticVec<BufferDescriptor, 16> {
         self.descriptors
     }
 }

@@ -28,6 +28,9 @@
 //!
 //! [wasm-bindgen]: https://github.com/rustwasm/wasm-bindgen
 
+// For const_generics warning
+#![allow(incomplete_features)]
+
 #![feature(
     coerce_unsized,
     const_fn,
@@ -40,6 +43,7 @@
     unsize,
     optin_builtin_traits
 )]
+
 
 pub mod derive {
     pub use web_glitz_macros::{InterfaceBlock, Resources, TransformFeedback, Vertex};

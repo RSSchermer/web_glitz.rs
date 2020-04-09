@@ -616,8 +616,12 @@ impl SingleThreadedExecutor {
                 let ref_cell: &RefCell<_> = self.process_buffer_closure.borrow();
                 let callback_ref = ref_cell.borrow();
 
-                self.process_buffer_promise
+                let promise = self.process_buffer_promise
                     .then(callback_ref.as_ref().unwrap());
+
+                // Explicitly drop promise to get around "unused_must_use" warning; we really don't
+                // need to use this promise...
+                mem::drop(promise);
             }
 
             execution
@@ -633,8 +637,12 @@ impl Drop for SingleThreadedExecutor {
             let ref_cell: &RefCell<_> = self.process_buffer_closure.borrow();
             let callback_ref = ref_cell.borrow();
 
-            self.process_buffer_promise
+            let promise = self.process_buffer_promise
                 .then(callback_ref.as_ref().unwrap());
+
+            // Explicitly drop promise to get around "unused_must_use" warning; we really don't need
+            // to use this promise...
+            mem::drop(promise);
         }
     }
 }

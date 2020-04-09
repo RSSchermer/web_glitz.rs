@@ -10,7 +10,7 @@ use wasm_bindgen::JsCast;
 use crate::image::Region2D;
 use crate::pipeline::graphics::descriptor::ResourceBindingsLayoutKind;
 use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
-use crate::pipeline::graphics::util::BufferDescriptors;
+use crate::pipeline::graphics::util::BufferDescriptor;
 use crate::pipeline::graphics::{
     Blending, DepthTest, GraphicsPipelineDescriptor, PrimitiveAssembly, StencilTest,
     TransformFeedbackBuffersEncodingContext, TransformFeedbackLayoutDescriptor,
@@ -26,6 +26,7 @@ use crate::runtime::state::{ContextUpdate, DynamicState, ProgramKey};
 use crate::runtime::{Connection, CreateGraphicsPipelineError, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
+use staticvec::StaticVec;
 
 /// Encapsulates the state for a graphics pipeline.
 ///
@@ -245,9 +246,9 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
                     .filter(|g| g.bind_group_index() == 1)
                     .ok_or(IncompatibleResources::MissingBindGroup(1))?;
 
-                'outer: for slot in program.resource_slot_descriptors() {
+                'outer_0: for slot in program.resource_slot_descriptors() {
                     if slot.slot_type().is_kind(ResourceSlotKind::UniformBuffer) {
-                        'inner: for descriptor in bind_group_0.slots() {
+                        for descriptor in bind_group_0.slots() {
                             if &descriptor.slot_identifier == slot.identifier() {
                                 if !descriptor.slot_kind.is_uniform_buffer() {
                                     return Err(IncompatibleResources::ResourceTypeMismatch(
@@ -258,7 +259,7 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
 
                                 updater.update_slot_binding(slot, descriptor.slot_index as u32);
 
-                                continue 'outer;
+                                continue 'outer_0;
                             }
                         }
 
@@ -267,7 +268,7 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
                         )
                         .into());
                     } else if slot.slot_type().is_kind(ResourceSlotKind::SampledTexture) {
-                        'inner: for descriptor in bind_group_1.slots() {
+                        for descriptor in bind_group_1.slots() {
                             if &descriptor.slot_identifier == slot.identifier() {
                                 if !descriptor.slot_kind.is_sampled_texture() {
                                     return Err(IncompatibleResources::ResourceTypeMismatch(
@@ -278,7 +279,7 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
 
                                 updater.update_slot_binding(slot, descriptor.slot_index as u32);
 
-                                continue 'outer;
+                                continue 'outer_0;
                             }
                         }
 
@@ -306,10 +307,10 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
                     .filter(|g| g.bind_group_index() == 1)
                     .ok_or(IncompatibleResources::MissingBindGroup(1))?;
 
-                'outer: for slot in program.resource_slot_descriptors() {
+                'outer_1: for slot in program.resource_slot_descriptors() {
                     match slot.slot_type() {
                         SlotType::UniformBlock(uniform_block_slot) => {
-                            'inner: for descriptor in bind_group_0.slots() {
+                            for descriptor in bind_group_0.slots() {
                                 if &descriptor.slot_identifier == slot.identifier() {
                                     if let ResourceSlotType::UniformBuffer(memory_units) =
                                         descriptor.slot_type
@@ -331,7 +332,7 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
 
                                     updater.update_slot_binding(slot, descriptor.slot_index as u32);
 
-                                    continue 'outer;
+                                    continue 'outer_1;
                                 }
                             }
 
@@ -341,7 +342,7 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
                             .into());
                         }
                         SlotType::TextureSampler(texture_sampler_slot) => {
-                            'inner: for descriptor in bind_group_1.slots() {
+                            for descriptor in bind_group_1.slots() {
                                 if &descriptor.slot_identifier == slot.identifier() {
                                     if let ResourceSlotType::SampledTexture(tpe) =
                                         descriptor.slot_type
@@ -352,7 +353,7 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
                                                 descriptor.slot_index as u32,
                                             );
 
-                                            continue 'outer;
+                                            continue 'outer_1;
                                         }
                                     }
 
@@ -398,14 +399,14 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
 
 pub struct RecordTransformFeedback<'a, V, R, Tf, Fb> {
     pub(crate) pipeline: &'a mut GraphicsPipeline<V, R, Tf>,
-    pub(crate) buffers: BufferDescriptors,
+    pub(crate) buffers: StaticVec<BufferDescriptor, 16>,
     _marker: marker::PhantomData<Fb>,
 }
 
 pub(crate) struct TransformFeedbackData {
     pub(crate) id: JsId,
     pub(crate) state: TransformFeedbackState,
-    pub(crate) buffers: BufferDescriptors,
+    pub(crate) buffers: StaticVec<BufferDescriptor, 16>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]

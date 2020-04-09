@@ -29,7 +29,7 @@ use crate::pipeline::graphics::graphics_pipeline::{
 };
 use crate::pipeline::graphics::primitive_assembly::Topology;
 use crate::pipeline::graphics::shader::{FragmentShaderData, VertexShaderData};
-use crate::pipeline::graphics::util::BufferDescriptors;
+use crate::pipeline::graphics::util::BufferDescriptor;
 use crate::pipeline::graphics::{
     Blending, DepthTest, GraphicsPipeline, IndexData, IndexDataDescriptor, PrimitiveAssembly,
     StencilTest, TypedVertexBuffers, TypedVertexInputLayout, VertexBuffers,
@@ -46,6 +46,7 @@ use crate::runtime::Connection;
 use crate::task::{sequence, ContextId, Empty, GpuTask, Progress, Sequence};
 use crate::util::JsId;
 use crate::Unspecified;
+use staticvec::StaticVec;
 
 /// Helper trait for implementing [Framebuffer::pipeline_task] for both a plain graphics pipeline
 /// and a graphics pipeline that will record transform feedback.
@@ -1091,7 +1092,7 @@ pub struct PipelineTaskContext {
     pipeline_task_id: usize,
     connection: *mut Connection,
     attribute_layout: *const VertexInputLayoutDescriptor,
-    vertex_buffers: BufferDescriptors,
+    vertex_buffers: StaticVec<BufferDescriptor, 16>,
     index_buffer: Option<IndexDataDescriptor>,
 }
 
@@ -1143,7 +1144,7 @@ pub struct PipelineTask<T> {
     #[allow(dead_code)] // Just holding on to this so it won't get dropped prematurely
     fragment_shader_data: Arc<FragmentShaderData>,
     transform_feedback_data: Arc<UnsafeCell<Option<TransformFeedbackData>>>,
-    transform_feedback_buffers: Option<BufferDescriptors>,
+    transform_feedback_buffers: Option<StaticVec<BufferDescriptor, 16>>,
     attribute_layout: VertexInputLayoutDescriptor,
     primitive_assembly: PrimitiveAssembly,
     depth_test: Option<DepthTest>,
@@ -1161,7 +1162,7 @@ where
     pub(crate) fn new<V, R, Tf, F>(
         framebuffer_data: &GraphicsPipelineTarget,
         pipeline: &GraphicsPipeline<V, R, Tf>,
-        transform_feedback_buffers: Option<BufferDescriptors>,
+        transform_feedback_buffers: Option<StaticVec<BufferDescriptor, 16>>,
         f: F,
     ) -> Self
     where
@@ -1415,7 +1416,7 @@ where
             pipeline_task_id: self.id,
             connection: context.connection_mut() as *mut Connection,
             attribute_layout: &self.attribute_layout,
-            vertex_buffers: BufferDescriptors::new(),
+            vertex_buffers: StaticVec::new(),
             index_buffer: None,
         });
 
@@ -2003,7 +2004,7 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
 #[derive(Clone)]
 pub struct BindVertexBuffersCommand {
     pipeline_task_id: usize,
-    vertex_buffers: Option<BufferDescriptors>,
+    vertex_buffers: Option<StaticVec<BufferDescriptor, 16>>,
 }
 
 unsafe impl GpuTask<PipelineTaskContext> for BindVertexBuffersCommand {

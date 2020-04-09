@@ -1,6 +1,7 @@
 use crate::buffer::{Buffer, BufferView, BufferViewMut};
-use crate::pipeline::graphics::util::{BufferDescriptor, BufferDescriptors};
+use crate::pipeline::graphics::util::BufferDescriptor;
 use crate::pipeline::graphics::{TypedVertexInputLayout, Vertex};
+use staticvec::StaticVec;
 
 /// Encodes a description of a (set of) buffer(s) or buffer region(s) that can serve as the vertex
 /// input data source(s) for a graphics pipeline.
@@ -62,7 +63,7 @@ impl VertexBuffersEncodingContext {
 pub struct VertexBuffersEncoding<'a> {
     #[allow(unused)]
     context: &'a mut VertexBuffersEncodingContext,
-    descriptors: BufferDescriptors,
+    descriptors: StaticVec<BufferDescriptor, 16>,
 }
 
 impl<'a> VertexBuffersEncoding<'a> {
@@ -70,7 +71,7 @@ impl<'a> VertexBuffersEncoding<'a> {
     pub fn new(context: &'a mut VertexBuffersEncodingContext) -> Self {
         VertexBuffersEncoding {
             context,
-            descriptors: BufferDescriptors::new(),
+            descriptors: StaticVec::new(),
         }
     }
 
@@ -88,7 +89,7 @@ impl<'a> VertexBuffersEncoding<'a> {
             .push(BufferDescriptor::from_buffer_view(buffer.into()));
     }
 
-    pub(crate) fn into_descriptors(self) -> BufferDescriptors {
+    pub(crate) fn into_descriptors(self) -> StaticVec<BufferDescriptor, 16> {
         self.descriptors
     }
 }
