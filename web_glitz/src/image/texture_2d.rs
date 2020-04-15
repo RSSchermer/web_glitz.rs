@@ -112,6 +112,7 @@ where
 /// # }
 /// ```
 pub struct Texture2D<F> {
+    object_id: u64,
     data: Arc<Texture2DData>,
     _marker: marker::PhantomData<[F]>,
 }
@@ -128,6 +129,7 @@ where
 {
     pub(crate) fn new<Rc>(
         context: &Rc,
+        object_id: u64,
         descriptor: &Texture2DDescriptor<F>,
     ) -> Result<Self, MaxMipmapLevelsExceeded>
     where
@@ -170,6 +172,7 @@ where
         });
 
         Ok(Texture2D {
+            object_id,
             data,
             _marker: marker::PhantomData,
         })
@@ -459,9 +462,21 @@ pub struct ShadowSampledTexture2D<'a> {
     _marker: marker::PhantomData<&'a ()>,
 }
 
+impl<F> PartialEq for Texture2D<F> {
+    fn eq(&self, other: &Self) -> bool {
+        self.object_id == other.object_id
+    }
+}
+
+impl<F> Hash for Texture2D<F> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.object_id.hash(state);
+    }
+}
+
 pub(crate) struct Texture2DData {
     id: UnsafeCell<Option<JsId>>,
-    context_id: usize,
+    context_id: u64,
     dropper: Box<dyn TextureObjectDropper>,
     width: u32,
     height: u32,
@@ -473,7 +488,7 @@ impl Texture2DData {
         unsafe { *self.id.get() }
     }
 
-    pub(crate) fn context_id(&self) -> usize {
+    pub(crate) fn context_id(&self) -> u64 {
         self.context_id
     }
 }
@@ -504,6 +519,7 @@ impl Drop for Texture2DData {
 /// Returned from [Texture2D::levels], a reference to the levels of a [Texture2D].
 ///
 /// See [Texture2D::levels] for details.
+#[derive(PartialEq, Hash)]
 pub struct Levels<'a, F> {
     handle: &'a Texture2D<F>,
     offset: usize,
@@ -847,6 +863,7 @@ where
 ///
 /// A reference to the base level of a [Texture2D] can be obtained through [Texture2D::base_level].
 /// References to other levels of a [Texture2D] can be obtained via [Levels].
+#[derive(PartialEq, Hash)]
 pub struct Level<'a, F> {
     handle: &'a Texture2D<F>,
     level: usize,
@@ -1000,6 +1017,7 @@ where
 /// Returned from [Level::sub_image], a reference to a sub-region of a [Level]'s image.
 ///
 /// See [Level::sub_image] for details.
+#[derive(PartialEq, Hash)]
 pub struct LevelSubImage<'a, F> {
     handle: &'a Texture2D<F>,
     level: usize,
@@ -1138,6 +1156,7 @@ where
 /// See [Texture2D::levels_mut] for details.
 ///
 /// [Deref]s to [Levels].
+#[derive(PartialEq, Hash)]
 pub struct LevelsMut<'a, F> {
     inner: Levels<'a, F>,
 }
@@ -1487,6 +1506,7 @@ where
 /// A mutable reference to a [Texture2D] mipmap level.
 ///
 /// [Deref]s to [Level].
+#[derive(PartialEq, Hash)]
 pub struct LevelMut<'a, F> {
     inner: Level<'a, F>,
 }

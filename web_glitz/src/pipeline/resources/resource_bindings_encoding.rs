@@ -153,11 +153,11 @@ enum TextureData {
 }
 
 pub struct BindGroupEncodingContext {
-    context_id: usize,
+    context_id: u64,
 }
 
 impl BindGroupEncodingContext {
-    pub(crate) fn new(context_id: usize) -> Self {
+    pub(crate) fn new(context_id: u64) -> Self {
         BindGroupEncodingContext { context_id }
     }
 }
@@ -736,11 +736,11 @@ impl BindGroupDescriptor {
 }
 
 pub struct ResourceBindingsEncodingContext {
-    context_id: usize,
+    context_id: u64,
 }
 
 impl ResourceBindingsEncodingContext {
-    pub(crate) fn new(context_id: usize) -> Self {
+    pub(crate) fn new(context_id: u64) -> Self {
         ResourceBindingsEncodingContext { context_id }
     }
 }
@@ -788,6 +788,7 @@ impl<'a, B> StaticResourceBindingsEncoder<'a, B> {
             BindGroupInternal::NotEmpty {
                 context_id,
                 encoding,
+                ..
             } => {
                 if self.context.context_id != *context_id {
                     panic!("Bind group belongs to a different context than the current pipeline.");

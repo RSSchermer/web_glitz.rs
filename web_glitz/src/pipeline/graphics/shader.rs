@@ -8,6 +8,7 @@ use web_sys::WebGl2RenderingContext as Gl;
 use crate::runtime::{Connection, RenderingContext, ShaderCompilationError};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
+use std::hash::{Hash, Hasher};
 
 /// The programmable stage in the rendering pipeline that handles the processing of individual
 /// vertices.
@@ -17,12 +18,25 @@ use crate::util::JsId;
 ///
 /// See [RenderingContext::create_vertex_shader] for details on how a vertex shader is created.
 pub struct VertexShader {
+    object_id: u64,
     data: Arc<VertexShaderData>,
 }
 
 impl VertexShader {
     pub(crate) fn data(&self) -> &Arc<VertexShaderData> {
         &self.data
+    }
+}
+
+impl PartialEq for VertexShader {
+    fn eq(&self, other: &Self) -> bool {
+        self.object_id == other.object_id
+    }
+}
+
+impl Hash for VertexShader {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.object_id.hash(state);
     }
 }
 
@@ -42,6 +56,7 @@ impl VertexShader {
 ///
 /// See [RenderingContext::create_fragment_shader] for details on how a fragment shader is created.
 pub struct FragmentShader {
+    object_id: u64,
     data: Arc<FragmentShaderData>,
 }
 
@@ -51,9 +66,21 @@ impl FragmentShader {
     }
 }
 
+impl PartialEq for FragmentShader {
+    fn eq(&self, other: &Self) -> bool {
+        self.object_id == other.object_id
+    }
+}
+
+impl Hash for FragmentShader {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.object_id.hash(state);
+    }
+}
+
 pub(crate) struct VertexShaderData {
     id: UnsafeCell<Option<JsId>>,
-    context_id: usize,
+    context_id: u64,
     dropper: Box<dyn VertexShaderObjectDropper>,
 }
 
@@ -62,14 +89,14 @@ impl VertexShaderData {
         unsafe { *self.id.get() }
     }
 
-    pub(crate) fn context_id(&self) -> usize {
+    pub(crate) fn context_id(&self) -> u64 {
         self.context_id
     }
 }
 
 pub(crate) struct FragmentShaderData {
     id: UnsafeCell<Option<JsId>>,
-    context_id: usize,
+    context_id: u64,
     dropper: Box<dyn FragmentShaderObjectDropper>,
 }
 
@@ -78,7 +105,7 @@ impl FragmentShaderData {
         unsafe { *self.id.get() }
     }
 
-    pub(crate) fn context_id(&self) -> usize {
+    pub(crate) fn context_id(&self) -> u64 {
         self.context_id
     }
 }
@@ -126,6 +153,7 @@ impl Drop for FragmentShaderData {
 }
 
 pub(crate) struct VertexShaderAllocateCommand<S> {
+    object_id: u64,
     data: Arc<VertexShaderData>,
     source: S,
 }
@@ -134,7 +162,7 @@ impl<S> VertexShaderAllocateCommand<S>
 where
     S: Borrow<str> + 'static,
 {
-    pub(crate) fn new<Rc>(context: &Rc, source: S) -> Self
+    pub(crate) fn new<Rc>(context: &Rc, object_id: u64, source: S) -> Self
     where
         Rc: RenderingContext + Clone + 'static,
     {
@@ -144,7 +172,7 @@ where
             dropper: Box::new(context.clone()),
         });
 
-        VertexShaderAllocateCommand { data, source }
+        VertexShaderAllocateCommand { object_id, data, source }
     }
 }
 
@@ -181,6 +209,7 @@ where
             }
 
             Progress::Finished(Ok(VertexShader {
+                object_id: self.object_id,
                 data: self.data.clone(),
             }))
         }
@@ -188,6 +217,7 @@ where
 }
 
 pub(crate) struct FragmentShaderAllocateCommand<S> {
+    object_id: u64,
     data: Arc<FragmentShaderData>,
     source: S,
 }
@@ -196,7 +226,7 @@ impl<S> FragmentShaderAllocateCommand<S>
 where
     S: Borrow<str> + 'static,
 {
-    pub(crate) fn new<Rc>(context: &Rc, source: S) -> Self
+    pub(crate) fn new<Rc>(context: &Rc, object_id: u64, source: S) -> Self
     where
         Rc: RenderingContext + Clone + 'static,
     {
@@ -206,7 +236,7 @@ where
             dropper: Box::new(context.clone()),
         });
 
-        FragmentShaderAllocateCommand { data, source }
+        FragmentShaderAllocateCommand {object_id, data, source }
     }
 }
 
@@ -243,6 +273,7 @@ where
             }
 
             Progress::Finished(Ok(FragmentShader {
+                object_id: self.object_id,
                 data: self.data.clone(),
             }))
         }

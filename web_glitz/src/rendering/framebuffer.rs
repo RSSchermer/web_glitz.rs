@@ -84,9 +84,9 @@ impl<'a, V, R, Tf, Fb> GraphicsPipelineState<V, R, Tf>
 
 pub struct GraphicsPipelineTarget {
     pub(crate) dimensions: Option<(u32, u32)>,
-    pub(crate) context_id: usize,
-    pub(crate) render_pass_id: usize,
-    pub(crate) last_pipeline_task_id: Cell<usize>,
+    pub(crate) context_id: u64,
+    pub(crate) render_pass_id: u64,
+    pub(crate) last_pipeline_task_id: Cell<u64>,
 }
 
 /// Represents a set of image memory buffers that serve as the rendering destination for a
@@ -657,8 +657,8 @@ where
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct IncompatibleSampleCount {
-    framebuffer_samples: usize,
-    blit_source_samples: usize,
+    framebuffer_samples: u8,
+    blit_source_samples: u8,
 }
 
 /// Represents a set of image memory buffers that serve as the rendering destination for a
@@ -672,7 +672,7 @@ pub struct MultisampleFramebuffer<C, Ds> {
     pub color: C,
     pub depth_stencil: Ds,
     pub(crate) data: GraphicsPipelineTarget,
-    pub(crate) samples: usize,
+    pub(crate) samples: u8,
 }
 
 impl<C, Ds> MultisampleFramebuffer<C, Ds> {
@@ -1089,7 +1089,7 @@ where
 
 /// Provides the context necessary for making progress on a [PipelineTask].
 pub struct PipelineTaskContext {
-    pipeline_task_id: usize,
+    pipeline_task_id: u64,
     connection: *mut Connection,
     attribute_layout: *const VertexInputLayoutDescriptor,
     vertex_buffers: StaticVec<BufferDescriptor, 16>,
@@ -1098,7 +1098,7 @@ pub struct PipelineTaskContext {
 
 impl PipelineTaskContext {
     /// The ID of the [PipelineTask] this [PipelineTaskContext] is associated with.
-    pub fn pipeline_task_id(&self) -> usize {
+    pub fn pipeline_task_id(&self) -> u64 {
         self.pipeline_task_id
     }
 
@@ -1135,8 +1135,8 @@ impl PipelineTaskContext {
 /// See [Framebuffer::pipeline_task].
 #[derive(Clone)]
 pub struct PipelineTask<T> {
-    id: usize,
-    render_pass_id: usize,
+    id: u64,
+    render_pass_id: u64,
     task: T,
     program_id: JsId,
     #[allow(dead_code)] // Just holding on to this so it won't get dropped prematurely
@@ -1180,7 +1180,7 @@ where
 
         (framebuffer_data.render_pass_id, id).hash(&mut hasher);
 
-        let pipeline_task_id = hasher.finish() as usize;
+        let pipeline_task_id = hasher.finish();
 
         let task = f(ActiveGraphicsPipeline {
             pipeline_task_id,
@@ -1439,7 +1439,7 @@ where
 /// A handle to an [ActiveGraphicsPipeline] is obtained by using a [GraphicsPipeline] to create
 /// a [PipelineTask] for a [Framebuffer], see [Framebuffer::pipeline_task].
 pub struct ActiveGraphicsPipeline<'a, V, R, Tf> {
-    pipeline_task_id: usize,
+    pipeline_task_id: u64,
     pipeline: &'a GraphicsPipeline<V, R, Tf>,
 }
 
@@ -1503,8 +1503,8 @@ impl<'a, V, R, Tf> ActiveGraphicsPipeline<'a, V, R, Tf> {
 ///
 /// See [ActiveGraphicsPipeline::task_builder].
 pub struct GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, T> {
-    context_id: usize,
-    pipeline_task_id: usize,
+    context_id: u64,
+    pipeline_task_id: u64,
     topology: Topology,
     task: T,
     _pipeline: marker::PhantomData<ActiveGraphicsPipeline<'a, V, R, ()>>,
@@ -2003,7 +2003,7 @@ impl<'a, V, R, Vb, Ib, Rb, T> GraphicsPipelineTaskBuilder<'a, V, R, Vb, Ib, Rb, 
 /// See [GraphicsPipelineTaskBuilder::bind_vertex_buffers].
 #[derive(Clone)]
 pub struct BindVertexBuffersCommand {
-    pipeline_task_id: usize,
+    pipeline_task_id: u64,
     vertex_buffers: Option<StaticVec<BufferDescriptor, 16>>,
 }
 
@@ -2027,7 +2027,7 @@ unsafe impl GpuTask<PipelineTaskContext> for BindVertexBuffersCommand {
 /// See [GraphicsPipelineTaskBuilder::bind_index_buffer].
 #[derive(Clone)]
 pub struct BindIndexBufferCommand {
-    pipeline_task_id: usize,
+    pipeline_task_id: u64,
     index_buffer: IndexDataDescriptor,
 }
 
@@ -2050,7 +2050,7 @@ unsafe impl GpuTask<PipelineTaskContext> for BindIndexBufferCommand {
 /// See [GraphicsPipelineTaskBuilder::bind_resources].
 #[derive(Clone)]
 pub struct BindResourcesCommand<Rb> {
-    pipeline_task_id: usize,
+    pipeline_task_id: u64,
     resource_bindings: Rb,
 }
 
@@ -2079,7 +2079,7 @@ where
 /// See [GraphicsPipelineTaskBuilder::draw].
 #[derive(Clone)]
 pub struct DrawCommand {
-    pipeline_task_id: usize,
+    pipeline_task_id: u64,
     topology: Topology,
     vertex_count: usize,
     instance_count: usize,
@@ -2123,7 +2123,7 @@ unsafe impl GpuTask<PipelineTaskContext> for DrawCommand {
 /// See [GraphicsPipelineTaskBuilder::draw_indexed].
 #[derive(Clone)]
 pub struct DrawIndexedCommand {
-    pipeline_task_id: usize,
+    pipeline_task_id: u64,
     topology: Topology,
     index_count: usize,
     instance_count: usize,
@@ -2300,7 +2300,7 @@ pub unsafe trait BlitSource {
 pub struct BlitSourceDescriptor {
     attachment: AttachmentData,
     region: ((u32, u32), u32, u32),
-    context_id: usize,
+    context_id: u64,
 }
 
 unsafe impl<'a, F> BlitSource for Texture2DLevel<'a, F>
@@ -2517,7 +2517,7 @@ where
 #[derive(Clone)]
 pub struct MultisampleBlitSourceDescriptor {
     blit_source_descriptor: BlitSourceDescriptor,
-    samples: usize,
+    samples: u8,
 }
 
 /// Marker trait that identifies [BlitSource] types that can be safely blitted to a typed color
@@ -2629,7 +2629,7 @@ impl_multisample_blit_color_compatible!(
 /// [Framebuffer::blit_stencil_command]
 #[derive(Clone)]
 pub struct BlitCommand {
-    render_pass_id: usize,
+    render_pass_id: u64,
     read_slot: u32,
     bitmask: u32,
     filter: u32,
@@ -2694,11 +2694,11 @@ unsafe impl GpuTask<RenderPassContext> for BlitCommand {
 
 /// Represents the color buffer for a [DefaultRenderTarget] without an alpha channel.
 pub struct DefaultRGBBuffer {
-    render_pass_id: usize,
+    render_pass_id: u64,
 }
 
 impl DefaultRGBBuffer {
-    pub(crate) fn new(render_pass_id: usize) -> Self {
+    pub(crate) fn new(render_pass_id: u64) -> Self {
         DefaultRGBBuffer { render_pass_id }
     }
 
@@ -2742,11 +2742,11 @@ impl DefaultRGBBuffer {
 
 /// Represents the color buffer for a [DefaultRenderTarget] with an alpha channel.
 pub struct DefaultRGBABuffer {
-    render_pass_id: usize,
+    render_pass_id: u64,
 }
 
 impl DefaultRGBABuffer {
-    pub(crate) fn new(render_pass_id: usize) -> Self {
+    pub(crate) fn new(render_pass_id: u64) -> Self {
         DefaultRGBABuffer { render_pass_id }
     }
 
@@ -2791,11 +2791,11 @@ impl DefaultRGBABuffer {
 /// Represents the depth-stencil buffer for a [DefaultRenderTarget] with both a depth and a stencil
 /// channel.
 pub struct DefaultDepthStencilBuffer {
-    render_pass_id: usize,
+    render_pass_id: u64,
 }
 
 impl DefaultDepthStencilBuffer {
-    pub(crate) fn new(render_pass_id: usize) -> Self {
+    pub(crate) fn new(render_pass_id: u64) -> Self {
         DefaultDepthStencilBuffer { render_pass_id }
     }
 
@@ -2926,11 +2926,11 @@ impl DefaultDepthStencilBuffer {
 /// Represents the depth-stencil buffer for a [DefaultRenderTarget] with only a depth channel and
 /// no stencil channel.
 pub struct DefaultDepthBuffer {
-    render_pass_id: usize,
+    render_pass_id: u64,
 }
 
 impl DefaultDepthBuffer {
-    pub(crate) fn new(render_pass_id: usize) -> Self {
+    pub(crate) fn new(render_pass_id: u64) -> Self {
         DefaultDepthBuffer { render_pass_id }
     }
 
@@ -2973,11 +2973,11 @@ impl DefaultDepthBuffer {
 /// Represents the depth-stencil buffer for a [DefaultRenderTarget] with only a stencil channel and
 /// no depth channel.
 pub struct DefaultStencilBuffer {
-    render_pass_id: usize,
+    render_pass_id: u64,
 }
 
 impl DefaultStencilBuffer {
-    pub(crate) fn new(render_pass_id: usize) -> Self {
+    pub(crate) fn new(render_pass_id: u64) -> Self {
         DefaultStencilBuffer { render_pass_id }
     }
 
@@ -3033,7 +3033,7 @@ pub trait RenderingOutputBuffer {
 /// Represents a color buffer that stores floating point values in a framebuffer for a custom render
 /// target.
 pub struct FloatBuffer<F> {
-    render_pass_id: usize,
+    render_pass_id: u64,
     index: i32,
     width: u32,
     height: u32,
@@ -3041,7 +3041,7 @@ pub struct FloatBuffer<F> {
 }
 
 impl<F> FloatBuffer<F> {
-    pub(crate) fn new(render_pass_id: usize, index: i32, width: u32, height: u32) -> Self {
+    pub(crate) fn new(render_pass_id: u64, index: i32, width: u32, height: u32) -> Self {
         FloatBuffer {
             render_pass_id,
             index,
@@ -3108,7 +3108,7 @@ where
 /// Represents a color buffer that stores integer values in a framebuffer for a custom render
 /// target.
 pub struct IntegerBuffer<F> {
-    render_pass_id: usize,
+    render_pass_id: u64,
     index: i32,
     width: u32,
     height: u32,
@@ -3116,7 +3116,7 @@ pub struct IntegerBuffer<F> {
 }
 
 impl<F> IntegerBuffer<F> {
-    pub(crate) fn new(render_pass_id: usize, index: i32, width: u32, height: u32) -> Self {
+    pub(crate) fn new(render_pass_id: u64, index: i32, width: u32, height: u32) -> Self {
         IntegerBuffer {
             render_pass_id,
             index,
@@ -3182,7 +3182,7 @@ where
 /// Represents a color buffer that stores unsigned integer values in a framebuffer for a custom
 /// render target.
 pub struct UnsignedIntegerBuffer<F> {
-    render_pass_id: usize,
+    render_pass_id: u64,
     index: i32,
     width: u32,
     height: u32,
@@ -3190,7 +3190,7 @@ pub struct UnsignedIntegerBuffer<F> {
 }
 
 impl<F> UnsignedIntegerBuffer<F> {
-    pub(crate) fn new(render_pass_id: usize, index: i32, width: u32, height: u32) -> Self {
+    pub(crate) fn new(render_pass_id: u64, index: i32, width: u32, height: u32) -> Self {
         UnsignedIntegerBuffer {
             render_pass_id,
             index,
@@ -3261,14 +3261,14 @@ where
 /// Represents a depth-stencil buffer that stores both depth and stencil values in a framebuffer for
 /// a custom render target.
 pub struct DepthStencilBuffer<F> {
-    render_pass_id: usize,
+    render_pass_id: u64,
     width: u32,
     height: u32,
     _marker: marker::PhantomData<Box<F>>,
 }
 
 impl<F> DepthStencilBuffer<F> {
-    pub(crate) fn new(render_pass_id: usize, width: u32, height: u32) -> Self {
+    pub(crate) fn new(render_pass_id: u64, width: u32, height: u32) -> Self {
         DepthStencilBuffer {
             render_pass_id,
             width,
@@ -3425,14 +3425,14 @@ where
 /// Represents a depth-stencil buffer that stores only depth values in a framebuffer for a custom
 /// render target.
 pub struct DepthBuffer<F> {
-    render_pass_id: usize,
+    render_pass_id: u64,
     width: u32,
     height: u32,
     _marker: marker::PhantomData<Box<F>>,
 }
 
 impl<F> DepthBuffer<F> {
-    pub(crate) fn new(render_pass_id: usize, width: u32, height: u32) -> Self {
+    pub(crate) fn new(render_pass_id: u64, width: u32, height: u32) -> Self {
         DepthBuffer {
             render_pass_id,
             width,
@@ -3495,14 +3495,14 @@ where
 }
 
 pub struct StencilBuffer<F> {
-    render_pass_id: usize,
+    render_pass_id: u64,
     width: u32,
     height: u32,
     _marker: marker::PhantomData<Box<F>>,
 }
 
 impl<F> StencilBuffer<F> {
-    pub(crate) fn new(render_pass_id: usize, width: u32, height: u32) -> Self {
+    pub(crate) fn new(render_pass_id: u64, width: u32, height: u32) -> Self {
         StencilBuffer {
             render_pass_id,
             width,
@@ -3570,7 +3570,7 @@ where
 /// [DefaultRGBABuffer::clear_command].
 #[derive(Clone)]
 pub struct ClearFloatCommand {
-    render_pass_id: usize,
+    render_pass_id: u64,
     buffer_index: i32,
     clear_value: [f32; 4],
     region: Region2D,
@@ -3608,7 +3608,7 @@ unsafe impl GpuTask<RenderPassContext> for ClearFloatCommand {
 /// See [IntegerBuffer::clear_command].
 #[derive(Clone)]
 pub struct ClearIntegerCommand {
-    render_pass_id: usize,
+    render_pass_id: u64,
     buffer_index: i32,
     clear_value: [i32; 4],
     region: Region2D,
@@ -3646,7 +3646,7 @@ unsafe impl GpuTask<RenderPassContext> for ClearIntegerCommand {
 /// See [UnsignedIntegerBuffer::clear_command].
 #[derive(Clone)]
 pub struct ClearUnsignedIntegerCommand {
-    render_pass_id: usize,
+    render_pass_id: u64,
     buffer_index: i32,
     clear_value: [u32; 4],
     region: Region2D,
@@ -3684,7 +3684,7 @@ unsafe impl GpuTask<RenderPassContext> for ClearUnsignedIntegerCommand {
 /// See [DepthStencilBuffer::clear_command] and [DefaultDepthStencilBuffer::clear_command].
 #[derive(Clone)]
 pub struct ClearDepthStencilCommand {
-    render_pass_id: usize,
+    render_pass_id: u64,
     depth: f32,
     stencil: i32,
     region: Region2D,
@@ -3723,7 +3723,7 @@ unsafe impl GpuTask<RenderPassContext> for ClearDepthStencilCommand {
 /// [DefaultDepthStencilBuffer::clear_depth_command] and [DefaultDepthBuffer::clear_command].
 #[derive(Clone)]
 pub struct ClearDepthCommand {
-    render_pass_id: usize,
+    render_pass_id: u64,
     depth: f32,
     region: Region2D,
 }
@@ -3761,7 +3761,7 @@ unsafe impl GpuTask<RenderPassContext> for ClearDepthCommand {
 /// [DefaultDepthStencilBuffer::clear_stencil_command] and [DefaultStencilBuffer::clear_command].
 #[derive(Clone)]
 pub struct ClearStencilCommand {
-    render_pass_id: usize,
+    render_pass_id: u64,
     stencil: i32,
     region: Region2D,
 }

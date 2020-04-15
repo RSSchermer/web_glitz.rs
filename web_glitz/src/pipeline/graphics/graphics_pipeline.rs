@@ -37,7 +37,8 @@ pub struct GraphicsPipeline<V, R, Tf> {
     _vertex_attribute_layout_marker: marker::PhantomData<V>,
     _resources_marker: marker::PhantomData<R>,
     _transform_feedback_varyings_marker: marker::PhantomData<Tf>,
-    context_id: usize,
+    object_id: u64,
+    context_id: u64,
     dropper: Box<dyn GraphicsPipelineDropper>,
     #[allow(dead_code)] // Just holding on to this so it won't get dropped prematurely
     pub(crate) vertex_shader_data: Arc<VertexShaderData>,
@@ -57,7 +58,7 @@ pub struct GraphicsPipeline<V, R, Tf> {
 }
 
 impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
-    pub(crate) fn context_id(&self) -> usize {
+    pub(crate) fn context_id(&self) -> u64 {
         self.context_id
     }
 
@@ -176,6 +177,7 @@ where
 impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
     pub(crate) fn create<Rc>(
         context: &Rc,
+        object_id: u64,
         connection: &mut Connection,
         descriptor: &GraphicsPipelineDescriptor<V, R, Tf>,
     ) -> Result<Self, CreateGraphicsPipelineError>
@@ -378,6 +380,7 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
             _vertex_attribute_layout_marker: marker::PhantomData,
             _resources_marker: marker::PhantomData,
             _transform_feedback_varyings_marker: marker::PhantomData,
+            object_id,
             context_id: context.id(),
             dropper: Box::new(context.clone()),
             vertex_shader_data: descriptor.vertex_shader_data.clone(),
@@ -394,6 +397,18 @@ impl<V, R, Tf> GraphicsPipeline<V, R, Tf> {
             viewport: descriptor.viewport.clone(),
             transform_feedback_data: Arc::new(UnsafeCell::new(None)),
         })
+    }
+}
+
+impl<V, R, Tf> PartialEq for GraphicsPipeline<V, R, Tf> {
+    fn eq(&self, other: &Self) -> bool {
+        self.object_id == other.object_id
+    }
+}
+
+impl<V, R, Tf> Hash for GraphicsPipeline<V, R, Tf> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.object_id.hash(state);
     }
 }
 

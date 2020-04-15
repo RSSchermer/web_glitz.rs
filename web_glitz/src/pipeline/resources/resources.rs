@@ -48,7 +48,8 @@ pub struct BindGroup<T> {
 pub(crate) enum BindGroupInternal {
     Empty,
     NotEmpty {
-        context_id: usize,
+        object_id: u64,
+        context_id: u64,
         encoding: Arc<Vec<ResourceBindingDescriptor>>,
     },
 }
@@ -57,12 +58,13 @@ impl<T> BindGroup<T>
 where
     T: EncodeBindableResourceGroup,
 {
-    pub(crate) fn new(context_id: usize, resources: T) -> Self {
+    pub(crate) fn new(object_id: u64, context_id: u64, resources: T) -> Self {
         let mut encoding_context = BindGroupEncodingContext::new(context_id);
         let encoding = resources.encode_bindable_resource_group(&mut encoding_context);
 
         BindGroup {
             internal: BindGroupInternal::NotEmpty {
+                object_id,
                 context_id,
                 encoding: Arc::new(encoding.bindings),
             },
@@ -76,6 +78,32 @@ impl BindGroup<()> {
         BindGroup {
             internal: BindGroupInternal::Empty,
             _marker: marker::PhantomData,
+        }
+    }
+}
+
+impl<T> PartialEq for BindGroup<T> {
+    fn eq(&self, other: &Self) -> bool {
+        match &self.internal {
+            BindGroupInternal::Empty => if let BindGroupInternal::Empty = &other.internal {
+                true
+            } else {
+                false
+            }
+            BindGroupInternal::NotEmpty { object_id, .. } => if let BindGroupInternal::NotEmpty { object_id: other_object_id, ..} = &other.internal {
+                object_id == other_object_id
+            } else {
+                false
+            }
+        }
+    }
+}
+
+impl<T> Hash for BindGroup<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        match &self.internal {
+            BindGroupInternal::Empty => 0.hash(state),
+            BindGroupInternal::NotEmpty { object_id, ..} => object_id.hash(state)
         }
     }
 }

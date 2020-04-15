@@ -1613,7 +1613,7 @@ unsafe impl PixelUnpack<Alpha> for u8 {
 /// ```
 ///
 /// Note that the base format must be [Multisamplable].
-pub struct Multisample<F>(pub F, pub usize)
+pub struct Multisample<F>(pub F, pub u8)
 where
     F: Multisamplable;
 
@@ -1630,7 +1630,7 @@ impl<F> Multisample<F>
 where
     F: Multisamplable,
 {
-    pub fn samples(&self) -> usize {
+    pub fn samples(&self) -> u8 {
         self.1
     }
 }

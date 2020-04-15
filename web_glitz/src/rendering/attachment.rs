@@ -206,7 +206,7 @@ impl<'a, F> Attachment<'a, F> {
 /// See also [MultisampleRenderTargetDescriptor].
 pub trait AsMultisampleAttachment {
     /// The type of image storage format the image is stored in.
-    type SampleFormat: InternalFormat;
+    type SampleFormat: InternalFormat + Multisamplable;
 
     /// Converts the image reference into a render target attachment.
     fn as_multisample_attachment(&mut self) -> MultisampleAttachment<Self::SampleFormat>;
@@ -235,43 +235,64 @@ where
 }
 
 /// Exclusive reference to a multisample image that may be attached to a [MultisampleRenderTarget].
-pub struct MultisampleAttachment<'a, F> {
-    data: AttachmentData,
-    samples: usize,
-    marker: marker::PhantomData<&'a F>,
+pub struct MultisampleAttachment<'a, F> where F: Multisamplable {
+    internal: MultisampleAttachmentInternal<'a, F>
 }
 
-impl<'a, F> MultisampleAttachment<'a, F> {
-    pub(crate) fn from_renderbuffer(render_buffer: &'a Renderbuffer<Multisample<F>>) -> Self
-    where
-        F: Multisamplable,
-    {
+impl<'a, F> MultisampleAttachment<'a, F> where F: Multisamplable {
+    pub(crate) fn from_renderbuffer(renderbuffer: &'a Renderbuffer<Multisample<F>>) -> Self {
         MultisampleAttachment {
-            data: AttachmentData {
-                context_id: render_buffer.data().context_id(),
-                kind: AttachableImageRefKind::Renderbuffer {
-                    data: render_buffer.data().clone(),
-                },
-                width: render_buffer.width(),
-                height: render_buffer.height(),
-            },
-            marker: marker::PhantomData,
-            samples: render_buffer.samples(),
+            internal: renderbuffer.into()
         }
     }
 
-    pub(crate) fn samples(&self) -> usize {
-        self.samples
+    pub fn samples(&self) -> u8 {
+        self.internal.samples()
     }
 
     pub(crate) fn into_data(self) -> AttachmentData {
-        self.data
+        self.internal.into_data()
+    }
+}
+
+enum MultisampleAttachmentInternal<'a, F> where F: Multisamplable {
+    Renderbuffer(&'a Renderbuffer<Multisample<F>>)
+}
+
+impl<'a, F> MultisampleAttachmentInternal<'a, F> where F: Multisamplable {
+    fn samples(&self) -> u8 {
+        match self {
+            MultisampleAttachmentInternal::Renderbuffer(renderbufer) => {
+                renderbufer.samples()
+            }
+        }
+    }
+
+    fn into_data(self) -> AttachmentData {
+        match self {
+            MultisampleAttachmentInternal::Renderbuffer(renderbuffer) => {
+                AttachmentData {
+                    context_id: renderbuffer.data().context_id(),
+                    kind: AttachableImageRefKind::Renderbuffer {
+                        data: renderbuffer.data().clone(),
+                    },
+                    width: renderbuffer.width(),
+                    height: renderbuffer.height(),
+                }
+            }
+        }
+    }
+}
+
+impl<'a, F> From<&'a Renderbuffer<Multisample<F>>> for MultisampleAttachmentInternal<'a, F>  where F: Multisamplable {
+    fn from(renderbuffer: &'a Renderbuffer<Multisample<F>>) -> Self {
+        MultisampleAttachmentInternal::Renderbuffer(renderbuffer)
     }
 }
 
 #[derive(Clone, Hash, PartialEq)]
 pub(crate) struct AttachmentData {
-    pub(crate) context_id: usize,
+    pub(crate) context_id: u64,
     pub(crate) kind: AttachableImageRefKind,
     pub(crate) width: u32,
     pub(crate) height: u32,

@@ -6,20 +6,20 @@ use crate::rendering::{
     DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
     DefaultStencilBuffer, Framebuffer, GraphicsPipelineTarget, RenderPass, RenderPassContext,
 };
-use crate::runtime::single_threaded::RenderPassIdGen;
+use crate::runtime::single_threaded::ObjectIdGen;
 use crate::task::{ContextId, GpuTask};
 
 /// A handle to the default render target associated with a [RenderingContext].
 #[derive(Clone)]
 pub struct DefaultRenderTarget<C, Ds> {
-    context_id: usize,
-    render_pass_id_gen: RenderPassIdGen,
+    context_id: u64,
+    render_pass_id_gen: ObjectIdGen,
     color_buffer: marker::PhantomData<C>,
     depth_stencil_buffer: marker::PhantomData<Ds>,
 }
 
 impl<C, Ds> DefaultRenderTarget<C, Ds> {
-    pub(crate) fn new(context_id: usize, render_pass_id_gen: RenderPassIdGen) -> Self {
+    pub(crate) fn new(context_id: u64, render_pass_id_gen: ObjectIdGen) -> Self {
         DefaultRenderTarget {
             context_id,
             render_pass_id_gen,

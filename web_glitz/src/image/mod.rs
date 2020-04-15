@@ -105,7 +105,7 @@ mod texture_object_dropper;
 mod util;
 
 /// Represents a region of a 2-dimensional image.
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Hash, Debug)]
 pub enum Region2D {
     /// Variant that represents the entire image.
     Fill,
@@ -119,7 +119,7 @@ pub enum Region2D {
 }
 
 /// Represents a region of a 3-dimensional (layered) image.
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Hash, Debug)]
 pub enum Region3D {
     /// Variant that represents the entire image.
     Fill,

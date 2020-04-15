@@ -63,7 +63,7 @@ use crate::runtime::Connection;
 /// See the [texture_float_linear] module documentation for details.
 #[derive(Clone, Debug)]
 pub struct Extension {
-    context_id: usize,
+    context_id: u64,
 }
 
 impl Extension {
@@ -83,7 +83,7 @@ impl Extension {
 }
 
 impl super::Extension for Extension {
-    fn try_init(connection: &mut Connection, context_id: usize) -> Option<Self> {
+    fn try_init(connection: &mut Connection, context_id: u64) -> Option<Self> {
         let (gl, _) = unsafe { connection.unpack() };
 
         gl.get_extension("OES_texture_float_linear")

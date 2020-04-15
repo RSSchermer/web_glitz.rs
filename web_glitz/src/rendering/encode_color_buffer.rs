@@ -1,6 +1,6 @@
 use std::marker;
 
-use crate::image::format::InternalFormat;
+use crate::image::format::{InternalFormat, Multisamplable};
 use crate::rendering::attachment::{AsMultisampleAttachment, AttachmentData};
 use crate::rendering::load_op::LoadAction;
 use crate::rendering::AsAttachment;
@@ -43,7 +43,7 @@ pub trait EncodeMultisampleColorBuffer {
 ///
 /// See [ColorAttachmentDescription::encode].
 pub struct ColorBufferEncodingContext {
-    pub(crate) render_pass_id: usize,
+    pub(crate) render_pass_id: u64,
     pub(crate) buffer_index: i32,
 }
 
@@ -97,6 +97,7 @@ where
     ) -> Self
     where
         I: AsMultisampleAttachment<SampleFormat = F>,
+        F: Multisamplable
     {
         let image = image.as_multisample_attachment().into_data();
 

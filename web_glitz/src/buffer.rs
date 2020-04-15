@@ -95,6 +95,7 @@ use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
+use std::hash::{Hash, Hasher};
 
 /// A GPU-accessible memory buffer that contains typed data.
 ///
@@ -114,6 +115,7 @@ pub struct Buffer<T>
 where
     T: ?Sized,
 {
+    object_id: u64,
     data: Arc<BufferData>,
     _marker: marker::PhantomData<Box<T>>,
 }
@@ -277,6 +279,18 @@ where
     }
 }
 
+impl<T> PartialEq for Buffer<T> where T: ?Sized {
+    fn eq(&self, other: &Self) -> bool {
+        self.object_id == other.object_id
+    }
+}
+
+impl<T> Hash for Buffer<T> where T: ?Sized {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.object_id.hash(state);
+    }
+}
+
 impl<'a, T> From<&'a Buffer<T>> for BufferView<'a, T>
 where
     T: ?Sized,
@@ -364,6 +378,7 @@ impl<'a, T, const LEN: usize> From<&'a mut Buffer<[T; LEN]>> for BufferViewMut<'
 //{}
 
 /// A view on a segment or the whole of a [Buffer].
+#[derive(PartialEq, Hash)]
 pub struct BufferView<'a, T>
 where
     T: ?Sized,
@@ -668,6 +683,10 @@ where
 //    U: ?Sized,
 //{}
 
+pub struct BufferId {
+    pub(crate) object_id: u64,
+}
+
 /// Trait implemented for types that represent or contain data that may be stored in a [Buffer].
 ///
 /// Uploading data to a buffer involves doing a bitwise copy, as does downloading data from a
@@ -684,7 +703,7 @@ where
     ///
     /// The usage hint may be used by the GPU driver for performance optimizations, see [UsageHint]
     /// for details.
-    fn into_buffer<Rc>(self, context: &Rc, usage_hint: UsageHint) -> Buffer<T>
+    fn into_buffer<Rc>(self, context: &Rc, buffer_id: BufferId, usage_hint: UsageHint) -> Buffer<T>
     where
         Rc: RenderingContext + Clone + 'static;
 }
@@ -694,7 +713,7 @@ where
     D: Borrow<T> + 'static,
     T: Copy + 'static,
 {
-    fn into_buffer<Rc>(self, context: &Rc, usage_hint: UsageHint) -> Buffer<T>
+    fn into_buffer<Rc>(self, context: &Rc, buffer_id: BufferId, usage_hint: UsageHint) -> Buffer<T>
     where
         Rc: RenderingContext + Clone + 'static,
     {
@@ -713,6 +732,7 @@ where
         });
 
         Buffer {
+            object_id: buffer_id.object_id,
             data,
             _marker: marker::PhantomData,
         }
@@ -724,7 +744,7 @@ where
     D: Borrow<[T]> + 'static,
     T: Copy + 'static,
 {
-    fn into_buffer<Rc>(self, context: &Rc, usage_hint: UsageHint) -> Buffer<[T]>
+    fn into_buffer<Rc>(self, context: &Rc, buffer_id: BufferId, usage_hint: UsageHint) -> Buffer<[T]>
     where
         Rc: RenderingContext + Clone + 'static,
     {
@@ -744,6 +764,7 @@ where
         });
 
         Buffer {
+            object_id: buffer_id.object_id,
             data,
             _marker: marker::PhantomData,
         }
@@ -1426,7 +1447,7 @@ where
 
 pub(crate) struct BufferData {
     id: UnsafeCell<Option<JsId>>,
-    context_id: usize,
+    context_id: u64,
     dropper: Box<dyn BufferObjectDropper>,
     len: usize,
     usage_hint: UsageHint,
@@ -1437,7 +1458,7 @@ impl BufferData {
         unsafe { *self.id.get() }
     }
 
-    pub(crate) fn context_id(&self) -> usize {
+    pub(crate) fn context_id(&self) -> u64 {
         self.context_id
     }
 }

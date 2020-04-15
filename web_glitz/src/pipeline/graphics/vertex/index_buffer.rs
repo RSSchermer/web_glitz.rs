@@ -134,9 +134,9 @@ impl IndexType {
 /// # }
 /// ```
 pub struct IndexBuffer<T>
-where
-    T: IndexFormat,
+
 {
+    object_id: u64,
     data: Arc<IndexBufferData>,
     _marker: marker::PhantomData<Box<T>>,
 }
@@ -145,7 +145,7 @@ impl<T> IndexBuffer<T>
 where
     T: IndexFormat + 'static,
 {
-    pub(crate) fn new<Rc, D>(context: &Rc, data: D, usage_hint: UsageHint) -> IndexBuffer<T>
+    pub(crate) fn new<Rc, D>(context: &Rc, object_id: u64, data: D, usage_hint: UsageHint) -> IndexBuffer<T>
     where
         Rc: RenderingContext + Clone + 'static,
         D: Borrow<[T]> + 'static,
@@ -165,6 +165,7 @@ where
         });
 
         IndexBuffer {
+            object_id,
             data: buffer_data,
             _marker: marker::PhantomData,
         }
@@ -265,6 +266,18 @@ where
     }
 }
 
+impl<T> PartialEq for IndexBuffer<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.object_id ==other.object_id
+    }
+}
+
+impl<T> Hash for IndexBuffer<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.object_id.hash(state);
+    }
+}
+
 impl<'a, T> From<&'a IndexBuffer<T>> for IndexBufferView<'a, T>
 where
     T: IndexFormat,
@@ -279,6 +292,7 @@ where
 }
 
 /// A view on a segment or the whole of an [IndexBuffer].
+#[derive(PartialEq, Hash)]
 pub struct IndexBufferView<'a, T>
 where
     T: IndexFormat,
@@ -726,7 +740,7 @@ where
 
 pub(crate) struct IndexBufferData {
     id: UnsafeCell<Option<JsId>>,
-    context_id: usize,
+    context_id: u64,
     dropper: Box<dyn BufferObjectDropper>,
     len: usize,
     usage_hint: UsageHint,
@@ -737,7 +751,7 @@ impl IndexBufferData {
         unsafe { *self.id.get() }
     }
 
-    pub(crate) fn context_id(&self) -> usize {
+    pub(crate) fn context_id(&self) -> u64 {
         self.context_id
     }
 }

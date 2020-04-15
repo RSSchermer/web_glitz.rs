@@ -120,13 +120,13 @@ use wasm_bindgen::closure::Closure;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext as Gl};
 
-use crate::buffer::{Buffer, IntoBuffer, UsageHint};
+use crate::buffer::{Buffer, IntoBuffer, UsageHint, BufferId};
 use crate::extensions::Extension;
 use crate::image::format::{
     InternalFormat, Multisamplable, Multisample, RenderbufferFormat, TextureFormat,
 };
 use crate::image::renderbuffer::{
-    MultisampleRenderbufferDescriptor, Renderbuffer, RenderbufferDescriptor,
+    Renderbuffer, RenderbufferDescriptor,
 };
 use crate::image::sampler::{
     MagnificationFilter, MinificationFilter, Sampler, SamplerDescriptor, ShadowSampler,
@@ -184,29 +184,29 @@ impl IdGen {
 }
 
 #[derive(Clone)]
-pub(crate) struct RenderPassIdGen {
-    context_id: usize,
-    render_pass_id: Rc<Cell<usize>>,
+pub(crate) struct ObjectIdGen {
+    context_id: u64,
+    object_id: Rc<Cell<u64>>,
 }
 
-impl RenderPassIdGen {
-    fn new(context_id: usize) -> Self {
-        RenderPassIdGen {
+impl ObjectIdGen {
+    fn new(context_id: u64) -> Self {
+        ObjectIdGen {
             context_id,
-            render_pass_id: Rc::new(Cell::new(0)),
+            object_id: Rc::new(Cell::new(0)),
         }
     }
 
-    pub(crate) fn next(&self) -> usize {
-        let id = self.render_pass_id.get();
+    pub(crate) fn next(&self) -> u64 {
+        let id = self.object_id.get();
 
-        self.render_pass_id.set(id + 1);
+        self.object_id.set(id + 1);
 
         let mut hasher = FnvHasher::default();
 
         (self.context_id, id).hash(&mut hasher);
 
-        hasher.finish() as usize
+        hasher.finish()
     }
 }
 
@@ -216,13 +216,13 @@ impl RenderPassIdGen {
 #[derive(Clone)]
 pub struct SingleThreadedContext {
     executor: Rc<RefCell<SingleThreadedExecutor>>,
-    id: usize,
-    render_pass_id_gen: RenderPassIdGen,
-    max_color_attachments: usize,
+    id: u64,
+    object_id_gen: ObjectIdGen,
+    max_color_attachments: u8,
 }
 
 impl RenderingContext for SingleThreadedContext {
-    fn id(&self) -> usize {
+    fn id(&self) -> u64 {
         self.id
     }
 
@@ -236,7 +236,7 @@ impl RenderingContext for SingleThreadedContext {
         Extension::try_init(&mut connection, self.id)
     }
 
-    fn max_supported_samples<F>(&self, _format: F) -> usize
+    fn max_supported_samples<F>(&self, _format: F) -> u8
     where
         F: InternalFormat + Multisamplable,
     {
@@ -249,14 +249,16 @@ impl RenderingContext for SingleThreadedContext {
         gl.get_internalformat_parameter(Gl::RENDERBUFFER, F::ID, Gl::SAMPLES)
             .unwrap()
             .as_f64()
-            .unwrap() as usize
+            .unwrap() as u8
     }
 
     fn create_bind_group<T>(&self, resources: T) -> BindGroup<T>
     where
         T: EncodeBindableResourceGroup,
     {
-        BindGroup::new(self.id, resources)
+        let object_id = self.object_id_gen.next();
+
+        BindGroup::new(object_id, self.id, resources)
     }
 
     fn create_buffer<D, T>(&self, data: D, usage_hint: UsageHint) -> Buffer<T>
@@ -264,7 +266,12 @@ impl RenderingContext for SingleThreadedContext {
         D: IntoBuffer<T>,
         T: ?Sized,
     {
-        data.into_buffer(self, usage_hint)
+        let object_id = self.object_id_gen.next();
+        let buffer_id = BufferId {
+            object_id
+        };
+
+        data.into_buffer(self, buffer_id, usage_hint)
     }
 
     fn create_index_buffer<D, T>(&self, data: D, usage_hint: UsageHint) -> IndexBuffer<T>
@@ -272,31 +279,38 @@ impl RenderingContext for SingleThreadedContext {
         D: Borrow<[T]> + 'static,
         T: IndexFormat + 'static,
     {
-        IndexBuffer::new(self, data, usage_hint)
+        let object_id = self.object_id_gen.next();
+
+        IndexBuffer::new(self, object_id, data, usage_hint)
     }
 
     fn create_renderbuffer<F>(&self, descriptor: &RenderbufferDescriptor<F>) -> Renderbuffer<F>
     where
         F: RenderbufferFormat + 'static,
     {
-        Renderbuffer::new(self, descriptor)
+        let object_id = self.object_id_gen.next();
+
+        Renderbuffer::new(self, object_id, descriptor)
     }
 
     fn create_multisample_renderbuffer<F>(
         &self,
-        descriptor: &MultisampleRenderbufferDescriptor<F>,
+        descriptor: &RenderbufferDescriptor<Multisample<F>>,
     ) -> Result<Renderbuffer<Multisample<F>>, UnsupportedSampleCount>
     where
         F: RenderbufferFormat + Multisamplable + Copy + 'static,
     {
-        Renderbuffer::new_multisample(self, descriptor)
+        let object_id = self.object_id_gen.next();
+
+        Renderbuffer::new_multisample(self, object_id, descriptor)
     }
 
     fn try_create_vertex_shader<S>(&self, source: S) -> Result<VertexShader, ShaderCompilationError>
     where
         S: Borrow<str> + 'static,
     {
-        let allocate_command = VertexShaderAllocateCommand::new(self, source);
+        let object_id = self.object_id_gen.next();
+        let allocate_command = VertexShaderAllocateCommand::new(self, object_id, source);
 
         match self.submit(allocate_command) {
             Execution::Ready(res) => res.unwrap(),
@@ -311,7 +325,8 @@ impl RenderingContext for SingleThreadedContext {
     where
         S: Borrow<str> + 'static,
     {
-        let allocate_command = FragmentShaderAllocateCommand::new(self, source);
+        let object_id = self.object_id_gen.next();
+        let allocate_command = FragmentShaderAllocateCommand::new(self, object_id, source);
 
         match self.submit(allocate_command) {
             Execution::Ready(res) => res.unwrap(),
@@ -325,8 +340,9 @@ impl RenderingContext for SingleThreadedContext {
     ) -> Result<GraphicsPipeline<V, R, Tf>, CreateGraphicsPipelineError> {
         let executor = self.executor.borrow_mut();
         let mut connection = executor.connection.borrow_mut();
+        let object_id = self.object_id_gen.next();
 
-        GraphicsPipeline::create(self, &mut connection, descriptor)
+        GraphicsPipeline::create(self, object_id, &mut connection, descriptor)
     }
 
     fn create_render_target<C, Ds>(
@@ -339,14 +355,16 @@ impl RenderingContext for SingleThreadedContext {
             context_id,
             ..
         } = descriptor;
+        let object_id = self.object_id_gen.next();
 
         context_id.verify(self.id);
 
         RenderTarget {
             color_attachments,
             depth_stencil_attachment,
+            object_id,
             context_id: self.id,
-            render_pass_id_gen: self.render_pass_id_gen.clone(),
+            render_pass_id_gen: self.object_id_gen.clone(),
         }
     }
 
@@ -369,11 +387,14 @@ impl RenderingContext for SingleThreadedContext {
                 requested_color_buffers: color_attachment_count,
             })
         } else {
+            let object_id = self.object_id_gen.next();
+
             Ok(RenderTarget {
                 color_attachments,
                 depth_stencil_attachment,
+                object_id,
                 context_id: self.id,
-                render_pass_id_gen: self.render_pass_id_gen.clone(),
+                render_pass_id_gen: self.object_id_gen.clone(),
             })
         }
     }
@@ -389,6 +410,7 @@ impl RenderingContext for SingleThreadedContext {
             context_id,
             ..
         } = descriptor;
+        let object_id = self.object_id_gen.next();
 
         context_id.verify(self.id);
 
@@ -396,8 +418,9 @@ impl RenderingContext for SingleThreadedContext {
             color_attachments,
             depth_stencil_attachment,
             samples,
+            object_id,
             context_id: self.id,
-            render_pass_id_gen: self.render_pass_id_gen.clone(),
+            render_pass_id_gen: self.object_id_gen.clone(),
         }
     }
 
@@ -421,12 +444,15 @@ impl RenderingContext for SingleThreadedContext {
                 requested_color_buffers: color_attachment_count,
             })
         } else {
+            let object_id = self.object_id_gen.next();
+
             Ok(MultisampleRenderTarget {
                 color_attachments,
                 depth_stencil_attachment,
                 samples,
+                object_id,
                 context_id: self.id,
-                render_pass_id_gen: self.render_pass_id_gen.clone(),
+                render_pass_id_gen: self.object_id_gen.clone(),
             })
         }
     }
@@ -438,7 +464,9 @@ impl RenderingContext for SingleThreadedContext {
     where
         F: TextureFormat + 'static,
     {
-        Texture2D::new(self, descriptor)
+        let object_id = self.object_id_gen.next();
+
+        Texture2D::new(self, object_id, descriptor)
     }
 
     fn try_create_texture_2d_array<F>(
@@ -448,7 +476,9 @@ impl RenderingContext for SingleThreadedContext {
     where
         F: TextureFormat + 'static,
     {
-        Texture2DArray::new(self, descriptor)
+        let object_id = self.object_id_gen.next();
+
+        Texture2DArray::new(self, object_id, descriptor)
     }
 
     fn try_create_texture_3d<F>(
@@ -458,7 +488,9 @@ impl RenderingContext for SingleThreadedContext {
     where
         F: TextureFormat + 'static,
     {
-        Texture3D::new(self, descriptor)
+        let object_id = self.object_id_gen.next();
+
+        Texture3D::new(self, object_id, descriptor)
     }
 
     fn try_create_texture_cube<F>(
@@ -468,7 +500,9 @@ impl RenderingContext for SingleThreadedContext {
     where
         F: TextureFormat + 'static,
     {
-        TextureCube::new(self, descriptor)
+        let object_id = self.object_id_gen.next();
+
+        TextureCube::new(self, object_id, descriptor)
     }
 
     fn create_sampler<Min, Mag>(
@@ -479,11 +513,15 @@ impl RenderingContext for SingleThreadedContext {
         Min: MinificationFilter + Copy + 'static,
         Mag: MagnificationFilter + Copy + 'static,
     {
-        Sampler::new(self, descriptor)
+        let object_id = self.object_id_gen.next();
+
+        Sampler::new(self, object_id, descriptor)
     }
 
     fn create_shadow_sampler(&self, descriptor: &ShadowSamplerDescriptor) -> ShadowSampler {
-        ShadowSampler::new(self, descriptor)
+        let object_id = self.object_id_gen.next();
+
+        ShadowSampler::new(self, object_id, descriptor)
     }
 
     fn submit<T>(&self, task: T) -> Execution<T::Output>
@@ -502,18 +540,18 @@ impl SingleThreadedContext {
 
         (TypeId::of::<Self>(), id).hash(&mut hasher);
 
-        let id = hasher.finish() as usize;
+        let id = hasher.finish();
         let max_color_attachments = gl
             .get_parameter(Gl::MAX_COLOR_ATTACHMENTS)
             .unwrap()
             .as_f64()
-            .unwrap() as usize;
+            .unwrap() as u8;
 
         SingleThreadedContext {
             executor: RefCell::new(SingleThreadedExecutor::new(Connection::new(id, gl, state)))
                 .into(),
             id,
-            render_pass_id_gen: RenderPassIdGen::new(id),
+            object_id_gen: ObjectIdGen::new(id),
             max_color_attachments,
         }
     }
@@ -693,12 +731,12 @@ impl Options for ContextOptions<DefaultMultisampleRenderTarget<DefaultRGBABuffer
             .unwrap()
             .unchecked_into();
         let state = DynamicState::initial(&gl);
-        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as usize;
+        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as u8;
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
         let render_target = DefaultMultisampleRenderTarget::new(
             context.id(),
             samples,
-            context.render_pass_id_gen.clone(),
+            context.object_id_gen.clone(),
         );
 
         Ok((context, render_target))
@@ -735,12 +773,12 @@ impl Options
             .unwrap()
             .unchecked_into();
         let state = DynamicState::initial(&gl);
-        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as usize;
+        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as u8;
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
         let render_target = DefaultMultisampleRenderTarget::new(
             context.id(),
             samples,
-            context.render_pass_id_gen.clone(),
+            context.object_id_gen.clone(),
         );
 
         Ok((context, render_target))
@@ -778,12 +816,12 @@ impl Options
             .unchecked_into();
 
         let state = DynamicState::initial(&gl);
-        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as usize;
+        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as u8;
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
         let render_target = DefaultMultisampleRenderTarget::new(
             context.id(),
             samples,
-            context.render_pass_id_gen.clone(),
+            context.object_id_gen.clone(),
         );
 
         Ok((context, render_target))
@@ -820,12 +858,12 @@ impl Options
             .unwrap()
             .unchecked_into();
         let state = DynamicState::initial(&gl);
-        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as usize;
+        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as u8;
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
         let render_target = DefaultMultisampleRenderTarget::new(
             context.id(),
             samples,
-            context.render_pass_id_gen.clone(),
+            context.object_id_gen.clone(),
         );
 
         Ok((context, render_target))
@@ -860,12 +898,12 @@ impl Options for ContextOptions<DefaultMultisampleRenderTarget<DefaultRGBBuffer,
             .unwrap()
             .unchecked_into();
         let state = DynamicState::initial(&gl);
-        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as usize;
+        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as u8;
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
         let render_target = DefaultMultisampleRenderTarget::new(
             context.id(),
             samples,
-            context.render_pass_id_gen.clone(),
+            context.object_id_gen.clone(),
         );
 
         Ok((context, render_target))
@@ -902,12 +940,12 @@ impl Options
             .unwrap()
             .unchecked_into();
         let state = DynamicState::initial(&gl);
-        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as usize;
+        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as u8;
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
         let render_target = DefaultMultisampleRenderTarget::new(
             context.id(),
             samples,
-            context.render_pass_id_gen.clone(),
+            context.object_id_gen.clone(),
         );
 
         Ok((context, render_target))
@@ -945,12 +983,12 @@ impl Options
             .unchecked_into();
 
         let state = DynamicState::initial(&gl);
-        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as usize;
+        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as u8;
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
         let render_target = DefaultMultisampleRenderTarget::new(
             context.id(),
             samples,
-            context.render_pass_id_gen.clone(),
+            context.object_id_gen.clone(),
         );
 
         Ok((context, render_target))
@@ -987,12 +1025,12 @@ impl Options
             .unwrap()
             .unchecked_into();
         let state = DynamicState::initial(&gl);
-        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as usize;
+        let samples = gl.get_parameter(Gl::SAMPLES).unwrap().as_f64().unwrap() as u8;
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
         let render_target = DefaultMultisampleRenderTarget::new(
             context.id(),
             samples,
-            context.render_pass_id_gen.clone(),
+            context.object_id_gen.clone(),
         );
 
         Ok((context, render_target))
@@ -1029,7 +1067,7 @@ impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBABuffer, ()>> {
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
         let render_target =
-            DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
+            DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
 
         Ok((context, render_target))
     }
@@ -1065,7 +1103,7 @@ impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBABuffer, DefaultDe
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
         let render_target =
-            DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
+            DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
 
         Ok((context, render_target))
     }
@@ -1102,7 +1140,7 @@ impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBABuffer, DefaultDe
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
         let render_target =
-            DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
+            DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
 
         Ok((context, render_target))
     }
@@ -1138,7 +1176,7 @@ impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBABuffer, DefaultSt
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
         let render_target =
-            DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
+            DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
 
         Ok((context, render_target))
     }
@@ -1174,7 +1212,7 @@ impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBBuffer, ()>> {
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
         let render_target =
-            DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
+            DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
 
         Ok((context, render_target))
     }
@@ -1210,7 +1248,7 @@ impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBBuffer, DefaultDep
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
         let render_target =
-            DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
+            DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
 
         Ok((context, render_target))
     }
@@ -1247,7 +1285,7 @@ impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBBuffer, DefaultDep
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
         let render_target =
-            DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
+            DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
 
         Ok((context, render_target))
     }
@@ -1283,7 +1321,7 @@ impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBBuffer, DefaultSte
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
         let render_target =
-            DefaultRenderTarget::new(context.id(), context.render_pass_id_gen.clone());
+            DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
 
         Ok((context, render_target))
     }

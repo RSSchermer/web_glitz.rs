@@ -21,8 +21,8 @@ use crate::task::{ContextId, GpuTask, Progress};
 /// [MultisampleRenderTarget::create_render_pass].
 #[derive(Clone)]
 pub struct RenderPass<T> {
-    pub(crate) id: usize,
-    pub(crate) context_id: usize,
+    pub(crate) id: u64,
+    pub(crate) context_id: u64,
     pub(crate) render_target: RenderTargetData,
     pub(crate) task: T,
 }
@@ -30,12 +30,12 @@ pub struct RenderPass<T> {
 /// An execution context associated with a [RenderPass].
 pub struct RenderPassContext {
     connection: *mut Connection,
-    render_pass_id: usize,
+    render_pass_id: u64,
 }
 
 impl RenderPassContext {
     /// The ID of the [RenderPass] this [RenderPassContext] is associated with.
-    pub fn render_pass_id(&self) -> usize {
+    pub fn render_pass_id(&self) -> u64 {
         self.render_pass_id
     }
 

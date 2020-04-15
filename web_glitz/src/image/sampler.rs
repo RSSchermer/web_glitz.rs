@@ -9,6 +9,7 @@ use crate::runtime::{Connection, RenderingContext};
 use crate::task::Progress;
 use crate::task::{ContextId, GpuTask};
 use crate::util::JsId;
+use std::hash::{Hash, Hasher};
 
 mod filter_seal {
     use super::{
@@ -305,6 +306,7 @@ impl_default_for_sampler_descriptor!(LinearMipmapLinear, Linear);
 /// See the documentation for [RenderingContext::create_sampler] for details on how to create a
 /// [Sampler].
 pub struct Sampler<Min, Mag> {
+    object_id: u64,
     data: Arc<SamplerData>,
     descriptor: SamplerDescriptor<Min, Mag>,
 }
@@ -320,7 +322,7 @@ where
     Min: MinificationFilter + Copy + 'static,
     Mag: MagnificationFilter + Copy + 'static,
 {
-    pub(crate) fn new<Rc>(context: &Rc, descriptor: &SamplerDescriptor<Min, Mag>) -> Self
+    pub(crate) fn new<Rc>(context: &Rc, object_id: u64, descriptor: &SamplerDescriptor<Min, Mag>) -> Self
     where
         Rc: RenderingContext + Clone + 'static,
     {
@@ -336,6 +338,7 @@ where
         });
 
         Sampler {
+            object_id,
             data,
             descriptor: descriptor.clone(),
         }
@@ -384,6 +387,18 @@ where
     /// See [Wrap] for details.
     pub fn wrap_r(&self) -> Wrap {
         self.descriptor.wrap_r
+    }
+}
+
+impl<Min, Mag> PartialEq for Sampler<Min, Mag> {
+    fn eq(&self, other: &Self) -> bool {
+        self.object_id == other.object_id
+    }
+}
+
+impl<Min, Mag> Hash for Sampler<Min, Mag> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.object_id.hash(state);
     }
 }
 
@@ -545,12 +560,13 @@ impl Default for ShadowSamplerDescriptor {
 /// See the documentation for [RenderingContext::create_shadow_sampler] for details on how to
 /// create a [ShadowSampler].
 pub struct ShadowSampler {
+    object_id: u64,
     data: Arc<SamplerData>,
     descriptor: ShadowSamplerDescriptor,
 }
 
 impl ShadowSampler {
-    pub(crate) fn new<Rc>(context: &Rc, descriptor: &ShadowSamplerDescriptor) -> ShadowSampler
+    pub(crate) fn new<Rc>(context: &Rc, object_id: u64, descriptor: &ShadowSamplerDescriptor) -> ShadowSampler
     where
         Rc: RenderingContext + Clone + 'static,
     {
@@ -566,6 +582,7 @@ impl ShadowSampler {
         });
 
         ShadowSampler {
+            object_id,
             data,
             descriptor: descriptor.clone(),
         }
@@ -608,6 +625,18 @@ impl ShadowSampler {
     }
 }
 
+impl PartialEq for ShadowSampler {
+    fn eq(&self, other: &Self) -> bool {
+        self.object_id == other.object_id
+    }
+}
+
+impl Hash for ShadowSampler {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.object_id.hash(state);
+    }
+}
+
 trait SamplerObjectDropper {
     fn drop_sampler_object(&self, id: JsId);
 }
@@ -623,7 +652,7 @@ where
 
 pub(crate) struct SamplerData {
     id: UnsafeCell<Option<JsId>>,
-    context_id: usize,
+    context_id: u64,
     dropper: Box<dyn SamplerObjectDropper>,
 }
 
@@ -632,7 +661,7 @@ impl SamplerData {
         unsafe { *self.id.get() }
     }
 
-    pub(crate) fn context_id(&self) -> usize {
+    pub(crate) fn context_id(&self) -> u64 {
         self.context_id
     }
 }

@@ -144,6 +144,7 @@ where
 /// # }
 /// ```
 pub struct TextureCube<F> {
+    object_id: u64,
     data: Arc<TextureCubeData>,
     _marker: marker::PhantomData<[F]>,
 }
@@ -160,6 +161,7 @@ where
 {
     pub(crate) fn new<Rc>(
         context: &Rc,
+        object_id: u64,
         descriptor: &TextureCubeDescriptor<F>,
     ) -> Result<Self, MaxMipmapLevelsExceeded>
     where
@@ -202,6 +204,7 @@ where
         });
 
         Ok(TextureCube {
+            object_id,
             data,
             _marker: marker::PhantomData,
         })
@@ -494,9 +497,21 @@ pub struct ShadowSampledTextureCube<'a> {
     _marker: marker::PhantomData<&'a ()>,
 }
 
+impl<F> PartialEq for TextureCube<F> {
+    fn eq(&self, other: &Self) -> bool {
+        self.object_id == other.object_id
+    }
+}
+
+impl<F> Hash for TextureCube<F> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.object_id.hash(state);
+    }
+}
+
 pub(crate) struct TextureCubeData {
     id: UnsafeCell<Option<JsId>>,
-    context_id: usize,
+    context_id: u64,
     dropper: Box<dyn TextureObjectDropper>,
     width: u32,
     height: u32,
@@ -508,7 +523,7 @@ impl TextureCubeData {
         unsafe { *self.id.get() }
     }
 
-    pub(crate) fn context_id(&self) -> usize {
+    pub(crate) fn context_id(&self) -> u64 {
         self.context_id
     }
 }
@@ -539,6 +554,7 @@ impl Drop for TextureCubeData {
 /// Returned from [TextureCube::levels], a reference to the levels of a [TextureCube].
 ///
 /// See [TextureCube::levels] for details.
+#[derive(PartialEq, Hash)]
 pub struct Levels<'a, F> {
     handle: &'a TextureCube<F>,
     offset: usize,
@@ -871,6 +887,7 @@ where
 /// A reference to the base level of a [TextureCube] can be obtained through
 /// [TextureCube::base_level]. References to other levels of a [TextureCube] can be obtained via
 /// [Levels].
+#[derive(PartialEq, Hash)]
 pub struct Level<'a, F> {
     handle: &'a TextureCube<F>,
     level: usize,
@@ -981,7 +998,7 @@ impl CubeFace {
 ///
 /// See [Level::positive_x], [Level::negative_x], [Level::positive_y], [Level::negative_y],
 /// [Level::positive_z] and [Level::negative_z].
-#[derive(Clone)]
+#[derive(PartialEq, Hash, Clone)]
 pub struct LevelFace<'a, F> {
     handle: &'a TextureCube<F>,
     level: usize,
@@ -1121,6 +1138,7 @@ where
 /// Returned from [LevelFace::sub_image], a reference to a sub-region of a [LevelFace]'s image.
 ///
 /// See [Level::sub_image] for details.
+#[derive(PartialEq, Hash)]
 pub struct LevelFaceSubImage<'a, F> {
     handle: &'a TextureCube<F>,
     level: usize,
@@ -1248,6 +1266,7 @@ where
 /// See [TextureCube::levels_mut] for details.
 ///
 /// [Deref]s to [Levels].
+#[derive(PartialEq, Hash)]
 pub struct LevelsMut<'a, F> {
     inner: Levels<'a, F>,
 }
@@ -1597,6 +1616,7 @@ where
 /// A mutable reference to a [Texture2D] mipmap level.
 ///
 /// [Deref]s to [Level].
+#[derive(PartialEq, Hash)]
 pub struct LevelMut<'a, F> {
     inner: Level<'a, F>,
 }
@@ -1680,6 +1700,7 @@ impl<'a, F> Deref for LevelMut<'a, F> {
 /// A mutable reference to a face of a [TextureCube] mipmap level.
 ///
 /// [Deref]s to [LevelFace].
+#[derive(PartialEq, Hash)]
 pub struct LevelFaceMut<'a, F> {
     inner: LevelFace<'a, F>,
 }

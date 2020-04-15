@@ -125,6 +125,7 @@ where
 /// # }
 /// ```
 pub struct Texture3D<F> {
+    object_id: u64,
     data: Arc<Texture3DData>,
     _marker: marker::PhantomData<[F]>,
 }
@@ -141,6 +142,7 @@ where
 {
     pub(crate) fn new<Rc>(
         context: &Rc,
+        object_id: u64,
         descriptor: &Texture3DDescriptor<F>,
     ) -> Result<Self, MaxMipmapLevelsExceeded>
     where
@@ -185,6 +187,7 @@ where
         });
 
         Ok(Texture3D {
+            object_id,
             data,
             _marker: marker::PhantomData,
         })
@@ -446,9 +449,21 @@ pub struct UnsignedIntegerSampledTexture3D<'a> {
     _marker: marker::PhantomData<&'a ()>,
 }
 
+impl<F> PartialEq for Texture3D<F> {
+    fn eq(&self, other: &Self) -> bool {
+        self.object_id == other.object_id
+    }
+}
+
+impl<F> Hash for Texture3D<F> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.object_id.hash(state);
+    }
+}
+
 pub(crate) struct Texture3DData {
     id: UnsafeCell<Option<JsId>>,
-    context_id: usize,
+    context_id: u64,
     dropper: Box<dyn TextureObjectDropper>,
     width: u32,
     height: u32,
@@ -461,7 +476,7 @@ impl Texture3DData {
         unsafe { *self.id.get() }
     }
 
-    pub(crate) fn context_id(&self) -> usize {
+    pub(crate) fn context_id(&self) -> u64 {
         self.context_id
     }
 }
@@ -492,6 +507,7 @@ impl Drop for Texture3DData {
 /// Returned from [Texture3D::levels], a reference to the levels of a [Texture3D].
 ///
 /// See [Texture3D::levels] for details.
+#[derive(PartialEq, Hash)]
 pub struct Levels<'a, F> {
     handle: &'a Texture3D<F>,
     offset: usize,
@@ -826,6 +842,7 @@ where
 ///
 /// A reference to the base level of a [Texture3D] can be obtained through [Texture3D::base_level].
 /// References to other levels of a [Texture3D] can be obtained via [Levels].
+#[derive(PartialEq, Hash)]
 pub struct Level<'a, F> {
     handle: &'a Texture3D<F>,
     level: usize,
@@ -1003,6 +1020,7 @@ where
 /// Returned from [Level::layers], a reference to the layers of a [Level].
 ///
 /// See [Level::layers] for details.
+#[derive(PartialEq, Hash)]
 pub struct LevelLayers<'a, F> {
     handle: &'a Texture3D<F>,
     level: usize,
@@ -1354,6 +1372,7 @@ where
 }
 
 /// Reference to a layer of a [Level] of a [Texture3D].
+#[derive(PartialEq, Hash)]
 pub struct LevelLayer<'a, F> {
     handle: &'a Texture3D<F>,
     level: usize,
@@ -1502,6 +1521,7 @@ where
 /// Layered sub-image of a [Level].
 ///
 /// See [Level::sub_image] for details.
+#[derive(PartialEq, Hash)]
 pub struct LevelSubImage<'a, F> {
     handle: &'a Texture3D<F>,
     level: usize,
@@ -1598,6 +1618,7 @@ where
 /// Reference to the layers of a [LevelSubImage].
 ///
 /// See [LevelSubImage::layers].
+#[derive(PartialEq, Hash)]
 pub struct LevelSubImageLayers<'a, F> {
     handle: &'a Texture3D<F>,
     level: usize,
@@ -1966,6 +1987,7 @@ where
     }
 }
 
+#[derive(PartialEq, Hash)]
 pub struct LevelLayerSubImage<'a, F> {
     handle: &'a Texture3D<F>,
     level: usize,
@@ -2099,6 +2121,7 @@ where
 ///
 ///
 /// [Deref]s to [Levels].
+#[derive(PartialEq, Hash)]
 pub struct LevelsMut<'a, F> {
     inner: Levels<'a, F>,
 }
@@ -2448,6 +2471,7 @@ where
 /// A mutable reference to a [Texture3D] mipmap level.
 ///
 /// [Deref]s to [Level].
+#[derive(PartialEq, Hash)]
 pub struct LevelMut<'a, F> {
     inner: Level<'a, F>,
 }
@@ -2504,6 +2528,7 @@ impl<'a, F> Deref for LevelMut<'a, F> {
 /// A mutable reference to a the layers of a mipmap level of a [Texture3D].
 ///
 /// [Deref]s to [LevelLayers].
+#[derive(PartialEq, Hash)]
 pub struct LevelLayersMut<'a, F> {
     inner: LevelLayers<'a, F>,
 }
@@ -2784,6 +2809,7 @@ where
 /// A mutable reference to a layer of a [Texture3D] mipmap level.
 ///
 /// [Deref]s to [LevelLayer].
+#[derive(PartialEq, Hash)]
 pub struct LevelLayerMut<'a, F> {
     inner: LevelLayer<'a, F>,
 }

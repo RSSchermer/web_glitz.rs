@@ -7,24 +7,24 @@ use crate::rendering::{
     DefaultStencilBuffer, GraphicsPipelineTarget, MultisampleFramebuffer, RenderPass,
     RenderPassContext,
 };
-use crate::runtime::single_threaded::RenderPassIdGen;
+use crate::runtime::single_threaded::ObjectIdGen;
 use crate::task::{ContextId, GpuTask};
 
 /// A handle to the default render target associated with a [RenderingContext].
 #[derive(Clone)]
 pub struct DefaultMultisampleRenderTarget<C, Ds> {
-    context_id: usize,
-    samples: usize,
-    render_pass_id_gen: RenderPassIdGen,
+    context_id: u64,
+    samples: u8,
+    render_pass_id_gen: ObjectIdGen,
     color_buffer: marker::PhantomData<C>,
     depth_stencil_buffer: marker::PhantomData<Ds>,
 }
 
 impl<C, Ds> DefaultMultisampleRenderTarget<C, Ds> {
     pub(crate) fn new(
-        context_id: usize,
-        samples: usize,
-        render_pass_id_gen: RenderPassIdGen,
+        context_id: u64,
+        samples: u8,
+        render_pass_id_gen: ObjectIdGen,
     ) -> Self {
         DefaultMultisampleRenderTarget {
             context_id,
@@ -35,7 +35,7 @@ impl<C, Ds> DefaultMultisampleRenderTarget<C, Ds> {
         }
     }
 
-    pub fn samples(&self) -> usize {
+    pub fn samples(&self) -> u8 {
         self.samples
     }
 }

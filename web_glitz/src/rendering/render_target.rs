@@ -21,7 +21,7 @@ use crate::rendering::{
     Framebuffer, GraphicsPipelineTarget, IntegerAttachment, LoadOp, MultisampleFramebuffer,
     RenderPass, RenderPassContext, StencilAttachment, StoreOp, UnsignedIntegerAttachment,
 };
-use crate::runtime::single_threaded::RenderPassIdGen;
+use crate::runtime::single_threaded::ObjectIdGen;
 use crate::runtime::state::{AttachmentSet, DepthStencilAttachmentDescriptor, DrawBuffer};
 use crate::task::{ContextId, GpuTask};
 
@@ -440,7 +440,7 @@ unsafe impl<F> AttachStencil for Renderbuffer<F> where
 pub struct RenderTargetDescriptor<C, Ds> {
     pub(crate) color_attachments: C,
     pub(crate) depth_stencil_attachment: Ds,
-    pub(crate) color_attachment_count: usize,
+    pub(crate) color_attachment_count: u8,
     pub(crate) context_id: RenderTargetContextId,
 }
 
@@ -820,15 +820,15 @@ unsafe impl<F> AttachMultisampleDepth for Renderbuffer<Multisample<F>> where
 pub struct MultisampleRenderTargetDescriptor<C, Ds> {
     pub(crate) color_attachments: C,
     pub(crate) depth_stencil_attachment: Ds,
-    pub(crate) samples: usize,
-    pub(crate) color_attachment_count: usize,
+    pub(crate) samples: u8,
+    pub(crate) color_attachment_count: u8,
     pub(crate) context_id: RenderTargetContextId,
 }
 
 impl MultisampleRenderTargetDescriptor<(), ()> {
     /// Creates a new [MultisampleRenderTargetDescriptor] that excepts it attachments to use a
     /// sample count of `samples`.
-    pub fn new(samples: usize) -> Self {
+    pub fn new(samples: u8) -> Self {
         MultisampleRenderTargetDescriptor {
             color_attachments: (),
             depth_stencil_attachment: (),
@@ -1141,16 +1141,42 @@ impl_attach_multisample_render_target_color!(
 pub struct RenderTarget<C, Ds> {
     pub(crate) color_attachments: C,
     pub(crate) depth_stencil_attachment: Ds,
-    pub(crate) context_id: usize,
-    pub(crate) render_pass_id_gen: RenderPassIdGen,
+    pub(crate) object_id: u64,
+    pub(crate) context_id: u64,
+    pub(crate) render_pass_id_gen: ObjectIdGen,
+}
+
+impl<C, Ds> PartialEq for RenderTarget<C, Ds> {
+    fn eq(&self, other: &Self) -> bool {
+        self.object_id == other.object_id
+    }
+}
+
+impl<C, Ds> Hash for RenderTarget<C, Ds> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.object_id.hash(state);
+    }
 }
 
 pub struct MultisampleRenderTarget<C, Ds> {
     pub(crate) color_attachments: C,
     pub(crate) depth_stencil_attachment: Ds,
-    pub(crate) samples: usize,
-    pub(crate) context_id: usize,
-    pub(crate) render_pass_id_gen: RenderPassIdGen,
+    pub(crate) samples: u8,
+    pub(crate) object_id: u64,
+    pub(crate) context_id: u64,
+    pub(crate) render_pass_id_gen: ObjectIdGen,
+}
+
+impl<C, Ds> PartialEq for MultisampleRenderTarget<C, Ds> {
+    fn eq(&self, other: &Self) -> bool {
+        self.object_id == other.object_id
+    }
+}
+
+impl<C, Ds> Hash for MultisampleRenderTarget<C, Ds> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.object_id.hash(state);
+    }
 }
 
 macro_rules! impl_create_render_pass {
@@ -1745,9 +1771,9 @@ impl_create_render_pass_depth_stencil!(
 
 pub(crate) enum RenderTargetContextId {
     Any,
-    Single(&'static str, usize),
+    Single(&'static str, u64),
     Mixed {
-        first: (&'static str, usize),
+        first: (&'static str, u64),
         second: &'static str,
     },
 }
@@ -1757,7 +1783,7 @@ impl RenderTargetContextId {
         RenderTargetContextId::Any
     }
 
-    pub(crate) fn record(self, label: &'static str, context_id: usize) -> Self {
+    pub(crate) fn record(self, label: &'static str, context_id: u64) -> Self {
         match self {
             RenderTargetContextId::Any => RenderTargetContextId::Single(label, context_id),
             RenderTargetContextId::Single(first_label, first_id) => {
@@ -1774,7 +1800,7 @@ impl RenderTargetContextId {
         }
     }
 
-    pub(crate) fn verify(&self, context_id: usize) {
+    pub(crate) fn verify(&self, context_id: u64) {
         match self {
             RenderTargetContextId::Single(label, id) => {
                 if context_id != *id {

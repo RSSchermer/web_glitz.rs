@@ -14,34 +14,11 @@ use crate::util::JsId;
 
 /// Provides the information necessary for the creation of a [Renderbuffer].
 ///
-/// See [RenderingContext::create_renderbuffer] for details.
-pub struct RenderbufferDescriptor<F>
-where
-    F: RenderbufferFormat,
-{
+/// See [RenderingContext::try_create_renderbuffer] and
+/// [RenderingContext::try_create_multisample_renderbuffer] for details.
+pub struct RenderbufferDescriptor<F> {
     /// The format type the [Renderbuffer] will use to store its image data.
-    ///
-    /// Must implement [RenderbufferFormat].
     pub format: F,
-
-    /// The width of the [Renderbuffer].
-    pub width: u32,
-
-    /// The height of the [Renderbuffer].
-    pub height: u32,
-}
-
-/// Provides the information necessary for the creation of a [Renderbuffer].
-///
-/// See [RenderingContext::create_renderbuffer] for details.
-pub struct MultisampleRenderbufferDescriptor<F>
-where
-    F: RenderbufferFormat + Multisamplable + Copy,
-{
-    /// The format type the [Renderbuffer] will use to store its image data.
-    ///
-    /// Must implement [MultisampleFormat] in addition to [RenderbufferFormat].
-    pub format: Multisample<F>,
 
     /// The width of the [Renderbuffer].
     pub width: u32,
@@ -97,6 +74,7 @@ where
 /// # }
 /// ```
 pub struct Renderbuffer<F> {
+    object_id: u64,
     data: Arc<RenderbufferData>,
     _marker: marker::PhantomData<[F]>,
 }
@@ -122,7 +100,7 @@ where
     F: Multisamplable,
 {
     /// Returns the number of samples this [Renderbuffer] stores for its image data.
-    pub fn samples(&self) -> usize {
+    pub fn samples(&self) -> u8 {
         self.data.samples.unwrap()
     }
 }
@@ -131,7 +109,7 @@ impl<F> Renderbuffer<F>
 where
     F: RenderbufferFormat + 'static,
 {
-    pub(crate) fn new<Rc>(context: &Rc, descriptor: &RenderbufferDescriptor<F>) -> Self
+    pub(crate) fn new<Rc>(context: &Rc, object_id: u64, descriptor: &RenderbufferDescriptor<F>) -> Self
     where
         Rc: RenderingContext + Clone + 'static,
     {
@@ -150,6 +128,7 @@ where
         });
 
         Renderbuffer {
+            object_id,
             data,
             _marker: marker::PhantomData,
         }
@@ -162,7 +141,8 @@ where
 {
     pub(crate) fn new_multisample<Rc>(
         context: &Rc,
-        descriptor: &MultisampleRenderbufferDescriptor<F>,
+        object_id: u64,
+        descriptor: &RenderbufferDescriptor<Multisample<F>>,
     ) -> Result<Self, UnsupportedSampleCount>
     where
         Rc: RenderingContext + Clone + 'static,
@@ -193,9 +173,22 @@ where
         });
 
         Ok(Renderbuffer {
+            object_id,
             data,
             _marker: marker::PhantomData,
         })
+    }
+}
+
+impl<F> PartialEq for Renderbuffer<F> {
+    fn eq(&self, other: &Self) -> bool {
+        self.object_id == other.object_id
+    }
+}
+
+impl<F> Hash for Renderbuffer<F> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.object_id.hash(state);
     }
 }
 
@@ -214,11 +207,11 @@ where
 
 pub(crate) struct RenderbufferData {
     id: UnsafeCell<Option<JsId>>,
-    context_id: usize,
+    context_id: u64,
     dropper: Box<dyn RenderbufferObjectDropper>,
     width: u32,
     height: u32,
-    samples: Option<usize>,
+    samples: Option<u8>,
 }
 
 impl RenderbufferData {
@@ -226,7 +219,7 @@ impl RenderbufferData {
         unsafe { *self.id.get() }
     }
 
-    pub(crate) fn context_id(&self) -> usize {
+    pub(crate) fn context_id(&self) -> u64 {
         self.context_id
     }
 }
@@ -293,7 +286,7 @@ where
 
 struct MultisampleRenderbufferAllocateCommand<F> {
     data: Arc<RenderbufferData>,
-    samples: usize,
+    samples: u8,
     _marker: marker::PhantomData<[F]>,
 }
 

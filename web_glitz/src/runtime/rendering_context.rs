@@ -14,7 +14,7 @@ use crate::image::format::{
     InternalFormat, Multisamplable, Multisample, RenderbufferFormat, TextureFormat,
 };
 use crate::image::renderbuffer::{
-    MultisampleRenderbufferDescriptor, Renderbuffer, RenderbufferDescriptor,
+    Renderbuffer, RenderbufferDescriptor,
 };
 use crate::image::sampler::{
     MagnificationFilter, MinificationFilter, Sampler, SamplerDescriptor, ShadowSampler,
@@ -65,7 +65,7 @@ use crate::task::GpuTask;
 /// 4. Extension initialization, see [get_extension].
 pub trait RenderingContext {
     /// Identifier that uniquely identifies this rendering context.
-    fn id(&self) -> usize;
+    fn id(&self) -> u64;
 
     /// Returns the requested extension, or `None` if the extension is not available on this
     /// context.
@@ -76,7 +76,7 @@ pub trait RenderingContext {
         T: Extension;
 
     /// Returns a number indicating the maximum number of samples supported for the `format`.
-    fn max_supported_samples<F>(&self, format: F) -> usize
+    fn max_supported_samples<F>(&self, format: F) -> u8
     where
         F: InternalFormat + Multisamplable;
 
@@ -293,7 +293,7 @@ pub trait RenderingContext {
     /// Here `context` is a [RenderingContext].
     fn create_multisample_renderbuffer<F>(
         &self,
-        descriptor: &MultisampleRenderbufferDescriptor<F>,
+        descriptor: &RenderbufferDescriptor<Multisample<F>>,
     ) -> Result<Renderbuffer<Multisample<F>>, UnsupportedSampleCount>
     where
         F: RenderbufferFormat + Multisamplable + Copy + 'static;
@@ -934,14 +934,14 @@ impl From<IncompatibleResources> for CreateGraphicsPipelineError {
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct UnsupportedSampleCount {
-    pub(crate) max_supported_samples: usize,
-    pub(crate) requested_samples: usize,
+    pub(crate) max_supported_samples: u8,
+    pub(crate) requested_samples: u8,
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct MaxColorBuffersExceeded {
-    pub(crate) max_supported_color_buffers: usize,
-    pub(crate) requested_color_buffers: usize,
+    pub(crate) max_supported_color_buffers: u8,
+    pub(crate) requested_color_buffers: u8,
 }
 
 /// Returned from [RenderingContext::submit], future result of the [GpuTask] that was submitted
@@ -1001,7 +1001,7 @@ impl<T> From<Receiver<T>> for Execution<T> {
 /// [WebGl2RenderingContext] for functionality that either is not supported by WebGlitz's or comes
 /// with unacceptable overhead for your use-case.
 pub struct Connection {
-    context_id: usize,
+    context_id: u64,
     gl: Gl,
     state: DynamicState,
 }
@@ -1015,7 +1015,7 @@ impl Connection {
     /// # Unsafe
     ///
     /// The `state` must accurately reflect the current state of the [WebGl2RenderingContext].
-    pub unsafe fn new(context_id: usize, gl: Gl, state: DynamicState) -> Self {
+    pub unsafe fn new(context_id: u64, gl: Gl, state: DynamicState) -> Self {
         Connection {
             context_id,
             gl,
@@ -1024,7 +1024,7 @@ impl Connection {
     }
 
     /// The unique identifier for the [RenderingContext] with which this [Connection] is associated.
-    pub fn context_id(&self) -> usize {
+    pub fn context_id(&self) -> u64 {
         self.context_id
     }
 

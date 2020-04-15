@@ -28,5 +28,5 @@ pub mod texture_float_linear;
 pub trait Extension: Sized {
     /// Attempts to initialize the extension on the current [Connection] and return the extension
     /// object, or returns `None` if it fails.
-    fn try_init(connection: &mut Connection, context_id: usize) -> Option<Self>;
+    fn try_init(connection: &mut Connection, context_id: u64) -> Option<Self>;
 }

@@ -293,7 +293,7 @@ pub enum Progress<T> {
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum ContextId {
     Any,
-    Id(usize),
+    Id(u64),
 }
 
 impl ContextId {
