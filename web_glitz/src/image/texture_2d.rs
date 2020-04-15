@@ -1736,7 +1736,8 @@ where
             P::FORMAT_ID,
             P::TYPE_ID,
             self.offset as i32,
-        ).unwrap();
+        )
+        .unwrap();
 
         Progress::Finished(())
     }

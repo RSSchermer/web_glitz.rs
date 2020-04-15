@@ -133,9 +133,7 @@ impl IndexType {
 /// let index_buffer: IndexBuffer<u16> = context.create_index_buffer([1, 2, 3, 4], UsageHint::StreamDraw);
 /// # }
 /// ```
-pub struct IndexBuffer<T>
-
-{
+pub struct IndexBuffer<T> {
     object_id: u64,
     data: Arc<IndexBufferData>,
     _marker: marker::PhantomData<Box<T>>,
@@ -145,7 +143,12 @@ impl<T> IndexBuffer<T>
 where
     T: IndexFormat + 'static,
 {
-    pub(crate) fn new<Rc, D>(context: &Rc, object_id: u64, data: D, usage_hint: UsageHint) -> IndexBuffer<T>
+    pub(crate) fn new<Rc, D>(
+        context: &Rc,
+        object_id: u64,
+        data: D,
+        usage_hint: UsageHint,
+    ) -> IndexBuffer<T>
     where
         Rc: RenderingContext + Clone + 'static,
         D: Borrow<[T]> + 'static,
@@ -268,7 +271,7 @@ where
 
 impl<T> PartialEq for IndexBuffer<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.object_id ==other.object_id
+        self.object_id == other.object_id
     }
 }
 

@@ -40,7 +40,7 @@ impl DefaultRenderTarget<DefaultRGBBuffer, ()> {
         let task = f(&Framebuffer {
             color: DefaultRGBBuffer::new(id),
             depth_stencil: (),
-            data: GraphicsPipelineTarget {
+            pipeline_target: GraphicsPipelineTarget {
                 dimensions: None,
                 context_id: self.context_id,
                 render_pass_id: id,
@@ -74,7 +74,7 @@ impl DefaultRenderTarget<DefaultRGBBuffer, DefaultDepthStencilBuffer> {
         let task = f(&Framebuffer {
             color: DefaultRGBBuffer::new(id),
             depth_stencil: DefaultDepthStencilBuffer::new(id),
-            data: GraphicsPipelineTarget {
+            pipeline_target: GraphicsPipelineTarget {
                 dimensions: None,
                 context_id: self.context_id,
                 render_pass_id: id,
@@ -108,7 +108,7 @@ impl DefaultRenderTarget<DefaultRGBBuffer, DefaultDepthBuffer> {
         let task = f(&Framebuffer {
             color: DefaultRGBBuffer::new(id),
             depth_stencil: DefaultDepthBuffer::new(id),
-            data: GraphicsPipelineTarget {
+            pipeline_target: GraphicsPipelineTarget {
                 dimensions: None,
                 context_id: self.context_id,
                 render_pass_id: id,
@@ -142,7 +142,7 @@ impl DefaultRenderTarget<DefaultRGBBuffer, DefaultStencilBuffer> {
         let task = f(&Framebuffer {
             color: DefaultRGBBuffer::new(id),
             depth_stencil: DefaultStencilBuffer::new(id),
-            data: GraphicsPipelineTarget {
+            pipeline_target: GraphicsPipelineTarget {
                 dimensions: None,
                 context_id: self.context_id,
                 render_pass_id: id,
@@ -176,7 +176,7 @@ impl DefaultRenderTarget<DefaultRGBABuffer, ()> {
         let task = f(&Framebuffer {
             color: DefaultRGBABuffer::new(id),
             depth_stencil: (),
-            data: GraphicsPipelineTarget {
+            pipeline_target: GraphicsPipelineTarget {
                 dimensions: None,
                 context_id: self.context_id,
                 render_pass_id: id,
@@ -210,7 +210,7 @@ impl DefaultRenderTarget<DefaultRGBABuffer, DefaultDepthStencilBuffer> {
         let task = f(&Framebuffer {
             color: DefaultRGBABuffer::new(id),
             depth_stencil: DefaultDepthStencilBuffer::new(id),
-            data: GraphicsPipelineTarget {
+            pipeline_target: GraphicsPipelineTarget {
                 dimensions: None,
                 context_id: self.context_id,
                 render_pass_id: id,
@@ -244,7 +244,7 @@ impl DefaultRenderTarget<DefaultRGBABuffer, DefaultDepthBuffer> {
         let task = f(&Framebuffer {
             color: DefaultRGBABuffer::new(id),
             depth_stencil: DefaultDepthBuffer::new(id),
-            data: GraphicsPipelineTarget {
+            pipeline_target: GraphicsPipelineTarget {
                 dimensions: None,
                 context_id: self.context_id,
                 render_pass_id: id,
@@ -278,7 +278,7 @@ impl DefaultRenderTarget<DefaultRGBABuffer, DefaultStencilBuffer> {
         let task = f(&Framebuffer {
             color: DefaultRGBABuffer::new(id),
             depth_stencil: DefaultStencilBuffer::new(id),
-            data: GraphicsPipelineTarget {
+            pipeline_target: GraphicsPipelineTarget {
                 dimensions: None,
                 context_id: self.context_id,
                 render_pass_id: id,

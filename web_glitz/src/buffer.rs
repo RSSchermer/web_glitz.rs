@@ -279,13 +279,19 @@ where
     }
 }
 
-impl<T> PartialEq for Buffer<T> where T: ?Sized {
+impl<T> PartialEq for Buffer<T>
+where
+    T: ?Sized,
+{
     fn eq(&self, other: &Self) -> bool {
         self.object_id == other.object_id
     }
 }
 
-impl<T> Hash for Buffer<T> where T: ?Sized {
+impl<T> Hash for Buffer<T>
+where
+    T: ?Sized,
+{
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.object_id.hash(state);
     }
@@ -744,7 +750,12 @@ where
     D: Borrow<[T]> + 'static,
     T: Copy + 'static,
 {
-    fn into_buffer<Rc>(self, context: &Rc, buffer_id: BufferId, usage_hint: UsageHint) -> Buffer<[T]>
+    fn into_buffer<Rc>(
+        self,
+        context: &Rc,
+        buffer_id: BufferId,
+        usage_hint: UsageHint,
+    ) -> Buffer<[T]>
     where
         Rc: RenderingContext + Clone + 'static,
     {

@@ -172,7 +172,11 @@ where
             dropper: Box::new(context.clone()),
         });
 
-        VertexShaderAllocateCommand { object_id, data, source }
+        VertexShaderAllocateCommand {
+            object_id,
+            data,
+            source,
+        }
     }
 }
 
@@ -236,7 +240,11 @@ where
             dropper: Box::new(context.clone()),
         });
 
-        FragmentShaderAllocateCommand {object_id, data, source }
+        FragmentShaderAllocateCommand {
+            object_id,
+            data,
+            source,
+        }
     }
 }
 

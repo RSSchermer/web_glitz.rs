@@ -36,8 +36,10 @@ pub use self::encode_depth_stencil_buffer::{
 
 pub(crate) mod render_target;
 pub use self::render_target::{
-    MultisampleRenderTarget, MultisampleRenderTargetDescriptor, RenderTarget,
-    RenderTargetDescriptor, AttachColorFloat, AttachColorInteger, AttachColorUnsignedInteger, AttachDepthStencil, AttachDepth, AttachStencil, AttachMultisampleColorFloat, AttachMultisampleDepth, AttachMultisampleDepthStencil
+    AttachColorFloat, AttachColorInteger, AttachColorUnsignedInteger, AttachDepth,
+    AttachDepthStencil, AttachMultisampleColorFloat, AttachMultisampleDepth,
+    AttachMultisampleDepthStencil, AttachStencil, MultisampleRenderTarget,
+    MultisampleRenderTargetDescriptor, RenderTarget, RenderTargetDescriptor,
 };
 
 pub(crate) mod load_op;

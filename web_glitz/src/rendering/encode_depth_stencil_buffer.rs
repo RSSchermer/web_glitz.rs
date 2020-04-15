@@ -89,7 +89,7 @@ where
     ) -> Self
     where
         I: AsMultisampleAttachment<SampleFormat = F>,
-        F: Multisamplable
+        F: Multisamplable,
     {
         let image = image.as_multisample_attachment().into_data();
 
@@ -139,7 +139,7 @@ where
     ) -> Self
     where
         I: AsMultisampleAttachment<SampleFormat = F>,
-        F: Multisamplable
+        F: Multisamplable,
     {
         let image = image.as_multisample_attachment().into_data();
 

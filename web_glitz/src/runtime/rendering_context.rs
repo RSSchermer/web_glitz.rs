@@ -13,9 +13,7 @@ use crate::extensions::Extension;
 use crate::image::format::{
     InternalFormat, Multisamplable, Multisample, RenderbufferFormat, TextureFormat,
 };
-use crate::image::renderbuffer::{
-    Renderbuffer, RenderbufferDescriptor,
-};
+use crate::image::renderbuffer::{Renderbuffer, RenderbufferDescriptor};
 use crate::image::sampler::{
     MagnificationFilter, MinificationFilter, Sampler, SamplerDescriptor, ShadowSampler,
     ShadowSamplerDescriptor,

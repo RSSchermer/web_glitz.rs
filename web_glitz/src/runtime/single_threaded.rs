@@ -120,14 +120,12 @@ use wasm_bindgen::closure::Closure;
 use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{HtmlCanvasElement, WebGl2RenderingContext as Gl};
 
-use crate::buffer::{Buffer, IntoBuffer, UsageHint, BufferId};
+use crate::buffer::{Buffer, BufferId, IntoBuffer, UsageHint};
 use crate::extensions::Extension;
 use crate::image::format::{
     InternalFormat, Multisamplable, Multisample, RenderbufferFormat, TextureFormat,
 };
-use crate::image::renderbuffer::{
-    Renderbuffer, RenderbufferDescriptor,
-};
+use crate::image::renderbuffer::{Renderbuffer, RenderbufferDescriptor};
 use crate::image::sampler::{
     MagnificationFilter, MinificationFilter, Sampler, SamplerDescriptor, ShadowSampler,
     ShadowSamplerDescriptor,
@@ -267,9 +265,7 @@ impl RenderingContext for SingleThreadedContext {
         T: ?Sized,
     {
         let object_id = self.object_id_gen.next();
-        let buffer_id = BufferId {
-            object_id
-        };
+        let buffer_id = BufferId { object_id };
 
         data.into_buffer(self, buffer_id, usage_hint)
     }
@@ -654,7 +650,8 @@ impl SingleThreadedExecutor {
                 let ref_cell: &RefCell<_> = self.process_buffer_closure.borrow();
                 let callback_ref = ref_cell.borrow();
 
-                let promise = self.process_buffer_promise
+                let promise = self
+                    .process_buffer_promise
                     .then(callback_ref.as_ref().unwrap());
 
                 // Explicitly drop promise to get around "unused_must_use" warning; we really don't
@@ -675,7 +672,8 @@ impl Drop for SingleThreadedExecutor {
             let ref_cell: &RefCell<_> = self.process_buffer_closure.borrow();
             let callback_ref = ref_cell.borrow();
 
-            let promise = self.process_buffer_promise
+            let promise = self
+                .process_buffer_promise
                 .then(callback_ref.as_ref().unwrap());
 
             // Explicitly drop promise to get around "unused_must_use" warning; we really don't need
@@ -1066,8 +1064,7 @@ impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBABuffer, ()>> {
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let render_target =
-            DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
+        let render_target = DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
 
         Ok((context, render_target))
     }
@@ -1102,8 +1099,7 @@ impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBABuffer, DefaultDe
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let render_target =
-            DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
+        let render_target = DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
 
         Ok((context, render_target))
     }
@@ -1139,8 +1135,7 @@ impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBABuffer, DefaultDe
 
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let render_target =
-            DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
+        let render_target = DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
 
         Ok((context, render_target))
     }
@@ -1175,8 +1170,7 @@ impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBABuffer, DefaultSt
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let render_target =
-            DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
+        let render_target = DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
 
         Ok((context, render_target))
     }
@@ -1211,8 +1205,7 @@ impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBBuffer, ()>> {
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let render_target =
-            DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
+        let render_target = DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
 
         Ok((context, render_target))
     }
@@ -1247,8 +1240,7 @@ impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBBuffer, DefaultDep
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let render_target =
-            DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
+        let render_target = DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
 
         Ok((context, render_target))
     }
@@ -1284,8 +1276,7 @@ impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBBuffer, DefaultDep
 
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let render_target =
-            DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
+        let render_target = DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
 
         Ok((context, render_target))
     }
@@ -1320,8 +1311,7 @@ impl Options for ContextOptions<DefaultRenderTarget<DefaultRGBBuffer, DefaultSte
             .unchecked_into();
         let state = DynamicState::initial(&gl);
         let context = SingleThreadedContext::from_webgl2_context(gl, state);
-        let render_target =
-            DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
+        let render_target = DefaultRenderTarget::new(context.id(), context.object_id_gen.clone());
 
         Ok((context, render_target))
     }

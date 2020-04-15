@@ -1,6 +1,6 @@
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 use std::mem;
+use std::sync::Arc;
 
 use crate::buffer::{BufferData, BufferView};
 

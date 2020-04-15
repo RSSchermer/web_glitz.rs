@@ -1297,7 +1297,7 @@ macro_rules! impl_create_render_pass {
                 let task = f(&Framebuffer {
                     color: ($C0, $($C,)*),
                     depth_stencil: (),
-                    data: GraphicsPipelineTarget {
+                    pipeline_target: GraphicsPipelineTarget {
                         dimensions: Some((width, height)),
                         context_id: self.context_id,
                         render_pass_id: id,
@@ -1437,7 +1437,7 @@ macro_rules! impl_create_render_pass {
                     color: ($C0, $($C,)*),
                     depth_stencil: (),
                     samples: self.samples,
-                    data: GraphicsPipelineTarget {
+                    pipeline_target: GraphicsPipelineTarget {
                         dimensions: Some((width, height)),
                         context_id: self.context_id,
                         render_pass_id: id,
@@ -1590,7 +1590,7 @@ macro_rules! impl_create_render_pass_depth_stencil {
                 let task = f(&Framebuffer {
                     color: ($($C,)*),
                     depth_stencil: buffer,
-                    data: GraphicsPipelineTarget {
+                    pipeline_target: GraphicsPipelineTarget {
                         dimensions: Some((width, height)),
                         context_id: self.context_id,
                         render_pass_id: id,
@@ -1723,7 +1723,7 @@ macro_rules! impl_create_render_pass_depth_stencil {
                     color: ($($C,)*),
                     depth_stencil: buffer,
                     samples: self.samples,
-                    data: GraphicsPipelineTarget {
+                    pipeline_target : GraphicsPipelineTarget {
                         dimensions: Some((width, height)),
                         context_id: self.context_id,
                         render_pass_id: id,

@@ -235,14 +235,20 @@ where
 }
 
 /// Exclusive reference to a multisample image that may be attached to a [MultisampleRenderTarget].
-pub struct MultisampleAttachment<'a, F> where F: Multisamplable {
-    internal: MultisampleAttachmentInternal<'a, F>
+pub struct MultisampleAttachment<'a, F>
+where
+    F: Multisamplable,
+{
+    internal: MultisampleAttachmentInternal<'a, F>,
 }
 
-impl<'a, F> MultisampleAttachment<'a, F> where F: Multisamplable {
+impl<'a, F> MultisampleAttachment<'a, F>
+where
+    F: Multisamplable,
+{
     pub(crate) fn from_renderbuffer(renderbuffer: &'a Renderbuffer<Multisample<F>>) -> Self {
         MultisampleAttachment {
-            internal: renderbuffer.into()
+            internal: renderbuffer.into(),
         }
     }
 
@@ -255,36 +261,41 @@ impl<'a, F> MultisampleAttachment<'a, F> where F: Multisamplable {
     }
 }
 
-enum MultisampleAttachmentInternal<'a, F> where F: Multisamplable {
-    Renderbuffer(&'a Renderbuffer<Multisample<F>>)
+enum MultisampleAttachmentInternal<'a, F>
+where
+    F: Multisamplable,
+{
+    Renderbuffer(&'a Renderbuffer<Multisample<F>>),
 }
 
-impl<'a, F> MultisampleAttachmentInternal<'a, F> where F: Multisamplable {
+impl<'a, F> MultisampleAttachmentInternal<'a, F>
+where
+    F: Multisamplable,
+{
     fn samples(&self) -> u8 {
         match self {
-            MultisampleAttachmentInternal::Renderbuffer(renderbufer) => {
-                renderbufer.samples()
-            }
+            MultisampleAttachmentInternal::Renderbuffer(renderbufer) => renderbufer.samples(),
         }
     }
 
     fn into_data(self) -> AttachmentData {
         match self {
-            MultisampleAttachmentInternal::Renderbuffer(renderbuffer) => {
-                AttachmentData {
-                    context_id: renderbuffer.data().context_id(),
-                    kind: AttachableImageRefKind::Renderbuffer {
-                        data: renderbuffer.data().clone(),
-                    },
-                    width: renderbuffer.width(),
-                    height: renderbuffer.height(),
-                }
-            }
+            MultisampleAttachmentInternal::Renderbuffer(renderbuffer) => AttachmentData {
+                context_id: renderbuffer.data().context_id(),
+                kind: AttachableImageRefKind::Renderbuffer {
+                    data: renderbuffer.data().clone(),
+                },
+                width: renderbuffer.width(),
+                height: renderbuffer.height(),
+            },
         }
     }
 }
 
-impl<'a, F> From<&'a Renderbuffer<Multisample<F>>> for MultisampleAttachmentInternal<'a, F>  where F: Multisamplable {
+impl<'a, F> From<&'a Renderbuffer<Multisample<F>>> for MultisampleAttachmentInternal<'a, F>
+where
+    F: Multisamplable,
+{
     fn from(renderbuffer: &'a Renderbuffer<Multisample<F>>) -> Self {
         MultisampleAttachmentInternal::Renderbuffer(renderbuffer)
     }

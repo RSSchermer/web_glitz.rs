@@ -322,7 +322,11 @@ where
     Min: MinificationFilter + Copy + 'static,
     Mag: MagnificationFilter + Copy + 'static,
 {
-    pub(crate) fn new<Rc>(context: &Rc, object_id: u64, descriptor: &SamplerDescriptor<Min, Mag>) -> Self
+    pub(crate) fn new<Rc>(
+        context: &Rc,
+        object_id: u64,
+        descriptor: &SamplerDescriptor<Min, Mag>,
+    ) -> Self
     where
         Rc: RenderingContext + Clone + 'static,
     {
@@ -566,7 +570,11 @@ pub struct ShadowSampler {
 }
 
 impl ShadowSampler {
-    pub(crate) fn new<Rc>(context: &Rc, object_id: u64, descriptor: &ShadowSamplerDescriptor) -> ShadowSampler
+    pub(crate) fn new<Rc>(
+        context: &Rc,
+        object_id: u64,
+        descriptor: &ShadowSamplerDescriptor,
+    ) -> ShadowSampler
     where
         Rc: RenderingContext + Clone + 'static,
     {

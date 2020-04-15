@@ -47,6 +47,7 @@ use crate::task::{sequence, ContextId, Empty, GpuTask, Progress, Sequence};
 use crate::util::JsId;
 use crate::Unspecified;
 use staticvec::StaticVec;
+use std::ops::Deref;
 
 /// Helper trait for implementing [Framebuffer::pipeline_task] for both a plain graphics pipeline
 /// and a graphics pipeline that will record transform feedback.
@@ -89,20 +90,7 @@ pub struct GraphicsPipelineTarget {
     pub(crate) last_pipeline_task_id: Cell<u64>,
 }
 
-/// Represents a set of image memory buffers that serve as the rendering destination for a
-/// [RenderPass].
-///
-/// The image buffers allocated in the framebuffer correspond to to the images attached to the
-/// [RenderTargetDescription] that was used to define the [RenderPass] (see also [RenderTarget]);
-/// specifically, [color] provides handles to the color buffers (if any), and [depth_stencil]
-/// provides a handle to the depth-stencil buffer (if any).
-pub struct Framebuffer<C, Ds> {
-    pub color: C,
-    pub depth_stencil: Ds,
-    pub(crate) data: GraphicsPipelineTarget,
-}
-
-impl<C, Ds> Framebuffer<C, Ds> {
+impl GraphicsPipelineTarget {
     /// Creates a pipeline task using the given `graphics_pipeline`.
     ///
     /// The second parameter `f` must be a function that returns the task that is to be executed
@@ -161,7 +149,28 @@ impl<C, Ds> Framebuffer<C, Ds> {
         F: Fn(ActiveGraphicsPipeline<V, R, Tf>) -> T,
         T: GpuTask<PipelineTaskContext>,
     {
-        pipeline.pipeline_task(&self.data, f)
+        pipeline.pipeline_task(self, f)
+    }
+}
+
+/// Represents a set of image memory buffers that serve as the rendering destination for a
+/// [RenderPass].
+///
+/// The image buffers allocated in the framebuffer correspond to to the images attached to the
+/// [RenderTargetDescription] that was used to define the [RenderPass] (see also [RenderTarget]);
+/// specifically, [color] provides handles to the color buffers (if any), and [depth_stencil]
+/// provides a handle to the depth-stencil buffer (if any).
+pub struct Framebuffer<C, Ds> {
+    pub color: C,
+    pub depth_stencil: Ds,
+    pub(crate) pipeline_target: GraphicsPipelineTarget,
+}
+
+impl<C, Ds> Deref for Framebuffer<C, Ds> {
+    type Target = GraphicsPipelineTarget;
+
+    fn deref(&self) -> &Self::Target {
+        &self.pipeline_target
     }
 }
 
@@ -221,12 +230,12 @@ where
     {
         let source_descriptor = source.descriptor();
 
-        if source_descriptor.context_id != self.data.context_id {
+        if source_descriptor.context_id != self.pipeline_target.context_id {
             panic!("The source image belongs to a different context than the framebuffer.");
         }
 
         BlitCommand {
-            render_pass_id: self.data.render_pass_id,
+            render_pass_id: self.pipeline_target.render_pass_id,
             read_slot: Gl::COLOR_ATTACHMENT0,
             bitmask: Gl::COLOR_BUFFER_BIT,
             filter: Gl::NEAREST,
@@ -290,12 +299,12 @@ where
     {
         let source_descriptor = source.descriptor();
 
-        if source_descriptor.context_id != self.data.context_id {
+        if source_descriptor.context_id != self.pipeline_target.context_id {
             panic!("The source image belongs to a different context than the framebuffer.");
         }
 
         BlitCommand {
-            render_pass_id: self.data.render_pass_id,
+            render_pass_id: self.pipeline_target.render_pass_id,
             read_slot: Gl::COLOR_ATTACHMENT0,
             bitmask: Gl::COLOR_BUFFER_BIT,
             filter: Gl::LINEAR,
@@ -358,12 +367,12 @@ where
     {
         let source_descriptor = source.descriptor();
 
-        if source_descriptor.context_id != self.data.context_id {
+        if source_descriptor.context_id != self.pipeline_target.context_id {
             panic!("The source image belongs to a different context than the framebuffer.");
         }
 
         BlitCommand {
-            render_pass_id: self.data.render_pass_id,
+            render_pass_id: self.pipeline_target.render_pass_id,
             read_slot: Gl::DEPTH_STENCIL_ATTACHMENT,
             bitmask: Gl::DEPTH_BUFFER_BIT & Gl::STENCIL_BUFFER_BIT,
             filter: Gl::NEAREST,
@@ -426,12 +435,12 @@ where
     {
         let source_descriptor = source.descriptor();
 
-        if source_descriptor.context_id != self.data.context_id {
+        if source_descriptor.context_id != self.pipeline_target.context_id {
             panic!("The source image belongs to a different context than the framebuffer.");
         }
 
         BlitCommand {
-            render_pass_id: self.data.render_pass_id,
+            render_pass_id: self.pipeline_target.render_pass_id,
             read_slot: Gl::DEPTH_STENCIL_ATTACHMENT,
             bitmask: Gl::DEPTH_BUFFER_BIT,
             filter: Gl::NEAREST,
@@ -494,12 +503,12 @@ where
     {
         let source_descriptor = source.descriptor();
 
-        if source_descriptor.context_id != self.data.context_id {
+        if source_descriptor.context_id != self.pipeline_target.context_id {
             panic!("The source image belongs to a different context than the framebuffer.");
         }
 
         BlitCommand {
-            render_pass_id: self.data.render_pass_id,
+            render_pass_id: self.pipeline_target.render_pass_id,
             read_slot: Gl::DEPTH_STENCIL_ATTACHMENT,
             bitmask: Gl::STENCIL_BUFFER_BIT,
             filter: Gl::NEAREST,
@@ -564,12 +573,12 @@ where
     {
         let source_descriptor = source.descriptor();
 
-        if source_descriptor.context_id != self.data.context_id {
+        if source_descriptor.context_id != self.pipeline_target.context_id {
             panic!("The source image belongs to a different context than the framebuffer.");
         }
 
         BlitCommand {
-            render_pass_id: self.data.render_pass_id,
+            render_pass_id: self.pipeline_target.render_pass_id,
             read_slot: Gl::DEPTH_ATTACHMENT,
             bitmask: Gl::DEPTH_BUFFER_BIT,
             filter: Gl::NEAREST,
@@ -634,12 +643,12 @@ where
     {
         let source_descriptor = source.descriptor();
 
-        if source_descriptor.context_id != self.data.context_id {
+        if source_descriptor.context_id != self.pipeline_target.context_id {
             panic!("The source image belongs to a different context than the framebuffer.");
         }
 
         BlitCommand {
-            render_pass_id: self.data.render_pass_id,
+            render_pass_id: self.pipeline_target.render_pass_id,
             read_slot: Gl::STENCIL_ATTACHMENT,
             bitmask: Gl::STENCIL_BUFFER_BIT,
             filter: Gl::NEAREST,
@@ -671,8 +680,16 @@ pub struct IncompatibleSampleCount {
 pub struct MultisampleFramebuffer<C, Ds> {
     pub color: C,
     pub depth_stencil: Ds,
-    pub(crate) data: GraphicsPipelineTarget,
+    pub(crate) pipeline_target: GraphicsPipelineTarget,
     pub(crate) samples: u8,
+}
+
+impl<C, Ds> Deref for MultisampleFramebuffer<C, Ds> {
+    type Target = GraphicsPipelineTarget;
+
+    fn deref(&self) -> &Self::Target {
+        &self.pipeline_target
+    }
 }
 
 impl<C, Ds> MultisampleFramebuffer<C, Ds> {
@@ -735,7 +752,7 @@ impl<C, Ds> MultisampleFramebuffer<C, Ds> {
         F: Fn(ActiveGraphicsPipeline<V, R, Tf>) -> T,
         T: GpuTask<PipelineTaskContext>,
     {
-        pipeline.pipeline_task(&self.data, f)
+        pipeline.pipeline_task(&self.pipeline_target, f)
     }
 }
 
@@ -764,13 +781,13 @@ where
             samples,
         } = source.descriptor();
 
-        if blit_source_descriptor.context_id != self.data.context_id {
+        if blit_source_descriptor.context_id != self.pipeline_target.context_id {
             panic!("The source image belongs to a different context than the framebuffer.");
         }
 
         if samples == self.samples {
             Ok(BlitCommand {
-                render_pass_id: self.data.render_pass_id,
+                render_pass_id: self.pipeline_target.render_pass_id,
                 read_slot: Gl::COLOR_ATTACHMENT0,
                 bitmask: Gl::COLOR_BUFFER_BIT,
                 filter: Gl::NEAREST,
@@ -808,13 +825,13 @@ where
             samples,
         } = source.descriptor();
 
-        if blit_source_descriptor.context_id != self.data.context_id {
+        if blit_source_descriptor.context_id != self.pipeline_target.context_id {
             panic!("The source image belongs to a different context than the framebuffer.");
         }
 
         if samples == self.samples {
             Ok(BlitCommand {
-                render_pass_id: self.data.render_pass_id,
+                render_pass_id: self.pipeline_target.render_pass_id,
                 read_slot: Gl::COLOR_ATTACHMENT0,
                 bitmask: Gl::COLOR_BUFFER_BIT,
                 filter: Gl::LINEAR,
@@ -857,13 +874,13 @@ where
             samples,
         } = source.descriptor();
 
-        if blit_source_descriptor.context_id != self.data.context_id {
+        if blit_source_descriptor.context_id != self.pipeline_target.context_id {
             panic!("The source image belongs to a different context than the framebuffer.");
         }
 
         if samples == self.samples {
             Ok(BlitCommand {
-                render_pass_id: self.data.render_pass_id,
+                render_pass_id: self.pipeline_target.render_pass_id,
                 read_slot: Gl::DEPTH_STENCIL_ATTACHMENT,
                 bitmask: Gl::DEPTH_BUFFER_BIT & Gl::STENCIL_BUFFER_BIT,
                 filter: Gl::NEAREST,
@@ -905,13 +922,13 @@ where
             samples,
         } = source.descriptor();
 
-        if blit_source_descriptor.context_id != self.data.context_id {
+        if blit_source_descriptor.context_id != self.pipeline_target.context_id {
             panic!("The source image belongs to a different context than the framebuffer.");
         }
 
         if samples == self.samples {
             Ok(BlitCommand {
-                render_pass_id: self.data.render_pass_id,
+                render_pass_id: self.pipeline_target.render_pass_id,
                 read_slot: Gl::DEPTH_STENCIL_ATTACHMENT,
                 bitmask: Gl::DEPTH_BUFFER_BIT,
                 filter: Gl::NEAREST,
@@ -954,13 +971,13 @@ where
             samples,
         } = source.descriptor();
 
-        if blit_source_descriptor.context_id != self.data.context_id {
+        if blit_source_descriptor.context_id != self.pipeline_target.context_id {
             panic!("The source image belongs to a different context than the framebuffer.");
         }
 
         if samples == self.samples {
             Ok(BlitCommand {
-                render_pass_id: self.data.render_pass_id,
+                render_pass_id: self.pipeline_target.render_pass_id,
                 read_slot: Gl::DEPTH_STENCIL_ATTACHMENT,
                 bitmask: Gl::STENCIL_BUFFER_BIT,
                 filter: Gl::NEAREST,
@@ -1006,13 +1023,13 @@ where
             samples,
         } = source.descriptor();
 
-        if blit_source_descriptor.context_id != self.data.context_id {
+        if blit_source_descriptor.context_id != self.pipeline_target.context_id {
             panic!("The source image belongs to a different context than the framebuffer.");
         }
 
         if samples == self.samples {
             Ok(BlitCommand {
-                render_pass_id: self.data.render_pass_id,
+                render_pass_id: self.pipeline_target.render_pass_id,
                 read_slot: Gl::DEPTH_ATTACHMENT,
                 bitmask: Gl::DEPTH_BUFFER_BIT,
                 filter: Gl::NEAREST,
@@ -1059,13 +1076,13 @@ where
             samples,
         } = source.descriptor();
 
-        if blit_source_descriptor.context_id != self.data.context_id {
+        if blit_source_descriptor.context_id != self.pipeline_target.context_id {
             panic!("The source image belongs to a different context than the framebuffer.");
         }
 
         if samples == self.samples {
             Ok(BlitCommand {
-                render_pass_id: self.data.render_pass_id,
+                render_pass_id: self.pipeline_target.render_pass_id,
                 read_slot: Gl::STENCIL_ATTACHMENT,
                 bitmask: Gl::STENCIL_BUFFER_BIT,
                 filter: Gl::NEAREST,

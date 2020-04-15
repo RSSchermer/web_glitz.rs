@@ -21,11 +21,7 @@ pub struct DefaultMultisampleRenderTarget<C, Ds> {
 }
 
 impl<C, Ds> DefaultMultisampleRenderTarget<C, Ds> {
-    pub(crate) fn new(
-        context_id: u64,
-        samples: u8,
-        render_pass_id_gen: ObjectIdGen,
-    ) -> Self {
+    pub(crate) fn new(context_id: u64, samples: u8, render_pass_id_gen: ObjectIdGen) -> Self {
         DefaultMultisampleRenderTarget {
             context_id,
             samples,
@@ -51,7 +47,7 @@ impl DefaultMultisampleRenderTarget<DefaultRGBBuffer, ()> {
         let task = f(&MultisampleFramebuffer {
             color: DefaultRGBBuffer::new(id),
             depth_stencil: (),
-            data: GraphicsPipelineTarget {
+            pipeline_target: GraphicsPipelineTarget {
                 dimensions: None,
                 context_id: self.context_id,
                 render_pass_id: id,
@@ -86,7 +82,7 @@ impl DefaultMultisampleRenderTarget<DefaultRGBBuffer, DefaultDepthStencilBuffer>
         let task = f(&MultisampleFramebuffer {
             color: DefaultRGBBuffer::new(id),
             depth_stencil: DefaultDepthStencilBuffer::new(id),
-            data: GraphicsPipelineTarget {
+            pipeline_target: GraphicsPipelineTarget {
                 dimensions: None,
                 context_id: self.context_id,
                 render_pass_id: id,
@@ -121,7 +117,7 @@ impl DefaultMultisampleRenderTarget<DefaultRGBBuffer, DefaultDepthBuffer> {
         let task = f(&MultisampleFramebuffer {
             color: DefaultRGBBuffer::new(id),
             depth_stencil: DefaultDepthBuffer::new(id),
-            data: GraphicsPipelineTarget {
+            pipeline_target: GraphicsPipelineTarget {
                 dimensions: None,
                 context_id: self.context_id,
                 render_pass_id: id,
@@ -156,7 +152,7 @@ impl DefaultMultisampleRenderTarget<DefaultRGBBuffer, DefaultStencilBuffer> {
         let task = f(&MultisampleFramebuffer {
             color: DefaultRGBBuffer::new(id),
             depth_stencil: DefaultStencilBuffer::new(id),
-            data: GraphicsPipelineTarget {
+            pipeline_target: GraphicsPipelineTarget {
                 dimensions: None,
                 context_id: self.context_id,
                 render_pass_id: id,
@@ -191,7 +187,7 @@ impl DefaultMultisampleRenderTarget<DefaultRGBABuffer, ()> {
         let task = f(&MultisampleFramebuffer {
             color: DefaultRGBABuffer::new(id),
             depth_stencil: (),
-            data: GraphicsPipelineTarget {
+            pipeline_target: GraphicsPipelineTarget {
                 dimensions: None,
                 context_id: self.context_id,
                 render_pass_id: id,
@@ -226,7 +222,7 @@ impl DefaultMultisampleRenderTarget<DefaultRGBABuffer, DefaultDepthStencilBuffer
         let task = f(&MultisampleFramebuffer {
             color: DefaultRGBABuffer::new(id),
             depth_stencil: DefaultDepthStencilBuffer::new(id),
-            data: GraphicsPipelineTarget {
+            pipeline_target: GraphicsPipelineTarget {
                 dimensions: None,
                 context_id: self.context_id,
                 render_pass_id: id,
@@ -261,7 +257,7 @@ impl DefaultMultisampleRenderTarget<DefaultRGBABuffer, DefaultDepthBuffer> {
         let task = f(&MultisampleFramebuffer {
             color: DefaultRGBABuffer::new(id),
             depth_stencil: DefaultDepthBuffer::new(id),
-            data: GraphicsPipelineTarget {
+            pipeline_target: GraphicsPipelineTarget {
                 dimensions: None,
                 context_id: self.context_id,
                 render_pass_id: id,
@@ -296,7 +292,7 @@ impl DefaultMultisampleRenderTarget<DefaultRGBABuffer, DefaultStencilBuffer> {
         let task = f(&MultisampleFramebuffer {
             color: DefaultRGBABuffer::new(id),
             depth_stencil: DefaultStencilBuffer::new(id),
-            data: GraphicsPipelineTarget {
+            pipeline_target: GraphicsPipelineTarget {
                 dimensions: None,
                 context_id: self.context_id,
                 render_pass_id: id,

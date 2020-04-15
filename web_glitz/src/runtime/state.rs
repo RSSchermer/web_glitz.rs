@@ -15,6 +15,7 @@ use web_sys::{
 
 use crate::pipeline::graphics::transform_feedback::layout_descriptor::TransformFeedbackVaryings;
 
+use crate::pipeline::graphics::util::BufferDescriptor;
 use crate::pipeline::graphics::vertex::index_buffer::IndexDataDescriptor;
 use crate::pipeline::graphics::vertex::layout_descriptor::VertexAttributeSlotDescriptor;
 use crate::pipeline::graphics::{
@@ -31,7 +32,6 @@ use crate::runtime::index_lru::IndexLRU;
 use crate::util::{identical, JsId};
 use std::ops::Deref;
 use wasm_bindgen::convert::{IntoWasmAbi, RefFromWasmAbi};
-use crate::pipeline::graphics::util::BufferDescriptor;
 
 pub struct DynamicState {
     framebuffer_cache: FnvHashMap<u64, (Framebuffer, [Option<JsId>; 17])>,

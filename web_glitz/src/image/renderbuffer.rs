@@ -109,7 +109,11 @@ impl<F> Renderbuffer<F>
 where
     F: RenderbufferFormat + 'static,
 {
-    pub(crate) fn new<Rc>(context: &Rc, object_id: u64, descriptor: &RenderbufferDescriptor<F>) -> Self
+    pub(crate) fn new<Rc>(
+        context: &Rc,
+        object_id: u64,
+        descriptor: &RenderbufferDescriptor<F>,
+    ) -> Self
     where
         Rc: RenderingContext + Clone + 'static,
     {

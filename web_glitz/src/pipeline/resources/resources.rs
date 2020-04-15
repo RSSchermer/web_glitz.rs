@@ -85,15 +85,23 @@ impl BindGroup<()> {
 impl<T> PartialEq for BindGroup<T> {
     fn eq(&self, other: &Self) -> bool {
         match &self.internal {
-            BindGroupInternal::Empty => if let BindGroupInternal::Empty = &other.internal {
-                true
-            } else {
-                false
+            BindGroupInternal::Empty => {
+                if let BindGroupInternal::Empty = &other.internal {
+                    true
+                } else {
+                    false
+                }
             }
-            BindGroupInternal::NotEmpty { object_id, .. } => if let BindGroupInternal::NotEmpty { object_id: other_object_id, ..} = &other.internal {
-                object_id == other_object_id
-            } else {
-                false
+            BindGroupInternal::NotEmpty { object_id, .. } => {
+                if let BindGroupInternal::NotEmpty {
+                    object_id: other_object_id,
+                    ..
+                } = &other.internal
+                {
+                    object_id == other_object_id
+                } else {
+                    false
+                }
             }
         }
     }
@@ -103,7 +111,7 @@ impl<T> Hash for BindGroup<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match &self.internal {
             BindGroupInternal::Empty => 0.hash(state),
-            BindGroupInternal::NotEmpty { object_id, ..} => object_id.hash(state)
+            BindGroupInternal::NotEmpty { object_id, .. } => object_id.hash(state),
         }
     }
 }
