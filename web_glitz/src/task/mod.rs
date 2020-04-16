@@ -197,6 +197,9 @@ pub use self::join::{
     Join4Left, Join4Right, Join5, Join5Left, Join5Right, JoinIter, JoinLeft, JoinRight,
 };
 
+mod option_task;
+pub use self::option_task::OptionTask;
+
 mod sequence;
 pub use self::sequence::{
     sequence, sequence3, sequence3_left, sequence3_right, sequence4, sequence4_left,

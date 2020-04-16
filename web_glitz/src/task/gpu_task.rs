@@ -287,6 +287,16 @@ pub enum Progress<T> {
     ContinueFenced,
 }
 
+impl<T> Progress<T> {
+    /// Modifies the output by applying `f`.
+    pub fn map<U, F>(self, f: F) -> Progress<U> where F: FnOnce(T) -> U {
+        match self {
+            Progress::Finished(value) => Progress::Finished(f(value)),
+            Progress::ContinueFenced => Progress::ContinueFenced
+        }
+    }
+}
+
 /// Returned from [GpuTask::context_id], identifies the context(s) a [GpuTask] may be used with.
 ///
 /// See [GpuTask::context_id] for details.
