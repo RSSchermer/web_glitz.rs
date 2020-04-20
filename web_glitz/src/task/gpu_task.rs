@@ -1,4 +1,5 @@
 use super::{Join, Join3, Join4, Join5, Sequence, Sequence3, Sequence4, Sequence5};
+use crate::task::Map;
 
 /// Trait for types that represent a computational task is to be partly or completely executed on a
 /// GPU.
@@ -58,6 +59,8 @@ where
 }
 
 pub trait GpuTaskExt<Ec>: GpuTask<Ec> {
+    fn map<F, U>(self, f: F) -> Map<Self, F> where F: FnOnce(Self::Output) -> U, Self: Sized;
+
     /// Combines this task with another task `b`, waiting for both tasks to complete in no
     /// particular order.
     ///
@@ -210,6 +213,10 @@ impl<T, Ec> GpuTaskExt<Ec> for T
 where
     T: GpuTask<Ec>,
 {
+    fn map<F, U>(self, f: F) -> Map<Self, F> where F: FnOnce(Self::Output) -> U {
+        Map::new(self, f)
+    }
+
     fn join<B>(self, b: B) -> Join<T, B, Ec>
     where
         B: GpuTask<Ec>,
@@ -289,10 +296,13 @@ pub enum Progress<T> {
 
 impl<T> Progress<T> {
     /// Modifies the output by applying `f`.
-    pub fn map<U, F>(self, f: F) -> Progress<U> where F: FnOnce(T) -> U {
+    pub fn map<U, F>(self, f: F) -> Progress<U>
+    where
+        F: FnOnce(T) -> U,
+    {
         match self {
             Progress::Finished(value) => Progress::Finished(f(value)),
-            Progress::ContinueFenced => Progress::ContinueFenced
+            Progress::ContinueFenced => Progress::ContinueFenced,
         }
     }
 }

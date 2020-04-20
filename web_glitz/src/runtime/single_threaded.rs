@@ -107,14 +107,14 @@
 use std::any::TypeId;
 use std::borrow::Borrow;
 use std::cell::{Cell, RefCell};
-use std::collections::VecDeque;
+use std::collections::{VecDeque, HashMap};
 use std::hash::{Hash, Hasher};
 use std::mem;
 use std::ops::Deref;
 use std::rc::Rc;
 
 use fnv::FnvHasher;
-use js_sys::Promise;
+use js_sys::{Int32Array, Promise};
 use serde_derive::Serialize;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::{JsCast, JsValue};
@@ -157,7 +157,7 @@ use crate::runtime::rendering_context::{
 use crate::runtime::state::DynamicState;
 use crate::runtime::{
     Connection, ContextOptions, Execution, PowerPreference, RenderingContext,
-    ShaderCompilationError,
+    ShaderCompilationError, SupportedSamples
 };
 use crate::task::{GpuTask, Progress};
 
@@ -217,6 +217,7 @@ pub struct SingleThreadedContext {
     id: u64,
     object_id_gen: ObjectIdGen,
     max_color_attachments: u8,
+    supported_samples_cache: Rc<RefCell<HashMap<u32, SupportedSamples>>>
 }
 
 impl RenderingContext for SingleThreadedContext {
@@ -234,20 +235,43 @@ impl RenderingContext for SingleThreadedContext {
         Extension::try_init(&mut connection, self.id)
     }
 
-    fn max_supported_samples<F>(&self, _format: F) -> u8
+    fn supported_samples<F>(&self, _format: F) -> SupportedSamples
     where
         F: InternalFormat + Multisamplable,
     {
-        let executor = self.executor.deref().borrow();
-        let connection = executor.connection.deref().borrow();
+        let mut cache = self.supported_samples_cache.borrow_mut();
 
-        let (gl, _) = unsafe { connection.unpack() };
+        if let Some(supported_samples) = cache.get(&F::ID) {
+            *supported_samples
+        } else {
+            let executor = self.executor.deref().borrow();
+            let connection = executor.connection.deref().borrow();
 
-        // TODO: cache results?
-        gl.get_internalformat_parameter(Gl::RENDERBUFFER, F::ID, Gl::SAMPLES)
-            .unwrap()
-            .as_f64()
-            .unwrap() as u8
+            let (gl, _) = unsafe { connection.unpack() };
+
+            let array: Int32Array = gl.get_internalformat_parameter(Gl::RENDERBUFFER, F::ID, Gl::SAMPLES).unwrap().into();
+
+            let len = array.length();
+            let mut supported_samples = SupportedSamples::NONE;
+
+            for i in 0..len {
+                let entry = array.get_index(i) as u8;
+
+                if entry & SupportedSamples::SAMPLES_16.bits() != 0 {
+                    supported_samples &= SupportedSamples::SAMPLES_16;
+                } else if entry & SupportedSamples::SAMPLES_8.bits() != 0 {
+                    supported_samples &= SupportedSamples::SAMPLES_8;
+                } else if entry & SupportedSamples::SAMPLES_4.bits() != 0 {
+                    supported_samples &= SupportedSamples::SAMPLES_4;
+                } else if entry & SupportedSamples::SAMPLES_2.bits() != 0 {
+                    supported_samples &= SupportedSamples::SAMPLES_2;
+                }
+            }
+
+            cache.insert(F::ID, supported_samples);
+
+            supported_samples
+        }
     }
 
     fn create_bind_group<T>(&self, resources: T) -> BindGroup<T>
@@ -289,7 +313,7 @@ impl RenderingContext for SingleThreadedContext {
         Renderbuffer::new(self, object_id, descriptor)
     }
 
-    fn create_multisample_renderbuffer<F>(
+    fn try_create_multisample_renderbuffer<F>(
         &self,
         descriptor: &RenderbufferDescriptor<Multisample<F>>,
     ) -> Result<Renderbuffer<Multisample<F>>, UnsupportedSampleCount>
@@ -549,6 +573,7 @@ impl SingleThreadedContext {
             id,
             object_id_gen: ObjectIdGen::new(id),
             max_color_attachments,
+            supported_samples_cache: Rc::new(RefCell::new(HashMap::new()))
         }
     }
 }

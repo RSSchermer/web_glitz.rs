@@ -12,10 +12,13 @@ pub use self::default_render_target::DefaultRenderTarget;
 pub(crate) mod framebuffer;
 pub use self::framebuffer::{
     ActiveGraphicsPipeline, BindIndexBufferCommand, BindResourcesCommand, BindVertexBuffersCommand,
-    DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer, DefaultRGBBuffer,
-    DefaultStencilBuffer, DepthBuffer, DepthStencilBuffer, DrawCommand, DrawIndexedCommand,
-    FloatBuffer, Framebuffer, GraphicsPipelineTarget, GraphicsPipelineTaskBuilder, IntegerBuffer,
-    MultisampleFramebuffer, RenderingOutputBuffer, StencilBuffer, UnsignedIntegerBuffer,
+    BlitColorCompatible, BlitColorTarget, BlitCommand, BlitSource, BlitSourceDescriptor,
+    BlitTargetDescriptor, DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer,
+    DefaultRGBBuffer, DefaultStencilBuffer, DepthBuffer, DepthStencilBuffer, DrawCommand,
+    DrawIndexedCommand, FloatBuffer, Framebuffer, GraphicsPipelineTarget,
+    GraphicsPipelineTaskBuilder, IntegerBuffer, MultisampleBlitColorCompatible,
+    MultisampleBlitSource, MultisampleBlitSourceDescriptor, MultisampleFramebuffer,
+    RenderingOutputBuffer, StencilBuffer, UnsignedIntegerBuffer,
 };
 
 mod render_pass;

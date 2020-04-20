@@ -197,6 +197,9 @@ pub use self::join::{
     Join4Left, Join4Right, Join5, Join5Left, Join5Right, JoinIter, JoinLeft, JoinRight,
 };
 
+mod map;
+pub use self::map::Map;
+
 mod option_task;
 pub use self::option_task::OptionTask;
 

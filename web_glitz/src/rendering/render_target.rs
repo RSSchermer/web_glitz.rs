@@ -779,7 +779,7 @@ unsafe impl<F> AttachMultisampleDepth for Renderbuffer<Multisample<F>> where
 /// Describes a [MultisampleRenderTarget] for a [RenderPass].
 ///
 /// Similar to a [RenderTargetDescriptor], except in that when you initially create the descriptor,
-/// you must specify the number of samples the render target will use:
+/// you must specify the sampling grid size the render target will use:
 ///
 /// ```
 /// # use web_glitz::runtime::RenderingContext;
@@ -790,16 +790,16 @@ unsafe impl<F> AttachMultisampleDepth for Renderbuffer<Multisample<F>> where
 /// # }
 /// ```
 ///
-/// Attaching an image that uses a different number of samples will cause a panic:
+/// Attaching an image that uses a different sampling grid size will cause a panic:
 ///
 /// ```
 /// # use web_glitz::runtime::RenderingContext;
 /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
 /// use web_glitz::image::format::{Multisample, RGBA8};
-/// use web_glitz::image::renderbuffer::MultisampleRenderbufferDescriptor;
+/// use web_glitz::image::renderbuffer::RenderbufferDescriptor;
 /// use web_glitz::rendering::{MultisampleRenderTargetDescriptor, LoadOp, StoreOp};
 ///
-/// let mut color_image = context.create_multisample_renderbuffer(&MultisampleRenderbufferDescriptor {
+/// let mut color_image = context.try_create_multisample_renderbuffer(&RenderbufferDescriptor {
 ///     format: Multisample(RGBA8, 16),
 ///     width: 500,
 ///     height: 500
@@ -809,8 +809,8 @@ unsafe impl<F> AttachMultisampleDepth for Renderbuffer<Multisample<F>> where
 ///
 /// render_target_descriptor.attach_color_float(&mut color_image, LoadOp::Load, StoreOp::Store);
 ///
-/// // Panic! The descriptor excepts images that use 4 samples, but we're trying to attach an image
-/// // that uses 16 samples!
+/// // Panic! The descriptor expects images that use sampling gride of size 4, but we're trying to
+/// // attach an image that uses a sampling grid size of 16!
 /// # }
 /// ```
 ///
@@ -826,8 +826,8 @@ pub struct MultisampleRenderTargetDescriptor<C, Ds> {
 }
 
 impl MultisampleRenderTargetDescriptor<(), ()> {
-    /// Creates a new [MultisampleRenderTargetDescriptor] that excepts it attachments to use a
-    /// sample count of `samples`.
+    /// Creates a new [MultisampleRenderTargetDescriptor] that expects it attachments to use a
+    /// sampling grid size of `samples`.
     pub fn new(samples: u8) -> Self {
         MultisampleRenderTargetDescriptor {
             color_attachments: (),
@@ -848,10 +848,10 @@ impl<C> MultisampleRenderTargetDescriptor<C, ()> {
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
     /// use web_glitz::image::format::{Depth24Stencil8, Multisample};
-    /// use web_glitz::image::renderbuffer::MultisampleRenderbufferDescriptor;
+    /// use web_glitz::image::renderbuffer::RenderbufferDescriptor;
     /// use web_glitz::rendering::{MultisampleRenderTargetDescriptor, LoadOp, StoreOp};
     ///
-    /// let mut depth_stencil_image = context.create_multisample_renderbuffer(&MultisampleRenderbufferDescriptor {
+    /// let mut depth_stencil_image = context.try_create_multisample_renderbuffer(&RenderbufferDescriptor {
     ///     format: Multisample(Depth24Stencil8, 4),
     ///     width: 500,
     ///     height: 500
@@ -864,7 +864,7 @@ impl<C> MultisampleRenderTargetDescriptor<C, ()> {
     ///
     /// # Panics
     ///
-    /// Panics if the number of samples used by the `image` does not match the nubmer of samples
+    /// Panics if the sampling grid size used by the `image` does not match the sampling grid size
     /// specified for this [MultisampleRenderTargetDescriptor] (see
     /// [MultisampleRenderTargetDescriptor::new]).
     pub fn attach_depth_stencil<Ds>(
@@ -908,10 +908,10 @@ impl<C> MultisampleRenderTargetDescriptor<C, ()> {
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
     /// use web_glitz::image::format::{DepthComponent24, Multisample};
-    /// use web_glitz::image::renderbuffer::MultisampleRenderbufferDescriptor;
+    /// use web_glitz::image::renderbuffer::RenderbufferDescriptor;
     /// use web_glitz::rendering::{MultisampleRenderTargetDescriptor, LoadOp, StoreOp};
     ///
-    /// let mut depth_image = context.create_multisample_renderbuffer(&MultisampleRenderbufferDescriptor {
+    /// let mut depth_image = context.try_create_multisample_renderbuffer(&RenderbufferDescriptor {
     ///     format: Multisample(DepthComponent24, 4),
     ///     width: 500,
     ///     height: 500
@@ -924,7 +924,7 @@ impl<C> MultisampleRenderTargetDescriptor<C, ()> {
     ///
     /// # Panics
     ///
-    /// Panics if the number of samples used by the `image` does not match the nubmer of samples
+    /// Panics if the sampling grid size used by the `image` does not match the sampling grid size
     /// specified for this [MultisampleRenderTargetDescriptor] (see
     /// [MultisampleRenderTargetDescriptor::new]).
     pub fn attach_depth<Ds>(
@@ -972,10 +972,10 @@ macro_rules! impl_attach_multisample_render_target_color {
             /// # use web_glitz::runtime::RenderingContext;
             /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
             /// use web_glitz::image::format::{Multisample, RGBA8};
-            /// use web_glitz::image::renderbuffer::MultisampleRenderbufferDescriptor;
+            /// use web_glitz::image::renderbuffer::RenderbufferDescriptor;
             /// use web_glitz::rendering::{MultisampleRenderTargetDescriptor, LoadOp, StoreOp};
             ///
-            /// let mut color_image = context.create_multisample_renderbuffer(&MultisampleRenderbufferDescriptor{
+            /// let mut color_image = context.try_create_multisample_renderbuffer(&RenderbufferDescriptor{
             ///     format: Multisample(RGBA8, 4),
             ///     width: 500,
             ///     height: 500
@@ -988,8 +988,8 @@ macro_rules! impl_attach_multisample_render_target_color {
             ///
             /// # Panics
             ///
-            /// Panics if the number of samples used by the `image` does not match the nubmer of
-            /// samples specified for this [MultisampleRenderTargetDescriptor] (see
+            /// Panics if the sampling grid size used by the `image` does not match the sampling
+            /// grid size specified for this [MultisampleRenderTargetDescriptor] (see
             /// [MultisampleRenderTargetDescriptor::new]).
             pub fn attach_color_float<C>(
                 self,

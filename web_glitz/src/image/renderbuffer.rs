@@ -151,12 +151,12 @@ where
     where
         Rc: RenderingContext + Clone + 'static,
     {
-        let max_supported_samples =
-            context.max_supported_samples(descriptor.format.sample_format());
+        let supported_samples =
+            context.supported_samples(descriptor.format.sample_format());
 
-        if max_supported_samples > descriptor.format.samples() {
+        if !supported_samples.into_iter().any(|count| count == descriptor.format.samples()) {
             return Err(UnsupportedSampleCount {
-                max_supported_samples,
+                supported_samples,
                 requested_samples: descriptor.format.samples(),
             });
         }

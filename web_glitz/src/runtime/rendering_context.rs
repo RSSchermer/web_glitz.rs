@@ -34,6 +34,7 @@ use crate::rendering::{
     MultisampleRenderTarget, MultisampleRenderTargetDescriptor, RenderTarget,
     RenderTargetDescriptor,
 };
+use crate::runtime::SupportedSamples;
 use crate::runtime::state::{CreateProgramError, DynamicState};
 use crate::task::GpuTask;
 
@@ -73,8 +74,26 @@ pub trait RenderingContext {
     where
         T: Extension;
 
-    /// Returns a number indicating the maximum number of samples supported for the `format`.
-    fn max_supported_samples<F>(&self, format: F) -> u8
+    /// Returns information about the sampling grid sizes that are supported for the `format` in
+    /// descending order of size.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use web_glitz::runtime::{RenderingContext, SupportedSamples};
+    /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
+    /// use web_glitz::image::format::RGBA8;
+    ///
+    /// let supported_samples = context.supported_samples(RGBA8);
+    ///
+    /// if supported_samples.contains(SupportedSamples::SAMPLES_16) {
+    ///     println!("MSAAx16 available!");
+    /// }
+    /// # }
+    /// ```
+    ///
+    /// Here `context` is a [RenderingContext].
+    fn supported_samples<F>(&self, format: F) -> SupportedSamples
     where
         F: InternalFormat + Multisamplable;
 
@@ -265,22 +284,22 @@ pub trait RenderingContext {
     where
         F: RenderbufferFormat + 'static;
 
-    /// Creates a new [Renderbuffer] for multisample image data, or returns an error if the number
-    /// of samples specified exceeds the maximum number of samples supported for the image format.
+    /// Creates a new [Renderbuffer] for multisample image data, or returns an error if the sampling
+    /// grid size specified is not supported for the image format.
     ///
-    /// See also [max_supported_samples].
+    /// See also [supported_samples].
     ///
     /// # Example
     ///
-    /// A multisample renderbuffer is created from a [MultisampleRenderbufferDescriptor]:
+    /// A multisample renderbuffer is created from a [RenderbufferDescriptor]:
     ///
     /// ```rust
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
     /// use web_glitz::image::format::{Multisample, RGB8};
-    /// use web_glitz::image::renderbuffer::MultisampleRenderbufferDescriptor;
+    /// use web_glitz::image::renderbuffer::RenderbufferDescriptor;
     ///
-    /// let renderbuffer = context.create_multisample_renderbuffer(&MultisampleRenderbufferDescriptor {
+    /// let renderbuffer = context.try_create_multisample_renderbuffer(&RenderbufferDescriptor {
     ///     format: Multisample(RGB8, 4),
     ///     width: 256,
     ///     height: 256
@@ -289,7 +308,7 @@ pub trait RenderingContext {
     /// ```
     ///
     /// Here `context` is a [RenderingContext].
-    fn create_multisample_renderbuffer<F>(
+    fn try_create_multisample_renderbuffer<F>(
         &self,
         descriptor: &RenderbufferDescriptor<Multisample<F>>,
     ) -> Result<Renderbuffer<Multisample<F>>, UnsupportedSampleCount>
@@ -561,10 +580,10 @@ pub trait RenderingContext {
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
     /// use web_glitz::image::format::{Multisample, RGBA8};
-    /// use web_glitz::image::renderbuffer::MultisampleRenderbufferDescriptor;
+    /// use web_glitz::image::renderbuffer::RenderbufferDescriptor;
     /// use web_glitz::rendering::{MultisampleRenderTargetDescriptor, LoadOp, StoreOp};
     ///
-    /// let mut color_image = context.create_multisample_renderbuffer(&MultisampleRenderbufferDescriptor{
+    /// let mut color_image = context.try_create_multisample_renderbuffer(&RenderbufferDescriptor{
     ///     format: Multisample(RGBA8, 4),
     ///     width: 500,
     ///     height: 500
@@ -606,16 +625,16 @@ pub trait RenderingContext {
     /// # use web_glitz::runtime::RenderingContext;
     /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
     /// use web_glitz::image::format::{Multisample, RGBA8};
-    /// use web_glitz::image::renderbuffer::MultisampleRenderbufferDescriptor;
+    /// use web_glitz::image::renderbuffer::RenderbufferDescriptor;
     /// use web_glitz::rendering::{MultisampleRenderTargetDescriptor, LoadOp, StoreOp};
     ///
-    /// let mut color_image_0 = context.create_multisample_renderbuffer(&MultisampleRenderbufferDescriptor{
+    /// let mut color_image_0 = context.try_create_multisample_renderbuffer(&RenderbufferDescriptor{
     ///     format: Multisample(RGBA8, 4),
     ///     width: 500,
     ///     height: 500
     /// }).unwrap();
     ///
-    /// let mut color_image_1 = context.create_multisample_renderbuffer(&MultisampleRenderbufferDescriptor{
+    /// let mut color_image_1 = context.try_create_multisample_renderbuffer(&RenderbufferDescriptor{
     ///     format: Multisample(RGBA8, 4),
     ///     width: 500,
     ///     height: 500
@@ -930,9 +949,9 @@ impl From<IncompatibleResources> for CreateGraphicsPipelineError {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct UnsupportedSampleCount {
-    pub(crate) max_supported_samples: u8,
+    pub(crate) supported_samples: SupportedSamples,
     pub(crate) requested_samples: u8,
 }
 

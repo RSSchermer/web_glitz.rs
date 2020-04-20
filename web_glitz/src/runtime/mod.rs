@@ -16,6 +16,9 @@ pub mod single_threaded;
 
 pub mod state;
 
+mod supported_samples;
+pub use self::supported_samples::{SupportedSamples, SupportedSamplesIter};
+
 pub(crate) mod executor_job;
 pub(crate) mod fenced;
 pub(crate) mod index_lru;

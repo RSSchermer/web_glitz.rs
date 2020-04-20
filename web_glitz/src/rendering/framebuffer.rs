@@ -10,7 +10,7 @@ use web_sys::WebGl2RenderingContext as Gl;
 use crate::image::format::{
     DepthRenderable, DepthStencilRenderable, Filterable, FloatRenderable, IntegerRenderable,
     InternalFormat, Multisamplable, Multisample, RenderbufferFormat, StencilRenderable,
-    TextureFormat, UnsignedIntegerRenderable, RGB8, RGBA8,
+    TextureFormat, UnsignedIntegerRenderable,
 };
 use crate::image::renderbuffer::Renderbuffer;
 use crate::image::texture_2d::{Level as Texture2DLevel, LevelSubImage as Texture2DLevelSubImage};
@@ -2548,9 +2548,17 @@ where
 {
 }
 
-unsafe impl<T> BlitColorCompatible<DefaultRGBABuffer> for T where T: BlitSource<Format = RGBA8> {}
+unsafe impl<T> BlitColorCompatible<DefaultRGBABuffer> for T where
+    T: BlitSource,
+    T::Format: FloatRenderable,
+{
+}
 
-unsafe impl<T> BlitColorCompatible<DefaultRGBBuffer> for T where T: BlitSource<Format = RGB8> {}
+unsafe impl<T> BlitColorCompatible<DefaultRGBBuffer> for T where
+    T: BlitSource,
+    T::Format: FloatRenderable,
+{
+}
 
 unsafe impl<T> BlitColorCompatible<IntegerBuffer<T::Format>> for T
 where
@@ -2602,12 +2610,14 @@ where
 }
 
 unsafe impl<T> MultisampleBlitColorCompatible<DefaultRGBABuffer> for T where
-    T: MultisampleBlitSource<Format = RGBA8>
+    T: MultisampleBlitSource,
+    T::Format: FloatRenderable,
 {
 }
 
 unsafe impl<T> MultisampleBlitColorCompatible<DefaultRGBBuffer> for T where
-    T: MultisampleBlitSource<Format = RGB8>
+    T: MultisampleBlitSource,
+    T::Format: FloatRenderable,
 {
 }
 
