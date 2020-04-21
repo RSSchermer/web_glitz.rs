@@ -257,14 +257,14 @@ impl RenderingContext for SingleThreadedContext {
             for i in 0..len {
                 let entry = array.get_index(i) as u8;
 
-                if entry & SupportedSamples::SAMPLES_16.bits() != 0 {
-                    supported_samples &= SupportedSamples::SAMPLES_16;
-                } else if entry & SupportedSamples::SAMPLES_8.bits() != 0 {
-                    supported_samples &= SupportedSamples::SAMPLES_8;
-                } else if entry & SupportedSamples::SAMPLES_4.bits() != 0 {
-                    supported_samples &= SupportedSamples::SAMPLES_4;
-                } else if entry & SupportedSamples::SAMPLES_2.bits() != 0 {
-                    supported_samples &= SupportedSamples::SAMPLES_2;
+                if entry == 16 {
+                    supported_samples |= SupportedSamples::SAMPLES_16;
+                } else if entry == 8 {
+                    supported_samples |= SupportedSamples::SAMPLES_8;
+                } else if entry == 4 {
+                    supported_samples |= SupportedSamples::SAMPLES_4;
+                } else if entry == 2 {
+                    supported_samples |= SupportedSamples::SAMPLES_2;
                 }
             }
 
