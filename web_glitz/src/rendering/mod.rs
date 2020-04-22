@@ -16,8 +16,8 @@ pub use self::framebuffer::{
     BlitTargetDescriptor, DefaultDepthBuffer, DefaultDepthStencilBuffer, DefaultRGBABuffer,
     DefaultRGBBuffer, DefaultStencilBuffer, DepthBuffer, DepthStencilBuffer, DrawCommand,
     DrawIndexedCommand, FloatBuffer, Framebuffer, GraphicsPipelineTarget,
-    GraphicsPipelineTaskBuilder, IntegerBuffer, MultisampleBlitColorCompatible,
-    MultisampleBlitSource, MultisampleBlitSourceDescriptor, MultisampleFramebuffer,
+    GraphicsPipelineTaskBuilder, IntegerBuffer, ResolveColorCompatible,
+    ResolveSource, ResolveSourceDescriptor, MultisampleFramebuffer,
     RenderingOutputBuffer, StencilBuffer, UnsignedIntegerBuffer,
 };
 

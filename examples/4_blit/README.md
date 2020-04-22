@@ -1,6 +1,6 @@
 # Blit Example
 
-This example renders to a secondary render target and blit's the resulting image to the default 
+This example renders to a secondary render target and blits the resulting image to the default 
 render target.
 
 You can build the example locally with:

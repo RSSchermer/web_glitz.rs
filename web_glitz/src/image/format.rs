@@ -1663,5 +1663,6 @@ unsafe impl Multisamplable for DepthComponent24 {}
 unsafe impl Multisamplable for DepthComponent32F {}
 unsafe impl Multisamplable for Depth24Stencil8 {}
 unsafe impl Multisamplable for Depth32FStencil8 {}
+unsafe impl Multisamplable for StencilIndex8 {}
 unsafe impl Multisamplable for Luminance {}
 unsafe impl Multisamplable for LuminanceAlpha {}

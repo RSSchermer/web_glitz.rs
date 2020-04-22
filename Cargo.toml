@@ -10,5 +10,6 @@ members = [
     "examples/4_blit",
     "examples/5_transform_feedback",
     "examples/6_cube_3d",
-    "examples/7_cube_3d_animated"
+    "examples/7_cube_3d_animated",
+    "examples/8_resolve"
 ]

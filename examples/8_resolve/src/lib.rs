@@ -1,8 +1,9 @@
-// This example renders to a secondary render target and blits the resulting image to the
-// default render target.
+// This example renders to a secondary multisample render target and resolves the resulting
+// multisample image onto the default render target.
 //
-// This example builds on `/examples/0_triangle`, the comments in this example will focus on the
-// differences/additions.
+// This example is very similar to on `/examples/4_blit`, except it uses a multisample render target
+// and uses the resolve operation rather than a blit operation to transfer the image data to the
+// default render target.
 
 #![feature(const_fn, const_ptr_offset_from, const_transmute, ptr_offset_from)]
 
@@ -11,14 +12,13 @@ use wasm_bindgen::JsCast;
 use web_sys::{window, HtmlCanvasElement};
 
 use web_glitz::buffer::UsageHint;
-use web_glitz::image::format::RGBA8;
+use web_glitz::image::format::{RGBA8, Multisample};
 use web_glitz::image::renderbuffer::RenderbufferDescriptor;
-use web_glitz::image::Region2D;
 use web_glitz::pipeline::graphics::{
     CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
 };
 use web_glitz::pipeline::resources::BindGroup;
-use web_glitz::rendering::{LoadOp, RenderTargetDescriptor, StoreOp};
+use web_glitz::rendering::{LoadOp, MultisampleRenderTargetDescriptor, StoreOp};
 use web_glitz::runtime::{single_threaded, ContextOptions, RenderingContext};
 use web_glitz::task::sequence_all;
 
@@ -42,9 +42,9 @@ pub fn start() {
         .dyn_into()
         .unwrap();
 
-    // We'll disable antialiasing on the default render target for this example, as blit operations
-    // are only available on single-sample render targets.
-    let options = ContextOptions::begin().disable_antialias().finish();
+    // We'll disable antialiasing on the default render target for this example, as resolve
+    // operations require the destination to be a single-sample render target.
+    let options = ContextOptions::begin().enable_depth().disable_antialias().finish();
 
     let (context, mut default_render_target) =
         unsafe { single_threaded::init(&canvas, &options).unwrap() };
@@ -89,18 +89,18 @@ pub fn start() {
 
     let vertex_buffer = context.create_buffer(vertex_data, UsageHint::StreamDraw);
 
-    // We create a Renderbuffer that will serve as the color target for our secondary render target.
-    let mut renderbuffer = context.create_renderbuffer(&RenderbufferDescriptor {
-        format: RGBA8,
+    let samples = context.supported_samples(RGBA8).max_samples().expect("Multisampling not available for RGBA8!");
+
+    // We create a multisample Renderbuffer that will serve as the color target for our secondary
+    // render target.
+    let mut renderbuffer = context.try_create_multisample_renderbuffer(&RenderbufferDescriptor {
+        format: Multisample(RGBA8, samples),
         width: 500,
         height: 500,
-    });
+    }).unwrap();
 
-    // This render pass is largely equivalent to the render pass in `/examples/0_triangle`, except
-    // that here we use a custom render target that uses our `renderbuffer`, rather than the default
-    // render target.
     let mut secondary_render_target =
-        context.create_render_target(RenderTargetDescriptor::new().attach_color_float(
+        context.create_multisample_render_target(MultisampleRenderTargetDescriptor::new(samples).attach_color_float(
             &mut renderbuffer,
             LoadOp::Clear([0.0, 0.0, 0.0, 0.0]),
             StoreOp::Store,
@@ -117,15 +117,11 @@ pub fn start() {
         })
     });
 
-    // This second pass blits the image in the renderbuffer to the color buffer of the default
-    // render target.
-    let blit_pass = default_render_target.create_render_pass(|framebuffer| {
-        framebuffer.blit_color_linear_command(Region2D::Fill, &renderbuffer)
+    // This second pass resolves a single-sample image from the multisample image in the
+    // renderbuffer, into the color buffer of the default render target.
+    let resolve_pass = default_render_target.create_render_pass(|framebuffer| {
+        framebuffer.resolve_color_command(&renderbuffer)
     });
 
-    // `/examples/0_triangle` only had to submit a single render pass, but here we must submit both
-    // the secondary render pass and the blit pass. It's important that the secondary pass finishes
-    // before we begin the blit pass so we'll use the `sequence_all!` macro to combine them into a
-    // sequenced task, which guarantees that the tasks are executed in order.
-    context.submit(sequence_all![secondary_render_pass, blit_pass]);
+    context.submit(sequence_all![secondary_render_pass, resolve_pass]);
 }
