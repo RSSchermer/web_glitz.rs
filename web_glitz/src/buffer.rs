@@ -1584,9 +1584,10 @@ unsafe impl GpuTask<Connection> for DropCommand {
             .vertex_array_cache_mut()
             .remove_buffer_dependents(self.id, gl);
 
-        let value = unsafe { JsId::into_value(self.id) };
+        let value = unsafe { JsId::into_value(self.id).unchecked_into() };
 
-        gl.delete_buffer(Some(&value.unchecked_into()));
+        state.unref_buffer(&value);
+        gl.delete_buffer(Some(&value));
 
         Progress::Finished(())
     }

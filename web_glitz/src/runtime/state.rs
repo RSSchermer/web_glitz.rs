@@ -177,6 +177,14 @@ impl DynamicState {
         }
     }
 
+    pub fn unref_program(&mut self, program: &WebGlProgram) {
+        let abi = program.into_abi();
+
+        if Some(abi) == self.active_program {
+            self.active_program = None;
+        }
+    }
+
     pub fn bind_array_buffer<'a>(
         &mut self,
         buffer: Option<&'a WebGlBuffer>,
@@ -410,6 +418,46 @@ impl DynamicState {
         }
     }
 
+    pub fn unref_buffer(&mut self, buffer: &WebGlBuffer) {
+        let abi = buffer.into_abi();
+
+        if Some(abi) == self.bound_array_buffer {
+            self.bound_array_buffer = None
+        }
+
+        if Some(abi) == self.bound_element_array_buffer {
+            self.bound_element_array_buffer = None
+        }
+
+        if Some(abi) == self.bound_copy_read_buffer {
+            self.bound_copy_read_buffer = None
+        }
+
+        if Some(abi) == self.bound_copy_write_buffer {
+            self.bound_copy_write_buffer = None
+        }
+
+        if Some(abi) == self.bound_pixel_pack_buffer {
+            self.bound_pixel_pack_buffer = None
+        }
+
+        if Some(abi) == self.bound_pixel_unpack_buffer {
+            self.bound_pixel_unpack_buffer = None
+        }
+
+        for buffer_range in &mut self.bound_transform_feedback_buffers {
+            if Some(&abi) == buffer_range.buffer() {
+                *buffer_range = BufferRange::None
+            }
+        }
+
+        for buffer_range in &mut self.bound_uniform_buffers {
+            if Some(&abi) == buffer_range.buffer() {
+                *buffer_range = BufferRange::None
+            }
+        }
+    }
+
     pub fn bind_draw_framebuffer<'a>(
         &mut self,
         framebuffer: Option<&'a WebGlFramebuffer>,
@@ -454,6 +502,18 @@ impl DynamicState {
         }
     }
 
+    pub fn unref_framebuffer(&mut self, framebuffer: &WebGlFramebuffer) {
+        let abi = framebuffer.into_abi();
+
+        if Some(abi) == self.bound_read_framebuffer {
+            self.bound_read_framebuffer = None;
+        }
+
+        if Some(abi) == self.bound_draw_framebuffer {
+            self.bound_draw_framebuffer = None;
+        }
+    }
+
     pub fn bind_renderbuffer<'a>(
         &mut self,
         renderbuffer: Option<&'a WebGlRenderbuffer>,
@@ -473,6 +533,14 @@ impl DynamicState {
             })
         } else {
             None
+        }
+    }
+
+    pub fn unref_renderbuffer(&mut self, renderbuffer: &WebGlRenderbuffer) {
+        let abi = renderbuffer.into_abi();
+
+        if Some(abi) == self.bound_renderbuffer {
+            self.bound_renderbuffer = None;
         }
     }
 
@@ -586,6 +654,32 @@ impl DynamicState {
         }
     }
 
+    pub fn unref_texture(&mut self, texture: &WebGlTexture) {
+        let abi = texture.into_abi();
+
+        if Some(abi) == self.bound_texture_2d {
+            self.bound_texture_2d = None;
+        }
+
+        if Some(abi) == self.bound_texture_2d_array {
+            self.bound_texture_2d_array = None;
+        }
+
+        if Some(abi) == self.bound_texture_3d {
+            self.bound_texture_3d = None;
+        }
+
+        if Some(abi) == self.bound_texture_cube_map {
+            self.bound_texture_cube_map = None;
+        }
+
+        for texture in &mut self.texture_units_textures {
+            if Some(abi) == *texture {
+                *texture = None;
+            }
+        }
+    }
+
     pub fn bind_sampler<'a>(
         &mut self,
         texture_unit: u32,
@@ -605,6 +699,16 @@ impl DynamicState {
             })
         } else {
             None
+        }
+    }
+
+    pub fn unref_sampler(&mut self, sampler: &WebGlSampler) {
+        let abi = sampler.into_abi();
+
+        for sampler in &mut self.bound_samplers {
+            if Some(abi) == *sampler {
+                *sampler = None;
+            }
         }
     }
 
@@ -630,6 +734,14 @@ impl DynamicState {
         }
     }
 
+    pub fn unref_vertex_array(&mut self, vertex_array: &WebGlVertexArrayObject) {
+        let abi = vertex_array.into_abi();
+
+        if Some(abi) == self.bound_vertex_array {
+            self.bound_vertex_array = None;
+        }
+    }
+
     pub fn bind_transform_feedback<'a>(
         &mut self,
         transform_feedback: Option<&'a WebGlTransformFeedback>,
@@ -649,6 +761,14 @@ impl DynamicState {
             })
         } else {
             None
+        }
+    }
+
+    pub fn unref_transform_feedback(&mut self, transform_feedback: &WebGlTransformFeedback) {
+        let abi = transform_feedback.into_abi();
+
+        if Some(abi) == self.bound_transform_feedback {
+            self.bound_transform_feedback = None;
         }
     }
 
@@ -1647,6 +1767,16 @@ impl<T> BufferRange<T> {
         }
     }
 
+    pub fn buffer(&self) -> Option<&T> {
+        match self {
+            BufferRange::None => None,
+            BufferRange::Full(buffer) => Some(buffer),
+            BufferRange::OffsetSize(buffer, ..) => {
+                Some(buffer)
+            }
+        }
+    }
+
     fn map<U, F>(self, f: F) -> BufferRange<U>
     where
         F: FnOnce(T) -> U,
@@ -1881,12 +2011,28 @@ impl<'a> FramebufferCache<'a> {
     }
 
     pub(crate) fn remove_attachment_dependents(&mut self, attachment_id: JsId, gl: &Gl) {
-        self.state
-            .framebuffer_cache
+        let DynamicState {
+            bound_read_framebuffer,
+            bound_draw_framebuffer,
+            framebuffer_cache,
+            ..
+        } = &mut self.state;
+
+        framebuffer_cache
             .retain(|_, (framebuffer, attachment_ids)| {
                 let is_dependent = attachment_ids.iter().any(|id| id == &Some(attachment_id));
 
                 if is_dependent {
+                    let abi = (&framebuffer.fbo).into_abi();
+
+                    if Some(abi) == *bound_draw_framebuffer {
+                        *bound_draw_framebuffer = None;
+                    }
+
+                    if Some(abi) == *bound_read_framebuffer {
+                        *bound_read_framebuffer = None;
+                    }
+
                     gl.delete_framebuffer(Some(&framebuffer.fbo));
                 }
 
@@ -2073,12 +2219,23 @@ impl<'a> VertexArrayCache<'a> {
     }
 
     pub(crate) fn remove_buffer_dependents(&mut self, buffer_id: JsId, gl: &Gl) {
-        self.state
-            .vertex_array_cache
+        let DynamicState {
+            vertex_array_cache,
+            bound_vertex_array,
+            ..
+        } = &mut self.state;
+
+        vertex_array_cache
             .retain(|_, (vao, buffer_ids)| {
                 let is_dependent = buffer_ids.iter().any(|id| id == &Some(buffer_id));
 
                 if is_dependent {
+                    let abi = (&**vao).into_abi();
+
+                    if Some(abi) == *bound_vertex_array {
+                        *bound_vertex_array = None;
+                    }
+
                     gl.delete_vertex_array(Some(vao));
                 }
 
@@ -2660,15 +2817,49 @@ impl<'a> ProgramCache<'a> {
     }
 
     pub(crate) fn remove_vertex_shader_dependent(&mut self, shader_id: JsId) {
-        self.state
-            .program_cache
-            .retain(|key, _| key.vertex_shader_id != shader_id);
+        let DynamicState {
+            active_program,
+            program_cache,
+            ..
+        } = &mut self.state;
+
+        program_cache
+            .retain(|key, program| {
+                let retain = key.vertex_shader_id != shader_id;
+
+                if !retain {
+                    let abi = program.gl_object().into_abi();
+
+                    if Some(abi) == *active_program {
+                        *active_program = None;
+                    }
+                }
+
+                retain
+            });
     }
 
     pub(crate) fn remove_fragment_shader_dependent(&mut self, shader_id: JsId) {
-        self.state
-            .program_cache
-            .retain(|key, _| key.fragment_shader_id != shader_id);
+        let DynamicState {
+            active_program,
+            program_cache,
+            ..
+        } = &mut self.state;
+
+        program_cache
+            .retain(|key, program| {
+                let retain = key.fragment_shader_id != shader_id;
+
+                if !retain {
+                    let abi = program.gl_object().into_abi();
+
+                    if Some(abi) == *active_program {
+                        *active_program = None;
+                    }
+                }
+
+                retain
+            });
     }
 }
 

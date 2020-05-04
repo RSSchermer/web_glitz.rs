@@ -794,10 +794,11 @@ unsafe impl GpuTask<Connection> for SamplerDropCommand {
     }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        let (gl, _) = unsafe { connection.unpack() };
-        let value = unsafe { JsId::into_value(self.id) };
+        let (gl, state) = unsafe { connection.unpack_mut() };
+        let value = unsafe { JsId::into_value(self.id).unchecked_into() };
 
-        gl.delete_sampler(Some(&value.unchecked_into()));
+        state.unref_sampler(&value);
+        gl.delete_sampler(Some(&value));
 
         Progress::Finished(())
     }

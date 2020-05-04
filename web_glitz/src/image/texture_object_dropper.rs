@@ -35,9 +35,10 @@ unsafe impl GpuTask<Connection> for TextureDropCommand {
             .framebuffer_cache_mut()
             .remove_attachment_dependents(self.id, gl);
 
-        let value = unsafe { JsId::into_value(self.id) };
+        let value = unsafe { JsId::into_value(self.id).unchecked_into() };
 
-        gl.delete_texture(Some(&value.unchecked_into()));
+        state.unref_texture(&value);
+        gl.delete_texture(Some(&value));
 
         Progress::Finished(())
     }
