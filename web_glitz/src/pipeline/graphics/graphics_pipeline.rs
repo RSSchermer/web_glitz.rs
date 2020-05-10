@@ -483,8 +483,6 @@ unsafe impl GpuTask<Connection> for GraphicsPipelineDropCommand {
     }
 
     fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
-        unsafe { JsId::into_value(self.program_id) };
-
         let transform_feedback_data = unsafe { &mut *self.transform_feedback_data.get() };
 
         if let Some(transform_feedback_data) = transform_feedback_data.as_ref() {
