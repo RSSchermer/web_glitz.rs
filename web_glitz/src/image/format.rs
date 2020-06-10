@@ -101,6 +101,8 @@ unsafe impl UnsignedIntegerSamplable for RG8UI {}
 unsafe impl UnsignedIntegerSamplable for RG16UI {}
 unsafe impl UnsignedIntegerSamplable for RG32UI {}
 unsafe impl UnsignedIntegerSamplable for RGB8UI {}
+unsafe impl UnsignedIntegerSamplable for RGB16UI {}
+unsafe impl UnsignedIntegerSamplable for RGB32UI {}
 unsafe impl UnsignedIntegerSamplable for RGBA8UI {}
 unsafe impl UnsignedIntegerSamplable for RGB10_A2UI {}
 unsafe impl UnsignedIntegerSamplable for RGBA16UI {}
