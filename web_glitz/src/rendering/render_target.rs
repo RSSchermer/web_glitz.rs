@@ -1521,7 +1521,10 @@ macro_rules! impl_create_render_pass_depth_stencil {
                     ..
                 } = self.depth_stencil_attachment.encode_depth_stencil_buffer(&mut context);
 
+                #[allow(unused_mut)]
                 let mut width = image.width;
+
+                #[allow(unused_mut)]
                 let mut height = image.height;
 
                 let mut render_target = CustomRenderTargetData {
@@ -1553,6 +1556,8 @@ macro_rules! impl_create_render_pass_depth_stencil {
                 render_target.store_ops[16] = store_op;
 
                 let ($($C,)*) = &mut self.color_attachments;
+
+                #[allow(unused_mut)]
                 let mut color_count = 0;
 
                 $(
@@ -1653,7 +1658,10 @@ macro_rules! impl_create_render_pass_depth_stencil {
                     ..
                 } = self.depth_stencil_attachment.encode_multisample_depth_stencil_buffer(&mut context);
 
+                #[allow(unused_mut)]
                 let mut width = image.width;
+
+                #[allow(unused_mut)]
                 let mut height = image.height;
 
                 let mut render_target = CustomRenderTargetData {
@@ -1685,6 +1693,8 @@ macro_rules! impl_create_render_pass_depth_stencil {
                 render_target.store_ops[16] = store_op;
 
                 let ($($C,)*) = &mut self.color_attachments;
+
+                #[allow(unused_mut)]
                 let mut color_count = 0;
 
                 $(
@@ -1748,6 +1758,7 @@ macro_rules! impl_create_render_pass_depth_stencil {
     }
 }
 
+impl_create_render_pass_depth_stencil!();
 impl_create_render_pass_depth_stencil!(C0);
 impl_create_render_pass_depth_stencil!(C0, C1);
 impl_create_render_pass_depth_stencil!(C0, C1, C2);
