@@ -1,5 +1,5 @@
 [package]
-name = "5_transform_feedback"
+name = "example-5-transform-feedback"
 version = "0.1.0"
 authors = ["Roland Schermer <roland0507@gmail.com>"]
 edition = "2018"

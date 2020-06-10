@@ -1,5 +1,5 @@
 [package]
-name = "6_cube_3d"
+name = "example-6-cube-3d"
 version = "0.1.0"
 authors = ["Roland Schermer <roland0507@gmail.com>"]
 edition = "2018"

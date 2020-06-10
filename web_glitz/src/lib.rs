@@ -36,6 +36,7 @@
     const_generics,
     fn_traits,
     get_mut_unchecked,
+    negative_impls,
     slice_index_methods,
     specialization,
     unboxed_closures,

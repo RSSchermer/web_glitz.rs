@@ -1,5 +1,5 @@
 [package]
-name = "7_cube_3d_animated"
+name = "example-7-cube-3d-animated"
 version = "0.1.0"
 authors = ["Roland Schermer <roland0507@gmail.com>"]
 edition = "2018"

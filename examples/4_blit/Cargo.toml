@@ -1,5 +1,5 @@
 [package]
-name = "4_blit"
+name = "example-4-blit"
 version = "0.1.0"
 authors = ["Roland Schermer <roland0507@gmail.com>"]
 edition = "2018"

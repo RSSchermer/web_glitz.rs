@@ -1,5 +1,5 @@
 [package]
-name = "3_render_to_texture"
+name = "example-3-render-to-texture"
 version = "0.1.0"
 authors = ["Roland Schermer <roland0507@gmail.com>"]
 edition = "2018"

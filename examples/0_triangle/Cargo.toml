@@ -1,5 +1,5 @@
 [package]
-name = "0_triangle"
+name = "example-0-triangle"
 version = "0.1.0"
 authors = ["Roland Schermer <roland0507@gmail.com>"]
 edition = "2018"
