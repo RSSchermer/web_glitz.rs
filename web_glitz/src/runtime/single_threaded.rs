@@ -213,7 +213,7 @@ impl ObjectIdGen {
 /// See the module documentation for [web_glitz::runtime::single_threaded] for details.
 #[derive(Clone)]
 pub struct SingleThreadedContext {
-    executor: Rc<RefCell<SingleThreadedExecutor>>,
+    executor: Rc<SingleThreadedExecutor>,
     id: u64,
     object_id_gen: ObjectIdGen,
     max_color_attachments: u8,
@@ -358,8 +358,7 @@ impl RenderingContext for SingleThreadedContext {
         &self,
         descriptor: &GraphicsPipelineDescriptor<V, R, Tf>,
     ) -> Result<GraphicsPipeline<V, R, Tf>, CreateGraphicsPipelineError> {
-        let executor = self.executor.borrow_mut();
-        let mut connection = executor.connection.borrow_mut();
+        let mut connection = self.executor.connection.borrow_mut();
         let object_id = self.object_id_gen.next();
 
         GraphicsPipeline::create(self, object_id, &mut connection, descriptor)
@@ -548,7 +547,7 @@ impl RenderingContext for SingleThreadedContext {
     where
         T: GpuTask<Connection> + 'static,
     {
-        self.executor.borrow_mut().accept(task)
+        self.executor.accept(task)
     }
 }
 
@@ -568,7 +567,7 @@ impl SingleThreadedContext {
             .unwrap() as u8;
 
         SingleThreadedContext {
-            executor: RefCell::new(SingleThreadedExecutor::new(Connection::new(id, gl, state)))
+            executor: SingleThreadedExecutor::new(Connection::new(id, gl, state))
                 .into(),
             id,
             object_id_gen: ObjectIdGen::new(id),
@@ -635,7 +634,7 @@ impl SingleThreadedExecutor {
         }
     }
 
-    fn accept<T>(&mut self, mut task: T) -> Execution<T::Output>
+    fn accept<T>(&self, mut task: T) -> Execution<T::Output>
     where
         T: GpuTask<Connection> + 'static,
     {
@@ -664,7 +663,6 @@ impl SingleThreadedExecutor {
             // after the current task is done.
 
             let (job, execution) = job(task);
-
             let mut buffer = self.buffer.borrow_mut();
 
             buffer.push_back(Box::new(job));
