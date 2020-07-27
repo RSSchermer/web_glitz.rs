@@ -2587,6 +2587,23 @@ unsafe impl GpuTask<RenderPassContext> for BlitCommand {
 
         state.bind_default_read_framebuffer(gl);
 
+        // Unset current attachments to prevent any multisampling mismatches, which would result in
+        // an incomplete framebuffer (all attachments must have the same number of samples).
+        gl.framebuffer_texture_2d(
+            Gl::READ_FRAMEBUFFER,
+            Gl::COLOR_ATTACHMENT0,
+            Gl::TEXTURE_2D,
+            None,
+            0,
+        );
+        gl.framebuffer_texture_2d(
+            Gl::READ_FRAMEBUFFER,
+            Gl::DEPTH_STENCIL_ATTACHMENT,
+            Gl::TEXTURE_2D,
+            None,
+            0,
+        );
+
         self.source
             .attachment
             .attach(gl, Gl::READ_FRAMEBUFFER, self.read_slot);
@@ -2654,6 +2671,23 @@ unsafe impl GpuTask<RenderPassContext> for ResolveImageCommand {
         let (gl, state) = unsafe { context.unpack_mut() };
 
         state.bind_default_read_framebuffer(gl);
+
+        // Unset current attachments to prevent any multisampling mismatches, which would result in
+        // an incomplete framebuffer (all attachments must have the same number of samples).
+        gl.framebuffer_texture_2d(
+            Gl::READ_FRAMEBUFFER,
+            Gl::COLOR_ATTACHMENT0,
+            Gl::TEXTURE_2D,
+            None,
+            0,
+        );
+        gl.framebuffer_texture_2d(
+            Gl::READ_FRAMEBUFFER,
+            Gl::DEPTH_STENCIL_ATTACHMENT,
+            Gl::TEXTURE_2D,
+            None,
+            0,
+        );
 
         self.source
             .attachment
