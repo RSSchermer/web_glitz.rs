@@ -40,7 +40,7 @@ impl IntoIterator for SupportedSamples {
 
         SupportedSamplesIter {
             supported_samples: self,
-            current
+            current,
         }
     }
 }
@@ -48,7 +48,7 @@ impl IntoIterator for SupportedSamples {
 /// Iterator over the available sampling grid sizes in a [SupportedSamples] value.
 pub struct SupportedSamplesIter {
     supported_samples: SupportedSamples,
-    current: u8
+    current: u8,
 }
 
 impl Iterator for SupportedSamplesIter {
@@ -82,7 +82,10 @@ mod tests {
         let supported_samples = SupportedSamples::SAMPLES_8 | SupportedSamples::SAMPLES_4;
 
         assert_eq!(supported_samples.max_samples(), Some(8));
-        assert_eq!(supported_samples.into_iter().collect::<Vec<_>>(), vec![8, 4])
+        assert_eq!(
+            supported_samples.into_iter().collect::<Vec<_>>(),
+            vec![8, 4]
+        )
     }
 
     #[test]
@@ -90,6 +93,9 @@ mod tests {
         let supported_samples = SupportedSamples::NONE;
 
         assert_eq!(supported_samples.max_samples(), None);
-        assert!(supported_samples.into_iter().collect::<Vec<u8>>().is_empty())
+        assert!(supported_samples
+            .into_iter()
+            .collect::<Vec<u8>>()
+            .is_empty())
     }
 }

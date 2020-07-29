@@ -1771,9 +1771,7 @@ impl<T> BufferRange<T> {
         match self {
             BufferRange::None => None,
             BufferRange::Full(buffer) => Some(buffer),
-            BufferRange::OffsetSize(buffer, ..) => {
-                Some(buffer)
-            }
+            BufferRange::OffsetSize(buffer, ..) => Some(buffer),
         }
     }
 
@@ -2018,26 +2016,25 @@ impl<'a> FramebufferCache<'a> {
             ..
         } = &mut self.state;
 
-        framebuffer_cache
-            .retain(|_, (framebuffer, attachment_ids)| {
-                let is_dependent = attachment_ids.iter().any(|id| id == &Some(attachment_id));
+        framebuffer_cache.retain(|_, (framebuffer, attachment_ids)| {
+            let is_dependent = attachment_ids.iter().any(|id| id == &Some(attachment_id));
 
-                if is_dependent {
-                    let abi = (&framebuffer.fbo).into_abi();
+            if is_dependent {
+                let abi = (&framebuffer.fbo).into_abi();
 
-                    if Some(abi) == *bound_draw_framebuffer {
-                        *bound_draw_framebuffer = None;
-                    }
-
-                    if Some(abi) == *bound_read_framebuffer {
-                        *bound_read_framebuffer = None;
-                    }
-
-                    gl.delete_framebuffer(Some(&framebuffer.fbo));
+                if Some(abi) == *bound_draw_framebuffer {
+                    *bound_draw_framebuffer = None;
                 }
 
-                !is_dependent
-            })
+                if Some(abi) == *bound_read_framebuffer {
+                    *bound_read_framebuffer = None;
+                }
+
+                gl.delete_framebuffer(Some(&framebuffer.fbo));
+            }
+
+            !is_dependent
+        })
     }
 }
 
@@ -2225,22 +2222,21 @@ impl<'a> VertexArrayCache<'a> {
             ..
         } = &mut self.state;
 
-        vertex_array_cache
-            .retain(|_, (vao, buffer_ids)| {
-                let is_dependent = buffer_ids.iter().any(|id| id == &Some(buffer_id));
+        vertex_array_cache.retain(|_, (vao, buffer_ids)| {
+            let is_dependent = buffer_ids.iter().any(|id| id == &Some(buffer_id));
 
-                if is_dependent {
-                    let abi = (&**vao).into_abi();
+            if is_dependent {
+                let abi = (&**vao).into_abi();
 
-                    if Some(abi) == *bound_vertex_array {
-                        *bound_vertex_array = None;
-                    }
-
-                    gl.delete_vertex_array(Some(vao));
+                if Some(abi) == *bound_vertex_array {
+                    *bound_vertex_array = None;
                 }
 
-                !is_dependent
-            })
+                gl.delete_vertex_array(Some(vao));
+            }
+
+            !is_dependent
+        })
     }
 }
 
@@ -2823,20 +2819,19 @@ impl<'a> ProgramCache<'a> {
             ..
         } = &mut self.state;
 
-        program_cache
-            .retain(|key, program| {
-                let retain = key.vertex_shader_id != shader_id;
+        program_cache.retain(|key, program| {
+            let retain = key.vertex_shader_id != shader_id;
 
-                if !retain {
-                    let abi = program.gl_object().into_abi();
+            if !retain {
+                let abi = program.gl_object().into_abi();
 
-                    if Some(abi) == *active_program {
-                        *active_program = None;
-                    }
+                if Some(abi) == *active_program {
+                    *active_program = None;
                 }
+            }
 
-                retain
-            });
+            retain
+        });
     }
 
     pub(crate) fn remove_fragment_shader_dependent(&mut self, shader_id: JsId) {
@@ -2846,20 +2841,19 @@ impl<'a> ProgramCache<'a> {
             ..
         } = &mut self.state;
 
-        program_cache
-            .retain(|key, program| {
-                let retain = key.fragment_shader_id != shader_id;
+        program_cache.retain(|key, program| {
+            let retain = key.fragment_shader_id != shader_id;
 
-                if !retain {
-                    let abi = program.gl_object().into_abi();
+            if !retain {
+                let abi = program.gl_object().into_abi();
 
-                    if Some(abi) == *active_program {
-                        *active_program = None;
-                    }
+                if Some(abi) == *active_program {
+                    *active_program = None;
                 }
+            }
 
-                retain
-            });
+            retain
+        });
     }
 }
 

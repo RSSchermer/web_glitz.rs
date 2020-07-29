@@ -96,6 +96,7 @@ use crate::runtime::{Connection, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
 use std::hash::{Hash, Hasher};
+use wasm_bindgen::__rt::core::mem::MaybeUninit;
 
 /// A GPU-accessible memory buffer that contains typed data.
 ///
@@ -136,6 +137,77 @@ where
     }
 }
 
+impl<T> Buffer<MaybeUninit<T>>
+where
+    T: 'static,
+{
+    pub(crate) fn create_uninit<Rc>(
+        context: &Rc,
+        buffer_id: BufferId,
+        usage_hint: UsageHint,
+    ) -> Self
+    where
+        Rc: RenderingContext + Clone + 'static,
+    {
+        let data = Arc::new(BufferData {
+            id: UnsafeCell::new(None),
+            context_id: context.id(),
+            dropper: Box::new(context.clone()),
+            usage_hint,
+            len: 1,
+        });
+
+        let marker: marker::PhantomData<T> = marker::PhantomData;
+
+        context.submit(AllocateUninitCommand {
+            data: data.clone(),
+            _marker: marker,
+        });
+
+        Buffer {
+            object_id: buffer_id.object_id,
+            data,
+            _marker: marker::PhantomData,
+        }
+    }
+}
+
+impl<T> Buffer<[MaybeUninit<T>]>
+where
+    T: 'static,
+{
+    pub(crate) fn create_slice_uninit<Rc>(
+        context: &Rc,
+        buffer_id: BufferId,
+        len: usize,
+        usage_hint: UsageHint,
+    ) -> Self
+    where
+        Rc: RenderingContext + Clone + 'static,
+    {
+        let data = Arc::new(BufferData {
+            id: UnsafeCell::new(None),
+            context_id: context.id(),
+            dropper: Box::new(context.clone()),
+            usage_hint,
+            len,
+        });
+
+        let marker: marker::PhantomData<T> = marker::PhantomData;
+
+        context.submit(AllocateUninitCommand {
+            data: data.clone(),
+            _marker: marker,
+        });
+
+        Buffer {
+            object_id: buffer_id.object_id,
+            data,
+            _marker: marker::PhantomData,
+        }
+    }
+}
+
 impl<T> Buffer<T>
 where
     T: Copy,
@@ -167,6 +239,22 @@ where
             len: 1,
             _marker: marker::PhantomData,
         }
+    }
+}
+
+impl<T> Buffer<MaybeUninit<T>> {
+    /// Converts to `Buffer<T>`.
+    ///
+    /// # Safety
+    ///
+    /// Any tasks that read from the buffer after `assume_init` was called, must only be executed
+    /// after the buffer was initialized. Note that certain tasks may wait on GPU fences and allow
+    /// a runtime to progress other tasks while its waiting on the fence. As such, submitting your
+    /// initialization tasks as part of a task that includes fencing (these are typically tasks that
+    /// include "download" commands), may not guarantee that the buffer was initialized before any
+    /// tasks that are submitted later will begin executing.
+    pub unsafe fn assume_init(self) -> Buffer<T> {
+        mem::transmute(self)
     }
 }
 
@@ -276,6 +364,22 @@ where
             len: self.data.len,
             _marker: marker::PhantomData,
         }
+    }
+}
+
+impl<T> Buffer<[MaybeUninit<T>]> {
+    /// Converts to `Buffer<[T]>`.
+    ///
+    /// # Safety
+    ///
+    /// Any tasks that read from the buffer after `assume_init` was called, must only be executed
+    /// after the buffer was initialized. Note that certain tasks may wait on GPU fences and allow
+    /// a runtime to progress other tasks while its waiting on the fence. As such, submitting your
+    /// initialization tasks as part of a task that includes fencing (these are typically tasks that
+    /// include "download" commands), may not guarantee that the buffer was initialized before any
+    /// tasks that are submitted later will begin executing.
+    pub unsafe fn assume_init(self) -> Buffer<[T]> {
+        mem::transmute(self)
     }
 }
 
@@ -459,6 +563,22 @@ where
     }
 }
 
+impl<'a, T> BufferView<'a, MaybeUninit<T>> {
+    /// Converts to `BufferView<T>`.
+    ///
+    /// # Safety
+    ///
+    /// Its up to the user to guarantee that any tasks that read buffer region viewed by this view,
+    /// is only executed after the viewed region is initialized. Note that certain tasks may wait on
+    /// GPU fences and allow a runtime to progress other tasks while its waiting on the fence. As
+    /// such, submitting your initialization tasks as part of a task that includes fencing (these
+    /// are typically tasks that include "download" commands), may not guarantee that the buffer was
+    /// initialized before any tasks that are submitted later will begin executing.
+    pub unsafe fn assume_init(self) -> BufferView<'a, T> {
+        mem::transmute(self)
+    }
+}
+
 impl<'a, T> Clone for BufferView<'a, T> {
     fn clone(&self) -> Self {
         BufferView {
@@ -583,6 +703,22 @@ where
             len: self.len,
             _marker: marker::PhantomData,
         }
+    }
+}
+
+impl<'a, T> BufferView<'a, [MaybeUninit<T>]> {
+    /// Converts to `BufferView<[T]>`.
+    ///
+    /// # Safety
+    ///
+    /// Its up to the user to guarantee that any tasks that read buffer region viewed by this view,
+    /// is only executed after the viewed region is initialized. Note that certain tasks may wait on
+    /// GPU fences and allow a runtime to progress other tasks while its waiting on the fence. As
+    /// such, submitting your initialization tasks as part of a task that includes fencing (these
+    /// are typically tasks that include "download" commands), may not guarantee that the buffer was
+    /// initialized before any tasks that are submitted later will begin executing.
+    pub unsafe fn assume_init(self) -> BufferView<'a, [T]> {
+        mem::transmute(self)
     }
 }
 
@@ -1479,6 +1615,74 @@ impl Drop for BufferData {
         if let Some(id) = self.id() {
             self.dropper.drop_buffer_object(id);
         }
+    }
+}
+
+struct AllocateUninitCommand<T>
+where
+    T: ?Sized,
+{
+    data: Arc<BufferData>,
+    _marker: marker::PhantomData<T>,
+}
+
+unsafe impl<T> GpuTask<Connection> for AllocateUninitCommand<T> {
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Any
+    }
+
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
+        let (gl, state) = unsafe { connection.unpack_mut() };
+        let data = &self.data;
+
+        let buffer_object = GL::create_buffer(&gl).unwrap();
+
+        state
+            .bind_copy_write_buffer(Some(&buffer_object))
+            .apply(gl)
+            .unwrap();
+
+        let size = mem::size_of::<T>();
+
+        gl.buffer_data_with_i32(GL::COPY_WRITE_BUFFER, size as i32, data.usage_hint.gl_id());
+
+        unsafe {
+            *data.id.get() = Some(JsId::from_value(buffer_object.into()));
+        }
+
+        Progress::Finished(())
+    }
+}
+
+unsafe impl<T> GpuTask<Connection> for AllocateUninitCommand<[T]> {
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Any
+    }
+
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
+        let (gl, state) = unsafe { connection.unpack_mut() };
+        let data = &self.data;
+
+        let buffer_object = GL::create_buffer(&gl).unwrap();
+
+        state
+            .bind_copy_write_buffer(Some(&buffer_object))
+            .apply(gl)
+            .unwrap();
+
+        let size = mem::size_of::<T>() * data.len;
+
+        gl.buffer_data_with_i32(GL::COPY_WRITE_BUFFER, size as i32, data.usage_hint.gl_id());
+
+        unsafe {
+            *data.id.get() = Some(JsId::from_value(buffer_object.into()));
+        }
+
+        Progress::Finished(())
     }
 }
 

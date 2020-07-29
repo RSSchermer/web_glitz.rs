@@ -34,9 +34,10 @@ use crate::rendering::{
     MultisampleRenderTarget, MultisampleRenderTargetDescriptor, RenderTarget,
     RenderTargetDescriptor,
 };
-use crate::runtime::SupportedSamples;
 use crate::runtime::state::{CreateProgramError, DynamicState};
+use crate::runtime::SupportedSamples;
 use crate::task::GpuTask;
+use std::mem::MaybeUninit;
 
 /// Trait implemented by types that can serve as a WebGlitz rendering context.
 ///
@@ -230,6 +231,94 @@ pub trait RenderingContext {
         D: IntoBuffer<T>,
         T: ?Sized;
 
+    /// Creates a new GPU-accessible memory [Buffer] with uninitialized data.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #![feature(const_fn, const_loop, const_if_match, const_ptr_offset_from, const_transmute, ptr_offset_from)]
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
+    /// use std::mem::MaybeUninit;
+    /// use web_glitz::buffer::UsageHint;
+    ///
+    /// // We use the `std140` crate to ensure that the layout of our `Uniforms` type conforms to
+    /// // the std140 data layout.
+    /// #[std140::repr_std140]
+    /// #[derive(web_glitz::derive::InterfaceBlock, Clone, Copy)]
+    /// struct Uniforms {
+    ///     scale: std140::float,
+    /// }
+    ///
+    /// let uniform_buffer = context.create_buffer_uninit::<Uniforms>(UsageHint::DynamicDraw);
+    ///
+    /// let uniforms = MaybeUninit::new(Uniforms {
+    ///     scale: std140::float(0.5),
+    /// });
+    ///
+    /// let upload_task = uniform_buffer.upload_command(uniforms);
+    ///
+    /// context.submit(upload_task);
+    ///
+    /// let uniform_buffer = unsafe { uniform_buffer.assume_init() };
+    /// # }
+    /// ```
+    ///
+    /// Here `context` is a [RenderingContext]. We use [UsageHint::DynamicDraw] to indicate that we
+    /// intend to read this buffer on the GPU and we intend to modify the contents of the buffer
+    /// repeatedly (see [UsageHint] for details).
+    fn create_buffer_uninit<T>(&self, usage_hint: UsageHint) -> Buffer<MaybeUninit<T>>
+    where
+        T: 'static;
+
+    /// Creates a new GPU-accessible memory [Buffer] with a slice of uninitialized data.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # #![feature(const_fn, const_loop, const_if_match, const_ptr_offset_from, const_transmute, ptr_offset_from)]
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
+    /// use std::mem::MaybeUninit;
+    /// use web_glitz::buffer::UsageHint;
+    ///
+    /// #[derive(web_glitz::derive::Vertex, Clone, Copy)]
+    /// struct Vertex {
+    ///     #[vertex_attribute(location = 0, format = "Float2_f32")]
+    ///     position: [f32; 2],
+    /// }
+    ///
+    /// let vertex_buffer = context.create_buffer_slice_uninit::<Vertex>(3, UsageHint::DynamicDraw);
+    ///
+    /// let v0 = MaybeUninit::new(Vertex {
+    ///     position: [-0.5, -0.5],
+    /// });
+    /// let v1 = MaybeUninit::new(Vertex {
+    ///     position: [0.5, -0.5],
+    /// });
+    /// let v2 = MaybeUninit::new(Vertex {
+    ///     position: [0.0, 0.5],
+    /// });
+    ///
+    /// let upload_task = vertex_buffer.upload_command([v0, v1, v2]);
+    ///
+    /// context.submit(upload_task);
+    ///
+    /// let vertex_buffer = unsafe { vertex_buffer.assume_init() };
+    /// # }
+    /// ```
+    ///
+    /// Here `context` is a [RenderingContext]. We use [UsageHint::DynamicDraw] to indicate that we
+    /// intend to read this buffer on the GPU and we intend to modify the contents of the buffer
+    /// repeatedly (see [UsageHint] for details).
+    fn create_buffer_slice_uninit<T>(
+        &self,
+        len: usize,
+        usage_hint: UsageHint,
+    ) -> Buffer<[MaybeUninit<T>]>
+    where
+        T: 'static;
+
     /// Creates a new [IndexBuffer].
     ///
     /// # Examples
@@ -258,6 +347,44 @@ pub trait RenderingContext {
     where
         D: Borrow<[T]> + 'static,
         T: IndexFormat + 'static;
+
+    /// Creates a new [IndexBuffer] with uninitialized data.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use web_glitz::runtime::RenderingContext;
+    /// # fn wrapper<Rc>(context: &Rc) where Rc: RenderingContext {
+    /// use std::mem::MaybeUninit;
+    /// use web_glitz::buffer::UsageHint;
+    ///
+    /// let index_buffer = context.create_index_buffer_uninit::<u16>(6, UsageHint::StaticDraw);
+    ///
+    /// let upload_task = index_buffer.upload_command([
+    ///     MaybeUninit::new(0),
+    ///     MaybeUninit::new(1),
+    ///     MaybeUninit::new(2),
+    ///     MaybeUninit::new(0),
+    ///     MaybeUninit::new(2),
+    ///     MaybeUninit::new(3)
+    /// ]);
+    ///
+    /// context.submit(upload_task);
+    ///
+    /// let index_buffer = unsafe { index_buffer.assume_init() };
+    /// # }
+    /// ```
+    ///
+    /// Here `context` is a [RenderingContext]. We use [UsageHint::StaticDraw] to indicate that we
+    /// intend to read this buffer on the GPU and we intend to modify the contents of the buffer
+    /// only rarely (see [UsageHint] for details).
+    fn create_index_buffer_uninit<T>(
+        &self,
+        len: usize,
+        usage_hint: UsageHint,
+    ) -> IndexBuffer<MaybeUninit<T>>
+        where
+            T: IndexFormat + 'static;
 
     /// Creates a new [Renderbuffer].
     ///
@@ -971,6 +1098,16 @@ pub enum Execution<O> {
 
     /// Variant returned when the task did not finish immediately upon submission.
     Pending(Receiver<O>),
+}
+
+impl<O> Execution<O> {
+    pub fn assume_ready(self) -> O {
+        if let Execution::Ready(output) = self {
+            output.expect("Execution output already unpacked.")
+        } else {
+            unreachable!()
+        }
+    }
 }
 
 impl<O> Future for Execution<O> {

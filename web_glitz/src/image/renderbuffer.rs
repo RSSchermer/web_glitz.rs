@@ -151,10 +151,12 @@ where
     where
         Rc: RenderingContext + Clone + 'static,
     {
-        let supported_samples =
-            context.supported_samples(descriptor.format.sample_format());
+        let supported_samples = context.supported_samples(descriptor.format.sample_format());
 
-        if !supported_samples.into_iter().any(|count| count == descriptor.format.samples()) {
+        if !supported_samples
+            .into_iter()
+            .any(|count| count == descriptor.format.samples())
+        {
             return Err(UnsupportedSampleCount {
                 supported_samples,
                 requested_samples: descriptor.format.samples(),

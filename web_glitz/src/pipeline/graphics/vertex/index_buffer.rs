@@ -15,6 +15,7 @@ use crate::runtime::state::ContextUpdate;
 use crate::runtime::{Connection, RenderingContext};
 use crate::task::{ContextId, GpuTask, Progress};
 use crate::util::JsId;
+use std::mem::MaybeUninit;
 
 /// Describes a data source that can be used to provide indexing data to a draw command.
 pub trait IndexData {
@@ -175,9 +176,43 @@ where
     }
 }
 
+impl<T> IndexBuffer<MaybeUninit<T>>
+    where
+        T: IndexFormat + 'static,
+{
+    pub(crate) fn new_uninit<Rc>(
+        context: &Rc,
+        object_id: u64,
+        len: usize,
+        usage_hint: UsageHint,
+    ) -> IndexBuffer<MaybeUninit<T>>
+        where
+            Rc: RenderingContext + Clone + 'static,
+    {
+        let buffer_data = Arc::new(IndexBufferData {
+            id: UnsafeCell::new(None),
+            context_id: context.id(),
+            dropper: Box::new(context.clone()),
+            usage_hint,
+            len,
+        });
+
+        let marker: marker::PhantomData<T> = marker::PhantomData;
+
+        context.submit(AllocateUninitCommand {
+            data: buffer_data.clone(),
+            _marker: marker,
+        });
+
+        IndexBuffer {
+            object_id,
+            data: buffer_data,
+            _marker: marker::PhantomData,
+        }
+    }
+}
+
 impl<T> IndexBuffer<T>
-where
-    T: IndexFormat,
 {
     pub(crate) fn data(&self) -> &Arc<IndexBufferData> {
         &self.data
@@ -213,8 +248,8 @@ where
     /// # }
     /// ```
     pub fn get<R>(&self, range: R) -> Option<IndexBufferView<T>>
-    where
-        R: IndexBufferSliceRange<T>,
+        where
+            R: IndexBufferSliceRange<T>,
     {
         range.get(self)
     }
@@ -240,12 +275,17 @@ where
     ///
     /// Only safe if `range` is in bounds. See [get] for a safe alternative.
     pub unsafe fn get_unchecked<R>(&self, index: R) -> IndexBufferView<T>
-    where
-        R: IndexBufferSliceRange<T>,
+        where
+            R: IndexBufferSliceRange<T>,
     {
         index.get_unchecked(self)
     }
+}
 
+impl<T> IndexBuffer<T>
+    where
+        T: IndexFormat,
+{
     /// Returns a command which, when executed will replace the indices contained in this
     /// [IndexBuffer] with the indices in given `index_data`.
     ///
@@ -269,6 +309,52 @@ where
     }
 }
 
+impl<T> IndexBuffer<MaybeUninit<T>>
+    where
+        T: IndexFormat,
+{
+    /// Returns a command which, when executed will replace the indices contained in this
+    /// [IndexBuffer] with the indices in given `index_data`.
+    ///
+    /// If the `index_data` contains fewer elements than this [IndexBuffer], then only the first `N`
+    /// elements will be replaced, where `N` is the number of elements in the given `index_data`.
+    ///
+    /// If the `index_data` contains more elements than this [IndexBuffer], then only the first `M`
+    /// elements in the `index_data` will be used to update this [IndexBuffer], where `M` is the
+    /// number of elements in the [IndexBuffer].
+    pub fn upload_command<D>(&self, index_data: D) -> IndexBufferUploadCommand<MaybeUninit<T>, D>
+        where
+            D: Borrow<[MaybeUninit<T>]> + Send + Sync + 'static,
+    {
+        IndexBufferUploadCommand {
+            buffer_data: self.data.clone(),
+            index_data,
+            offset_in_bytes: 0,
+            len: self.data.len,
+            _marker: marker::PhantomData,
+        }
+    }
+}
+
+impl<T> IndexBuffer<MaybeUninit<T>>
+    where
+        T: IndexFormat,
+{
+    /// Converts to `IndexBuffer<T>`.
+    ///
+    /// # Safety
+    ///
+    /// Any tasks that read from the buffer after `assume_init` was called, must only be executed
+    /// after the buffer was initialized. Note that certain tasks may wait on GPU fences and allow
+    /// a runtime to progress other tasks while its waiting on the fence. As such, submitting your
+    /// initialization tasks as part of a task that includes fencing (these are typically tasks that
+    /// include "download" commands), may not guarantee that the buffer was initialized before any
+    /// tasks that are submitted later will begin executing.
+    pub unsafe fn assume_init(self) -> IndexBuffer<T> {
+        mem::transmute(self)
+    }
+}
+
 impl<T> PartialEq for IndexBuffer<T> {
     fn eq(&self, other: &Self) -> bool {
         self.object_id == other.object_id
@@ -282,8 +368,6 @@ impl<T> Hash for IndexBuffer<T> {
 }
 
 impl<'a, T> From<&'a IndexBuffer<T>> for IndexBufferView<'a, T>
-where
-    T: IndexFormat,
 {
     fn from(buffer: &'a IndexBuffer<T>) -> IndexBufferView<'a, T> {
         IndexBufferView {
@@ -297,8 +381,6 @@ where
 /// A view on a segment or the whole of an [IndexBuffer].
 #[derive(PartialEq, Hash)]
 pub struct IndexBufferView<'a, T>
-where
-    T: IndexFormat,
 {
     buffer: &'a IndexBuffer<T>,
     pub(crate) offset_in_bytes: usize,
@@ -306,8 +388,6 @@ where
 }
 
 impl<'a, T> IndexBufferView<'a, T>
-where
-    T: IndexFormat,
 {
     pub(crate) fn buffer_data(&self) -> &Arc<IndexBufferData> {
         self.buffer.data()
@@ -354,8 +434,8 @@ where
     /// # }
     /// ```
     pub fn get<R>(&self, range: R) -> Option<IndexBufferView<T>>
-    where
-        R: IndexBufferViewSliceIndex<T>,
+        where
+            R: IndexBufferViewSliceIndex<T>,
     {
         range.get(self)
     }
@@ -382,12 +462,17 @@ where
     ///
     /// Only safe if `range` is in bounds. See [get] for a safe alternative.
     pub unsafe fn get_unchecked<R>(&self, range: R) -> IndexBufferView<T>
-    where
-        R: IndexBufferViewSliceIndex<T>,
+        where
+            R: IndexBufferViewSliceIndex<T>,
     {
         range.get_unchecked(self)
     }
+}
 
+impl<'a, T> IndexBufferView<'a, T>
+    where
+        T: IndexFormat,
+{
     /// Returns a command which, when executed will replace the indices viewed contained by this
     /// [IndexBufferView] with the indices in given `index_data`.
     ///
@@ -415,9 +500,54 @@ where
     }
 }
 
+impl<'a, T> IndexBufferView<'a, MaybeUninit<T>>
+    where
+        T: IndexFormat,
+{
+    /// Returns a command which, when executed will replace the indices viewed contained by this
+    /// [IndexBufferView] with the indices in given `data`.
+    ///
+    /// If the `data` contains fewer elements than the slice viewed by this [IndexBufferView],
+    /// then only the first `N` elements will be replaced, where `N` is the number of elements in
+    /// the given `index_data`.
+    ///
+    /// If the `index_data` contains more elements than the slice viewed this [IndexBufferView],
+    /// then only the first `M` elements in the `index_data` will be used to update the index
+    /// buffer, where `M` is the number of elements viewed by the [IndexBufferView].
+    ///
+    /// This will modify the viewed [IndexBuffer], the buffer (and any other views on the same data)
+    /// will be affected by this change.
+    pub fn upload_command<D>(&self, data: D) -> IndexBufferUploadCommand<MaybeUninit<T>, D>
+        where
+            D: Borrow<[MaybeUninit<T>]> + Send + Sync + 'static,
+    {
+        IndexBufferUploadCommand {
+            buffer_data: self.buffer.data.clone(),
+            index_data: data,
+            offset_in_bytes: self.offset_in_bytes,
+            len: self.len,
+            _marker: marker::PhantomData,
+        }
+    }
+}
+
+impl<'a, T> IndexBufferView<'a, MaybeUninit<T>> where T: IndexFormat {
+    /// Converts to `IndexBufferView<T>`.
+    ///
+    /// # Safety
+    ///
+    /// Its up to the user to guarantee that any tasks that read buffer region viewed by this view,
+    /// is only executed after the viewed region is initialized. Note that certain tasks may wait on
+    /// GPU fences and allow a runtime to progress other tasks while its waiting on the fence. As
+    /// such, submitting your initialization tasks as part of a task that includes fencing (these
+    /// are typically tasks that include "download" commands), may not guarantee that the buffer was
+    /// initialized before any tasks that are submitted later will begin executing.
+    pub unsafe fn assume_init(self) -> IndexBufferView<'a, T> {
+        mem::transmute(self)
+    }
+}
+
 impl<'a, T> Clone for IndexBufferView<'a, T>
-where
-    T: IndexFormat,
 {
     fn clone(&self) -> Self {
         IndexBufferView {
@@ -428,12 +558,10 @@ where
     }
 }
 
-impl<'a, T> Copy for IndexBufferView<'a, T> where T: IndexFormat {}
+impl<'a, T> Copy for IndexBufferView<'a, T> {}
 
 /// A helper trait type for indexing operations on a [IndexBuffer].
 pub trait IndexBufferSliceRange<T>: Sized
-where
-    T: IndexFormat,
 {
     /// Returns a view on the index buffer if in bounds, or `None` otherwise.
     fn get(self, index_buffer: &IndexBuffer<T>) -> Option<IndexBufferView<T>>;
@@ -443,8 +571,6 @@ where
 }
 
 impl<T> IndexBufferSliceRange<T> for RangeFull
-where
-    T: IndexFormat,
 {
     fn get(self, index_buffer: &IndexBuffer<T>) -> Option<IndexBufferView<T>> {
         Some(IndexBufferView {
@@ -464,8 +590,6 @@ where
 }
 
 impl<T> IndexBufferSliceRange<T> for Range<usize>
-where
-    T: IndexFormat,
 {
     fn get(self, index_buffer: &IndexBuffer<T>) -> Option<IndexBufferView<T>> {
         let Range { start, end } = self;
@@ -491,8 +615,6 @@ where
 }
 
 impl<T> IndexBufferSliceRange<T> for RangeInclusive<usize>
-where
-    T: IndexFormat,
 {
     fn get(self, index_buffer: &IndexBuffer<T>) -> Option<IndexBufferView<T>> {
         if *self.end() == usize::max_value() {
@@ -508,8 +630,6 @@ where
 }
 
 impl<T> IndexBufferSliceRange<T> for RangeFrom<usize>
-where
-    T: IndexFormat,
 {
     fn get(self, index_buffer: &IndexBuffer<T>) -> Option<IndexBufferView<T>> {
         index_buffer.get(self.start..index_buffer.data.len)
@@ -521,8 +641,6 @@ where
 }
 
 impl<T> IndexBufferSliceRange<T> for RangeTo<usize>
-where
-    T: IndexFormat,
 {
     fn get(self, index_buffer: &IndexBuffer<T>) -> Option<IndexBufferView<T>> {
         index_buffer.get(0..self.end)
@@ -534,8 +652,6 @@ where
 }
 
 impl<T> IndexBufferSliceRange<T> for RangeToInclusive<usize>
-where
-    T: IndexFormat,
 {
     fn get(self, index_buffer: &IndexBuffer<T>) -> Option<IndexBufferView<T>> {
         index_buffer.get(0..=self.end)
@@ -548,8 +664,6 @@ where
 
 /// A helper trait type for indexing operations on an [IndexBufferView].
 pub trait IndexBufferViewSliceIndex<T>: Sized
-where
-    T: IndexFormat,
 {
     /// Returns a view on the [IndexBufferView] if in bounds, or `None` otherwise.
     fn get<'a>(self, view: &'a IndexBufferView<T>) -> Option<IndexBufferView<'a, T>>;
@@ -559,8 +673,6 @@ where
 }
 
 impl<T> IndexBufferViewSliceIndex<T> for RangeFull
-where
-    T: IndexFormat,
 {
     fn get<'a>(self, view: &'a IndexBufferView<T>) -> Option<IndexBufferView<'a, T>> {
         Some(IndexBufferView {
@@ -580,8 +692,6 @@ where
 }
 
 impl<T> IndexBufferViewSliceIndex<T> for Range<usize>
-where
-    T: IndexFormat,
 {
     fn get<'a>(self, view: &'a IndexBufferView<T>) -> Option<IndexBufferView<'a, T>> {
         let Range { start, end } = self;
@@ -607,8 +717,6 @@ where
 }
 
 impl<T> IndexBufferViewSliceIndex<T> for RangeInclusive<usize>
-where
-    T: IndexFormat,
 {
     fn get<'a>(self, view: &'a IndexBufferView<T>) -> Option<IndexBufferView<'a, T>> {
         if *self.end() == usize::max_value() {
@@ -624,8 +732,6 @@ where
 }
 
 impl<T> IndexBufferViewSliceIndex<T> for RangeFrom<usize>
-where
-    T: IndexFormat,
 {
     fn get<'a>(self, view: &'a IndexBufferView<T>) -> Option<IndexBufferView<'a, T>> {
         view.get(self.start..view.len)
@@ -637,8 +743,6 @@ where
 }
 
 impl<T> IndexBufferViewSliceIndex<T> for RangeTo<usize>
-where
-    T: IndexFormat,
 {
     fn get<'a>(self, view: &'a IndexBufferView<T>) -> Option<IndexBufferView<'a, T>> {
         view.get(0..self.end)
@@ -650,8 +754,6 @@ where
 }
 
 impl<T> IndexBufferViewSliceIndex<T> for RangeToInclusive<usize>
-where
-    T: IndexFormat,
 {
     fn get<'a>(self, view: &'a IndexBufferView<T>) -> Option<IndexBufferView<'a, T>> {
         view.get(0..=self.end)
@@ -667,8 +769,6 @@ where
 ///
 /// See [Buffer::upload_command] and [BufferView::upload_command] for details.
 pub struct IndexBufferUploadCommand<T, D>
-where
-    T: IndexFormat,
 {
     buffer_data: Arc<IndexBufferData>,
     index_data: D,
@@ -680,7 +780,6 @@ where
 unsafe impl<T, D> GpuTask<Connection> for IndexBufferUploadCommand<T, D>
 where
     D: Borrow<[T]>,
-    T: IndexFormat,
 {
     type Output = ();
 
@@ -764,6 +863,47 @@ impl Drop for IndexBufferData {
         if let Some(id) = self.id() {
             self.dropper.drop_buffer_object(id);
         }
+    }
+}
+
+struct AllocateUninitCommand<T>
+    where
+        T: IndexFormat,
+{
+    data: Arc<IndexBufferData>,
+    _marker: marker::PhantomData<T>,
+}
+
+unsafe impl<T> GpuTask<Connection> for AllocateUninitCommand<T> where
+    T: IndexFormat {
+    type Output = ();
+
+    fn context_id(&self) -> ContextId {
+        ContextId::Any
+    }
+
+    fn progress(&mut self, connection: &mut Connection) -> Progress<Self::Output> {
+        let (gl, state) = unsafe { connection.unpack_mut() };
+        let data = &self.data;
+
+        state.bind_vertex_array(None).apply(gl).unwrap();
+
+        let buffer_object = Gl::create_buffer(&gl).unwrap();
+
+        state
+            .bind_element_array_buffer(Some(&buffer_object))
+            .apply(gl)
+            .unwrap();
+
+        let size = mem::size_of::<T>() * data.len;
+
+        gl.buffer_data_with_i32(Gl::ELEMENT_ARRAY_BUFFER, size as i32, data.usage_hint.gl_id());
+
+        unsafe {
+            *data.id.get() = Some(JsId::from_value(buffer_object.into()));
+        }
+
+        Progress::Finished(())
     }
 }
 

@@ -12,7 +12,7 @@ use wasm_bindgen::JsCast;
 use web_sys::{window, HtmlCanvasElement};
 
 use web_glitz::buffer::UsageHint;
-use web_glitz::image::format::{RGBA8, Multisample};
+use web_glitz::image::format::{Multisample, RGBA8};
 use web_glitz::image::renderbuffer::RenderbufferDescriptor;
 use web_glitz::pipeline::graphics::{
     CullingMode, GraphicsPipelineDescriptor, PrimitiveAssembly, WindingOrder,
@@ -44,7 +44,10 @@ pub fn start() {
 
     // We'll disable antialiasing on the default render target for this example, as resolve
     // operations require the destination to be a single-sample render target.
-    let options = ContextOptions::begin().enable_depth().disable_antialias().finish();
+    let options = ContextOptions::begin()
+        .enable_depth()
+        .disable_antialias()
+        .finish();
 
     let (context, mut default_render_target) =
         unsafe { single_threaded::init(&canvas, &options).unwrap() };
@@ -89,22 +92,28 @@ pub fn start() {
 
     let vertex_buffer = context.create_buffer(vertex_data, UsageHint::StreamDraw);
 
-    let samples = context.supported_samples(RGBA8).max_samples().expect("Multisampling not available for RGBA8!");
+    let samples = context
+        .supported_samples(RGBA8)
+        .max_samples()
+        .expect("Multisampling not available for RGBA8!");
 
     // We create a multisample Renderbuffer that will serve as the color target for our secondary
     // render target.
-    let mut renderbuffer = context.try_create_multisample_renderbuffer(&RenderbufferDescriptor {
-        format: Multisample(RGBA8, samples),
-        width: 500,
-        height: 500,
-    }).unwrap();
+    let mut renderbuffer = context
+        .try_create_multisample_renderbuffer(&RenderbufferDescriptor {
+            format: Multisample(RGBA8, samples),
+            width: 500,
+            height: 500,
+        })
+        .unwrap();
 
-    let mut secondary_render_target =
-        context.create_multisample_render_target(MultisampleRenderTargetDescriptor::new(samples).attach_color_float(
+    let mut secondary_render_target = context.create_multisample_render_target(
+        MultisampleRenderTargetDescriptor::new(samples).attach_color_float(
             &mut renderbuffer,
             LoadOp::Clear([0.0, 0.0, 0.0, 0.0]),
             StoreOp::Store,
-        ));
+        ),
+    );
 
     let secondary_render_pass = secondary_render_target.create_render_pass(|framebuffer| {
         framebuffer.pipeline_task(&pipeline, |active_pipeline| {
@@ -119,9 +128,8 @@ pub fn start() {
 
     // This second pass resolves a single-sample image from the multisample image in the
     // renderbuffer, into the color buffer of the default render target.
-    let resolve_pass = default_render_target.create_render_pass(|framebuffer| {
-        framebuffer.resolve_color_command(&renderbuffer)
-    });
+    let resolve_pass = default_render_target
+        .create_render_pass(|framebuffer| framebuffer.resolve_color_command(&renderbuffer));
 
     context.submit(sequence_all![secondary_render_pass, resolve_pass]);
 }

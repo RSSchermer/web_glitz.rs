@@ -59,7 +59,10 @@ where
 }
 
 pub trait GpuTaskExt<Ec>: GpuTask<Ec> {
-    fn map<F, U>(self, f: F) -> Map<Self, F> where F: FnOnce(Self::Output) -> U, Self: Sized;
+    fn map<F, U>(self, f: F) -> Map<Self, F>
+    where
+        F: FnOnce(Self::Output) -> U,
+        Self: Sized;
 
     /// Combines this task with another task `b`, waiting for both tasks to complete in no
     /// particular order.
@@ -213,7 +216,10 @@ impl<T, Ec> GpuTaskExt<Ec> for T
 where
     T: GpuTask<Ec>,
 {
-    fn map<F, U>(self, f: F) -> Map<Self, F> where F: FnOnce(Self::Output) -> U {
+    fn map<F, U>(self, f: F) -> Map<Self, F>
+    where
+        F: FnOnce(Self::Output) -> U,
+    {
         Map::new(self, f)
     }
 

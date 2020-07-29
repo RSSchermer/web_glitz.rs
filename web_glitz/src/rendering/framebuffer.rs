@@ -7,7 +7,11 @@ use std::sync::Arc;
 use fnv::FnvHasher;
 use web_sys::WebGl2RenderingContext as Gl;
 
-use crate::image::format::{DepthRenderable, DepthStencilRenderable, Filterable, FloatRenderable, IntegerRenderable, InternalFormat, Multisamplable, Multisample, RenderbufferFormat, StencilRenderable, TextureFormat, UnsignedIntegerRenderable, RGBA8, RGB8};
+use crate::image::format::{
+    DepthRenderable, DepthStencilRenderable, Filterable, FloatRenderable, IntegerRenderable,
+    InternalFormat, Multisamplable, Multisample, RenderbufferFormat, StencilRenderable,
+    TextureFormat, UnsignedIntegerRenderable, RGB8, RGBA8,
+};
 use crate::image::renderbuffer::Renderbuffer;
 use crate::image::texture_2d::{Level as Texture2DLevel, LevelSubImage as Texture2DLevelSubImage};
 use crate::image::texture_2d_array::{
@@ -43,8 +47,8 @@ use crate::task::{sequence, ContextId, Empty, GpuTask, Progress, Sequence};
 use crate::util::JsId;
 use crate::Unspecified;
 use staticvec::StaticVec;
-use std::ops::Deref;
 use std::cmp::min;
+use std::ops::Deref;
 
 /// Helper trait for implementing [Framebuffer::pipeline_task] for both a plain graphics pipeline
 /// and a graphics pipeline that will record transform feedback.
@@ -352,8 +356,8 @@ where
     ///
     /// Panics if `source` belongs to a different context than the framebuffer.
     pub fn resolve_color_command<S>(&self, source: &S) -> ResolveImageCommand
-        where
-            S: ResolveColorCompatible<C>,
+    where
+        S: ResolveColorCompatible<C>,
     {
         let source_descriptor = source.descriptor();
 
@@ -593,11 +597,11 @@ where
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::rendering::{RenderTarget, FloatAttachment, DepthStencilBuffer};
+    /// # use web_glitz::rendering::{RenderTarget, DepthStencilAttachment};
     /// # use web_glitz::image::format::{Depth24Stencil8, Multisample};
     /// # use web_glitz::image::renderbuffer::Renderbuffer;
     /// # fn wrapper(
-    /// # mut render_target: RenderTarget<(), DepthStencilBuffer<Depth24Stencil8>>,
+    /// # mut render_target: RenderTarget<(), DepthStencilAttachment<Renderbuffer<Depth24Stencil8>>>,
     /// # renderbuffer: Renderbuffer<Multisample<Depth24Stencil8>>
     /// # ) {
     ///
@@ -614,8 +618,8 @@ where
     ///
     /// Panics if `source` belongs to a different context than the framebuffer.
     pub fn resolve_depth_stencil_command<S>(&self, source: &S) -> ResolveImageCommand
-        where
-            S: ResolveSource<Format=F>,
+    where
+        S: ResolveSource<Format = F>,
     {
         let source_descriptor = source.descriptor();
 
@@ -650,11 +654,11 @@ where
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::rendering::{RenderTarget, FloatAttachment, DepthStencilBuffer};
+    /// # use web_glitz::rendering::{RenderTarget, DepthStencilAttachment};
     /// # use web_glitz::image::format::{Depth24Stencil8, Multisample};
     /// # use web_glitz::image::renderbuffer::Renderbuffer;
     /// # fn wrapper(
-    /// # mut render_target: RenderTarget<(), DepthStencilBuffer<Depth24Stencil8>>,
+    /// # mut render_target: RenderTarget<(), DepthStencilAttachment<Renderbuffer<Depth24Stencil8>>>,
     /// # renderbuffer: Renderbuffer<Multisample<Depth24Stencil8>>
     /// # ) {
     ///
@@ -671,8 +675,8 @@ where
     ///
     /// Panics if `source` belongs to a different context than the framebuffer.
     pub fn resolve_depth_command<S>(&self, source: &S) -> ResolveImageCommand
-        where
-            S: ResolveSource<Format=F>,
+    where
+        S: ResolveSource<Format = F>,
     {
         let source_descriptor = source.descriptor();
 
@@ -707,11 +711,11 @@ where
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::rendering::{RenderTarget, FloatAttachment, DepthStencilBuffer};
+    /// # use web_glitz::rendering::{RenderTarget, DepthStencilAttachment};
     /// # use web_glitz::image::format::{Depth24Stencil8, Multisample};
     /// # use web_glitz::image::renderbuffer::Renderbuffer;
     /// # fn wrapper(
-    /// # mut render_target: RenderTarget<(), DepthStencilBuffer<Depth24Stencil8>>,
+    /// # mut render_target: RenderTarget<(), DepthStencilAttachment<Renderbuffer<Depth24Stencil8>>>,
     /// # renderbuffer: Renderbuffer<Multisample<Depth24Stencil8>>
     /// # ) {
     ///
@@ -728,8 +732,8 @@ where
     ///
     /// Panics if `source` belongs to a different context than the framebuffer.
     pub fn resolve_stencil_command<S>(&self, source: &S) -> ResolveImageCommand
-        where
-            S: ResolveSource<Format=F>,
+    where
+        S: ResolveSource<Format = F>,
     {
         let source_descriptor = source.descriptor();
 
@@ -834,11 +838,11 @@ where
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::rendering::{RenderTarget, FloatAttachment, DepthStencilBuffer};
+    /// # use web_glitz::rendering::{RenderTarget, DepthAttachment};
     /// # use web_glitz::image::format::{DepthComponent24, Multisample};
     /// # use web_glitz::image::renderbuffer::Renderbuffer;
     /// # fn wrapper(
-    /// # mut render_target: RenderTarget<(), DepthStencilBuffer<DepthComponent24>>,
+    /// # mut render_target: RenderTarget<(), DepthAttachment<Renderbuffer<DepthComponent24>>>,
     /// # renderbuffer: Renderbuffer<Multisample<DepthComponent24>>
     /// # ) {
     ///
@@ -855,8 +859,8 @@ where
     ///
     /// Panics if `source` belongs to a different context than the framebuffer.
     pub fn resolve_depth_command<S>(&self, source: &S) -> ResolveImageCommand
-        where
-            S: ResolveSource<Format=F>,
+    where
+        S: ResolveSource<Format = F>,
     {
         let source_descriptor = source.descriptor();
 
@@ -961,16 +965,16 @@ where
     /// # Example
     ///
     /// ```
-    /// # use web_glitz::rendering::{RenderTarget, FloatAttachment, DepthStencilBuffer};
+    /// # use web_glitz::rendering::{RenderTarget, StencilAttachment};
     /// # use web_glitz::image::format::{StencilIndex8, Multisample};
     /// # use web_glitz::image::renderbuffer::Renderbuffer;
     /// # fn wrapper(
-    /// # mut render_target: RenderTarget<(), DepthStencilBuffer<StencilIndex8>>,
+    /// # mut render_target: RenderTarget<(), StencilAttachment<Renderbuffer<StencilIndex8>>>,
     /// # renderbuffer: Renderbuffer<Multisample<StencilIndex8>>
     /// # ) {
     ///
     /// let render_pass = render_target.create_render_pass(|framebuffer| {
-    ///     framebuffer.resolve_depth_command(&renderbuffer)
+    ///     framebuffer.resolve_stencil_command(&renderbuffer)
     /// });
     /// # }
     /// ```
@@ -982,8 +986,8 @@ where
     ///
     /// Panics if `source` belongs to a different context than the framebuffer.
     pub fn resolve_stencil_command<S>(&self, source: &S) -> ResolveImageCommand
-        where
-            S: ResolveSource<Format=F>,
+    where
+        S: ResolveSource<Format = F>,
     {
         let source_descriptor = source.descriptor();
 
@@ -2461,13 +2465,15 @@ where
 {
 }
 
-unsafe impl<T> BlitColorCompatible<DefaultRGBABuffer> for T where
+unsafe impl<T> BlitColorCompatible<DefaultRGBABuffer> for T
+where
     T: BlitSource,
     T::Format: FloatRenderable,
 {
 }
 
-unsafe impl<T> BlitColorCompatible<DefaultRGBBuffer> for T where
+unsafe impl<T> BlitColorCompatible<DefaultRGBBuffer> for T
+where
     T: BlitSource,
     T::Format: FloatRenderable,
 {
@@ -2515,21 +2521,12 @@ impl_blit_color_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C1
 /// to a typed single sample color buffer or set of color buffers.
 pub unsafe trait ResolveColorCompatible<C>: ResolveSource {}
 
-unsafe impl<T> ResolveColorCompatible<FloatBuffer<T::Format>> for T
-where
-    T: ResolveSource,
-{
-}
+unsafe impl<T> ResolveColorCompatible<FloatBuffer<T::Format>> for T where T: ResolveSource {}
 
-unsafe impl<T> ResolveColorCompatible<DefaultRGBABuffer> for T where
-    T: ResolveSource<Format=RGBA8>,
-{
-}
+unsafe impl<T> ResolveColorCompatible<DefaultRGBABuffer> for T where T: ResolveSource<Format = RGBA8>
+{}
 
-unsafe impl<T> ResolveColorCompatible<DefaultRGBBuffer> for T where
-    T: ResolveSource<Format=RGB8>,
-{
-}
+unsafe impl<T> ResolveColorCompatible<DefaultRGBBuffer> for T where T: ResolveSource<Format = RGB8> {}
 
 macro_rules! impl_resolve_image_compatible {
     ($C0:ident, $($C:ident),*) => {
@@ -2538,6 +2535,7 @@ macro_rules! impl_resolve_image_compatible {
     }
 }
 
+impl_resolve_image_compatible!(C0,);
 impl_resolve_image_compatible!(C0, C1);
 impl_resolve_image_compatible!(C0, C1, C2);
 impl_resolve_image_compatible!(C0, C1, C2, C3);
@@ -2551,9 +2549,7 @@ impl_resolve_image_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
 impl_resolve_image_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11);
 impl_resolve_image_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12);
 impl_resolve_image_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13);
-impl_resolve_image_compatible!(
-    C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14
-);
+impl_resolve_image_compatible!(C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14);
 impl_resolve_image_compatible!(
     C0, C1, C2, C3, C4, C5, C6, C7, C8, C9, C10, C11, C12, C13, C14, C15
 );
@@ -2697,9 +2693,7 @@ unsafe impl GpuTask<RenderPassContext> for ResolveImageCommand {
             BlitTargetDescriptorInternal::Default => {
                 (gl.drawing_buffer_width(), gl.drawing_buffer_height())
             }
-            BlitTargetDescriptorInternal::FBO { width, height } => {
-                (width as i32, height as i32)
-            }
+            BlitTargetDescriptorInternal::FBO { width, height } => (width as i32, height as i32),
         };
 
         let width = min(self.source.attachment.width as i32, target_width);

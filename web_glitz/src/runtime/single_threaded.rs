@@ -107,7 +107,7 @@
 use std::any::TypeId;
 use std::borrow::Borrow;
 use std::cell::{Cell, RefCell};
-use std::collections::{VecDeque, HashMap};
+use std::collections::{HashMap, VecDeque};
 use std::hash::{Hash, Hasher};
 use std::mem;
 use std::ops::Deref;
@@ -157,9 +157,10 @@ use crate::runtime::rendering_context::{
 use crate::runtime::state::DynamicState;
 use crate::runtime::{
     Connection, ContextOptions, Execution, PowerPreference, RenderingContext,
-    ShaderCompilationError, SupportedSamples
+    ShaderCompilationError, SupportedSamples,
 };
 use crate::task::{GpuTask, Progress};
+use wasm_bindgen::__rt::core::mem::MaybeUninit;
 
 thread_local!(static ID_GEN: IdGen = IdGen::new());
 
@@ -217,7 +218,7 @@ pub struct SingleThreadedContext {
     id: u64,
     object_id_gen: ObjectIdGen,
     max_color_attachments: u8,
-    supported_samples_cache: Rc<RefCell<HashMap<u32, SupportedSamples>>>
+    supported_samples_cache: Rc<RefCell<HashMap<u32, SupportedSamples>>>,
 }
 
 impl RenderingContext for SingleThreadedContext {
@@ -249,7 +250,10 @@ impl RenderingContext for SingleThreadedContext {
 
             let (gl, _) = unsafe { connection.unpack() };
 
-            let array: Int32Array = gl.get_internalformat_parameter(Gl::RENDERBUFFER, F::ID, Gl::SAMPLES).unwrap().into();
+            let array: Int32Array = gl
+                .get_internalformat_parameter(Gl::RENDERBUFFER, F::ID, Gl::SAMPLES)
+                .unwrap()
+                .into();
 
             let len = array.length();
             let mut supported_samples = SupportedSamples::NONE;
@@ -294,6 +298,30 @@ impl RenderingContext for SingleThreadedContext {
         data.into_buffer(self, buffer_id, usage_hint)
     }
 
+    fn create_buffer_uninit<T>(&self, usage_hint: UsageHint) -> Buffer<MaybeUninit<T>>
+    where
+        T: 'static,
+    {
+        let object_id = self.object_id_gen.next();
+        let buffer_id = BufferId { object_id };
+
+        Buffer::create_uninit(self, buffer_id, usage_hint)
+    }
+
+    fn create_buffer_slice_uninit<T>(
+        &self,
+        len: usize,
+        usage_hint: UsageHint,
+    ) -> Buffer<[MaybeUninit<T>]>
+    where
+        T: 'static,
+    {
+        let object_id = self.object_id_gen.next();
+        let buffer_id = BufferId { object_id };
+
+        Buffer::create_slice_uninit(self, buffer_id, len, usage_hint)
+    }
+
     fn create_index_buffer<D, T>(&self, data: D, usage_hint: UsageHint) -> IndexBuffer<T>
     where
         D: Borrow<[T]> + 'static,
@@ -302,6 +330,15 @@ impl RenderingContext for SingleThreadedContext {
         let object_id = self.object_id_gen.next();
 
         IndexBuffer::new(self, object_id, data, usage_hint)
+    }
+
+    fn create_index_buffer_uninit<T>(&self, len: usize, usage_hint: UsageHint) -> IndexBuffer<MaybeUninit<T>>
+        where
+            T: IndexFormat + 'static,
+    {
+        let object_id = self.object_id_gen.next();
+
+        IndexBuffer::new_uninit(self, object_id, len, usage_hint)
     }
 
     fn create_renderbuffer<F>(&self, descriptor: &RenderbufferDescriptor<F>) -> Renderbuffer<F>
@@ -567,12 +604,11 @@ impl SingleThreadedContext {
             .unwrap() as u8;
 
         SingleThreadedContext {
-            executor: SingleThreadedExecutor::new(Connection::new(id, gl, state))
-                .into(),
+            executor: SingleThreadedExecutor::new(Connection::new(id, gl, state)).into(),
             id,
             object_id_gen: ObjectIdGen::new(id),
             max_color_attachments,
-            supported_samples_cache: Rc::new(RefCell::new(HashMap::new()))
+            supported_samples_cache: Rc::new(RefCell::new(HashMap::new())),
         }
     }
 }
