@@ -1,6 +1,6 @@
 [package]
 name = "web-glitz-macros"
-version = "0.1.0"
+version = "0.2.0"
 description = "Procedural macros for the web-glitz crate."
 authors = ["Roland Schermer <roland0507@gmail.com>"]
 edition = "2018"
