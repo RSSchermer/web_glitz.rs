@@ -12,10 +12,8 @@
 #![feature(
     const_fn,
     const_ptr_offset_from,
-    const_transmute,
+    const_raw_ptr_deref,
     ptr_offset_from,
-    const_loop,
-    const_if_match,
     fn_traits,
     unboxed_closures
 )]

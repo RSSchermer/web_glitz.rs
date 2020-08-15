@@ -3161,7 +3161,10 @@ unsafe impl GpuTask<Connection> for GenerateMipmapCommand {
                 .id()
                 .unwrap()
                 .with_value_unchecked(|texture_object| {
-                    state.bind_texture_2d_array(Some(texture_object)).apply(gl);
+                    state
+                        .bind_texture_2d_array(Some(texture_object))
+                        .apply(gl)
+                        .unwrap();
                 });
         }
 

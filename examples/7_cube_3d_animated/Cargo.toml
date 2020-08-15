@@ -12,14 +12,14 @@ crate-type = ["cdylib"]
 arwa = "0.1.1"
 cgmath = "0.17.0"
 cgmath-std140 = "0.2.1"
-futures = "0.3.4"
-std140 = "0.2.0"
-wasm-bindgen = "0.2.59"
-wasm-bindgen-futures = "0.4.9"
+futures = "0.3.5"
+std140 = "0.2.2"
+wasm-bindgen = "0.2.67"
+wasm-bindgen-futures = "0.4.17"
 web-glitz = { version = "0.2.0", path = "../../web_glitz" }
 
 [dependencies.web-sys]
-version = "0.3.36"
+version = "0.3.44"
 features = [
   'Document',
   'Element',

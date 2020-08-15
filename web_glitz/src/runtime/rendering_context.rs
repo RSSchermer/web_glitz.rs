@@ -383,8 +383,8 @@ pub trait RenderingContext {
         len: usize,
         usage_hint: UsageHint,
     ) -> IndexBuffer<MaybeUninit<T>>
-        where
-            T: IndexFormat + 'static;
+    where
+        T: IndexFormat + 'static;
 
     /// Creates a new [Renderbuffer].
     ///

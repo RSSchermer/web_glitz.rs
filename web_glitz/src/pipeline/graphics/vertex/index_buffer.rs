@@ -177,8 +177,8 @@ where
 }
 
 impl<T> IndexBuffer<MaybeUninit<T>>
-    where
-        T: IndexFormat + 'static,
+where
+    T: IndexFormat + 'static,
 {
     pub(crate) fn new_uninit<Rc>(
         context: &Rc,
@@ -186,8 +186,8 @@ impl<T> IndexBuffer<MaybeUninit<T>>
         len: usize,
         usage_hint: UsageHint,
     ) -> IndexBuffer<MaybeUninit<T>>
-        where
-            Rc: RenderingContext + Clone + 'static,
+    where
+        Rc: RenderingContext + Clone + 'static,
     {
         let buffer_data = Arc::new(IndexBufferData {
             id: UnsafeCell::new(None),
@@ -212,8 +212,7 @@ impl<T> IndexBuffer<MaybeUninit<T>>
     }
 }
 
-impl<T> IndexBuffer<T>
-{
+impl<T> IndexBuffer<T> {
     pub(crate) fn data(&self) -> &Arc<IndexBufferData> {
         &self.data
     }
@@ -248,8 +247,8 @@ impl<T> IndexBuffer<T>
     /// # }
     /// ```
     pub fn get<R>(&self, range: R) -> Option<IndexBufferView<T>>
-        where
-            R: IndexBufferSliceRange<T>,
+    where
+        R: IndexBufferSliceRange<T>,
     {
         range.get(self)
     }
@@ -275,16 +274,16 @@ impl<T> IndexBuffer<T>
     ///
     /// Only safe if `range` is in bounds. See [get] for a safe alternative.
     pub unsafe fn get_unchecked<R>(&self, index: R) -> IndexBufferView<T>
-        where
-            R: IndexBufferSliceRange<T>,
+    where
+        R: IndexBufferSliceRange<T>,
     {
         index.get_unchecked(self)
     }
 }
 
 impl<T> IndexBuffer<T>
-    where
-        T: IndexFormat,
+where
+    T: IndexFormat,
 {
     /// Returns a command which, when executed will replace the indices contained in this
     /// [IndexBuffer] with the indices in given `index_data`.
@@ -310,8 +309,8 @@ impl<T> IndexBuffer<T>
 }
 
 impl<T> IndexBuffer<MaybeUninit<T>>
-    where
-        T: IndexFormat,
+where
+    T: IndexFormat,
 {
     /// Returns a command which, when executed will replace the indices contained in this
     /// [IndexBuffer] with the indices in given `index_data`.
@@ -323,8 +322,8 @@ impl<T> IndexBuffer<MaybeUninit<T>>
     /// elements in the `index_data` will be used to update this [IndexBuffer], where `M` is the
     /// number of elements in the [IndexBuffer].
     pub fn upload_command<D>(&self, index_data: D) -> IndexBufferUploadCommand<MaybeUninit<T>, D>
-        where
-            D: Borrow<[MaybeUninit<T>]> + Send + Sync + 'static,
+    where
+        D: Borrow<[MaybeUninit<T>]> + Send + Sync + 'static,
     {
         IndexBufferUploadCommand {
             buffer_data: self.data.clone(),
@@ -337,8 +336,8 @@ impl<T> IndexBuffer<MaybeUninit<T>>
 }
 
 impl<T> IndexBuffer<MaybeUninit<T>>
-    where
-        T: IndexFormat,
+where
+    T: IndexFormat,
 {
     /// Converts to `IndexBuffer<T>`.
     ///
@@ -367,8 +366,7 @@ impl<T> Hash for IndexBuffer<T> {
     }
 }
 
-impl<'a, T> From<&'a IndexBuffer<T>> for IndexBufferView<'a, T>
-{
+impl<'a, T> From<&'a IndexBuffer<T>> for IndexBufferView<'a, T> {
     fn from(buffer: &'a IndexBuffer<T>) -> IndexBufferView<'a, T> {
         IndexBufferView {
             buffer,
@@ -380,15 +378,13 @@ impl<'a, T> From<&'a IndexBuffer<T>> for IndexBufferView<'a, T>
 
 /// A view on a segment or the whole of an [IndexBuffer].
 #[derive(PartialEq, Hash)]
-pub struct IndexBufferView<'a, T>
-{
+pub struct IndexBufferView<'a, T> {
     buffer: &'a IndexBuffer<T>,
     pub(crate) offset_in_bytes: usize,
     len: usize,
 }
 
-impl<'a, T> IndexBufferView<'a, T>
-{
+impl<'a, T> IndexBufferView<'a, T> {
     pub(crate) fn buffer_data(&self) -> &Arc<IndexBufferData> {
         self.buffer.data()
     }
@@ -434,8 +430,8 @@ impl<'a, T> IndexBufferView<'a, T>
     /// # }
     /// ```
     pub fn get<R>(&self, range: R) -> Option<IndexBufferView<T>>
-        where
-            R: IndexBufferViewSliceIndex<T>,
+    where
+        R: IndexBufferViewSliceIndex<T>,
     {
         range.get(self)
     }
@@ -462,16 +458,16 @@ impl<'a, T> IndexBufferView<'a, T>
     ///
     /// Only safe if `range` is in bounds. See [get] for a safe alternative.
     pub unsafe fn get_unchecked<R>(&self, range: R) -> IndexBufferView<T>
-        where
-            R: IndexBufferViewSliceIndex<T>,
+    where
+        R: IndexBufferViewSliceIndex<T>,
     {
         range.get_unchecked(self)
     }
 }
 
 impl<'a, T> IndexBufferView<'a, T>
-    where
-        T: IndexFormat,
+where
+    T: IndexFormat,
 {
     /// Returns a command which, when executed will replace the indices viewed contained by this
     /// [IndexBufferView] with the indices in given `index_data`.
@@ -501,8 +497,8 @@ impl<'a, T> IndexBufferView<'a, T>
 }
 
 impl<'a, T> IndexBufferView<'a, MaybeUninit<T>>
-    where
-        T: IndexFormat,
+where
+    T: IndexFormat,
 {
     /// Returns a command which, when executed will replace the indices viewed contained by this
     /// [IndexBufferView] with the indices in given `data`.
@@ -518,8 +514,8 @@ impl<'a, T> IndexBufferView<'a, MaybeUninit<T>>
     /// This will modify the viewed [IndexBuffer], the buffer (and any other views on the same data)
     /// will be affected by this change.
     pub fn upload_command<D>(&self, data: D) -> IndexBufferUploadCommand<MaybeUninit<T>, D>
-        where
-            D: Borrow<[MaybeUninit<T>]> + Send + Sync + 'static,
+    where
+        D: Borrow<[MaybeUninit<T>]> + Send + Sync + 'static,
     {
         IndexBufferUploadCommand {
             buffer_data: self.buffer.data.clone(),
@@ -531,7 +527,10 @@ impl<'a, T> IndexBufferView<'a, MaybeUninit<T>>
     }
 }
 
-impl<'a, T> IndexBufferView<'a, MaybeUninit<T>> where T: IndexFormat {
+impl<'a, T> IndexBufferView<'a, MaybeUninit<T>>
+where
+    T: IndexFormat,
+{
     /// Converts to `IndexBufferView<T>`.
     ///
     /// # Safety
@@ -547,8 +546,7 @@ impl<'a, T> IndexBufferView<'a, MaybeUninit<T>> where T: IndexFormat {
     }
 }
 
-impl<'a, T> Clone for IndexBufferView<'a, T>
-{
+impl<'a, T> Clone for IndexBufferView<'a, T> {
     fn clone(&self) -> Self {
         IndexBufferView {
             buffer: self.buffer,
@@ -561,8 +559,7 @@ impl<'a, T> Clone for IndexBufferView<'a, T>
 impl<'a, T> Copy for IndexBufferView<'a, T> {}
 
 /// A helper trait type for indexing operations on a [IndexBuffer].
-pub trait IndexBufferSliceRange<T>: Sized
-{
+pub trait IndexBufferSliceRange<T>: Sized {
     /// Returns a view on the index buffer if in bounds, or `None` otherwise.
     fn get(self, index_buffer: &IndexBuffer<T>) -> Option<IndexBufferView<T>>;
 
@@ -570,8 +567,7 @@ pub trait IndexBufferSliceRange<T>: Sized
     unsafe fn get_unchecked(self, index_buffer: &IndexBuffer<T>) -> IndexBufferView<T>;
 }
 
-impl<T> IndexBufferSliceRange<T> for RangeFull
-{
+impl<T> IndexBufferSliceRange<T> for RangeFull {
     fn get(self, index_buffer: &IndexBuffer<T>) -> Option<IndexBufferView<T>> {
         Some(IndexBufferView {
             buffer: index_buffer,
@@ -589,8 +585,7 @@ impl<T> IndexBufferSliceRange<T> for RangeFull
     }
 }
 
-impl<T> IndexBufferSliceRange<T> for Range<usize>
-{
+impl<T> IndexBufferSliceRange<T> for Range<usize> {
     fn get(self, index_buffer: &IndexBuffer<T>) -> Option<IndexBufferView<T>> {
         let Range { start, end } = self;
 
@@ -614,8 +609,7 @@ impl<T> IndexBufferSliceRange<T> for Range<usize>
     }
 }
 
-impl<T> IndexBufferSliceRange<T> for RangeInclusive<usize>
-{
+impl<T> IndexBufferSliceRange<T> for RangeInclusive<usize> {
     fn get(self, index_buffer: &IndexBuffer<T>) -> Option<IndexBufferView<T>> {
         if *self.end() == usize::max_value() {
             None
@@ -629,8 +623,7 @@ impl<T> IndexBufferSliceRange<T> for RangeInclusive<usize>
     }
 }
 
-impl<T> IndexBufferSliceRange<T> for RangeFrom<usize>
-{
+impl<T> IndexBufferSliceRange<T> for RangeFrom<usize> {
     fn get(self, index_buffer: &IndexBuffer<T>) -> Option<IndexBufferView<T>> {
         index_buffer.get(self.start..index_buffer.data.len)
     }
@@ -640,8 +633,7 @@ impl<T> IndexBufferSliceRange<T> for RangeFrom<usize>
     }
 }
 
-impl<T> IndexBufferSliceRange<T> for RangeTo<usize>
-{
+impl<T> IndexBufferSliceRange<T> for RangeTo<usize> {
     fn get(self, index_buffer: &IndexBuffer<T>) -> Option<IndexBufferView<T>> {
         index_buffer.get(0..self.end)
     }
@@ -651,8 +643,7 @@ impl<T> IndexBufferSliceRange<T> for RangeTo<usize>
     }
 }
 
-impl<T> IndexBufferSliceRange<T> for RangeToInclusive<usize>
-{
+impl<T> IndexBufferSliceRange<T> for RangeToInclusive<usize> {
     fn get(self, index_buffer: &IndexBuffer<T>) -> Option<IndexBufferView<T>> {
         index_buffer.get(0..=self.end)
     }
@@ -663,8 +654,7 @@ impl<T> IndexBufferSliceRange<T> for RangeToInclusive<usize>
 }
 
 /// A helper trait type for indexing operations on an [IndexBufferView].
-pub trait IndexBufferViewSliceIndex<T>: Sized
-{
+pub trait IndexBufferViewSliceIndex<T>: Sized {
     /// Returns a view on the [IndexBufferView] if in bounds, or `None` otherwise.
     fn get<'a>(self, view: &'a IndexBufferView<T>) -> Option<IndexBufferView<'a, T>>;
 
@@ -672,8 +662,7 @@ pub trait IndexBufferViewSliceIndex<T>: Sized
     unsafe fn get_unchecked<'a>(self, view: &'a IndexBufferView<T>) -> IndexBufferView<'a, T>;
 }
 
-impl<T> IndexBufferViewSliceIndex<T> for RangeFull
-{
+impl<T> IndexBufferViewSliceIndex<T> for RangeFull {
     fn get<'a>(self, view: &'a IndexBufferView<T>) -> Option<IndexBufferView<'a, T>> {
         Some(IndexBufferView {
             buffer: view.buffer,
@@ -691,8 +680,7 @@ impl<T> IndexBufferViewSliceIndex<T> for RangeFull
     }
 }
 
-impl<T> IndexBufferViewSliceIndex<T> for Range<usize>
-{
+impl<T> IndexBufferViewSliceIndex<T> for Range<usize> {
     fn get<'a>(self, view: &'a IndexBufferView<T>) -> Option<IndexBufferView<'a, T>> {
         let Range { start, end } = self;
 
@@ -716,8 +704,7 @@ impl<T> IndexBufferViewSliceIndex<T> for Range<usize>
     }
 }
 
-impl<T> IndexBufferViewSliceIndex<T> for RangeInclusive<usize>
-{
+impl<T> IndexBufferViewSliceIndex<T> for RangeInclusive<usize> {
     fn get<'a>(self, view: &'a IndexBufferView<T>) -> Option<IndexBufferView<'a, T>> {
         if *self.end() == usize::max_value() {
             None
@@ -731,8 +718,7 @@ impl<T> IndexBufferViewSliceIndex<T> for RangeInclusive<usize>
     }
 }
 
-impl<T> IndexBufferViewSliceIndex<T> for RangeFrom<usize>
-{
+impl<T> IndexBufferViewSliceIndex<T> for RangeFrom<usize> {
     fn get<'a>(self, view: &'a IndexBufferView<T>) -> Option<IndexBufferView<'a, T>> {
         view.get(self.start..view.len)
     }
@@ -742,8 +728,7 @@ impl<T> IndexBufferViewSliceIndex<T> for RangeFrom<usize>
     }
 }
 
-impl<T> IndexBufferViewSliceIndex<T> for RangeTo<usize>
-{
+impl<T> IndexBufferViewSliceIndex<T> for RangeTo<usize> {
     fn get<'a>(self, view: &'a IndexBufferView<T>) -> Option<IndexBufferView<'a, T>> {
         view.get(0..self.end)
     }
@@ -753,8 +738,7 @@ impl<T> IndexBufferViewSliceIndex<T> for RangeTo<usize>
     }
 }
 
-impl<T> IndexBufferViewSliceIndex<T> for RangeToInclusive<usize>
-{
+impl<T> IndexBufferViewSliceIndex<T> for RangeToInclusive<usize> {
     fn get<'a>(self, view: &'a IndexBufferView<T>) -> Option<IndexBufferView<'a, T>> {
         view.get(0..=self.end)
     }
@@ -768,8 +752,7 @@ impl<T> IndexBufferViewSliceIndex<T> for RangeToInclusive<usize>
 /// [BufferView].
 ///
 /// See [Buffer::upload_command] and [BufferView::upload_command] for details.
-pub struct IndexBufferUploadCommand<T, D>
-{
+pub struct IndexBufferUploadCommand<T, D> {
     buffer_data: Arc<IndexBufferData>,
     index_data: D,
     offset_in_bytes: usize,
@@ -867,15 +850,17 @@ impl Drop for IndexBufferData {
 }
 
 struct AllocateUninitCommand<T>
-    where
-        T: IndexFormat,
+where
+    T: IndexFormat,
 {
     data: Arc<IndexBufferData>,
     _marker: marker::PhantomData<T>,
 }
 
-unsafe impl<T> GpuTask<Connection> for AllocateUninitCommand<T> where
-    T: IndexFormat {
+unsafe impl<T> GpuTask<Connection> for AllocateUninitCommand<T>
+where
+    T: IndexFormat,
+{
     type Output = ();
 
     fn context_id(&self) -> ContextId {
@@ -897,7 +882,11 @@ unsafe impl<T> GpuTask<Connection> for AllocateUninitCommand<T> where
 
         let size = mem::size_of::<T>() * data.len;
 
-        gl.buffer_data_with_i32(Gl::ELEMENT_ARRAY_BUFFER, size as i32, data.usage_hint.gl_id());
+        gl.buffer_data_with_i32(
+            Gl::ELEMENT_ARRAY_BUFFER,
+            size as i32,
+            data.usage_hint.gl_id(),
+        );
 
         unsafe {
             *data.id.get() = Some(JsId::from_value(buffer_object.into()));

@@ -332,9 +332,13 @@ impl RenderingContext for SingleThreadedContext {
         IndexBuffer::new(self, object_id, data, usage_hint)
     }
 
-    fn create_index_buffer_uninit<T>(&self, len: usize, usage_hint: UsageHint) -> IndexBuffer<MaybeUninit<T>>
-        where
-            T: IndexFormat + 'static,
+    fn create_index_buffer_uninit<T>(
+        &self,
+        len: usize,
+        usage_hint: UsageHint,
+    ) -> IndexBuffer<MaybeUninit<T>>
+    where
+        T: IndexFormat + 'static,
     {
         let object_id = self.object_id_gen.next();
 

@@ -3,7 +3,7 @@
 // This example builds on `/examples/3_textured_triangle`, the comments in this example will focus on the
 // differences/additions.
 
-#![feature(const_fn, const_ptr_offset_from, const_transmute, ptr_offset_from)]
+#![feature(const_fn, const_ptr_offset_from, const_raw_ptr_deref, ptr_offset_from)]
 
 use futures::FutureExt;
 

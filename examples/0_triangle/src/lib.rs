@@ -6,7 +6,7 @@
 
 // For the time being, the `web_glitz::derive::Vertex` derive macro requires that we enable some
 // nightly features:
-#![feature(const_fn, const_ptr_offset_from, const_transmute, ptr_offset_from)]
+#![feature(ptr_offset_from, const_fn, const_ptr_offset_from, const_raw_ptr_deref)]
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;

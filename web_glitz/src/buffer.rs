@@ -1466,7 +1466,7 @@ unsafe impl<T> GpuTask<Connection> for DownloadCommand<T> {
                     size_in_bytes as i32,
                 );
 
-                mem::replace(&mut self.state, DownloadState::Copied(Some(read_buffer)));
+                self.state = DownloadState::Copied(Some(read_buffer));
 
                 Progress::ContinueFenced
             }
@@ -1543,7 +1543,7 @@ unsafe impl<T> GpuTask<Connection> for DownloadCommand<[T]> {
                     size_in_bytes as i32,
                 );
 
-                mem::replace(&mut self.state, DownloadState::Copied(Some(read_buffer)));
+                self.state = DownloadState::Copied(Some(read_buffer));
 
                 Progress::ContinueFenced
             }
