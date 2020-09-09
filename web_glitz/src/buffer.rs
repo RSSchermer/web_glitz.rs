@@ -193,7 +193,7 @@ where
             len,
         });
 
-        let marker: marker::PhantomData<T> = marker::PhantomData;
+        let marker: marker::PhantomData<[T]> = marker::PhantomData;
 
         context.submit(AllocateUninitCommand {
             data: data.clone(),
