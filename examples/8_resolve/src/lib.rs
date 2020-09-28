@@ -5,7 +5,12 @@
 // and uses the resolve operation rather than a blit operation to transfer the image data to the
 // default render target.
 
-#![feature(const_fn, const_ptr_offset_from, const_raw_ptr_deref, ptr_offset_from)]
+#![feature(
+    const_fn,
+    const_maybe_uninit_as_ptr,
+    const_ptr_offset_from,
+    const_raw_ptr_deref
+)]
 
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;

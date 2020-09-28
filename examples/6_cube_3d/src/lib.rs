@@ -4,7 +4,12 @@
 // We'll also use the `cgmath` crate to help us do the math to get our 3D cube projected onto
 // screen space.
 
-#![feature(const_fn, const_ptr_offset_from, const_raw_ptr_deref, ptr_offset_from)]
+#![feature(
+    const_fn,
+    const_maybe_uninit_as_ptr,
+    const_ptr_offset_from,
+    const_raw_ptr_deref
+)]
 
 use std::f32::consts::PI;
 

@@ -13,24 +13,24 @@ readme = "../README.md"
 bitflags = "1.2.1"
 fnv = "1.0.7"
 futures = "0.3.5"
-js-sys = "0.3.44"
+js-sys = "0.3.45"
 serde = "1.0"
 serde_derive = "1.0"
-staticvec = "0.10.2"
+staticvec = "0.10.5"
 std140 = "0.2.2"
 proc-macro-hack = "0.5"
 web-glitz-macros = "0.2.0"
 
 [dependencies.memoffset]
-git = "https://github.com/Gilnaa/memoffset"
+version = "0.5.6"
 features = ["unstable_const"]
 
 [dependencies.wasm-bindgen]
-version = "0.2.67"
+version = "0.2.68"
 features = ["serde-serialize"]
 
 [dependencies.web-sys]
-version = "0.3.44"
+version = "0.3.45"
 features = [
     "CanvasRenderingContext2d",
     "Document",
@@ -56,4 +56,4 @@ features = [
 ]
 
 [dev-dependencies]
-wasm-bindgen-futures = "0.4.17"
+wasm-bindgen-futures = "0.4.18"

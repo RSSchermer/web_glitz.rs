@@ -11,9 +11,9 @@
 
 #![feature(
     const_fn,
+    const_maybe_uninit_as_ptr,
     const_ptr_offset_from,
     const_raw_ptr_deref,
-    ptr_offset_from,
     fn_traits,
     unboxed_closures
 )]
