@@ -114,7 +114,7 @@ where
 pub struct Texture2D<F> {
     object_id: u64,
     data: Arc<Texture2DData>,
-    format: F
+    format: F,
 }
 
 impl<F> Texture2D<F> {

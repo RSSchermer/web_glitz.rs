@@ -50,7 +50,10 @@
 //! Here `context` is a [RenderingContext].
 use std::ops::{Deref, DerefMut};
 
-use crate::image::format::{FloatRenderable as BaseFloatRenderable, R11F_G11F_B10F, R16F, R32F, RG16F, RG32F, RGBA16F, RGBA32F};
+use crate::image::format::{
+    FloatRenderable as BaseFloatRenderable, R11F_G11F_B10F, R16F, R32F, RG16F, RG32F, RGBA16F,
+    RGBA32F,
+};
 use crate::rendering::render_target::{AttachColorFloat, AttachMultisampleColorFloat};
 use crate::rendering::{AsAttachment, AsMultisampleAttachment, Attachment, MultisampleAttachment};
 use crate::runtime::Connection;

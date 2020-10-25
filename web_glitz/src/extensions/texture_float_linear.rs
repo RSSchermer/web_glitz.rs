@@ -51,7 +51,9 @@
 //! Here `context` is a [RenderingContext].
 use std::ops::Deref;
 
-use crate::image::format::{Filterable as FilterableBase, TextureFormat, R32F, RG32F, RGB32F, RGBA32F};
+use crate::image::format::{
+    Filterable as FilterableBase, TextureFormat, R32F, RG32F, RGB32F, RGBA32F,
+};
 use crate::image::sampler::{
     CompatibleSampler, Linear, LinearMipmapLinear, LinearMipmapNearest, MagnificationFilter,
     MinificationFilter, Nearest, NearestMipmapLinear, NearestMipmapNearest, Sampler,
