@@ -51,7 +51,7 @@
 //! Here `context` is a [RenderingContext].
 use std::ops::Deref;
 
-use crate::image::format::{TextureFormat, R32F, RG32F, RGB32F, RGBA32F};
+use crate::image::format::{Filterable as FilterableBase, TextureFormat, R32F, RG32F, RGB32F, RGBA32F};
 use crate::image::sampler::{
     CompatibleSampler, Linear, LinearMipmapLinear, LinearMipmapNearest, MagnificationFilter,
     MinificationFilter, Nearest, NearestMipmapLinear, NearestMipmapNearest, Sampler,
@@ -111,6 +111,8 @@ impl<Min, Mag> Deref for Extended<'_, Min, Mag> {
 
 /// Marker trait for internal formats that become filterable when this extension is available.
 pub unsafe trait Filterable {}
+
+unsafe impl<F> Filterable for F where F: FilterableBase {}
 
 unsafe impl Filterable for R32F {}
 unsafe impl Filterable for RG32F {}

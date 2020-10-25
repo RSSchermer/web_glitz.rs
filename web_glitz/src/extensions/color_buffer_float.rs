@@ -50,7 +50,7 @@
 //! Here `context` is a [RenderingContext].
 use std::ops::{Deref, DerefMut};
 
-use crate::image::format::{R11F_G11F_B10F, R16F, R32F, RG16F, RG32F, RGBA16F, RGBA32F};
+use crate::image::format::{FloatRenderable as BaseFloatRenderable, R11F_G11F_B10F, R16F, R32F, RG16F, RG32F, RGBA16F, RGBA32F};
 use crate::rendering::render_target::{AttachColorFloat, AttachMultisampleColorFloat};
 use crate::rendering::{AsAttachment, AsMultisampleAttachment, Attachment, MultisampleAttachment};
 use crate::runtime::Connection;
@@ -118,6 +118,8 @@ impl super::Extension for Extension {
 
 /// Marker trait for internal image format types for which this extension enables rendering.
 pub unsafe trait FloatRenderable {}
+
+unsafe impl<F> FloatRenderable for F where F: BaseFloatRenderable {}
 
 unsafe impl FloatRenderable for R16F {}
 unsafe impl FloatRenderable for R32F {}
