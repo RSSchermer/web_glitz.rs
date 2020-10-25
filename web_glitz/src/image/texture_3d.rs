@@ -127,7 +127,7 @@ where
 pub struct Texture3D<F> {
     object_id: u64,
     data: Arc<Texture3DData>,
-    _marker: marker::PhantomData<[F]>,
+    format: F,
 }
 
 impl<F> Texture3D<F> {
@@ -149,6 +149,7 @@ where
         Rc: RenderingContext + Clone + 'static,
     {
         let Texture3DDescriptor {
+            format,
             width,
             height,
             depth,
@@ -189,7 +190,7 @@ where
         Ok(Texture3D {
             object_id,
             data,
-            _marker: marker::PhantomData,
+            format: *format,
         })
     }
 
@@ -283,6 +284,11 @@ where
                 len: self.data.levels,
             },
         }
+    }
+
+    /// The texture format for this [Texture3D]
+    pub fn format(&self) -> F {
+        self.format
     }
 
     /// The width of this [Texture3D].

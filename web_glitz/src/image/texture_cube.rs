@@ -146,7 +146,7 @@ where
 pub struct TextureCube<F> {
     object_id: u64,
     data: Arc<TextureCubeData>,
-    _marker: marker::PhantomData<[F]>,
+    format: F,
 }
 
 impl<F> TextureCube<F> {
@@ -168,6 +168,7 @@ where
         Rc: RenderingContext + Clone + 'static,
     {
         let TextureCubeDescriptor {
+            format,
             width,
             height,
             levels,
@@ -206,7 +207,7 @@ where
         Ok(TextureCube {
             object_id,
             data,
-            _marker: marker::PhantomData,
+            format: *format,
         })
     }
 
@@ -298,6 +299,11 @@ where
                 len: self.data.levels,
             },
         }
+    }
+
+    /// The texture format for this [TextureCube]
+    pub fn format(&self) -> F {
+        self.format
     }
 
     /// The width of this [TextureCube].

@@ -4,7 +4,7 @@ use web_sys::WebGl2RenderingContext as Gl;
 
 /// Trait implemented for types that represent image formats for storing image data in
 /// GPU-accessible memory.
-pub unsafe trait InternalFormat {
+pub unsafe trait InternalFormat: Clone + Copy {
     /// Identifier for associated OpenGl value.
     const ID: u32;
 }

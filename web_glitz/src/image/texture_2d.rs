@@ -114,7 +114,7 @@ where
 pub struct Texture2D<F> {
     object_id: u64,
     data: Arc<Texture2DData>,
-    _marker: marker::PhantomData<[F]>,
+    format: F
 }
 
 impl<F> Texture2D<F> {
@@ -136,6 +136,7 @@ where
         Rc: RenderingContext + Clone + 'static,
     {
         let Texture2DDescriptor {
+            format,
             width,
             height,
             levels,
@@ -174,7 +175,7 @@ where
         Ok(Texture2D {
             object_id,
             data,
-            _marker: marker::PhantomData,
+            format: *format,
         })
     }
 
@@ -266,6 +267,11 @@ where
                 len: self.data.levels,
             },
         }
+    }
+
+    /// The texture format for this [Texture2D]
+    pub fn format(&self) -> F {
+        self.format
     }
 
     /// The width of this [Texture2D].

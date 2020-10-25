@@ -144,7 +144,7 @@ where
 pub struct Texture2DArray<F> {
     object_id: u64,
     data: Arc<Texture2DArrayData>,
-    _marker: marker::PhantomData<[F]>,
+    format: F,
 }
 
 impl<F> Texture2DArray<F> {
@@ -166,6 +166,7 @@ where
         Rc: RenderingContext + Clone + 'static,
     {
         let Texture2DArrayDescriptor {
+            format,
             width,
             height,
             depth,
@@ -206,7 +207,7 @@ where
         Ok(Texture2DArray {
             object_id,
             data,
-            _marker: marker::PhantomData,
+            format: *format,
         })
     }
 
@@ -300,6 +301,11 @@ where
                 len: self.data.levels,
             },
         }
+    }
+
+    /// The texture format for this [Texture2DArray]
+    pub fn format(&self) -> F {
+        self.format
     }
 
     /// The width of this [Texture2DArray].
