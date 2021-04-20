@@ -41,7 +41,6 @@
     specialization,
     unboxed_closures,
     unsize,
-    optin_builtin_traits
 )]
 
 pub mod derive {
