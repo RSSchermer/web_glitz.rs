@@ -1,6 +1,6 @@
 [package]
 name = "web-glitz"
-version = "0.2.1"
+version = "0.2.2"
 description = "Rusty low-level web-graphics library on top of WebGL 2.0."
 authors = ["Roland Schermer <roland0507@gmail.com>"]
 edition = "2018"
