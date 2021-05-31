@@ -32,7 +32,6 @@
 #![allow(incomplete_features)]
 #![feature(
     coerce_unsized,
-    const_fn,
     const_generics,
     fn_traits,
     get_mut_unchecked,

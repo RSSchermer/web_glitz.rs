@@ -10,7 +10,7 @@
 // stateful self-referential function that we can call in a "loop" on each animation frame.
 
 #![feature(
-    const_fn,
+const_fn_trait_bound,
     const_maybe_uninit_as_ptr,
     const_ptr_offset_from,
     const_raw_ptr_deref,

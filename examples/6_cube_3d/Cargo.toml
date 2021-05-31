@@ -9,14 +9,14 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-cgmath = "0.17.0"
+cgmath = "0.18.0"
 cgmath-std140 = "0.2.1"
 std140 = "0.2.2"
-wasm-bindgen = "0.2.67"
+wasm-bindgen = "0.2.74"
 web-glitz = { version = "0.2.2", path = "../../web_glitz" }
 
 [dependencies.web-sys]
-version = "0.3.44"
+version = "0.3.51"
 features = [
   'Document',
   'Element',

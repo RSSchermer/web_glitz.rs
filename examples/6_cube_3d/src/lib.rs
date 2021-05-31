@@ -5,7 +5,7 @@
 // screen space.
 
 #![feature(
-    const_fn,
+const_fn_trait_bound,
     const_maybe_uninit_as_ptr,
     const_ptr_offset_from,
     const_raw_ptr_deref
